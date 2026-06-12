@@ -1,12 +1,18 @@
 {
-  "name": "app-tmp",
+  "name": "dashboard-tmsystem",
   "version": "0.1.0",
   "private": true,
   "scripts": {
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "eslint"
+    "lint": "eslint",
+    "db:generate": "drizzle-kit generate",
+    "db:migrate": "drizzle-kit migrate",
+    "seed:admin": "tsx scripts/seed-admin.ts",
+    "introspect": "tsx scripts/introspect-rdb.ts",
+    "agregados": "tsx scripts/aggregate-daily.ts",
+    "backup": "tsx scripts/backup-sqlite.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

@@ -48,39 +48,47 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/* ============================================================
+   Tema TmSystem — azul corporativo sobre blanco, grises fríos.
+   PENDIENTE F0: sustituir --primary y --sidebar por los hex
+   exactos del logo cuando Christian los facilite (ver CLAUDE.md).
+   ============================================================ */
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
+  --background: oklch(0.984 0.002 250);
+  --foreground: oklch(0.21 0.02 255);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
+  --card-foreground: oklch(0.21 0.02 255);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --popover-foreground: oklch(0.21 0.02 255);
+  /* Azul corporativo TmSystem (~#0A5CA8) */
+  --primary: oklch(0.46 0.118 252);
   --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --secondary: oklch(0.955 0.012 250);
+  --secondary-foreground: oklch(0.32 0.07 252);
+  --muted: oklch(0.962 0.006 250);
+  --muted-foreground: oklch(0.5 0.02 255);
+  --accent: oklch(0.94 0.025 246);
+  --accent-foreground: oklch(0.34 0.09 252);
   --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
-  --chart-1: oklch(0.87 0 0);
-  --chart-2: oklch(0.556 0 0);
-  --chart-3: oklch(0.439 0 0);
-  --chart-4: oklch(0.371 0 0);
-  --chart-5: oklch(0.269 0 0);
+  --border: oklch(0.915 0.008 250);
+  --input: oklch(0.915 0.008 250);
+  --ring: oklch(0.55 0.1 252);
+  /* Paleta de gráficas: azul marca, cielo, verde éxito, ámbar, gris */
+  --chart-1: oklch(0.46 0.118 252);
+  --chart-2: oklch(0.72 0.11 230);
+  --chart-3: oklch(0.64 0.13 160);
+  --chart-4: oklch(0.78 0.14 75);
+  --chart-5: oklch(0.58 0.02 255);
   --radius: 0.625rem;
-  --sidebar: oklch(0.985 0 0);
-  --sidebar-foreground: oklch(0.145 0 0);
-  --sidebar-primary: oklch(0.205 0 0);
+  /* Sidebar azul marino corporativo */
+  --sidebar: oklch(0.27 0.05 255);
+  --sidebar-foreground: oklch(0.93 0.012 250);
+  --sidebar-primary: oklch(0.46 0.118 252);
   --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.97 0 0);
-  --sidebar-accent-foreground: oklch(0.205 0 0);
-  --sidebar-border: oklch(0.922 0 0);
-  --sidebar-ring: oklch(0.708 0 0);
+  --sidebar-accent: oklch(0.33 0.06 253);
+  --sidebar-accent-foreground: oklch(0.975 0.005 250);
+  --sidebar-border: oklch(0.34 0.045 253);
+  --sidebar-ring: oklch(0.55 0.1 252);
 }
 
 .dark {

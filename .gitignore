@@ -32,6 +32,16 @@ yarn-error.log*
 
 # env files (can opt-in for committing if needed)
 .env*
+!.env.example
+
+# BBDD SQLite local del dashboard (datos de usuarios: nunca al repo)
+/data/
+*.db
+*.db-shm
+*.db-wal
+
+# salidas de scripts
+/backups/
 
 # vercel
 .vercel
