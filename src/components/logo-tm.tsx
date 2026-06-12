@@ -1,8 +1,9 @@
 import { cn } from "@/lib/utils";
 
 /**
- * Logotipo provisional de TmSystem (texto). Cuando Christian facilite el
- * archivo del logo real, colocarlo en /public/logo.svg y sustituir aquí.
+ * Logotipo TmSystem reproducido en CSS/SVG a partir del banner de marca:
+ * "tm" en negrita + "system" fino, sonrisa amarilla bajo "tm" y el
+ * subtítulo CONTACT CENTER. `claro` = versión para fondos oscuros (sidebar).
  */
 export function LogoTm({
   className,
@@ -12,20 +13,39 @@ export function LogoTm({
   claro?: boolean;
 }) {
   return (
-    <span className={cn("inline-flex items-center gap-2 select-none", className)}>
-      <span className="flex h-8 w-8 items-center justify-center rounded-md bg-primary text-primary-foreground text-sm font-extrabold tracking-tight">
-        TM
-      </span>
+    <span className={cn("inline-flex select-none flex-col leading-none", className)}>
       <span
         className={cn(
-          "text-lg font-semibold tracking-tight",
+          "flex items-baseline text-xl tracking-tight",
           claro ? "text-sidebar-foreground" : "text-foreground",
         )}
       >
-        System
-        <span className="ml-2 align-middle text-[10px] font-medium uppercase tracking-widest opacity-60">
-          Dashboard
+        <span className="relative font-extrabold">
+          tm
+          {/* Sonrisa amarilla bajo "tm" */}
+          <svg
+            viewBox="0 0 32 8"
+            className="absolute -bottom-1.5 left-0 w-full"
+            aria-hidden="true"
+          >
+            <path
+              d="M2 1.5 Q16 9 30 1.5"
+              fill="none"
+              stroke="var(--primary)"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+            />
+          </svg>
         </span>
+        <span className="font-light">system</span>
+      </span>
+      <span
+        className={cn(
+          "mt-1.5 text-[7px] font-semibold uppercase tracking-[0.28em]",
+          claro ? "text-sidebar-foreground/60" : "text-muted-foreground",
+        )}
+      >
+        Contact Center
       </span>
     </span>
   );

@@ -44,15 +44,19 @@ Detalles de arquitectura, esquema SQLite, roles/vistas y convenciones: ver
 
 ## Fases
 
-### F0 — Cimientos y validación del esquema real ✅ HECHO (salvo validación con BBDD real)
+### F0 — Cimientos y validación del esquema real ✅ HECHO Y VALIDADO CONTRA BBDD REAL
 - [x] Scaffold Next.js 16 + TS + Tailwind v4 + shadcn/ui (Base UI) + Drizzle/SQLite
 - [x] CLAUDE.md con las reglas de dominio (décimas de segundo, enums, flats...)
-- [x] `scripts/introspect-rdb.ts` (validación esquema real → docs/esquema-real.md)
-- [ ] **PENDIENTE (requiere credenciales)**: ejecutar `npm run introspect` y revisar
-      el informe: confirmación décimas, estructura activity_history (fecha de
-      "lead finalizado"), frescura flats
-- [ ] **PENDIENTE**: paleta exacta del logo (hoy: azul corporativo aproximado en
-      `src/app/globals.css`, sección "Tema TmSystem")
+- [x] Introspección ejecutada contra 192.168.151.21/RDBv2 (12/06/2026):
+      **décimas confirmadas (ratio 10.00)**, replicación ~5 min, flats ~24 min,
+      220 tablas, 1,1M hilos → docs/esquema-real.md
+- [x] "Lead finalizado" corregido: fecha = último `event_moment` de
+      `activity_history` (no `activity.moment`)
+- [x] Paleta real del logo aplicada: amarillo #F5CF3D + negro + azul #2EA9E0
+- [x] Lección de rendimiento: NO combinar hilos+colas en una sola query
+      (plan de 86 s en este SQL Server); divididas tardan <1 s. Ver comentario
+      en queries/supervision.ts. `serverExternalPackages` para mssql/better-sqlite3
+      en next.config.ts (si no, EPARAM en producción).
 
 ### F1 — Autenticación, RBAC y Admin ✅ HECHO
 - [x] Sesiones en SQLite + cookie httpOnly, bcryptjs, expiración deslizante 8 h
@@ -95,11 +99,16 @@ Detalles de arquitectura, esquema SQLite, roles/vistas y convenciones: ver
   /operaciones, /supervision, /clientes y todo /admin responden 200;
   API supervisión devuelve JSON; export CSV devuelve text/csv con BOM.
 
-## Primeros pasos de la próxima sesión (cuando haya credenciales RDBv2)
+## Primeros pasos de la próxima sesión
 
-1. Rellenar `.env` real y `RDB_MOCK=0`.
-2. `npm run introspect` → revisar docs/esquema-real.md (décimas, activity_history).
-3. Ajustar la fecha de "lead finalizado" si procede (src/lib/rdb/queries/facturacion.ts).
-4. Tests de oro contra SSMS (ver F2).
-5. Backfill agregados reales y tareas programadas.
-6. Crear clientes reales + mapeo campañas + usuarios por rol en /admin.
+1. **Tests de oro contra SSMS** (ver F2): validar con Christian 4-5 cifras de un
+   día/campaña. Atención especial a "horas logadas" por campaña: con agentes
+   blended abiertos en N campañas a la vez, las horas de campaña se duplican
+   entre campañas (op_type=0 cuenta lo mismo en cada una) — definir con negocio
+   si facturar logado, ready o productivo.
+2. Crear clientes reales + mapeo campañas (prefijos: Soc_, Bol_, gh_, Avo_,
+   CajaR_, Wit_...; NO mapear Test_*) + usuarios por rol en /admin.
+3. Tarea programada de agregados (02:00) y backup (02:30) en el servidor definitivo
+   (docs/despliegue-windows.md). El backfill 06/2025→06/2026 ya está hecho en el
+   equipo de desarrollo.
+4. F4 (calidad de datos, wallboard) y F5 (internet) según plan.

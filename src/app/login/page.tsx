@@ -29,13 +29,13 @@ export default async function PaginaLogin({
         : null;
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-gradient-to-b from-sidebar to-primary/80 p-4">
-      <Card className="w-full max-w-sm shadow-xl">
+    <div className="flex flex-1 items-center justify-center bg-primary p-4">
+      <Card className="w-full max-w-sm border-none shadow-2xl">
         <CardHeader className="items-center text-center">
           <LogoTm className="mb-2" />
           <CardTitle className="text-xl">Acceso al dashboard</CardTitle>
           <CardDescription>
-            Introduce tus credenciales corporativas o de cliente
+            El primer Contact Center que te hace sonreír
           </CardDescription>
         </CardHeader>
         <CardContent>

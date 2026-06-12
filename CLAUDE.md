@@ -83,16 +83,23 @@ Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proye
 - Fechas en parámetros de URL y BBDD propia: `YYYY-MM-DD` (hora local del servidor,
   que coincide con la hora de España de la centralita).
 
-## Validaciones pendientes con datos reales (F0 — requieren credenciales)
+## Validaciones F0 hechas contra la BBDD real (12/06/2026, ver docs/esquema-real.md)
 
-- [ ] Confirmar décimas de segundo empíricamente (`npm run introspect` lo comprueba
-      comparando `duration` con `gmt_end_time - gmt_start_time`).
-- [ ] Definición exacta de "lead gestionado (finalizado)": hoy se usa
-      `activity.status = 3` (Done) con fecha `activity.moment`. Validar si la fecha
-      de cierre real debe salir de `activity_history` o `contacts_*.event_moment`.
-- [ ] Frescura real de las flat tables.
-- [ ] Paleta de marca: variables en `src/app/globals.css` (sección "Tema TmSystem");
-      ajustar con los hex exactos del logo cuando Christian los facilite.
+- [x] **Décimas de segundo CONFIRMADAS** empíricamente: ratio mediano
+      duration/segundos = 10.00 exacto sobre 500 muestras.
+- [x] "Lead gestionado (finalizado)" = `activity.status = 3` fechado por el
+      **último `event_moment` de `activity_history`** (activity.moment es la fecha
+      programada, NO la de cierre). Implementado en queries/facturacion.ts.
+- [x] Frescura real: replicación ~5 min · flat tables ~24 min (algo más que los
+      15 min que decía la doc — mantener flats solo para histórico).
+- [x] Paleta de marca real aplicada: AMARILLO #F5CF3D + negro (logo TmSystem) con
+      azul #2EA9E0 como acento de gráficas, en `src/app/globals.css`.
+- [x] Campañas reales con prefijo por cliente: `Soc_*` (Socios), `Bol_*` (Bolsas),
+      `gh_*` (GrupoHuertas), `Avo_*` (Avolo), `CajaR_*`, `Wit_*`, `IVR_*`, marcas
+      de coche sueltas (VW, Audi...). El mapeo cliente↔campañas del admin usa estos
+      shortnames. Las `Test_*` NO deben mapearse a clientes.
+- [ ] Pendiente F2: "tests de oro" — validar 4-5 cifras de un día contra las
+      queries SSMS de Christian antes de dar por buenos los KPIs.
 
 ## Estrategia de modelos (contexto para futuros Claude)
 

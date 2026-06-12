@@ -106,17 +106,28 @@ export async function metricasDiariasPorCampania(
     reqLeads.input("hastaExcl", sql.DateTime, hastaExcl);
     const filtroLeads = filtroCampanias(reqLeads, campanias, "c.shortname");
     const leads = reqLeads.query(`
-      -- Contactos outbound finalizados (status 3 = Done) por día y campaña.
-      -- ⚠ Fecha basada en activity.moment: validar con datos reales (CLAUDE.md)
+      -- Contactos outbound finalizados (activity.status 3 = Done), fechados por su
+      -- ÚLTIMO evento en activity_history (validado contra esquema real 12/06/2026:
+      -- activity.moment es la fecha PROGRAMADA, no la de cierre).
+      -- El NOT EXISTS garantiza que el último evento del contacto cae en el rango.
+      WITH ult AS (
+          SELECT h.activity, MAX(h.event_moment) AS cierre
+          FROM activity_history h
+          WHERE h.event_moment >= @desde AND h.event_moment < @hastaExcl
+          GROUP BY h.activity
+      )
       SELECT
-          CONVERT(varchar(10), a.moment, 23)  AS fecha,
-          RTRIM(c.shortname)                  AS campania,
-          COUNT(*)                            AS leadsFinalizados
-      FROM activity a
+          CONVERT(varchar(10), ult.cierre, 23)  AS fecha,
+          RTRIM(c.shortname)                    AS campania,
+          COUNT(*)                              AS leadsFinalizados
+      FROM ult
+      INNER JOIN activity    a ON a.code = ult.activity AND a.status = 3
       INNER JOIN ph_campaign c ON a.campaign = c.code
-      WHERE a.moment >= @desde AND a.moment < @hastaExcl
-        AND a.status = 3${filtroLeads}
-      GROUP BY CONVERT(varchar(10), a.moment, 23), RTRIM(c.shortname);
+      WHERE NOT EXISTS (
+          SELECT 1 FROM activity_history h2
+          WHERE h2.activity = ult.activity AND h2.event_moment >= @hastaExcl
+      )${filtroLeads}
+      GROUP BY CONVERT(varchar(10), ult.cierre, 23), RTRIM(c.shortname);
     `);
 
     const [rItr, rHoras, rExitos, rLeads] = await Promise.all([itr, horas, exitos, leads]);

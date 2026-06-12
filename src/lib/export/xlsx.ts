@@ -18,11 +18,11 @@ export async function generarXlsx(
     key: c.clave,
     width: c.ancho ?? 18,
   }));
-  hoja.getRow(1).font = { bold: true, color: { argb: "FFFFFFFF" } };
+  hoja.getRow(1).font = { bold: true, color: { argb: "FF1C1B1A" } };
   hoja.getRow(1).fill = {
     type: "pattern",
     pattern: "solid",
-    fgColor: { argb: "FF0A5CA8" }, // azul corporativo TmSystem
+    fgColor: { argb: "FFF5CF3D" }, // amarillo de marca TmSystem
   };
   hoja.addRows(filas);
   hoja.views = [{ state: "frozen", ySplit: 1 }];

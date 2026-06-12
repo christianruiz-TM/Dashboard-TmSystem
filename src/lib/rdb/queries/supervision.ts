@@ -73,27 +73,26 @@ export async function estadoAgentes(): Promise<AgenteEstado[]> {
   });
 }
 
-/** KPIs del día por campaña, con cola y SLA (umbral en segundos). */
+/**
+ * KPIs del día por campaña, con cola y SLA (umbral en segundos).
+ *
+ * Rendimiento (verificado 12/06/2026 contra la instalación real): combinar
+ * hilos + colas en una sola sentencia producía planes de 60-90 s en este
+ * SQL Server; por separado cada query tarda <200 ms. Se ejecutan DOS queries
+ * y se mezclan aquí. No "optimizar" volviendo a unificarlas.
+ */
 export async function kpisCampaniasHoy(umbralSeg: number): Promise<KpiCampaniaHoy[]> {
   if (esMock()) return mockKpisCampaniasHoy(umbralSeg);
   return conCache(`rdb:sup:kpis:${umbralSeg}`, TTL.supervision, async () => {
     const pool = await obtenerPool();
-    const request = pool.request();
     const { desde, hastaExcl } = limitesRango(hoyISO(), hoyISO());
-    request.input("desde", sql.DateTime, desde);
-    request.input("hastaExcl", sql.DateTime, hastaExcl);
-    request.input("umbralSeg", sql.Float, umbralSeg);
 
-    const r = await request.query(`
-      -- KPIs intradía por campaña.
-      -- Cola por hilo = suma de segmentos en estado 2 (Pending) o 3 (Routing), en segundos.
-      WITH colas AS (
-          SELECT s.itr_thread, SUM(s.duration) / 10.0 AS colaSeg
-          FROM itr_segment s
-          WHERE s.start_time >= @desde AND s.start_time < @hastaExcl
-            AND s.state IN (2, 3)
-          GROUP BY s.itr_thread
-      )
+    // --- Q1: agregados por campaña sobre itr_thread (índice en start_time) ---
+    const reqHilos = pool.request();
+    reqHilos.input("desde", sql.DateTime, desde);
+    reqHilos.input("hastaExcl", sql.DateTime, hastaExcl);
+    const hilos = reqHilos.query(`
+      -- Volumen y tiempos del día por campaña (sin colas)
       SELECT
           RTRIM(c.shortname)                                       AS campania,
           c.campaigntype                                           AS tipoCodigo,
@@ -101,31 +100,76 @@ export async function kpisCampaniasHoy(umbralSeg: number): Promise<KpiCampaniaHo
           SUM(CASE WHEN t.termination_state = 1 THEN 1 ELSE 0 END) AS atendidas,
           SUM(CASE WHEN t.termination_state = 6 THEN 1 ELSE 0 END) AS abandonadas,
           AVG(CASE WHEN t.termination_state = 1 THEN t.duration / 10.0 END)        AS ahtSeg,
-          AVG(CASE WHEN t.termination_state = 1 THEN t.wrapup_duration / 10.0 END) AS acwSeg,
-          AVG(q.colaSeg)                                           AS colaMediaSeg,
-          -- SLA: % de atendidas cuya cola fue <= umbral
-          CAST(SUM(CASE WHEN t.termination_state = 1 AND ISNULL(q.colaSeg, 0) <= @umbralSeg
-                        THEN 1 ELSE 0 END) * 100.0
-               / NULLIF(SUM(CASE WHEN t.termination_state = 1 THEN 1 ELSE 0 END), 0)
-               AS DECIMAL(5, 1))                                   AS slaPct
+          AVG(CASE WHEN t.termination_state = 1 THEN t.wrapup_duration / 10.0 END) AS acwSeg
       FROM itr_thread t
       INNER JOIN ph_campaign c ON t.campaign = c.code
-      LEFT  JOIN colas q ON q.itr_thread = t.code
       WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
       GROUP BY RTRIM(c.shortname), c.campaigntype
       ORDER BY recibidas DESC;
     `);
+
+    // --- Q2: colas por campaña (segmentos Pending/Routing de hoy → join por PK) ---
+    const reqColas = pool.request();
+    reqColas.input("desde", sql.DateTime, desde);
+    reqColas.input("hastaExcl", sql.DateTime, hastaExcl);
+    reqColas.input("umbralSeg", sql.Float, umbralSeg);
+    const colas = reqColas.query(`
+      -- Cola por hilo (estados 2=Pending, 3=Routing) agregada por campaña.
+      -- FORCE ORDER: primero el agregado de segmentos (índice en start_time),
+      -- después el join por PK de itr_thread.
+      SELECT
+          RTRIM(c.shortname) AS campania,
+          AVG(x.colaSeg)     AS colaMediaSeg,
+          SUM(CASE WHEN x.termination_state = 1 AND x.colaSeg > @umbralSeg
+                   THEN 1 ELSE 0 END) AS atendidasFueraSla
+      FROM (
+          SELECT q.itr_thread, q.colaSeg, t.campaign, t.termination_state
+          FROM (
+              SELECT s.itr_thread, SUM(s.duration) / 10.0 AS colaSeg
+              FROM itr_segment s
+              WHERE s.start_time >= @desde AND s.start_time < @hastaExcl
+                AND s.state IN (2, 3)
+              GROUP BY s.itr_thread
+          ) q
+          INNER JOIN itr_thread t ON t.code = q.itr_thread
+          WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+      ) x
+      INNER JOIN ph_campaign c ON x.campaign = c.code
+      GROUP BY RTRIM(c.shortname)
+      OPTION (FORCE ORDER);
+    `);
+
+    const [rHilos, rColas] = await Promise.all([hilos, colas]);
+    const porCampania = new Map(
+      (rColas.recordset as {
+        campania: string;
+        colaMediaSeg: number | null;
+        atendidasFueraSla: number;
+      }[]).map((f) => [f.campania, f]),
+    );
     const enums = await obtenerEnums();
-    return (
-      r.recordset as (Omit<KpiCampaniaHoy, "tipo"> & { tipoCodigo: number })[]
-    ).map(({ tipoCodigo, ...fila }) => ({
-      ...fila,
-      ahtSeg: redondear1(fila.ahtSeg),
-      acwSeg: redondear1(fila.acwSeg),
-      colaMediaSeg: redondear1(fila.colaMediaSeg),
-      slaPct: fila.slaPct == null ? null : Number(fila.slaPct),
-      tipo: enums.CampaignType?.[tipoCodigo] ?? `#${tipoCodigo}`,
-    }));
+
+    type FilaHilos = Omit<KpiCampaniaHoy, "tipo" | "colaMediaSeg" | "slaPct"> & {
+      tipoCodigo: number;
+    };
+    return (rHilos.recordset as FilaHilos[]).map(({ tipoCodigo, ...fila }) => {
+      const cola = porCampania.get(fila.campania);
+      // SLA: atendidas sin fila de cola = 0 s de espera → dentro de SLA
+      const slaPct =
+        fila.atendidas > 0
+          ? Math.round(
+              ((fila.atendidas - (cola?.atendidasFueraSla ?? 0)) / fila.atendidas) * 1000,
+            ) / 10
+          : null;
+      return {
+        ...fila,
+        ahtSeg: redondear1(fila.ahtSeg),
+        acwSeg: redondear1(fila.acwSeg),
+        colaMediaSeg: redondear1(cola?.colaMediaSeg ?? null),
+        slaPct,
+        tipo: enums.CampaignType?.[tipoCodigo] ?? `#${tipoCodigo}`,
+      };
+    });
   });
 }
 
