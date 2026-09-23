@@ -4,6 +4,7 @@ import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { campaniasDeCliente, obtenerCliente } from "@/lib/db/clientes";
 import { esquemaRango } from "@/lib/fechas";
 import { volumenPorDia } from "@/lib/rdb/queries/interacciones";
+import { esIvr } from "@/lib/rdb/queries/servicios";
 import { generarCsv, respuestaCsv } from "@/lib/export/csv";
 
 /**
@@ -37,8 +38,10 @@ export async function GET(peticion: NextRequest) {
   if (campanias.length === 0) {
     return NextResponse.json({ error: "Cliente sin campañas asignadas" }, { status: 404 });
   }
+  const campaniasEf =
+    params.get("ivr") === "1" ? campanias : campanias.filter((c) => !esIvr(c));
 
-  const porDia = await volumenPorDia(desde, hasta, campanias);
+  const porDia = await volumenPorDia(desde, hasta, campaniasEf);
 
   registrarAuditoria({
     accion: "export",

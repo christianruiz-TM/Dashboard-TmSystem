@@ -43,7 +43,19 @@ export function claveCampanias(campanias?: string[]): string {
   return [...campanias].sort().join(",");
 }
 
-/** Redondeo a 1 decimal conservando null. */
+/** Redondeo a 1 decimal conservando null. Solo para magnitudes que no son tiempo. */
 export function redondear1(valor: number | null): number | null {
   return valor == null ? null : Math.round(valor * 10) / 10;
+}
+
+/**
+ * Redondeo a 2 decimales conservando null. Es la precisión de TODAS las
+ * métricas de tiempo (segundos y horas).
+ *
+ * REGLA: redondear solo el valor FINAL que se entrega, nunca un parcial que
+ * luego se vaya a sumar. Redondear cada día o cada campaña y después sumar
+ * acumula el error y es justo lo que hace que los totales no cuadren.
+ */
+export function redondear2(valor: number | null): number | null {
+  return valor == null ? null : Math.round(valor * 100) / 100;
 }

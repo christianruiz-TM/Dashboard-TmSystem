@@ -1,4 +1,4 @@
-import { sql } from "drizzle-orm";
+import { inArray, sql } from "drizzle-orm";
 import { db } from "./sqlite";
 import { aggDailyCampaign } from "./schema";
 import type { MetricaDiariaCampania } from "@/lib/rdb/types";
@@ -8,6 +8,12 @@ import { guardarAjuste, obtenerAjuste } from "./settings";
 // Agregados diarios por campaña (rellenados por el script
 // scripts/aggregate-daily.ts). Evitan escanear itr_thread para
 // las tendencias largas de /direccion.
+//
+// Las columnas horas_logadas / horas_ready de la tabla están OBSOLETAS: se
+// alimentaban de un SUM por campaña de ag_in_cp_log, que multiplica el tiempo
+// (~×13,8 medido). Ya no se escriben ni se leen; las filas anteriores a esta
+// corrección conservan el valor inflado. La hora logada real es global y sale
+// de queries/agentes.ts::horasAgenteReales. Ver regla 11 de CLAUDE.md.
 // ============================================================
 
 /** Inserta/actualiza las métricas de un conjunto de días y campañas. */
@@ -28,8 +34,6 @@ export function upsertMetricasDiarias(filas: MetricaDiariaCampania[]): void {
           ahtSeg: m.ahtSeg,
           acwSeg: m.acwSeg,
           talkSeg: m.talkSeg,
-          horasLogadas: m.horasLogadas,
-          horasReady: m.horasReady,
           exitos: m.exitos,
           leadsFinalizados: m.leadsFinalizados,
           actualizadoAt: ahora,
@@ -46,8 +50,6 @@ export function upsertMetricasDiarias(filas: MetricaDiariaCampania[]): void {
             ahtSeg: m.ahtSeg,
             acwSeg: m.acwSeg,
             talkSeg: m.talkSeg,
-            horasLogadas: m.horasLogadas,
-            horasReady: m.horasReady,
             exitos: m.exitos,
             leadsFinalizados: m.leadsFinalizados,
             actualizadoAt: ahora,
@@ -64,22 +66,28 @@ export interface TendenciaMes {
   interacciones: number;
   atendidas: number;
   abandonadas: number;
-  horasLogadas: number;
   exitos: number;
 }
 
-/** Tendencia mensual de los últimos `meses` meses (desde los agregados). */
-export function tendenciaMensual(meses = 12): TendenciaMes[] {
+/**
+ * Tendencia mensual de los últimos `meses` meses (desde los agregados).
+ * Filtro opcional por campañas (scoping por servicio/cliente).
+ */
+export function tendenciaMensual(meses = 12, campanias?: string[]): TendenciaMes[] {
+  const filtro =
+    campanias && campanias.length > 0
+      ? inArray(aggDailyCampaign.campaignShortname, campanias)
+      : undefined;
   const filas = db
     .select({
       mes: sql<string>`substr(${aggDailyCampaign.fecha}, 1, 7)`,
       interacciones: sql<number>`SUM(${aggDailyCampaign.interacciones})`,
       atendidas: sql<number>`SUM(${aggDailyCampaign.atendidas})`,
       abandonadas: sql<number>`SUM(${aggDailyCampaign.abandonadas})`,
-      horasLogadas: sql<number>`ROUND(SUM(${aggDailyCampaign.horasLogadas}), 1)`,
       exitos: sql<number>`SUM(${aggDailyCampaign.exitos})`,
     })
     .from(aggDailyCampaign)
+    .where(filtro)
     .groupBy(sql`substr(${aggDailyCampaign.fecha}, 1, 7)`)
     .orderBy(sql`substr(${aggDailyCampaign.fecha}, 1, 7) DESC`)
     .limit(meses)

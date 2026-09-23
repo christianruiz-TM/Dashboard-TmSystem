@@ -218,7 +218,8 @@ export async function guardarMapeoCliente(formData: FormData): Promise<void> {
 // ---------- Facturación y ajustes ----------
 
 const esquemaLineaFacturacion = z.object({
-  campania: z.string().trim().min(1).max(20),
+  // Ámbito codificado por el formulario: "svc:<servicio>" o "camp:<campaña>"
+  objetivo: z.string().trim().regex(/^(svc|camp):.+/, "Ámbito inválido"),
   unidad: z.enum(UNIDADES_FACTURACION),
   precio: z.coerce.number().nonnegative().nullable().catch(null),
   notas: z.string().trim().max(300).nullable().catch(null),
@@ -227,16 +228,20 @@ const esquemaLineaFacturacion = z.object({
 export async function crearLineaFacturacion(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const datos = esquemaLineaFacturacion.safeParse({
-    campania: formData.get("campania"),
+    objetivo: formData.get("objetivo"),
     unidad: formData.get("unidad"),
     precio: formData.get("precio") || null,
     notas: formData.get("notas") || null,
   });
   if (!datos.success) volverCon("/admin/facturacion", "error_datos");
 
+  const esServicio = datos.data.objetivo.startsWith("svc:");
+  const nombre = datos.data.objetivo.slice(datos.data.objetivo.indexOf(":") + 1);
+
   db.insert(billingConfig)
     .values({
-      campaignShortname: datos.data.campania,
+      campaignShortname: esServicio ? null : nombre,
+      serviceName: esServicio ? nombre : null,
       unidad: datos.data.unidad,
       precioUnitario: datos.data.precio,
       notas: datos.data.notas,
@@ -246,7 +251,7 @@ export async function crearLineaFacturacion(formData: FormData): Promise<void> {
     accion: "config_facturacion",
     userId: admin.id,
     username: admin.username,
-    detalle: `+${datos.data.campania} ${datos.data.unidad} @${datos.data.precio ?? "s/p"}`,
+    detalle: `+${esServicio ? "servicio" : "campaña"} ${nombre} ${datos.data.unidad} @${datos.data.precio ?? "s/p"}`,
     ip: await ipPeticion(),
   });
   volverCon("/admin/facturacion", "creado");

@@ -23,13 +23,10 @@ export function proxy(peticion: NextRequest) {
     url.search = "";
     return NextResponse.redirect(url);
   }
-  if (pathname === "/login" && tieneCookie) {
-    // Con sesión aparente, la home decide la vista según el rol real
-    const url = peticion.nextUrl.clone();
-    url.pathname = "/";
-    url.search = "";
-    return NextResponse.redirect(url);
-  }
+  // OJO: NO redirigir /login→/ por tener cookie. El proxy no valida la sesión
+  // (solo su presencia), así que una cookie CADUCADA provocaba bucle infinito
+  // (/login→/ por cookie, y /→/login por sesión inválida). Que /login se
+  // muestre siempre; si la sesión es válida, la propia página redirige.
   return NextResponse.next();
 }
 

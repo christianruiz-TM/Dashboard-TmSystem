@@ -3,17 +3,21 @@ import { obtenerEnums } from "../enums";
 import { mockMetricasDiarias } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type { MetricaDiariaCampania, UnidadesCampania } from "../types";
-import { claveCampanias, filtroCampanias, limitesRango, redondear1 } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./util";
 
 // ============================================================
-// Unidades facturables por campaña. Cuatro fuentes:
-//  - itr_thread      → interacciones y horas productivas
-//  - ag_in_cp_log    → horas logadas (op 0) y ready (op 1)
+// Unidades facturables por campaña. Tres fuentes:
+//  - itr_thread      → interacciones y horas productivas (gestión real)
 //  - script_session  → éxitos (business_status = 3 Success)
-//  - activity        → leads finalizados (status = 3 Done)
-// ⚠ Fecha de "lead finalizado": se usa activity.moment (pendiente de
-//   validar con datos reales si debe salir de activity_history; ver
-//   CLAUDE.md "Validaciones pendientes").
+//  - activity        → leads finalizados (status = 3 Done), fechados por el
+//                      último event_moment de activity_history
+//
+// NO se leen horas logadas/ready por campaña de ag_in_cp_log: esa tabla graba
+// una fila por CADA campaña abierta, así que sumarlas por campaña multiplica
+// el tiempo (medido contra la BBDD real: 2.602 h sumadas frente a 189 h
+// reales en un mismo día, ×13,8). La hora logada real es la unión de
+// intervalos por agente y solo tiene sentido global → queries/agentes.ts
+// (horasAgenteReales). Ver regla 11 de CLAUDE.md.
 // ============================================================
 
 type FilaClave = { fecha: string; campania: string };
@@ -55,34 +59,20 @@ export async function metricasDiariasPorCampania(
           SUM(CASE WHEN t.termination_state = 6 THEN 1 ELSE 0 END)        AS abandonadas,
           AVG(CASE WHEN t.termination_state = 1 THEN t.duration / 10.0 END)                       AS ahtSeg,
           AVG(CASE WHEN t.termination_state = 1 THEN t.wrapup_duration / 10.0 END)                AS acwSeg,
-          AVG(CASE WHEN t.termination_state = 1 THEN (t.duration - t.wrapup_duration) / 10.0 END) AS talkSeg
+          AVG(CASE WHEN t.termination_state = 1 THEN (t.duration - t.wrapup_duration) / 10.0 END) AS talkSeg,
+          -- Horas productivas EXACTAS: suma de la gestión real de las atendidas.
+          -- Antes se derivaban en TS como (AHT medio redondeado × atendidas),
+          -- lo que arrastraba el redondeo a una cifra que se factura.
+          -- CAST a BIGINT: la suma de décimas de un mes desborda un int.
+          SUM(CASE WHEN t.termination_state = 1
+                   THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 36000.0        AS horasProductivas
       FROM itr_thread t
       INNER JOIN ph_campaign c ON t.campaign = c.code
       WHERE t.start_time >= @desde AND t.start_time < @hastaExcl${filtroItr}
       GROUP BY CONVERT(varchar(10), t.start_time, 23), RTRIM(c.shortname), c.campaigntype;
     `);
 
-    // --- 2) Horas de agente por día/campaña (ag_in_cp_log) ---
-    const reqHoras = pool.request();
-    reqHoras.input("desde", sql.DateTime, desde);
-    reqHoras.input("hastaExcl", sql.DateTime, hastaExcl);
-    const filtroHoras = filtroCampanias(reqHoras, campanias, "c.shortname");
-    const horas = reqHoras.query(`
-      -- Horas de agente por día y campaña: op_type 0 = logado en campaña, 1 = ready
-      -- duration en décimas de segundo → horas = /36000.0
-      SELECT
-          CONVERT(varchar(10), l.start_time, 23)                              AS fecha,
-          RTRIM(c.shortname)                                                  AS campania,
-          SUM(CASE WHEN l.op_type = 0 THEN ISNULL(l.duration, 0) ELSE 0 END) / 36000.0 AS horasLogadas,
-          SUM(CASE WHEN l.op_type = 1 THEN ISNULL(l.duration, 0) ELSE 0 END) / 36000.0 AS horasReady
-      FROM ag_in_cp_log l
-      INNER JOIN ph_campaign c ON l.campaign = c.code
-      INNER JOIN ph_e_user   u ON l.agent    = u.code AND u.type = 1
-      WHERE l.start_time >= @desde AND l.start_time < @hastaExcl${filtroHoras}
-      GROUP BY CONVERT(varchar(10), l.start_time, 23), RTRIM(c.shortname);
-    `);
-
-    // --- 3) Éxitos por día/campaña (script_session, business_status 3 = Success) ---
+    // --- 2) Éxitos por día/campaña (script_session, business_status 3 = Success) ---
     const reqExitos = pool.request();
     reqExitos.input("desde", sql.DateTime, desde);
     reqExitos.input("hastaExcl", sql.DateTime, hastaExcl);
@@ -100,7 +90,7 @@ export async function metricasDiariasPorCampania(
       GROUP BY CONVERT(varchar(10), s.start_time, 23), RTRIM(c.shortname);
     `);
 
-    // --- 4) Leads finalizados por día/campaña (activity Done) ---
+    // --- 3) Leads finalizados por día/campaña (activity Done) ---
     const reqLeads = pool.request();
     reqLeads.input("desde", sql.DateTime, desde);
     reqLeads.input("hastaExcl", sql.DateTime, hastaExcl);
@@ -109,7 +99,17 @@ export async function metricasDiariasPorCampania(
       -- Contactos outbound finalizados (activity.status 3 = Done), fechados por su
       -- ÚLTIMO evento en activity_history (validado contra esquema real 12/06/2026:
       -- activity.moment es la fecha PROGRAMADA, no la de cierre).
-      -- El NOT EXISTS garantiza que el último evento del contacto cae en el rango.
+      --
+      -- Se exige que el último evento del contacto DENTRO del rango sea también
+      -- su último evento en absoluto; si no, el lead se cerró más tarde y no
+      -- toca contarlo en este período.
+      --
+      -- RENDIMIENTO: esto se escribía como NOT EXISTS (... event_moment >= @hastaExcl),
+      -- que obliga a recorrer por el índice de event_moment TODO lo posterior al
+      -- rango (activity_history tiene ~1,9 M de filas) → 40 s medidos para un solo
+      -- día. Comparar contra el MAX por actividad usa el índice ixactivity_act_hist
+      -- y baja a 0,2 s con el MISMO resultado (verificado: 65 grupos, 1.360 leads).
+      -- No revertir a NOT EXISTS.
       WITH ult AS (
           SELECT h.activity, MAX(h.event_moment) AS cierre
           FROM activity_history h
@@ -123,17 +123,18 @@ export async function metricasDiariasPorCampania(
       FROM ult
       INNER JOIN activity    a ON a.code = ult.activity AND a.status = 3
       INNER JOIN ph_campaign c ON a.campaign = c.code
-      WHERE NOT EXISTS (
-          SELECT 1 FROM activity_history h2
-          WHERE h2.activity = ult.activity AND h2.event_moment >= @hastaExcl
+      WHERE ult.cierre = (
+          SELECT MAX(h3.event_moment)
+          FROM activity_history h3
+          WHERE h3.activity = ult.activity
       )${filtroLeads}
       GROUP BY CONVERT(varchar(10), ult.cierre, 23), RTRIM(c.shortname);
     `);
 
-    const [rItr, rHoras, rExitos, rLeads] = await Promise.all([itr, horas, exitos, leads]);
+    const [rItr, rExitos, rLeads] = await Promise.all([itr, exitos, leads]);
     const enums = await obtenerEnums();
 
-    // Mezcla de las cuatro fuentes por (fecha, campaña)
+    // Mezcla de las tres fuentes por (fecha, campaña)
     const mapa = new Map<string, MetricaDiariaCampania>();
     const obtener = (f: FilaClave): MetricaDiariaCampania => {
       let m = mapa.get(clave(f));
@@ -150,8 +151,7 @@ export async function metricasDiariasPorCampania(
           ahtSeg: null,
           acwSeg: null,
           talkSeg: null,
-          horasLogadas: 0,
-          horasReady: 0,
+          horasProductivas: 0,
           exitos: 0,
           leadsFinalizados: 0,
         };
@@ -170,6 +170,7 @@ export async function metricasDiariasPorCampania(
       ahtSeg: number | null;
       acwSeg: number | null;
       talkSeg: number | null;
+      horasProductivas: number;
     };
     for (const f of rItr.recordset as FilaItr[]) {
       const m = obtener(f);
@@ -179,14 +180,12 @@ export async function metricasDiariasPorCampania(
       m.outbound = f.outbound;
       m.atendidas = f.atendidas;
       m.abandonadas = f.abandonadas;
-      m.ahtSeg = redondear1(f.ahtSeg);
-      m.acwSeg = redondear1(f.acwSeg);
-      m.talkSeg = redondear1(f.talkSeg);
-    }
-    for (const f of rHoras.recordset as (FilaClave & { horasLogadas: number; horasReady: number })[]) {
-      const m = obtener(f);
-      m.horasLogadas = Math.round(f.horasLogadas * 100) / 100;
-      m.horasReady = Math.round(f.horasReady * 100) / 100;
+      m.ahtSeg = redondear2(f.ahtSeg);
+      m.acwSeg = redondear2(f.acwSeg);
+      m.talkSeg = redondear2(f.talkSeg);
+      // SIN redondear: este valor diario se SUMA después en unidadesPorCampania.
+      // Redondear cada día y luego sumar acumula error; se redondea solo el total.
+      m.horasProductivas = f.horasProductivas;
     }
     for (const f of rExitos.recordset as (FilaClave & { exitos: number })[]) {
       obtener(f).exitos = f.exitos;
@@ -208,38 +207,30 @@ export async function unidadesPorCampania(
   campanias?: string[],
 ): Promise<UnidadesCampania[]> {
   const diarias = await metricasDiariasPorCampania(desdeISO, hastaISO, campanias);
-  const mapa = new Map<string, UnidadesCampania & { _productivoSeg: number }>();
+  const mapa = new Map<string, UnidadesCampania>();
   for (const m of diarias) {
     let u = mapa.get(m.campania);
     if (!u) {
       u = {
         campania: m.campania,
-        horasLogadas: 0,
-        horasReady: 0,
         horasProductivas: 0,
         interacciones: 0,
         atendidas: 0,
         exitos: 0,
         leadsFinalizados: 0,
-        _productivoSeg: 0,
       };
       mapa.set(m.campania, u);
     }
-    u.horasLogadas += m.horasLogadas;
-    u.horasReady += m.horasReady;
-    // Horas productivas = tiempo total de gestión (AHT medio × atendidas)
-    u._productivoSeg += (m.ahtSeg ?? 0) * m.atendidas;
+    // Ya viene sumada y exacta desde el SQL (no derivada del AHT redondeado)
+    u.horasProductivas += m.horasProductivas;
     u.interacciones += m.interacciones;
     u.atendidas += m.atendidas;
     u.exitos += m.exitos;
     u.leadsFinalizados += m.leadsFinalizados;
   }
   return [...mapa.values()]
-    .map(({ _productivoSeg, ...u }) => ({
-      ...u,
-      horasLogadas: Math.round(u.horasLogadas * 10) / 10,
-      horasReady: Math.round(u.horasReady * 10) / 10,
-      horasProductivas: Math.round((_productivoSeg / 3600) * 10) / 10,
-    }))
-    .sort((a, b) => b.horasLogadas - a.horasLogadas);
+    // Único punto de redondeo de las horas productivas: el total ya sumado
+    .map((u) => ({ ...u, horasProductivas: redondear2(u.horasProductivas) ?? 0 }))
+    // Se ordena por volumen: las horas logadas por campaña ya no existen aquí
+    .sort((a, b) => b.interacciones - a.interacciones);
 }

@@ -13,13 +13,21 @@ import {
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { SelectorRango } from "@/components/filtros/selector-rango";
+import { SelectorServicio } from "@/components/filtros/selector-servicio";
+import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { requireRol } from "@/lib/auth/rbac";
 import { NOMBRE_UNIDAD, calcularFacturacion } from "@/lib/facturacion";
-import { duracionLegible, esquemaRango, horasLegibles, presetsRango } from "@/lib/fechas";
-import { razonesNotReady } from "@/lib/rdb/queries/agentes";
+import { esquemaRango, horasDesdeSegundos, horasLegibles, presetsRango } from "@/lib/fechas";
+import { horasAgenteReales, razonesNotReady } from "@/lib/rdb/queries/agentes";
 import { unidadesPorCampania } from "@/lib/rdb/queries/facturacion";
 import { penetracionListas } from "@/lib/rdb/queries/outbound";
+import {
+  campaniasEfectivas,
+  listaServicios,
+  mapaCampaniaServicio,
+} from "@/lib/rdb/queries/servicios";
 
 export const metadata: Metadata = { title: "Operaciones" };
 export const dynamic = "force-dynamic";
@@ -32,7 +40,12 @@ function euros(importe: number | null): string {
 export default async function PaginaOperaciones({
   searchParams,
 }: {
-  searchParams: Promise<{ desde?: string; hasta?: string }>;
+  searchParams: Promise<{
+    desde?: string;
+    hasta?: string;
+    servicio?: string;
+    ivr?: string;
+  }>;
 }) {
   await requireRol("operaciones");
   const presets = presetsRango();
@@ -44,28 +57,37 @@ export default async function PaginaOperaciones({
   });
   const { desde, hasta } = rango.success ? rango.data : mesActual;
 
-  const [unidades, razones, listas] = await Promise.all([
-    unidadesPorCampania(desde, hasta),
-    razonesNotReady(desde, hasta),
-    penetracionListas(desde, hasta),
-  ]);
-  const facturacion = calcularFacturacion(unidades);
+  // Scoping por cliente/servicio; IVR excluido salvo que se marque el check
+  const incluirIvr = params.ivr === "1";
+  const servicios = await listaServicios();
+  const camp = await campaniasEfectivas(params.servicio, incluirIvr);
 
+  const [unidades, horasReales, razones, listas] = await Promise.all([
+    unidadesPorCampania(desde, hasta, camp),
+    horasAgenteReales(desde, hasta, camp),
+    razonesNotReady(desde, hasta, camp),
+    penetracionListas(desde, hasta, camp),
+  ]);
+  const facturacion = calcularFacturacion(unidades, mapaCampaniaServicio(servicios));
+
+  // Horas logadas: cifra REAL global (unión de intervalos por agente). NO se
+  // suma por campaña porque los agentes blended duplican el tiempo (~×13).
   const totales = unidades.reduce(
     (acc, u) => ({
-      horasLogadas: acc.horasLogadas + u.horasLogadas,
       interacciones: acc.interacciones + u.interacciones,
       atendidas: acc.atendidas + u.atendidas,
       exitos: acc.exitos + u.exitos,
       leads: acc.leads + u.leadsFinalizados,
     }),
-    { horasLogadas: 0, interacciones: 0, atendidas: 0, exitos: 0, leads: 0 },
+    { interacciones: 0, atendidas: 0, exitos: 0, leads: 0 },
   );
   const importeTotal = facturacion.reduce((acc, f) => acc + (f.importeTotal ?? 0), 0);
   const hayImportes = facturacion.some((f) => f.importeTotal != null);
 
   const urlExport = (formato: string) =>
-    `/api/export/operaciones?desde=${desde}&hasta=${hasta}&formato=${formato}`;
+    `/api/export/operaciones?desde=${desde}&hasta=${hasta}&formato=${formato}` +
+    (params.servicio ? `&servicio=${encodeURIComponent(params.servicio)}` : "") +
+    (incluirIvr ? "&ivr=1" : "");
 
   return (
     <div className="space-y-6">
@@ -86,10 +108,20 @@ export default async function PaginaOperaciones({
         </div>
       </div>
 
-      <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+        <div className="flex flex-wrap items-center gap-4">
+          <SelectorServicio servicios={servicios.map((s) => s.servicio)} valor={params.servicio} />
+          <SelectorIvr incluir={incluirIvr} />
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <TarjetaKpi titulo="Horas logadas" valor={horasLegibles(totales.horasLogadas)} />
+        <TarjetaKpi
+          titulo="Horas logadas (reales)"
+          valor={horasLegibles(horasReales.horasLogadas)}
+          sub="Global, sin duplicar por campaña"
+        />
         <TarjetaKpi
           titulo="Interacciones"
           valor={totales.interacciones.toLocaleString("es-ES")}
@@ -117,7 +149,10 @@ export default async function PaginaOperaciones({
               <CardTitle className="text-base">Unidades por campaña</CardTitle>
               <CardDescription>
                 La columna «Facturable» marca las unidades configuradas en Administración →
-                Facturación. Período: {desde} a {hasta}.
+                Facturación. Las horas de agente por campaña usan las{" "}
+                <strong>productivas</strong> (gestión real); las logadas/ready solo tienen
+                sentido global (arriba) porque los agentes blended las duplican. Período:{" "}
+                {desde} a {hasta}.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -125,8 +160,6 @@ export default async function PaginaOperaciones({
                 <TableHeader>
                   <TableRow>
                     <TableHead>Campaña</TableHead>
-                    <TableHead className="text-right">H. logadas</TableHead>
-                    <TableHead className="text-right">H. ready</TableHead>
                     <TableHead className="text-right">H. productivas</TableHead>
                     <TableHead className="text-right">Interacc.</TableHead>
                     <TableHead className="text-right">Atendidas</TableHead>
@@ -139,7 +172,7 @@ export default async function PaginaOperaciones({
                 <TableBody>
                   {facturacion.length === 0 ? (
                     <TableRow>
-                      <TableCell colSpan={10} className="text-center text-muted-foreground">
+                      <TableCell colSpan={8} className="text-center text-muted-foreground">
                         Sin actividad en el período seleccionado
                       </TableCell>
                     </TableRow>
@@ -148,13 +181,7 @@ export default async function PaginaOperaciones({
                       <TableRow key={f.campania}>
                         <TableCell className="font-medium">{f.campania}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {f.medidas.horasLogadas.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {f.medidas.horasReady.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {f.medidas.horasProductivas.toLocaleString("es-ES")}
+                          {horasLegibles(f.medidas.horasProductivas)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {f.medidas.interacciones.toLocaleString("es-ES")}
@@ -283,7 +310,7 @@ export default async function PaginaOperaciones({
                         <TableCell>{r.razon}</TableCell>
                         <TableCell className="text-right tabular-nums">{r.veces}</TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {duracionLegible(r.segundosTotal)}
+                          {horasDesdeSegundos(r.segundosTotal)}
                         </TableCell>
                       </TableRow>
                     ))
@@ -294,6 +321,22 @@ export default async function PaginaOperaciones({
           </Card>
         </TabsContent>
       </Tabs>
+
+      <Glosario
+        titulo="Operaciones"
+        claves={[
+          "servicio",
+          "horasLogadas",
+          "horasProductivas",
+          "interacciones",
+          "atendidas",
+          "exitos",
+          "leads",
+          "importe",
+          "pausas",
+          "penetracion",
+        ]}
+      />
     </div>
   );
 }

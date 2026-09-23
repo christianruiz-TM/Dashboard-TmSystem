@@ -1,10 +1,17 @@
-import { conCache, TTL } from "../cache";
+import { conCache, TTL, ttlSegunRango } from "../cache";
 import { obtenerEnums } from "../enums";
-import { mockAgentesHoy, mockEstadoAgentes, mockKpisCampaniasHoy } from "../mock";
+import {
+  mockAgentesHoy,
+  mockAgentesRango,
+  mockEstadoAgentes,
+  mockKpisCampaniasHoy,
+  mockKpisCampaniasRango,
+  mockMetricasIvr,
+} from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
-import type { AgenteEstado, AgenteHoy, KpiCampaniaHoy } from "../types";
+import type { AgenteEstado, AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "../types";
 import { hoyISO } from "@/lib/fechas";
-import { limitesRango, redondear1 } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./util";
 
 // ============================================================
 // Vista Supervisión: intradía casi en tiempo real.
@@ -17,14 +24,16 @@ import { limitesRango, redondear1 } from "./util";
  * Si la última fila tiene duration informada, el estado ya terminó y no hay
  * otro posterior → el agente se ha deslogado ("Deslogado").
  */
-export async function estadoAgentes(): Promise<AgenteEstado[]> {
-  if (esMock()) return mockEstadoAgentes();
-  return conCache("rdb:sup:agentes", TTL.supervision, async () => {
+export async function estadoAgentes(campanias?: string[]): Promise<AgenteEstado[]> {
+  if (esMock()) return mockEstadoAgentes(campanias);
+  return conCache(`rdb:sup:agentes:${claveCampanias(campanias)}`, TTL.supervision, async () => {
     const pool = await obtenerPool();
     const request = pool.request();
     const { desde, hastaExcl } = limitesRango(hoyISO(), hoyISO());
     request.input("desde", sql.DateTime, desde);
     request.input("hastaExcl", sql.DateTime, hastaExcl);
+    // Filtro por servicio: el "último estado" se calcula sólo sobre sus campañas
+    const filtro = filtroCampanias(request, campanias, "cf.shortname");
 
     const r = await request.query(`
       -- Último registro de estado por agente en ag_in_cp_log (solo hoy)
@@ -32,7 +41,8 @@ export async function estadoAgentes(): Promise<AgenteEstado[]> {
           SELECT l.agent, l.campaign, l.op_type, l.reason, l.start_time, l.duration,
                  ROW_NUMBER() OVER (PARTITION BY l.agent ORDER BY l.start_time DESC) AS rn
           FROM ag_in_cp_log l
-          WHERE l.start_time >= @desde AND l.start_time < @hastaExcl
+          INNER JOIN ph_campaign cf ON l.campaign = cf.code
+          WHERE l.start_time >= @desde AND l.start_time < @hastaExcl${filtro}
       )
       SELECT
           RTRIM(u.usr_name)                                AS agente,
@@ -81,16 +91,20 @@ export async function estadoAgentes(): Promise<AgenteEstado[]> {
  * SQL Server; por separado cada query tarda <200 ms. Se ejecutan DOS queries
  * y se mezclan aquí. No "optimizar" volviendo a unificarlas.
  */
-export async function kpisCampaniasHoy(umbralSeg: number): Promise<KpiCampaniaHoy[]> {
-  if (esMock()) return mockKpisCampaniasHoy(umbralSeg);
-  return conCache(`rdb:sup:kpis:${umbralSeg}`, TTL.supervision, async () => {
+async function kpisCampaniasCore(
+  desdeISO: string,
+  hastaISO: string,
+  umbralSeg: number,
+  campanias?: string[],
+): Promise<KpiCampaniaHoy[]> {
     const pool = await obtenerPool();
-    const { desde, hastaExcl } = limitesRango(hoyISO(), hoyISO());
+    const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
 
     // --- Q1: agregados por campaña sobre itr_thread (índice en start_time) ---
     const reqHilos = pool.request();
     reqHilos.input("desde", sql.DateTime, desde);
     reqHilos.input("hastaExcl", sql.DateTime, hastaExcl);
+    const filtroHilos = filtroCampanias(reqHilos, campanias, "c.shortname");
     const hilos = reqHilos.query(`
       -- Volumen y tiempos del día por campaña (sin colas)
       SELECT
@@ -99,11 +113,14 @@ export async function kpisCampaniasHoy(umbralSeg: number): Promise<KpiCampaniaHo
           SUM(CASE WHEN t.origin = 1 THEN 1 ELSE 0 END)            AS recibidas,
           SUM(CASE WHEN t.termination_state = 1 THEN 1 ELSE 0 END) AS atendidas,
           SUM(CASE WHEN t.termination_state = 6 THEN 1 ELSE 0 END) AS abandonadas,
+          -- Desglose de ENTRADA: es el denominador correcto de SLA y abandono.
+          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 1 THEN 1 ELSE 0 END) AS atendidasInbound,
+          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 6 THEN 1 ELSE 0 END) AS abandonadasInbound,
           AVG(CASE WHEN t.termination_state = 1 THEN t.duration / 10.0 END)        AS ahtSeg,
           AVG(CASE WHEN t.termination_state = 1 THEN t.wrapup_duration / 10.0 END) AS acwSeg
       FROM itr_thread t
       INNER JOIN ph_campaign c ON t.campaign = c.code
-      WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+      WHERE t.start_time >= @desde AND t.start_time < @hastaExcl${filtroHilos}
       GROUP BY RTRIM(c.shortname), c.campaigntype
       ORDER BY recibidas DESC;
     `);
@@ -113,8 +130,12 @@ export async function kpisCampaniasHoy(umbralSeg: number): Promise<KpiCampaniaHo
     reqColas.input("desde", sql.DateTime, desde);
     reqColas.input("hastaExcl", sql.DateTime, hastaExcl);
     reqColas.input("umbralSeg", sql.Float, umbralSeg);
+    const filtroColas = filtroCampanias(reqColas, campanias, "c.shortname");
     const colas = reqColas.query(`
       -- Cola por hilo (estados 2=Pending, 3=Routing) agregada por campaña.
+      -- SOLO ENTRANTES (origin = 1): la "cola" de una saliente es tiempo de
+      -- enrutado del marcador, no espera de un cliente. Mezclarlas falseaba
+      -- tanto la cola media como el SLA.
       -- FORCE ORDER: primero el agregado de segmentos (índice en start_time),
       -- después el join por PK de itr_thread.
       SELECT
@@ -133,13 +154,31 @@ export async function kpisCampaniasHoy(umbralSeg: number): Promise<KpiCampaniaHo
           ) q
           INNER JOIN itr_thread t ON t.code = q.itr_thread
           WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+            AND t.origin = 1
       ) x
       INNER JOIN ph_campaign c ON x.campaign = c.code
+      WHERE 1 = 1${filtroColas}
       GROUP BY RTRIM(c.shortname)
       OPTION (FORCE ORDER);
     `);
 
-    const [rHilos, rColas] = await Promise.all([hilos, colas]);
+    // --- Q3: éxitos por campaña (script_session, business_status 3 = Success) ---
+    // Query aparte (mismo motivo de rendimiento que las colas): no combinar.
+    const reqExitos = pool.request();
+    reqExitos.input("desde", sql.DateTime, desde);
+    reqExitos.input("hastaExcl", sql.DateTime, hastaExcl);
+    const filtroExitos = filtroCampanias(reqExitos, campanias, "c.shortname");
+    const exitos = reqExitos.query(`
+      -- Sesiones de script calificadas como Success por campaña
+      SELECT RTRIM(c.shortname) AS campania, COUNT(*) AS exitos
+      FROM script_session s
+      INNER JOIN ph_campaign c ON s.campaign = c.code
+      WHERE s.start_time >= @desde AND s.start_time < @hastaExcl
+        AND s.business_status = 3${filtroExitos}
+      GROUP BY RTRIM(c.shortname);
+    `);
+
+    const [rHilos, rColas, rExitos] = await Promise.all([hilos, colas, exitos]);
     const porCampania = new Map(
       (rColas.recordset as {
         campania: string;
@@ -147,44 +186,84 @@ export async function kpisCampaniasHoy(umbralSeg: number): Promise<KpiCampaniaHo
         atendidasFueraSla: number;
       }[]).map((f) => [f.campania, f]),
     );
+    const exitosPorCampania = new Map(
+      (rExitos.recordset as { campania: string; exitos: number }[]).map((f) => [
+        f.campania,
+        f.exitos,
+      ]),
+    );
     const enums = await obtenerEnums();
 
-    type FilaHilos = Omit<KpiCampaniaHoy, "tipo" | "colaMediaSeg" | "slaPct"> & {
-      tipoCodigo: number;
-    };
+    type FilaHilos = Omit<
+      KpiCampaniaHoy,
+      "tipo" | "colaMediaSeg" | "slaPct" | "exitos"
+    > & { tipoCodigo: number };
     return (rHilos.recordset as FilaHilos[]).map(({ tipoCodigo, ...fila }) => {
       const cola = porCampania.get(fila.campania);
-      // SLA: atendidas sin fila de cola = 0 s de espera → dentro de SLA
+      // SLA solo sobre ENTRANTES atendidas (las salientes no hacen cola).
+      // Una entrante atendida sin fila de cola esperó 0 s → dentro de SLA.
       const slaPct =
-        fila.atendidas > 0
+        fila.atendidasInbound > 0
           ? Math.round(
-              ((fila.atendidas - (cola?.atendidasFueraSla ?? 0)) / fila.atendidas) * 1000,
+              ((fila.atendidasInbound - (cola?.atendidasFueraSla ?? 0)) /
+                fila.atendidasInbound) *
+                1000,
             ) / 10
           : null;
       return {
         ...fila,
-        ahtSeg: redondear1(fila.ahtSeg),
-        acwSeg: redondear1(fila.acwSeg),
-        colaMediaSeg: redondear1(cola?.colaMediaSeg ?? null),
+        exitos: exitosPorCampania.get(fila.campania) ?? 0,
+        ahtSeg: redondear2(fila.ahtSeg),
+        acwSeg: redondear2(fila.acwSeg),
+        colaMediaSeg: redondear2(cola?.colaMediaSeg ?? null),
         slaPct,
         tipo: enums.CampaignType?.[tipoCodigo] ?? `#${tipoCodigo}`,
       };
     });
-  });
 }
 
-/** Productividad por agente del día actual (solo atendidas). */
-export async function agentesHoy(): Promise<AgenteHoy[]> {
-  if (esMock()) return mockAgentesHoy();
-  return conCache("rdb:sup:agentesHoy", TTL.supervision, async () => {
+/** KPIs de campañas de HOY (vista en vivo, cache 60 s). */
+export async function kpisCampaniasHoy(
+  umbralSeg: number,
+  campanias?: string[],
+): Promise<KpiCampaniaHoy[]> {
+  if (esMock()) return mockKpisCampaniasHoy(umbralSeg, campanias);
+  return conCache(
+    `rdb:sup:kpis:${umbralSeg}:${claveCampanias(campanias)}`,
+    TTL.supervision,
+    () => kpisCampaniasCore(hoyISO(), hoyISO(), umbralSeg, campanias),
+  );
+}
+
+/** Igual pero para un rango histórico (pestaña Histórico de Supervisión). */
+export async function kpisCampaniasRango(
+  desdeISO: string,
+  hastaISO: string,
+  umbralSeg: number,
+  campanias?: string[],
+): Promise<KpiCampaniaHoy[]> {
+  if (esMock()) return mockKpisCampaniasRango(desdeISO, hastaISO, umbralSeg, campanias);
+  return conCache(
+    `rdb:sup:kpisR:${desdeISO}:${hastaISO}:${umbralSeg}:${claveCampanias(campanias)}`,
+    ttlSegunRango(hastaISO),
+    () => kpisCampaniasCore(desdeISO, hastaISO, umbralSeg, campanias),
+  );
+}
+
+async function agentesCore(
+  desdeISO: string,
+  hastaISO: string,
+  campanias?: string[],
+): Promise<AgenteHoy[]> {
     const pool = await obtenerPool();
     const request = pool.request();
-    const { desde, hastaExcl } = limitesRango(hoyISO(), hoyISO());
+    const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
     request.input("desde", sql.DateTime, desde);
     request.input("hastaExcl", sql.DateTime, hastaExcl);
+    const filtro = filtroCampanias(request, campanias, "c.shortname");
 
     const r = await request.query(`
-      -- Productividad de agentes humanos hoy (solo interacciones atendidas)
+      -- Productividad de agentes humanos (solo interacciones atendidas)
       SELECT
           RTRIM(u.usr_name)                                AS agente,
           RTRIM(u.fullname)                                AS nombre,
@@ -194,18 +273,138 @@ export async function agentesHoy(): Promise<AgenteHoy[]> {
           AVG(t.duration / 10.0)                           AS ahtMedioSeg,
           SUM(t.duration / 10.0)                           AS productivoSeg
       FROM itr_thread t
-      INNER JOIN ph_e_user u ON t.e_user = u.code AND u.type = 1
+      INNER JOIN ph_e_user  u ON t.e_user   = u.code AND u.type = 1
+      INNER JOIN ph_campaign c ON t.campaign = c.code
       WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
-        AND t.termination_state = 1
+        AND t.termination_state = 1${filtro}
       GROUP BY RTRIM(u.usr_name), RTRIM(u.fullname)
       ORDER BY atendidas DESC;
     `);
     return (r.recordset as AgenteHoy[]).map((f) => ({
       ...f,
-      talkMedioSeg: redondear1(f.talkMedioSeg),
-      acwMedioSeg: redondear1(f.acwMedioSeg),
-      ahtMedioSeg: redondear1(f.ahtMedioSeg),
-      productivoSeg: Math.round(f.productivoSeg),
+      talkMedioSeg: redondear2(f.talkMedioSeg),
+      acwMedioSeg: redondear2(f.acwMedioSeg),
+      ahtMedioSeg: redondear2(f.ahtMedioSeg),
+      productivoSeg: redondear2(f.productivoSeg) ?? 0,
     }));
-  });
+}
+
+/** Productividad por agente de HOY (vista en vivo, cache 60 s). */
+export async function agentesHoy(campanias?: string[]): Promise<AgenteHoy[]> {
+  if (esMock()) return mockAgentesHoy(campanias);
+  return conCache(`rdb:sup:agentesHoy:${claveCampanias(campanias)}`, TTL.supervision, () =>
+    agentesCore(hoyISO(), hoyISO(), campanias),
+  );
+}
+
+/** Productividad por agente en un rango histórico (pestaña Histórico). */
+export async function agentesProductividadRango(
+  desdeISO: string,
+  hastaISO: string,
+  campanias?: string[],
+): Promise<AgenteHoy[]> {
+  if (esMock()) return mockAgentesRango(desdeISO, hastaISO, campanias);
+  return conCache(
+    `rdb:sup:agentesR:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}`,
+    ttlSegunRango(hastaISO),
+    () => agentesCore(desdeISO, hastaISO, campanias),
+  );
+}
+
+/**
+ * Métrica de campañas IVR. De las llamadas entrantes que entran por un IVR
+ * (distinct itr_global con origin=1):
+ *  - atendidasAgente: acaban atendidas por un agente humano (hilo hermano del
+ *    mismo itr_global con agente y termination_state=1; la llamada de IVR es la
+ *    parte automática, el agente está en un hilo hermano).
+ *  - noAtendidas: el resto.
+ *  - noAtendidasEnHorario: de las no atendidas, las que entraron mientras HABÍA
+ *    al menos un agente logado (ag_in_cp_log op_type=0) en las campañas del
+ *    servicio. Es el "horario de producción" calculado dinámicamente: una
+ *    llamada fuera de ese horario (nadie logado) es normal que no se atienda.
+ *
+ * `campanias` = campañas DEL SERVICIO (incluyendo las IVR), para acotar por
+ * cliente; el SQL filtra las entrantes por `IVR_*` y los logados por el mismo
+ * conjunto de campañas.
+ */
+export async function metricasIvr(
+  desdeISO: string,
+  hastaISO: string,
+  campanias?: string[],
+): Promise<MetricasIvr> {
+  if (esMock()) return mockMetricasIvr(desdeISO, hastaISO, campanias);
+  return conCache(
+    `rdb:sup:ivr:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}`,
+    ttlSegunRango(hastaISO),
+    async () => {
+      const pool = await obtenerPool();
+      const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+      const request = pool.request();
+      request.input("desde", sql.DateTime, desde);
+      request.input("hastaExcl", sql.DateTime, hastaExcl);
+      // Mismos parámetros @camp* para los dos filtros (entrantes IVR y logados).
+      let filtroIvr = "";
+      let filtroLog = "";
+      if (campanias && campanias.length > 0) {
+        const marcadores = campanias.map((nombre, i) => {
+          request.input(`camp${i}`, sql.VarChar(20), nombre);
+          return `@camp${i}`;
+        });
+        const inExpr = `(${marcadores.join(", ")})`;
+        filtroIvr = ` AND c.shortname IN ${inExpr}`;
+        filtroLog = ` AND lc.shortname IN ${inExpr}`;
+      }
+
+      const r = await request.query(`
+        -- Llamadas que entran por una campaña IVR (origin 1 = inbound)
+        WITH ivr AS (
+            SELECT t.itr_global, MIN(t.start_time) AS entrada
+            FROM itr_thread t
+            INNER JOIN ph_campaign c ON t.campaign = c.code
+            WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+              AND c.shortname LIKE 'IVR[_]%' AND t.origin = 1${filtroIvr}
+            GROUP BY t.itr_global
+        ),
+        -- ¿la atendió finalmente un agente? (hilo hermano con agente humano)
+        clasif AS (
+            SELECT ivr.itr_global, ivr.entrada,
+                MAX(CASE WHEN u.type = 1 AND sib.termination_state = 1
+                         THEN 1 ELSE 0 END) AS atendida
+            FROM ivr
+            LEFT JOIN itr_thread sib ON sib.itr_global = ivr.itr_global
+            LEFT JOIN ph_e_user  u   ON sib.e_user = u.code
+            GROUP BY ivr.itr_global, ivr.entrada
+        ),
+        -- ¿había algún agente logado en ese instante en las campañas del servicio?
+        flags AS (
+            SELECT atendida,
+                CASE WHEN atendida = 0 AND EXISTS (
+                    SELECT 1 FROM ag_in_cp_log l
+                    INNER JOIN ph_e_user  lu ON l.agent = lu.code AND lu.type = 1
+                    INNER JOIN ph_campaign lc ON l.campaign = lc.code
+                    WHERE l.op_type = 0
+                      AND l.start_time >= @desde AND l.start_time < @hastaExcl
+                      AND l.start_time <= clasif.entrada
+                      AND (l.duration IS NULL
+                           OR DATEADD(SECOND, l.duration / 10, l.start_time) >= clasif.entrada)
+                      ${filtroLog}
+                ) THEN 1 ELSE 0 END AS noAtendEnHorario
+            FROM clasif
+        )
+        SELECT
+            COUNT(*)                                     AS llamadas,
+            SUM(atendida)                                AS atendidasAgente,
+            SUM(CASE WHEN atendida = 0 THEN 1 ELSE 0 END) AS noAtendidas,
+            SUM(noAtendEnHorario)                        AS noAtendidasEnHorario
+        FROM flags;
+      `);
+      const f = (r.recordset[0] ?? {}) as Partial<MetricasIvr>;
+      return {
+        llamadas: f.llamadas ?? 0,
+        atendidasAgente: f.atendidasAgente ?? 0,
+        noAtendidas: f.noAtendidas ?? 0,
+        noAtendidasEnHorario: f.noAtendidasEnHorario ?? 0,
+      };
+    },
+  );
 }

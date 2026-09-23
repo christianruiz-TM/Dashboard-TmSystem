@@ -1,12 +1,17 @@
 import ExcelJS from "exceljs";
 
+/** Formato numérico de Excel para tiempos: 2 decimales fijos (8,50 y no 8,5). */
+export const FORMATO_2_DECIMALES = "#,##0.00";
+
 /**
- * Genera un XLSX simple de una hoja con cabecera en azul corporativo.
- * `columnas`: cabecera y clave de cada campo de las filas.
+ * Genera un XLSX simple de una hoja con cabecera en amarillo corporativo.
+ * `columnas`: cabecera y clave de cada campo de las filas; `formato` es un
+ * numFmt de Excel opcional (p. ej. FORMATO_2_DECIMALES para tiempos). Sin
+ * él Excel usa "General" y recorta los ceros finales.
  */
 export async function generarXlsx(
   nombreHoja: string,
-  columnas: { cabecera: string; clave: string; ancho?: number }[],
+  columnas: { cabecera: string; clave: string; ancho?: number; formato?: string }[],
   filas: Record<string, unknown>[],
 ): Promise<Buffer> {
   const libro = new ExcelJS.Workbook();
@@ -17,6 +22,7 @@ export async function generarXlsx(
     header: c.cabecera,
     key: c.clave,
     width: c.ancho ?? 18,
+    style: c.formato ? { numFmt: c.formato } : undefined,
   }));
   hoja.getRow(1).font = { bold: true, color: { argb: "FF1C1B1A" } };
   hoja.getRow(1).fill = {

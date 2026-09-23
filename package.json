@@ -12,7 +12,8 @@
     "seed:admin": "tsx scripts/seed-admin.ts",
     "introspect": "tsx scripts/introspect-rdb.ts",
     "agregados": "tsx scripts/aggregate-daily.ts",
-    "backup": "tsx scripts/backup-sqlite.ts"
+    "backup": "tsx scripts/backup-sqlite.ts",
+    "verificar": "tsx scripts/verificar-auditoria.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

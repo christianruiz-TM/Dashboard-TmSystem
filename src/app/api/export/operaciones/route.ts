@@ -4,8 +4,13 @@ import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { NOMBRE_UNIDAD, calcularFacturacion } from "@/lib/facturacion";
 import { esquemaRango } from "@/lib/fechas";
 import { unidadesPorCampania } from "@/lib/rdb/queries/facturacion";
+import {
+  campaniasEfectivas,
+  listaServicios,
+  mapaCampaniaServicio,
+} from "@/lib/rdb/queries/servicios";
 import { generarCsv, respuestaCsv } from "@/lib/export/csv";
-import { generarXlsx, respuestaXlsx } from "@/lib/export/xlsx";
+import { FORMATO_2_DECIMALES, generarXlsx, respuestaXlsx } from "@/lib/export/xlsx";
 
 /** Export del módulo de facturación (CSV para Excel ES o XLSX). */
 export async function GET(peticion: NextRequest) {
@@ -24,8 +29,16 @@ export async function GET(peticion: NextRequest) {
   }
   const { desde, hasta } = rango.data;
   const formato = params.get("formato") === "xlsx" ? "xlsx" : "csv";
+  const servicios = await listaServicios();
+  const camp = await campaniasEfectivas(
+    params.get("servicio") ?? undefined,
+    params.get("ivr") === "1",
+  );
 
-  const facturacion = calcularFacturacion(await unidadesPorCampania(desde, hasta));
+  const facturacion = calcularFacturacion(
+    await unidadesPorCampania(desde, hasta, camp),
+    mapaCampaniaServicio(servicios),
+  );
 
   registrarAuditoria({
     accion: "export",
@@ -36,11 +49,12 @@ export async function GET(peticion: NextRequest) {
   });
 
   const nombreArchivo = `facturacion_${desde}_${hasta}.${formato}`;
+  // Horas logadas/ready NO se exportan por campaña: los agentes blended las
+  // duplican (~×13). La hora real es global (ver KPI de Operaciones). Por
+  // campaña se usan las productivas (gestión real, sin duplicar).
   const columnas = [
     { cabecera: "Campaña", clave: "campania", ancho: 22 },
-    { cabecera: "Horas logadas", clave: "horasLogadas" },
-    { cabecera: "Horas ready", clave: "horasReady" },
-    { cabecera: "Horas productivas", clave: "horasProductivas" },
+    { cabecera: "Horas productivas", clave: "horasProductivas", formato: FORMATO_2_DECIMALES },
     { cabecera: "Interacciones", clave: "interacciones" },
     { cabecera: "Atendidas", clave: "atendidas" },
     { cabecera: "Éxitos", clave: "exitos" },
@@ -50,8 +64,6 @@ export async function GET(peticion: NextRequest) {
   ];
   const filas = facturacion.map((f) => ({
     campania: f.campania,
-    horasLogadas: f.medidas.horasLogadas,
-    horasReady: f.medidas.horasReady,
     horasProductivas: f.medidas.horasProductivas,
     interacciones: f.medidas.interacciones,
     atendidas: f.medidas.atendidas,

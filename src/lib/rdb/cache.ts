@@ -1,4 +1,5 @@
 import { LRUCache } from "lru-cache";
+import { hoyISO } from "@/lib/fechas";
 
 // ============================================================
 // Cache en memoria con TTL para resultados de RDBv2.
@@ -41,8 +42,10 @@ export async function conCache<T extends object>(
  * vivo (5 min); si todo el rango está cerrado, histórico (12 h).
  */
 export function ttlSegunRango(hastaISO: string): number {
-  const hoy = new Date().toISOString().slice(0, 10);
-  return hastaISO >= hoy ? TTL.diaEnCurso : TTL.historico;
+  // hoyISO() usa la hora LOCAL del servidor, que es la convención del proyecto.
+  // Con toISOString() se comparaba contra la fecha UTC y, de madrugada, un
+  // rango ya cerrado se cacheaba como si fuese día en curso (5 min en vez de 12 h).
+  return hastaISO >= hoyISO() ? TTL.diaEnCurso : TTL.historico;
 }
 
 /** Vacía la cache (uso en admin/diagnóstico). */

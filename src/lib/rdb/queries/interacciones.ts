@@ -3,7 +3,7 @@ import { obtenerEnums } from "../enums";
 import { mockVolumenPorCampania, mockVolumenPorDia } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type { VolumenCampania, VolumenDia } from "../types";
-import { claveCampanias, filtroCampanias, limitesRango, redondear1 } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./util";
 
 // ============================================================
 // Volumen de interacciones (tabla itr_thread = hilos por agente).
@@ -49,9 +49,9 @@ export async function volumenPorDia(
     `);
     return (r.recordset as VolumenDia[]).map((f) => ({
       ...f,
-      ahtSeg: redondear1(f.ahtSeg),
-      acwSeg: redondear1(f.acwSeg),
-      talkSeg: redondear1(f.talkSeg),
+      ahtSeg: redondear2(f.ahtSeg),
+      acwSeg: redondear2(f.acwSeg),
+      talkSeg: redondear2(f.talkSeg),
     }));
   });
 }
@@ -95,7 +95,7 @@ export async function volumenPorCampania(
       r.recordset as (Omit<VolumenCampania, "tipo"> & { tipoCodigo: number })[]
     ).map(({ tipoCodigo, ...fila }) => ({
       ...fila,
-      ahtSeg: redondear1(fila.ahtSeg),
+      ahtSeg: redondear2(fila.ahtSeg),
       tipo: enums.CampaignType?.[tipoCodigo] ?? `#${tipoCodigo}`,
     }));
   });

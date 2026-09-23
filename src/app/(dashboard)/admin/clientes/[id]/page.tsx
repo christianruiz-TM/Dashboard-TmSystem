@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -62,7 +63,7 @@ export default async function PaginaMapeoCliente({
             </div>
             <div className="flex gap-2">
               <Button type="submit">Guardar campañas</Button>
-              <Button variant="outline" render={<a href="/admin/clientes" />}>
+              <Button variant="outline" render={<Link href="/admin/clientes" />}>
                 Volver
               </Button>
             </div>

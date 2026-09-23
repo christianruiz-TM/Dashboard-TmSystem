@@ -1,10 +1,13 @@
 import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { LogoTm } from "@/components/logo-tm";
+import { RUTA_POR_ROL } from "@/lib/auth/rbac";
+import { obtenerSesion } from "@/lib/auth/session";
 import { iniciarSesion } from "./actions";
 
 export const metadata: Metadata = { title: "Acceso" };
@@ -20,6 +23,12 @@ export default async function PaginaLogin({
 }: {
   searchParams: Promise<{ error?: string; min?: string }>;
 }) {
+  // Si la sesión es REALMENTE válida (validada contra BBDD), al dashboard.
+  // Si la cookie está caducada, obtenerSesion devuelve null → se muestra el
+  // formulario (sin bucle de redirección).
+  const usuario = await obtenerSesion();
+  if (usuario) redirect(RUTA_POR_ROL[usuario.rol]);
+
   const { error, min } = await searchParams;
   const mensaje =
     error === "bloqueado" && min

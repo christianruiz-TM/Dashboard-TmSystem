@@ -13,15 +13,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { SelectorServicio } from "@/components/filtros/selector-servicio";
+import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
-import { duracionLegible } from "@/lib/fechas";
-import type { AgenteEstado, AgenteHoy, KpiCampaniaHoy } from "@/lib/rdb/types";
+import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
+import { horasDesdeSegundos, segundosLegibles } from "@/lib/fechas";
+import type { AgenteEstado, AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
 import { cn } from "@/lib/utils";
 
 interface DatosSupervision {
   agentes: AgenteEstado[];
   kpis: KpiCampaniaHoy[];
   top: AgenteHoy[];
+  ivr: MetricasIvr;
   umbral: number;
   actualizado: string;
 }
@@ -42,7 +47,17 @@ function colorSla(pct: number | null): string {
   return "text-red-600 font-semibold";
 }
 
-export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
+export function PanelSupervision({
+  inicial,
+  servicios,
+  servicio,
+  incluirIvr,
+}: {
+  inicial: DatosSupervision;
+  servicios: string[];
+  servicio?: string;
+  incluirIvr: boolean;
+}) {
   const [datos, setDatos] = useState<DatosSupervision>(inicial);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
@@ -50,7 +65,13 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
   const refrescar = useCallback(async () => {
     setCargando(true);
     try {
-      const respuesta = await fetch("/api/supervision/datos", { cache: "no-store" });
+      const qs = new URLSearchParams();
+      if (servicio) qs.set("servicio", servicio);
+      if (incluirIvr) qs.set("ivr", "1");
+      const url = qs.toString()
+        ? `/api/supervision/datos?${qs.toString()}`
+        : "/api/supervision/datos";
+      const respuesta = await fetch(url, { cache: "no-store" });
       if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
       setDatos(await respuesta.json());
       setError(null);
@@ -59,7 +80,7 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [servicio, incluirIvr]);
 
   useEffect(() => {
     const intervalo = setInterval(refrescar, REFRESCO_MS);
@@ -71,10 +92,16 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
   const recibidas = datos.kpis.reduce((acc, k) => acc + k.recibidas, 0);
   const atendidas = datos.kpis.reduce((acc, k) => acc + k.atendidas, 0);
   const abandonadas = datos.kpis.reduce((acc, k) => acc + k.abandonadas, 0);
-  const pctAbandono = recibidas > 0 ? (abandonadas / recibidas) * 100 : null;
+  const exitos = datos.kpis.reduce((acc, k) => acc + k.exitos, 0);
+  // Abandono y SLA se calculan SOLO sobre entrantes: las salientes no hacen
+  // cola, y mezclarlas hinchaba el SLA y ensuciaba el % de abandono.
+  const atendidasIn = datos.kpis.reduce((acc, k) => acc + k.atendidasInbound, 0);
+  const abandonadasIn = datos.kpis.reduce((acc, k) => acc + k.abandonadasInbound, 0);
+  const pctAbandono = recibidas > 0 ? (abandonadasIn / recibidas) * 100 : null;
   const slaGlobal =
-    atendidas > 0
-      ? datos.kpis.reduce((acc, k) => acc + (k.slaPct ?? 0) * k.atendidas, 0) / atendidas
+    atendidasIn > 0
+      ? datos.kpis.reduce((acc, k) => acc + (k.slaPct ?? 0) * k.atendidasInbound, 0) /
+        atendidasIn
       : null;
 
   return (
@@ -92,10 +119,14 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
             })}
           </p>
         </div>
-        <Button variant="outline" size="sm" onClick={refrescar} disabled={cargando}>
-          <RefreshCw className={cn("h-4 w-4", cargando && "animate-spin")} />
-          Actualizar
-        </Button>
+        <div className="flex flex-wrap items-center gap-3">
+          <SelectorServicio servicios={servicios} valor={servicio} />
+          <SelectorIvr incluir={incluirIvr} />
+          <Button variant="outline" size="sm" onClick={refrescar} disabled={cargando}>
+            <RefreshCw className={cn("h-4 w-4", cargando && "animate-spin")} />
+            Actualizar
+          </Button>
+        </div>
       </div>
 
       {error ? (
@@ -104,7 +135,7 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <TarjetaKpi titulo="Agentes Ready" valor={String(enEstado("Ready"))} />
         <TarjetaKpi
           titulo="No disponibles"
@@ -113,17 +144,28 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
         />
         <TarjetaKpi titulo="Recibidas hoy" valor={recibidas.toLocaleString("es-ES")} />
         <TarjetaKpi
-          titulo="Abandonadas"
-          valor={abandonadas.toLocaleString("es-ES")}
-          sub={pctAbandono != null ? `${pctAbandono.toFixed(1)} % de las recibidas` : undefined}
+          titulo="Abandonadas (entrantes)"
+          valor={abandonadasIn.toLocaleString("es-ES")}
+          sub={
+            pctAbandono != null
+              ? `${pctAbandono.toFixed(1)} % de las recibidas · ${abandonadas.toLocaleString("es-ES")} en total`
+              : undefined
+          }
         />
         <TarjetaKpi
-          titulo="SLA global"
+          titulo="SLA global (entrantes)"
           valor={slaGlobal != null ? `${slaGlobal.toFixed(1)} %` : "—"}
-          sub={`Objetivo: cola ≤ ${datos.umbral}s`}
+          sub={`Objetivo: cola ≤ ${datos.umbral}s · sobre ${atendidasIn.toLocaleString("es-ES")} atendidas de entrada`}
         />
         <TarjetaKpi titulo="Atendidas hoy" valor={atendidas.toLocaleString("es-ES")} />
+        <TarjetaKpi
+          titulo="Éxitos hoy"
+          valor={exitos.toLocaleString("es-ES")}
+          sub="Ventas / objetivos"
+        />
       </div>
+
+      <TarjetaIvr ivr={datos.ivr} />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
@@ -137,6 +179,7 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
                   <TableHead>Campaña</TableHead>
                   <TableHead className="text-right">Recibidas</TableHead>
                   <TableHead className="text-right">Atendidas</TableHead>
+                  <TableHead className="text-right">Éxitos</TableHead>
                   <TableHead className="text-right">Abandono</TableHead>
                   <TableHead className="text-right">Cola media</TableHead>
                   <TableHead className="text-right">AHT</TableHead>
@@ -146,19 +189,25 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
               <TableBody>
                 {datos.kpis.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center text-muted-foreground">
+                    <TableCell colSpan={8} className="text-center text-muted-foreground">
                       Sin actividad registrada hoy
                     </TableCell>
                   </TableRow>
                 ) : (
                   datos.kpis.map((k) => {
+                    // Abandono de la campaña: entrantes abandonadas / entrantes recibidas
                     const pctAb =
-                      k.recibidas > 0 ? ((k.abandonadas / k.recibidas) * 100).toFixed(1) : "0.0";
+                      k.recibidas > 0
+                        ? ((k.abandonadasInbound / k.recibidas) * 100).toFixed(1)
+                        : "0.0";
                     return (
                       <TableRow key={k.campania}>
                         <TableCell className="font-medium">{k.campania}</TableCell>
                         <TableCell className="text-right tabular-nums">{k.recibidas}</TableCell>
                         <TableCell className="text-right tabular-nums">{k.atendidas}</TableCell>
+                        <TableCell className="text-right tabular-nums text-emerald-700">
+                          {k.exitos}
+                        </TableCell>
                         <TableCell
                           className={cn(
                             "text-right tabular-nums",
@@ -168,10 +217,10 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
                           {pctAb} %
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {duracionLegible(k.colaMediaSeg)}
+                          {segundosLegibles(k.colaMediaSeg)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
-                          {duracionLegible(k.ahtSeg)}
+                          {segundosLegibles(k.ahtSeg)}
                         </TableCell>
                         <TableCell className={cn("text-right tabular-nums", colorSla(k.slaPct))}>
                           {k.slaPct != null ? `${k.slaPct.toFixed(1)} %` : "—"}
@@ -270,16 +319,16 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
                     </TableCell>
                     <TableCell className="text-right tabular-nums">{a.atendidas}</TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {duracionLegible(a.talkMedioSeg)}
+                      {segundosLegibles(a.talkMedioSeg)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {duracionLegible(a.acwMedioSeg)}
+                      {segundosLegibles(a.acwMedioSeg)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {duracionLegible(a.ahtMedioSeg)}
+                      {segundosLegibles(a.ahtMedioSeg)}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {duracionLegible(a.productivoSeg)}
+                      {horasDesdeSegundos(a.productivoSeg)}
                     </TableCell>
                   </TableRow>
                 ))
@@ -288,6 +337,30 @@ export function PanelSupervision({ inicial }: { inicial: DatosSupervision }) {
           </Table>
         </CardContent>
       </Card>
+
+      <Glosario
+        titulo="Supervisión · tiempo real"
+        claves={[
+          "servicio",
+          "estado",
+          "pausas",
+          "recibidas",
+          "atendidas",
+          "exitos",
+          "abandonadas",
+          "abandono",
+          "cola",
+          "sla",
+          "aht",
+          "acw",
+          "talk",
+          "productivo",
+          "ivr",
+          "ivrAtendidas",
+          "ivrNoAtendidas",
+          "ivrNoAtendidasHorario",
+        ]}
+      />
     </div>
   );
 }

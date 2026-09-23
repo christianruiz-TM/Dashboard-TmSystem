@@ -12,6 +12,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { Badge } from "@/components/ui/badge";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { SelectNativo } from "@/components/admin/select-nativo";
 import { db } from "@/lib/db/sqlite";
@@ -19,6 +20,7 @@ import { billingConfig, UNIDADES_FACTURACION } from "@/lib/db/schema";
 import { umbralSlaSeg } from "@/lib/db/settings";
 import { NOMBRE_UNIDAD } from "@/lib/facturacion";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
+import { listaServicios } from "@/lib/rdb/queries/servicios";
 import { borrarLineaFacturacion, crearLineaFacturacion, guardarUmbralSla } from "../acciones";
 
 export const metadata: Metadata = { title: "Facturación y SLA" };
@@ -30,11 +32,11 @@ export default async function PaginaFacturacionAdmin({
   searchParams: Promise<{ msg?: string }>;
 }) {
   const { msg } = await searchParams;
-  const campanias = await listadoCampanias();
+  const [campanias, servicios] = await Promise.all([listadoCampanias(), listaServicios()]);
   const lineas = db
     .select()
     .from(billingConfig)
-    .orderBy(asc(billingConfig.campaignShortname))
+    .orderBy(asc(billingConfig.serviceName), asc(billingConfig.campaignShortname))
     .all();
 
   return (
@@ -45,23 +47,35 @@ export default async function PaginaFacturacionAdmin({
         <CardHeader>
           <CardTitle className="text-base">Nueva línea de facturación</CardTitle>
           <CardDescription>
-            Una campaña puede tener varias líneas (modelos mixtos: horas + éxitos, etc.).
-            El precio es opcional: sin precio solo se muestran las unidades.
+            Lo normal es facturar por <strong>servicio (cliente)</strong>: la línea
+            aplica a todas sus campañas. Para un caso particular, elige una campaña
+            concreta (excepción que prevalece sobre la del servicio). Puede haber
+            varias líneas por ámbito (modelos mixtos: horas + éxitos). El precio es
+            opcional: sin precio solo se muestran las unidades.
           </CardDescription>
         </CardHeader>
         <CardContent>
           <form
             action={crearLineaFacturacion}
-            className="grid items-end gap-3 md:grid-cols-[1fr_1fr_120px_1fr_auto]"
+            className="grid items-end gap-3 md:grid-cols-[1.3fr_1fr_120px_1fr_auto]"
           >
             <div className="space-y-1.5">
-              <Label>Campaña</Label>
-              <SelectNativo name="campania" required>
-                {campanias.map((c) => (
-                  <option key={c.shortname} value={c.shortname}>
-                    {c.shortname} ({c.tipo})
-                  </option>
-                ))}
+              <Label>Ámbito (servicio o campaña)</Label>
+              <SelectNativo name="objetivo" required>
+                <optgroup label="Servicios (cliente) — todas sus campañas">
+                  {servicios.map((s) => (
+                    <option key={`svc:${s.servicio}`} value={`svc:${s.servicio}`}>
+                      {s.servicio} ({s.campanias.length} campañas)
+                    </option>
+                  ))}
+                </optgroup>
+                <optgroup label="Campañas (excepción puntual)">
+                  {campanias.map((c) => (
+                    <option key={`camp:${c.shortname}`} value={`camp:${c.shortname}`}>
+                      {c.shortname} ({c.tipo})
+                    </option>
+                  ))}
+                </optgroup>
               </SelectNativo>
             </div>
             <div className="space-y-1.5">
@@ -95,7 +109,8 @@ export default async function PaginaFacturacionAdmin({
           <Table>
             <TableHeader>
               <TableRow>
-                <TableHead>Campaña</TableHead>
+                <TableHead>Ámbito</TableHead>
+                <TableHead>Servicio / Campaña</TableHead>
                 <TableHead>Unidad</TableHead>
                 <TableHead className="text-right">€/unidad</TableHead>
                 <TableHead>Notas</TableHead>
@@ -105,14 +120,21 @@ export default async function PaginaFacturacionAdmin({
             <TableBody>
               {lineas.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                  <TableCell colSpan={6} className="text-center text-muted-foreground">
                     Sin configuración: en Operaciones se mostrarán todas las unidades sin importe
                   </TableCell>
                 </TableRow>
               ) : (
                 lineas.map((l) => (
                   <TableRow key={l.id}>
-                    <TableCell className="font-medium">{l.campaignShortname}</TableCell>
+                    <TableCell>
+                      <Badge variant={l.serviceName ? "default" : "secondary"} className="text-[10px]">
+                        {l.serviceName ? "Servicio" : "Campaña"}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="font-medium">
+                      {l.serviceName ?? l.campaignShortname}
+                    </TableCell>
                     <TableCell>{NOMBRE_UNIDAD[l.unidad]}</TableCell>
                     <TableCell className="text-right tabular-nums">
                       {l.precioUnitario != null

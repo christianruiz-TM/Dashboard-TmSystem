@@ -52,13 +52,38 @@ export interface AgenteEstado {
 export interface KpiCampaniaHoy {
   campania: string;
   tipo: string;
-  recibidas: number;
-  atendidas: number;
-  abandonadas: number;
+  recibidas: number; // entrantes (origin = 1)
+  atendidas: number; // TODAS las atendidas, cualquier origen
+  abandonadas: number; // TODAS las abandonadas, cualquier origen
+  /**
+   * Atendidas y abandonadas SOLO de entrada (origin = 1). Son el único
+   * denominador válido para SLA y % de abandono: las salientes no hacen cola
+   * y, mezcladas, disparaban el SLA (medido: 4.894 atendidas totales frente a
+   * 572 entrantes en un día real, ×8,6 de denominador).
+   */
+  atendidasInbound: number;
+  abandonadasInbound: number;
+  exitos: number; // sesiones de script con business_status = 3 (Success)
   ahtSeg: number | null;
   acwSeg: number | null;
   colaMediaSeg: number | null;
   slaPct: number | null; // % atendidas con cola <= umbral
+}
+
+/**
+ * Métrica de campañas IVR. De las llamadas entrantes que pasan por un IVR
+ * (distinct itr_global con origin=1):
+ *  - atendidasAgente: acaban atendidas por un agente humano.
+ *  - noAtendidas: el resto (llamadas − atendidasAgente).
+ *  - noAtendidasEnHorario: de las no atendidas, las que entraron mientras HABÍA
+ *    al menos un agente logado en las campañas del servicio (horario de
+ *    producción dinámico). Las de fuera de horario es normal que no se atiendan.
+ */
+export interface MetricasIvr {
+  llamadas: number;
+  atendidasAgente: number;
+  noAtendidas: number;
+  noAtendidasEnHorario: number;
 }
 
 /** Productividad de un agente en el día actual. */
@@ -75,8 +100,13 @@ export interface AgenteHoy {
 /** Unidades facturables de una campaña en un rango. */
 export interface UnidadesCampania {
   campania: string;
-  horasLogadas: number;
-  horasReady: number;
+  /**
+   * Horas de gestión real (suma de duration de las atendidas). Es la ÚNICA
+   * hora atribuible a una campaña. Las logadas/ready NO están aquí a
+   * propósito: ag_in_cp_log las graba una vez por campaña abierta y sumarlas
+   * multiplica el tiempo (medido en un día real: 2.602 h sumadas por campaña
+   * frente a 189 h reales, ×13,8). La cifra global vive en horasAgenteReales().
+   */
   horasProductivas: number;
   interacciones: number;
   atendidas: number;
@@ -97,8 +127,8 @@ export interface MetricaDiariaCampania {
   ahtSeg: number | null;
   acwSeg: number | null;
   talkSeg: number | null;
-  horasLogadas: number;
-  horasReady: number;
+  /** Horas de gestión real del día (ver nota en UnidadesCampania). */
+  horasProductivas: number;
   exitos: number;
   leadsFinalizados: number;
 }
@@ -121,6 +151,21 @@ export interface RazonNotReady {
   razon: string;
   veces: number;
   segundosTotal: number;
+}
+
+/**
+ * Horas reales de agente (unión de intervalos, GLOBAL). No es atribuible a
+ * campaña: ver horasAgenteReales en queries/agentes.ts.
+ */
+export interface HorasAgenteReales {
+  horasLogadas: number;
+  horasReady: number;
+}
+
+/** Servicio (cliente) con sus campañas reales asociadas. */
+export interface ServicioConCampanias {
+  servicio: string;
+  campanias: string[];
 }
 
 /** Estado de salud de la conexión a RDBv2. */

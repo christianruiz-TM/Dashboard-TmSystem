@@ -85,21 +85,30 @@ export const clientCampaigns = sqliteTable(
 );
 
 /**
- * Configuración de facturación por campaña. Puede haber VARIAS filas por
- * campaña (modelos mixtos: p. ej. horas + éxitos).
+ * Configuración de facturación. Cada línea aplica a un SERVICIO/cliente
+ * (`serviceName`, lo habitual: todas sus campañas igual) o a una CAMPAÑA
+ * concreta (`campaignShortname`, excepción que prevalece sobre la del
+ * servicio). Exactamente uno de los dos va informado. Puede haber VARIAS
+ * líneas por ámbito (modelos mixtos: p. ej. horas + éxitos).
  */
 export const billingConfig = sqliteTable(
   "billing_config",
   {
     id: integer("id").primaryKey({ autoIncrement: true }),
-    campaignShortname: text("campaign_shortname").notNull(),
+    // Ámbito CAMPAÑA (excepción): shortname de ph_campaign.
+    campaignShortname: text("campaign_shortname"),
+    // Ámbito SERVICIO (lo normal): name de ph_service.
+    serviceName: text("service_name"),
     unidad: text("unidad", { enum: UNIDADES_FACTURACION }).notNull(),
     // Precio por unidad en €. Opcional: si es NULL solo se muestran unidades.
     precioUnitario: real("precio_unitario"),
     notas: text("notas"),
     activo: integer("activo", { mode: "boolean" }).notNull().default(true),
   },
-  (t) => [index("idx_billing_campaign").on(t.campaignShortname)],
+  (t) => [
+    index("idx_billing_campaign").on(t.campaignShortname),
+    index("idx_billing_service").on(t.serviceName),
+  ],
 );
 
 /** Definición de SLA por servicio (ph_service.name). Default 80/20. */
@@ -130,6 +139,10 @@ export const aggDailyCampaign = sqliteTable(
     ahtSeg: real("aht_seg"),
     acwSeg: real("acw_seg"),
     talkSeg: real("talk_seg"),
+    // OBSOLETAS: sumaban ag_in_cp_log por campaña, que duplica el tiempo
+    // (~×13,8). Ya no se escriben. No usarlas: la hora logada real es global
+    // (queries/agentes.ts::horasAgenteReales). Se mantienen para no romper las
+    // filas históricas ya guardadas.
     horasLogadas: real("horas_logadas"),
     horasReady: real("horas_ready"),
     exitos: integer("exitos").notNull().default(0),

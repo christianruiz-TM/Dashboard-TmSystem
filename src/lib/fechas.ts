@@ -64,19 +64,40 @@ export function fechaCorta(fechaISO: string): string {
   return `${d}/${m}/${a}`;
 }
 
-/** Segundos → "1h 23m" o "45s" o "3m 12s". */
-export function duracionLegible(segundos: number | null | undefined): string {
+// ------------------------------------------------------------
+// Formato de TIEMPOS. Convención del proyecto (decidida 18/09/2026):
+//   - Tiempos POR INTERACCIÓN (AHT, conversación, ACW, cola) → segundos.
+//   - Tiempos ACUMULADOS (logadas, productivo, pausas)        → horas.
+//   - Siempre con 2 decimales FIJOS (192,30 s, no 192,3 s): así las columnas
+//     se alinean y cualquier cifra se puede cuadrar con SSMS (duration/10.0
+//     son segundos, /36000.0 son horas).
+// Antes los tiempos cortos salían como "3m 12s" y, pasada la hora, se
+// descartaban los segundos ("1h 30m"), lo que hacía imposible cuadrar totales.
+// ------------------------------------------------------------
+
+const DOS_DECIMALES: Intl.NumberFormatOptions = {
+  minimumFractionDigits: 2,
+  maximumFractionDigits: 2,
+};
+
+/** Segundos → "192,35 s". Para tiempos medios por interacción. */
+export function segundosLegibles(segundos: number | null | undefined): string {
   if (segundos == null || Number.isNaN(segundos)) return "—";
-  const s = Math.round(segundos);
-  if (s < 60) return `${s}s`;
-  const m = Math.floor(s / 60);
-  if (m < 60) return `${m}m ${s % 60}s`;
-  const h = Math.floor(m / 60);
-  return `${h}h ${m % 60}m`;
+  return `${segundos.toLocaleString("es-ES", DOS_DECIMALES)} s`;
 }
 
-/** Horas decimales → "123,5 h". */
+/** Horas decimales → "1.234,56 h". Para tiempos acumulados. */
 export function horasLegibles(horas: number | null | undefined): string {
   if (horas == null || Number.isNaN(horas)) return "—";
-  return `${horas.toLocaleString("es-ES", { maximumFractionDigits: 1 })} h`;
+  return `${horas.toLocaleString("es-ES", DOS_DECIMALES)} h`;
+}
+
+/**
+ * Total acumulado que llega en SEGUNDOS (p. ej. pausas o tiempo productivo
+ * por agente) → "8,53 h". Se muestra en horas para que esté en la misma
+ * unidad que las horas logadas y se puedan comparar y sumar entre sí.
+ */
+export function horasDesdeSegundos(segundos: number | null | undefined): string {
+  if (segundos == null || Number.isNaN(segundos)) return "—";
+  return horasLegibles(segundos / 3600);
 }

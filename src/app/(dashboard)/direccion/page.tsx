@@ -4,12 +4,17 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { GraficaBarras } from "@/components/graficas/grafica-barras";
 import { GraficaLineas } from "@/components/graficas/grafica-lineas";
 import { SelectorRango } from "@/components/filtros/selector-rango";
+import { SelectorServicio } from "@/components/filtros/selector-servicio";
+import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { requireRol } from "@/lib/auth/rbac";
 import { estadoAgregados, tendenciaMensual } from "@/lib/db/agregados";
-import { duracionLegible, esquemaRango, horasLegibles, presetsRango } from "@/lib/fechas";
+import { segundosLegibles, esquemaRango, horasLegibles, presetsRango } from "@/lib/fechas";
+import { horasAgenteReales } from "@/lib/rdb/queries/agentes";
 import { unidadesPorCampania } from "@/lib/rdb/queries/facturacion";
 import { volumenPorCampania } from "@/lib/rdb/queries/interacciones";
+import { campaniasEfectivas, listaServicios } from "@/lib/rdb/queries/servicios";
 
 export const metadata: Metadata = { title: "Dirección" };
 export const dynamic = "force-dynamic";
@@ -31,7 +36,12 @@ function rangoAnterior(desde: string, hasta: string): { desde: string; hasta: st
 export default async function PaginaDireccion({
   searchParams,
 }: {
-  searchParams: Promise<{ desde?: string; hasta?: string }>;
+  searchParams: Promise<{
+    desde?: string;
+    hasta?: string;
+    servicio?: string;
+    ivr?: string;
+  }>;
 }) {
   await requireRol("direccion");
   const presets = presetsRango();
@@ -44,13 +54,21 @@ export default async function PaginaDireccion({
   const { desde, hasta } = rango.success ? rango.data : mesActual;
   const anterior = rangoAnterior(desde, hasta);
 
-  const [campanias, campaniasAnt, unidades, unidadesAnt] = await Promise.all([
-    volumenPorCampania(desde, hasta),
-    volumenPorCampania(anterior.desde, anterior.hasta),
-    unidadesPorCampania(desde, hasta),
-    unidadesPorCampania(anterior.desde, anterior.hasta),
-  ]);
-  const tendencia = tendenciaMensual(12);
+  // Scoping por cliente/servicio; IVR excluido salvo que se marque el check
+  const incluirIvr = params.ivr === "1";
+  const servicios = await listaServicios();
+  const camp = await campaniasEfectivas(params.servicio, incluirIvr);
+
+  const [campanias, campaniasAnt, unidades, unidadesAnt, horasReales, horasRealesAnt] =
+    await Promise.all([
+      volumenPorCampania(desde, hasta, camp),
+      volumenPorCampania(anterior.desde, anterior.hasta, camp),
+      unidadesPorCampania(desde, hasta, camp),
+      unidadesPorCampania(anterior.desde, anterior.hasta, camp),
+      horasAgenteReales(desde, hasta, camp),
+      horasAgenteReales(anterior.desde, anterior.hasta, camp),
+    ]);
+  const tendencia = tendenciaMensual(12, camp);
   const agregados = estadoAgregados();
 
   // Totales del período y del período comparable anterior
@@ -64,8 +82,10 @@ export default async function PaginaDireccion({
   const inboundAnt = suma(campaniasAnt, (c) => c.inbound);
   const pctAbandonoAnt =
     inboundAnt > 0 ? (suma(campaniasAnt, (c) => c.abandonadas) / inboundAnt) * 100 : null;
-  const horas = suma(unidades, (u) => u.horasLogadas);
-  const horasAnt = suma(unidadesAnt, (u) => u.horasLogadas);
+  // Horas logadas REALES (unión de intervalos por agente, global). No se suma
+  // por campaña: los agentes blended duplican el tiempo entre campañas.
+  const horas = horasReales.horasLogadas;
+  const horasAnt = horasRealesAnt.horasLogadas;
   const exitos = suma(unidades, (u) => u.exitos);
   const exitosAnt = suma(unidadesAnt, (u) => u.exitos);
   const ahtMedio =
@@ -89,7 +109,13 @@ export default async function PaginaDireccion({
         </p>
       </div>
 
-      <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+        <div className="flex flex-wrap items-center gap-4">
+          <SelectorServicio servicios={servicios.map((s) => s.servicio)} valor={params.servicio} />
+          <SelectorIvr incluir={incluirIvr} />
+        </div>
+      </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <TarjetaKpi
@@ -113,16 +139,17 @@ export default async function PaginaDireccion({
           invertirColor
         />
         <TarjetaKpi
-          titulo="Horas logadas"
+          titulo="Horas logadas (reales)"
           valor={horasLegibles(horas)}
           variacionPct={variacion(horas, horasAnt)}
+          sub="Global, sin duplicar por campaña"
         />
         <TarjetaKpi
           titulo="Éxitos"
           valor={exitos.toLocaleString("es-ES")}
           variacionPct={variacion(exitos, exitosAnt)}
         />
-        <TarjetaKpi titulo="AHT medio" valor={duracionLegible(ahtMedio)} invertirColor />
+        <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} invertirColor />
       </div>
 
       <div className="grid gap-6 xl:grid-cols-2">
@@ -183,7 +210,7 @@ export default async function PaginaDireccion({
                   <th className="py-2 pr-4 text-right">Atendidas</th>
                   <th className="py-2 pr-4 text-right">Abandonadas</th>
                   <th className="py-2 pr-4 text-right">AHT</th>
-                  <th className="py-2 text-right">Horas logadas</th>
+                  <th className="py-2 text-right">Horas productivas</th>
                 </tr>
               </thead>
               <tbody>
@@ -203,10 +230,10 @@ export default async function PaginaDireccion({
                         {c.abandonadas.toLocaleString("es-ES")}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
-                        {duracionLegible(c.ahtSeg)}
+                        {segundosLegibles(c.ahtSeg)}
                       </td>
                       <td className="py-2 text-right tabular-nums">
-                        {u ? horasLegibles(u.horasLogadas) : "—"}
+                        {u ? horasLegibles(u.horasProductivas) : "—"}
                       </td>
                     </tr>
                   );
@@ -216,6 +243,21 @@ export default async function PaginaDireccion({
           </div>
         </CardContent>
       </Card>
+
+      <Glosario
+        titulo="Dirección"
+        claves={[
+          "servicio",
+          "interacciones",
+          "atendidas",
+          "abandono",
+          "aht",
+          "horasLogadas",
+          "horasProductivas",
+          "exitos",
+          "inboundOutbound",
+        ]}
+      />
     </div>
   );
 }

@@ -2,11 +2,14 @@ import type {
   AgenteEstado,
   AgenteHoy,
   CampaniaInfo,
+  HorasAgenteReales,
   KpiCampaniaHoy,
   MetricaDiariaCampania,
+  MetricasIvr,
   PenetracionLista,
   RazonNotReady,
   SaludRdb,
+  ServicioConCampanias,
   UnidadesCampania,
   VolumenCampania,
   VolumenDia,
@@ -109,7 +112,7 @@ function metricaDia(fecha: string, c: { shortname: string; tipo: string }): Metr
   const atendidas = Math.round(total * (0.55 + r() * 0.3));
   const aht = 180 + r() * 240;
   const acw = 20 + r() * 60;
-  const horasLog = total === 0 ? 0 : entre(r, 4, 14) * 7.2;
+
   return {
     fecha,
     campania: c.shortname,
@@ -122,8 +125,9 @@ function metricaDia(fecha: string, c: { shortname: string; tipo: string }): Metr
     ahtSeg: total ? Math.round(aht) : null,
     acwSeg: total ? Math.round(acw) : null,
     talkSeg: total ? Math.round(aht - acw) : null,
-    horasLogadas: Math.round(horasLog * 10) / 10,
-    horasReady: Math.round(horasLog * (0.55 + r() * 0.3) * 10) / 10,
+    // Gestión real del día: atendidas × AHT (las logadas/ready por campaña no
+    // existen a propósito, ver nota en types.ts)
+    horasProductivas: Math.round(((atendidas * aht) / 3600) * 100) / 100,
     exitos: Math.round(atendidas * (0.08 + r() * 0.18)),
     leadsFinalizados: c.tipo === "Inbound" ? 0 : Math.round(outbound * (0.15 + r() * 0.2)),
   };
@@ -204,14 +208,15 @@ export function mockVolumenPorCampania(
   return [...porCampania.values()].sort((a, b) => b.total - a.total);
 }
 
-export function mockEstadoAgentes(): AgenteEstado[] {
+export function mockEstadoAgentes(campanias?: string[]): AgenteEstado[] {
   // Sembrado por hora para que el polling muestre cambios cada hora
   const ahora = new Date();
   const semillaHora = `${ahora.toISOString().slice(0, 13)}`;
-  return AGENTES_DEMO.map((agente, i) => {
+  const campsDisponibles = campaniasFiltradas(campanias);
+  return AGENTES_DEMO.map((agente) => {
     const r = rng(`${semillaHora}|${agente}`);
     const estadoN = r();
-    const campania = CAMPANIAS_DEMO[entre(r, 0, CAMPANIAS_DEMO.length - 1)].shortname;
+    const campania = campsDisponibles[entre(r, 0, campsDisponibles.length - 1)].shortname;
     const estado = estadoN < 0.55 ? "Ready" : estadoN < 0.8 ? "NotReady" : "Logado";
     return {
       agente,
@@ -224,9 +229,10 @@ export function mockEstadoAgentes(): AgenteEstado[] {
   }).filter((_, i) => i < 10 + (ahora.getHours() % 3)); // plantilla variable
 }
 
-export function mockKpisCampaniasHoy(umbralSeg: number): KpiCampaniaHoy[] {
+export function mockKpisCampaniasHoy(umbralSeg: number, campanias?: string[]): KpiCampaniaHoy[] {
   const hoy = new Date().toISOString().slice(0, 10);
-  return CAMPANIAS_DEMO.filter((c) => c.tipo !== "Outbound")
+  return campaniasFiltradas(campanias)
+    .filter((c) => c.tipo !== "Outbound")
     .map((c) => {
       const m = metricaDia(hoy, c);
       const r = rng(`sla|${hoy}|${c.shortname}`);
@@ -240,6 +246,9 @@ export function mockKpisCampaniasHoy(umbralSeg: number): KpiCampaniaHoy[] {
         recibidas,
         atendidas: Math.max(0, recibidas - abandonadas),
         abandonadas,
+        atendidasInbound: Math.max(0, recibidas - abandonadas),
+        abandonadasInbound: abandonadas,
+        exitos: Math.round((m.exitos ?? 0) * avance),
         ahtSeg: m.ahtSeg,
         acwSeg: m.acwSeg,
         colaMediaSeg: Math.round(5 + r() * umbralSeg * 1.5),
@@ -249,9 +258,12 @@ export function mockKpisCampaniasHoy(umbralSeg: number): KpiCampaniaHoy[] {
     .filter((k) => k.recibidas > 0);
 }
 
-export function mockAgentesHoy(): AgenteHoy[] {
+export function mockAgentesHoy(campanias?: string[]): AgenteHoy[] {
   const hoy = new Date().toISOString().slice(0, 10);
-  return AGENTES_DEMO.map((agente) => {
+  // Con filtro de servicio, sólo una parte de la plantilla trabaja sus campañas
+  const plantilla =
+    campanias && campanias.length > 0 ? AGENTES_DEMO.slice(0, 4) : AGENTES_DEMO;
+  return plantilla.map((agente) => {
     const r = rng(`${hoy}|agente|${agente}`);
     const avance = Math.min(1, Math.max(0.05, (new Date().getHours() - 8) / 12));
     const atendidas = Math.round(entre(r, 15, 70) * avance);
@@ -269,6 +281,77 @@ export function mockAgentesHoy(): AgenteHoy[] {
   }).sort((a, b) => b.atendidas - a.atendidas);
 }
 
+export function mockKpisCampaniasRango(
+  desde: string,
+  hasta: string,
+  umbralSeg: number,
+  campanias?: string[],
+): KpiCampaniaHoy[] {
+  const porCamp = new Map<string, KpiCampaniaHoy>();
+  for (const m of mockMetricasDiarias(desde, hasta, campanias)) {
+    if (m.inbound === 0) continue; // KPIs de cola/SLA aplican a entrantes
+    const k = porCamp.get(m.campania) ?? {
+      campania: m.campania,
+      tipo: m.tipo ?? "—",
+      recibidas: 0,
+      atendidas: 0,
+      abandonadas: 0,
+      atendidasInbound: 0,
+      abandonadasInbound: 0,
+      exitos: 0,
+      ahtSeg: m.ahtSeg,
+      acwSeg: m.acwSeg,
+      colaMediaSeg: null,
+      slaPct: null,
+    };
+    k.recibidas += m.inbound;
+    k.atendidas += m.atendidas;
+    k.abandonadas += m.abandonadas;
+    // En el mock se reparte proporcionalmente lo entrante sobre el total
+    k.atendidasInbound += Math.round(
+      m.atendidas * (m.interacciones > 0 ? m.inbound / m.interacciones : 0),
+    );
+    k.abandonadasInbound += m.abandonadas;
+    k.exitos += m.exitos;
+    porCamp.set(m.campania, k);
+  }
+  return [...porCamp.values()]
+    .map((k) => {
+      const r = rng(`slaR|${desde}|${hasta}|${k.campania}`);
+      return {
+        ...k,
+        colaMediaSeg: Math.round(5 + r() * umbralSeg * 1.5),
+        slaPct: Math.round((70 + r() * 28) * 10) / 10,
+      };
+    })
+    .sort((a, b) => b.recibidas - a.recibidas);
+}
+
+export function mockAgentesRango(desde: string, hasta: string, campanias?: string[]): AgenteHoy[] {
+  const d1 = new Date(`${desde}T00:00:00`).getTime();
+  const d2 = new Date(`${hasta}T00:00:00`).getTime();
+  const dias = Math.max(1, Math.round((d2 - d1) / 86_400_000) + 1);
+  const plantilla =
+    campanias && campanias.length > 0 ? AGENTES_DEMO.slice(0, 4) : AGENTES_DEMO;
+  return plantilla
+    .map((agente) => {
+      const r = rng(`${desde}|${hasta}|agenteR|${agente}`);
+      const atendidas = entre(r, 15, 70) * dias;
+      const talk = 150 + r() * 200;
+      const acw = 15 + r() * 50;
+      return {
+        agente,
+        nombre: `Agente ${agente.charAt(0).toUpperCase()}${agente.slice(1)}`,
+        atendidas,
+        talkMedioSeg: Math.round(talk),
+        acwMedioSeg: Math.round(acw),
+        ahtMedioSeg: Math.round(talk + acw),
+        productivoSeg: Math.round(atendidas * (talk + acw)),
+      };
+    })
+    .sort((a, b) => b.atendidas - a.atendidas);
+}
+
 export function mockUnidadesPorCampania(
   desde: string,
   hasta: string,
@@ -280,17 +363,13 @@ export function mockUnidadesPorCampania(
       porCampania.get(m.campania) ??
       ({
         campania: m.campania,
-        horasLogadas: 0,
-        horasReady: 0,
         horasProductivas: 0,
         interacciones: 0,
         atendidas: 0,
         exitos: 0,
         leadsFinalizados: 0,
       } satisfies UnidadesCampania);
-    u.horasLogadas += m.horasLogadas;
-    u.horasReady += m.horasReady;
-    u.horasProductivas += (m.atendidas * (m.ahtSeg ?? 0)) / 3600;
+    u.horasProductivas += m.horasProductivas;
     u.interacciones += m.interacciones;
     u.atendidas += m.atendidas;
     u.exitos += m.exitos;
@@ -298,13 +377,8 @@ export function mockUnidadesPorCampania(
     porCampania.set(m.campania, u);
   }
   return [...porCampania.values()]
-    .map((u) => ({
-      ...u,
-      horasLogadas: Math.round(u.horasLogadas * 10) / 10,
-      horasReady: Math.round(u.horasReady * 10) / 10,
-      horasProductivas: Math.round(u.horasProductivas * 10) / 10,
-    }))
-    .sort((a, b) => b.horasLogadas - a.horasLogadas);
+    .map((u) => ({ ...u, horasProductivas: Math.round(u.horasProductivas * 10) / 10 }))
+    .sort((a, b) => b.interacciones - a.interacciones);
 }
 
 export function mockPenetracionListas(
@@ -333,9 +407,16 @@ export function mockPenetracionListas(
     });
 }
 
-export function mockRazonesNotReady(desde: string, hasta: string): RazonNotReady[] {
+export function mockRazonesNotReady(
+  desde: string,
+  hasta: string,
+  campanias?: string[],
+): RazonNotReady[] {
+  // En demo los agentes no están atados a campaña; si hay filtro de servicio
+  // se reduce el número de agentes para que se note el ámbito.
+  const tope = campanias && campanias.length > 0 ? 3 : 8;
   const filas: RazonNotReady[] = [];
-  for (const agente of AGENTES_DEMO.slice(0, 8)) {
+  for (const agente of AGENTES_DEMO.slice(0, tope)) {
     for (const razon of RAZONES_NR) {
       const r = rng(`nr|${desde}|${hasta}|${agente}|${razon}`);
       if (r() < 0.4) continue;
@@ -348,6 +429,54 @@ export function mockRazonesNotReady(desde: string, hasta: string): RazonNotReady
     }
   }
   return filas.sort((a, b) => b.segundosTotal - a.segundosTotal);
+}
+
+export function mockHorasAgenteReales(
+  desde: string,
+  hasta: string,
+  campanias?: string[],
+): HorasAgenteReales {
+  // ~6 h logadas reales por agente/día laborable (la unión, no la suma)
+  const d1 = new Date(`${desde}T00:00:00`).getTime();
+  const d2 = new Date(`${hasta}T00:00:00`).getTime();
+  const dias = Math.max(1, Math.round((d2 - d1) / 86_400_000) + 1);
+  const r = rng(`horas|${desde}|${hasta}|${campanias?.join(",") ?? "todas"}`);
+  // Con filtro de servicio sólo cuenta una parte de la plantilla
+  const agentes = campanias && campanias.length > 0 ? Math.max(2, AGENTES_DEMO.length / 4) : AGENTES_DEMO.length;
+  const logadas = agentes * dias * (5.5 + r() * 1.5);
+  return {
+    horasLogadas: Math.round(logadas * 10) / 10,
+    horasReady: Math.round(logadas * (0.55 + r() * 0.1) * 10) / 10,
+  };
+}
+
+export function mockMetricasIvr(
+  desde: string,
+  hasta: string,
+  campanias?: string[],
+): MetricasIvr {
+  const d1 = new Date(`${desde}T00:00:00`).getTime();
+  const d2 = new Date(`${hasta}T00:00:00`).getTime();
+  const dias = Math.max(1, Math.round((d2 - d1) / 86_400_000) + 1);
+  // El alcance entra en la semilla: al filtrar por servicio el mock debe dar
+  // cifras distintas (y menores), como haría la query real.
+  const r = rng(`ivr|${desde}|${hasta}|${campanias?.join(",") ?? "todas"}`);
+  const escala = campanias && campanias.length > 0 ? 0.35 : 1;
+  const llamadas = Math.round((300 + r() * 250) * dias * escala);
+  const atendidasAgente = Math.round(llamadas * (0.42 + r() * 0.15));
+  const noAtendidas = Math.max(0, llamadas - atendidasAgente);
+  return {
+    llamadas,
+    atendidasAgente,
+    noAtendidas,
+    // la mayoría de las no atendidas entran en horario de producción
+    noAtendidasEnHorario: Math.round(noAtendidas * (0.6 + r() * 0.3)),
+  };
+}
+
+export function mockServicios(): ServicioConCampanias[] {
+  // En demo cada campaña representa un cliente → un servicio del mismo nombre.
+  return CAMPANIAS_DEMO.map((c) => ({ servicio: c.shortname, campanias: [c.shortname] }));
 }
 
 export function mockSalud(): SaludRdb {

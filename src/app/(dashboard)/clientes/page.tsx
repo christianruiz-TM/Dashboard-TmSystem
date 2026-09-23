@@ -15,12 +15,15 @@ import {
 } from "@/components/ui/table";
 import { GraficaLineas } from "@/components/graficas/grafica-lineas";
 import { SelectorRango } from "@/components/filtros/selector-rango";
+import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { requireRol } from "@/lib/auth/rbac";
 import { campaniasDeCliente, listarClientes, obtenerCliente } from "@/lib/db/clientes";
-import { duracionLegible, esquemaRango, presetsRango } from "@/lib/fechas";
+import { segundosLegibles, esquemaRango, presetsRango } from "@/lib/fechas";
 import { penetracionListas } from "@/lib/rdb/queries/outbound";
 import { volumenPorCampania, volumenPorDia } from "@/lib/rdb/queries/interacciones";
+import { esIvr } from "@/lib/rdb/queries/servicios";
 
 export const metadata: Metadata = { title: "Mi servicio" };
 export const dynamic = "force-dynamic";
@@ -28,7 +31,7 @@ export const dynamic = "force-dynamic";
 export default async function PaginaClientes({
   searchParams,
 }: {
-  searchParams: Promise<{ desde?: string; hasta?: string; cliente?: string }>;
+  searchParams: Promise<{ desde?: string; hasta?: string; cliente?: string; ivr?: string }>;
 }) {
   const usuario = await requireRol("cliente");
   const params = await searchParams;
@@ -74,11 +77,15 @@ export default async function PaginaClientes({
   });
   const { desde, hasta } = rango.success ? rango.data : mesActual;
 
+  // IVR excluido salvo que se marque el check (las campañas IVR son automáticas)
+  const incluirIvr = params.ivr === "1";
+  const campaniasEf = incluirIvr ? campanias : campanias.filter((c) => !esIvr(c));
+
   // ⚠ Scoping: las campañas del cliente viajan como parámetros del SQL
   const [porDia, porCampania, listas] = await Promise.all([
-    volumenPorDia(desde, hasta, campanias),
-    volumenPorCampania(desde, hasta, campanias),
-    penetracionListas(desde, hasta, campanias),
+    volumenPorDia(desde, hasta, campaniasEf),
+    volumenPorCampania(desde, hasta, campaniasEf),
+    penetracionListas(desde, hasta, campaniasEf),
   ]);
 
   const total = porCampania.reduce((acc, c) => acc + c.total, 0);
@@ -92,7 +99,7 @@ export default async function PaginaClientes({
 
   const urlExport = `/api/export/cliente?desde=${desde}&hasta=${hasta}${
     usuario.rol === "admin" ? `&cliente=${cliente.id}` : ""
-  }`;
+  }${incluirIvr ? "&ivr=1" : ""}`;
 
   return (
     <div className="space-y-6">
@@ -135,7 +142,10 @@ export default async function PaginaClientes({
         </div>
       </div>
 
-      <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+        <SelectorIvr incluir={incluirIvr} />
+      </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <TarjetaKpi titulo="Interacciones" valor={total.toLocaleString("es-ES")} />
@@ -151,7 +161,7 @@ export default async function PaginaClientes({
             inbound > 0 ? `${((abandonadas / inbound) * 100).toFixed(1)} % del inbound` : undefined
           }
         />
-        <TarjetaKpi titulo="AHT medio" valor={duracionLegible(ahtMedio)} />
+        <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} />
         <TarjetaKpi
           titulo="Campañas activas"
           valor={String(porCampania.length)}
@@ -209,7 +219,7 @@ export default async function PaginaClientes({
                       {c.abandonadas.toLocaleString("es-ES")}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {duracionLegible(c.ahtSeg)}
+                      {segundosLegibles(c.ahtSeg)}
                     </TableCell>
                   </TableRow>
                 ))}
@@ -262,6 +272,21 @@ export default async function PaginaClientes({
           </CardContent>
         </Card>
       </div>
+
+      <Glosario
+        titulo="Mi servicio"
+        claves={[
+          "interacciones",
+          "atendidas",
+          "abandonadas",
+          "abandono",
+          "aht",
+          "exitos",
+          "leads",
+          "penetracion",
+          "inboundOutbound",
+        ]}
+      />
     </div>
   );
 }
