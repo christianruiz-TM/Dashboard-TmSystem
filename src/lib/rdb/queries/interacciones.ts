@@ -37,6 +37,8 @@ export async function volumenPorDia(
           SUM(CASE WHEN t.origin = 2 THEN 1 ELSE 0 END)                   AS outbound,
           SUM(CASE WHEN t.termination_state = 1 THEN 1 ELSE 0 END)        AS atendidas,
           SUM(CASE WHEN t.termination_state = 6 THEN 1 ELSE 0 END)        AS abandonadas,
+          -- Solo entrantes: base del % de abandono (regla 6.b de CLAUDE.md)
+          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 6 THEN 1 ELSE 0 END) AS abandonadasInbound,
           AVG(CASE WHEN t.termination_state = 1 THEN t.duration / 10.0 END)                       AS ahtSeg,
           AVG(CASE WHEN t.termination_state = 1 THEN t.wrapup_duration / 10.0 END)                AS acwSeg,
           AVG(CASE WHEN t.termination_state = 1 THEN (t.duration - t.wrapup_duration) / 10.0 END) AS talkSeg
@@ -82,6 +84,8 @@ export async function volumenPorCampania(
           SUM(CASE WHEN t.origin = 2 THEN 1 ELSE 0 END)                   AS outbound,
           SUM(CASE WHEN t.termination_state = 1 THEN 1 ELSE 0 END)        AS atendidas,
           SUM(CASE WHEN t.termination_state = 6 THEN 1 ELSE 0 END)        AS abandonadas,
+          -- Solo entrantes: base del % de abandono (regla 6.b de CLAUDE.md)
+          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 6 THEN 1 ELSE 0 END) AS abandonadasInbound,
           AVG(CASE WHEN t.termination_state = 1 THEN t.duration / 10.0 END) AS ahtSeg
       FROM itr_thread t
       INNER JOIN ph_campaign c ON t.campaign = c.code

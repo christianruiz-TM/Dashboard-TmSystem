@@ -166,6 +166,8 @@ export function mockVolumenPorDia(
       outbound: suma((m) => m.outbound),
       atendidas: suma((m) => m.atendidas),
       abandonadas: suma((m) => m.abandonadas),
+      // En el mock las abandonadas solo salen de las entrantes
+      abandonadasInbound: suma((m) => m.abandonadas),
       ahtSeg: conAht.length
         ? Math.round(conAht.reduce((a, m) => a + m.ahtSeg!, 0) / conAht.length)
         : null,
@@ -196,6 +198,7 @@ export function mockVolumenPorCampania(
         outbound: 0,
         atendidas: 0,
         abandonadas: 0,
+        abandonadasInbound: 0,
         ahtSeg: m.ahtSeg,
       } satisfies VolumenCampania);
     v.total += m.interacciones;
@@ -203,6 +206,7 @@ export function mockVolumenPorCampania(
     v.outbound += m.outbound;
     v.atendidas += m.atendidas;
     v.abandonadas += m.abandonadas;
+    v.abandonadasInbound += m.abandonadas; // el mock solo abandona entrantes
     porCampania.set(m.campania, v);
   }
   return [...porCampania.values()].sort((a, b) => b.total - a.total);

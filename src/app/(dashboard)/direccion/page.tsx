@@ -76,12 +76,17 @@ export default async function PaginaDireccion({
   const total = suma(campanias, (c) => c.total);
   const totalAnt = suma(campaniasAnt, (c) => c.total);
   const atendidas = suma(campanias, (c) => c.atendidas);
-  const abandonadas = suma(campanias, (c) => c.abandonadas);
+  // % abandono SOLO de entrantes, en numerador y denominador (regla 6.b), igual
+  // que Supervisión. Con las abandonadas de todos los orígenes salía 14,89 % en
+  // vez de 8,51 % (22/09/2026).
+  const abandonadasIn = suma(campanias, (c) => c.abandonadasInbound);
   const inbound = suma(campanias, (c) => c.inbound);
-  const pctAbandono = inbound > 0 ? (abandonadas / inbound) * 100 : null;
+  const pctAbandono = inbound > 0 ? (abandonadasIn / inbound) * 100 : null;
   const inboundAnt = suma(campaniasAnt, (c) => c.inbound);
   const pctAbandonoAnt =
-    inboundAnt > 0 ? (suma(campaniasAnt, (c) => c.abandonadas) / inboundAnt) * 100 : null;
+    inboundAnt > 0
+      ? (suma(campaniasAnt, (c) => c.abandonadasInbound) / inboundAnt) * 100
+      : null;
   // Horas logadas REALES (unión de intervalos por agente, global). No se suma
   // por campaña: los agentes blended duplican el tiempo entre campañas.
   const horas = horasReales.horasLogadas;
@@ -208,7 +213,7 @@ export default async function PaginaDireccion({
                   <th className="py-2 pr-4">Tipo</th>
                   <th className="py-2 pr-4 text-right">Interacciones</th>
                   <th className="py-2 pr-4 text-right">Atendidas</th>
-                  <th className="py-2 pr-4 text-right">Abandonadas</th>
+                  <th className="py-2 pr-4 text-right">Abandonadas (entrantes)</th>
                   <th className="py-2 pr-4 text-right">AHT</th>
                   <th className="py-2 text-right">Horas productivas</th>
                 </tr>
@@ -227,7 +232,7 @@ export default async function PaginaDireccion({
                         {c.atendidas.toLocaleString("es-ES")}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
-                        {c.abandonadas.toLocaleString("es-ES")}
+                        {c.abandonadasInbound.toLocaleString("es-ES")}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
                         {segundosLegibles(c.ahtSeg)}
@@ -250,6 +255,7 @@ export default async function PaginaDireccion({
           "servicio",
           "interacciones",
           "atendidas",
+          "abandonadas",
           "abandono",
           "aht",
           "horasLogadas",

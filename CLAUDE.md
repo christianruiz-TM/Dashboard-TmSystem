@@ -38,6 +38,8 @@ Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proye
    2/3 es enrutado del marcador, no espera de un cliente. `KpiCampaniaHoy`
    lleva `atendidasInbound`/`abandonadasInbound` justo para esto, y son el
    único denominador válido de esos tres indicadores (también en la UI).
+   `VolumenCampania`/`VolumenDia` llevan también `abandonadasInbound`: el %
+   de abandono es SIEMPRE `abandonadasInbound / inbound`, en todas las vistas.
 7. **Flat tables vs replicación**: flats (`flat_int_*`, `contacts_*`) tienen ~15 min
    de retraso → para histórico. Supervisión intradía usa tablas de replicación
    (`itr_thread`, `ag_in_cp_log`...) que van casi en tiempo real.
@@ -271,6 +273,34 @@ Resumen:
 - [x] Comprobado que la truncación `DATEADD(SECOND, duration/10, ...)` del SQL
       NO aporta error (0 s de diferencia medida en 7 días): no hacía falta
       pasar a milisegundos.
+
+## Auditoría 23/09/2026 (Opus 5.5)
+
+Verificado contra RDBv2 real y, lo de seguridad, en build de producción:
+
+- [x] **Next 16.2.9 → 16.3.6**: RCE sin autenticación en Windows
+      (GHSA-p293-qw3h-jr36). Tras actualizar hay que hacer `npm ci`.
+- [x] **Páginas de `/admin` sin `requireRol()`**: con una cookie inventada
+      enviaban la página entera en el cuerpo de la redirección. Regla nueva en
+      «Arquitectura → Auth propia».
+- [x] **% abandono de Dirección y portal de cliente** usaba las abandonadas de
+      todos los orígenes: 14,89 % en vez de 8,51 % (22/09) y 20,53 % en vez de
+      14,08 % (01-23/09). Ahora cuadra al decimal con Supervisión.
+- [x] **Estado de agentes**: al hacer login, la sesión (op 0) y el Not Ready
+      inicial (op 2) comparten `start_time` y el empate era aleatorio. Ahora se
+      elige fila abierta → estado antes que sesión → más reciente. Reproducido
+      en 25 instantes del 23/09: 14 errores antes, 0 ahora.
+- [ ] **Tendencia 12 meses de Dirección**: sigue sumando las abandonadas de
+      todos los orígenes (sale de `agg_daily_campaign`, que no tiene columna de
+      entrantes). Arreglar junto con el re-ejecutado de agregados.
+- [ ] **Cola media**: promedia todas las entrantes, abandonadas incluidas
+      (17,93 s); el glosario dice «hasta que la atiende un agente» (12,06 s).
+- [ ] **«Interacciones gestionadas»** (unidad facturable) es `COUNT(*)` de
+      hilos: incluye ocupado/no contesta/número inválido (+33 % el 22/09).
+- [ ] Menores: agregados con fecha UTC (`aggregate-daily.ts`), sin límite de
+      rango de fechas, cache sin deduplicar peticiones simultáneas, pool mssql
+      sin listener de `error`, SLA global calculado con % ya redondeados, IVR
+      del tiempo real cacheada 5 min, export de cliente sin mirar `activo`.
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026, sin implementar)
 

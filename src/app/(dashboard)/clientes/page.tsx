@@ -90,7 +90,8 @@ export default async function PaginaClientes({
 
   const total = porCampania.reduce((acc, c) => acc + c.total, 0);
   const atendidas = porCampania.reduce((acc, c) => acc + c.atendidas, 0);
-  const abandonadas = porCampania.reduce((acc, c) => acc + c.abandonadas, 0);
+  // Abandonadas = solo entrantes (glosario y regla 6.b): el % va sobre el inbound
+  const abandonadas = porCampania.reduce((acc, c) => acc + c.abandonadasInbound, 0);
   const inbound = porCampania.reduce((acc, c) => acc + c.inbound, 0);
   const ahtMedio =
     atendidas > 0
@@ -183,7 +184,7 @@ export default async function PaginaClientes({
             series={[
               { clave: "total", nombre: "Interacciones", color: "var(--chart-1)" },
               { clave: "atendidas", nombre: "Atendidas", color: "var(--chart-3)" },
-              { clave: "abandonadas", nombre: "Abandonadas", color: "var(--chart-4)" },
+              { clave: "abandonadasInbound", nombre: "Abandonadas", color: "var(--chart-4)" },
             ]}
           />
         </CardContent>
@@ -216,7 +217,7 @@ export default async function PaginaClientes({
                       {c.atendidas.toLocaleString("es-ES")}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
-                      {c.abandonadas.toLocaleString("es-ES")}
+                      {c.abandonadasInbound.toLocaleString("es-ES")}
                     </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {segundosLegibles(c.ahtSeg)}

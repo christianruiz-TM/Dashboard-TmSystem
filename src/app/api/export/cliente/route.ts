@@ -52,14 +52,23 @@ export async function GET(peticion: NextRequest) {
   });
 
   const csv = generarCsv(
-    ["Fecha", "Interacciones", "Inbound", "Outbound", "Atendidas", "Abandonadas", "AHT (s)", "ACW (s)"],
+    [
+      "Fecha",
+      "Interacciones",
+      "Inbound",
+      "Outbound",
+      "Atendidas",
+      "Abandonadas (entrantes)",
+      "AHT (s)",
+      "ACW (s)",
+    ],
     porDia.map((d) => [
       d.fecha,
       d.total,
       d.inbound,
       d.outbound,
       d.atendidas,
-      d.abandonadas,
+      d.abandonadasInbound, // como el portal: solo entrantes (regla 6.b)
       d.ahtSeg,
       d.acwSeg,
     ]),

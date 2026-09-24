@@ -12,7 +12,9 @@ export interface VolumenDia {
   inbound: number;
   outbound: number;
   atendidas: number;
-  abandonadas: number;
+  abandonadas: number; // TODAS las abandonadas, cualquier origen
+  /** Abandonadas de ENTRADA (origin = 1): la única base del % de abandono. */
+  abandonadasInbound: number;
   ahtSeg: number | null;
   acwSeg: number | null;
   talkSeg: number | null;
@@ -26,7 +28,14 @@ export interface VolumenCampania {
   inbound: number;
   outbound: number;
   atendidas: number;
-  abandonadas: number;
+  abandonadas: number; // TODAS las abandonadas, cualquier origen
+  /**
+   * Abandonadas de ENTRADA (origin = 1). El % de abandono es
+   * abandonadasInbound / inbound, igual que en Supervisión. Dividir las
+   * abandonadas de todos los orígenes entre las entrantes lo inflaba
+   * (medido 22/09/2026: 14,89 % en vez de 8,51 %).
+   */
+  abandonadasInbound: number;
   ahtSeg: number | null;
 }
 
@@ -43,9 +52,9 @@ export interface AgenteEstado {
   agente: string;
   nombre: string;
   campania: string;
-  estado: string; // Logado | Ready | NotReady (desde rdb_enums)
+  estado: string; // Ready | NotReady | Logado (sesión sin estado) | Deslogado
   motivo: string | null; // razón de NotReady si aplica
-  desdeMin: number; // minutos desde que entró en ese estado
+  desdeMin: number; // minutos en ese estado (Deslogado: desde su última actividad)
 }
 
 /** KPIs intradía de una campaña (vista supervisión). */

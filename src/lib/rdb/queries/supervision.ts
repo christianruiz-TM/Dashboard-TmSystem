@@ -20,9 +20,19 @@ import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./uti
 // ============================================================
 
 /**
- * Último estado conocido HOY de cada agente humano.
- * Si la última fila tiene duration informada, el estado ya terminó y no hay
- * otro posterior → el agente se ha deslogado ("Deslogado").
+ * Estado actual (hoy) de cada agente humano.
+ *
+ * Las filas con `duration IS NULL` son estados AÚN ABIERTOS (regla 10.b). Se
+ * elige, por este orden: una fila abierta antes que una cerrada; un estado
+ * Ready/NotReady antes que la mera sesión (op 0); y la más reciente.
+ *  - Sin ninguna fila abierta → "Deslogado" (desde su último fin).
+ *  - Solo la sesión abierta → "Logado".
+ *
+ * Por qué no vale "la fila de start_time más reciente": al hacer login,
+ * Altitude graba la sesión (op 0) y el Not Ready inicial (op 2) en el MISMO
+ * instante, y el empate lo decidía el plan de ejecución. Medido 23/09/2026:
+ * 6 de 7 agentes en pausa salían como "Logado" y la tarjeta "No disponibles"
+ * marcaba 1 en vez de 7.
  */
 export async function estadoAgentes(campanias?: string[]): Promise<AgenteEstado[]> {
   if (esMock()) return mockEstadoAgentes(campanias);
@@ -36,10 +46,22 @@ export async function estadoAgentes(campanias?: string[]): Promise<AgenteEstado[
     const filtro = filtroCampanias(request, campanias, "cf.shortname");
 
     const r = await request.query(`
-      -- Último registro de estado por agente en ag_in_cp_log (solo hoy)
+      -- Estado actual por agente en ag_in_cp_log (solo hoy)
       WITH ult AS (
           SELECT l.agent, l.campaign, l.op_type, l.reason, l.start_time, l.duration,
-                 ROW_NUMBER() OVER (PARTITION BY l.agent ORDER BY l.start_time DESC) AS rn
+                 -- Fin de su última actividad cerrada: "desde hace" de los deslogados
+                 MAX(CASE WHEN l.duration IS NOT NULL
+                          THEN DATEADD(SECOND, l.duration / 10, l.start_time) END)
+                     OVER (PARTITION BY l.agent) AS ultimoFin,
+                 ROW_NUMBER() OVER (
+                     PARTITION BY l.agent
+                     ORDER BY
+                         CASE WHEN l.duration IS NULL THEN 0 ELSE 1 END, -- abiertas primero
+                         CASE WHEN l.op_type = 0 THEN 1 ELSE 0 END,      -- estado antes que sesión
+                         l.start_time DESC,
+                         l.op_type DESC,     -- a igualdad, NotReady antes que Ready
+                         l.campaign          -- desempate estable
+                 ) AS rn
           FROM ag_in_cp_log l
           INNER JOIN ph_campaign cf ON l.campaign = cf.code
           WHERE l.start_time >= @desde AND l.start_time < @hastaExcl${filtro}
@@ -49,9 +71,11 @@ export async function estadoAgentes(campanias?: string[]): Promise<AgenteEstado[
           RTRIM(u.fullname)                                AS nombre,
           RTRIM(c.shortname)                               AS campania,
           ult.op_type                                      AS opType,
-          ult.duration                                     AS duracionCerrada,
+          CASE WHEN ult.duration IS NULL THEN 1 ELSE 0 END AS abierta,
           RTRIM(r.name)                                    AS motivo,
-          DATEDIFF(MINUTE, ult.start_time, GETDATE())      AS desdeMin
+          DATEDIFF(MINUTE,
+                   CASE WHEN ult.duration IS NULL THEN ult.start_time ELSE ult.ultimoFin END,
+                   GETDATE())                              AS desdeMin
       FROM ult
       INNER JOIN ph_e_user  u ON ult.agent    = u.code AND u.type = 1  -- solo humanos
       INNER JOIN ph_campaign c ON ult.campaign = c.code
@@ -68,7 +92,7 @@ export async function estadoAgentes(campanias?: string[]): Promise<AgenteEstado[
         nombre: string;
         campania: string;
         opType: number;
-        duracionCerrada: number | null;
+        abierta: number; // 1 = la fila elegida sigue abierta
         motivo: string | null;
         desdeMin: number;
       }[]
@@ -76,8 +100,9 @@ export async function estadoAgentes(campanias?: string[]): Promise<AgenteEstado[
       agente: f.agente,
       nombre: f.nombre,
       campania: f.campania,
-      estado: f.duracionCerrada != null ? "Deslogado" : (ETIQUETAS[f.opType] ?? `#${f.opType}`),
-      motivo: f.opType === 2 && f.duracionCerrada == null ? f.motivo : null,
+      // Solo se elige una fila cerrada si el agente no tiene NINGUNA abierta
+      estado: f.abierta ? (ETIQUETAS[f.opType] ?? `#${f.opType}`) : "Deslogado",
+      motivo: f.opType === 2 && f.abierta ? f.motivo : null,
       desdeMin: f.desdeMin,
     }));
   });
