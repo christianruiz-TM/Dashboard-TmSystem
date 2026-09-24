@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
+import { requireRol } from "@/lib/auth/rbac";
 import { campaniasDeCliente, obtenerCliente } from "@/lib/db/clientes";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import { guardarMapeoCliente } from "../../acciones";
@@ -18,6 +19,7 @@ export default async function PaginaMapeoCliente({
   params: Promise<{ id: string }>;
   searchParams: Promise<{ msg?: string }>;
 }) {
+  await requireRol(); // solo admin; el layout no basta (ver admin/layout.tsx)
   const { id } = await params;
   const { msg } = await searchParams;
   const cliente = obtenerCliente(Number(id));

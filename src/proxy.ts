@@ -3,8 +3,8 @@ import { NextResponse, type NextRequest } from "next/server";
 // ============================================================
 // Proxy (antes "middleware" en Next <16): solo comprueba la
 // PRESENCIA de la cookie de sesión y redirige a /login. La
-// validación real (BBDD, roles, caducidad) la hacen los layouts
-// de servidor con requireRol().
+// validación real (BBDD, roles, caducidad) la hace cada página
+// de servidor con requireRol() (los layouts no bastan).
 // ============================================================
 
 const RUTAS_PUBLICAS = ["/login"];

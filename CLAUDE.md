@@ -122,8 +122,12 @@ Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proye
 - **Auth propia**: sesiones en BBDD + cookie httpOnly (`src/lib/auth/`). Roles:
   `admin | direccion | operaciones | supervision | cliente`. El proxy
   (`src/proxy.ts`, el "middleware" renombrado en Next 16) solo comprueba presencia
-  de cookie; la validación real ocurre en los layouts de servidor con
-  `requireRol()` (`src/lib/auth/rbac.ts`). `ipPeticion()` solo hace caso a
+  de cookie; la validación real la hace **cada `page.tsx`** llamando a
+  `requireRol()` (`src/lib/auth/rbac.ts`), igual que cada Server Action y route
+  handler. **Nunca solo en un layout**: layout y página se renderizan en
+  paralelo y la redirección del layout salía con la página entera en el cuerpo
+  (verificado 23/09/2026 con una cookie inventada: usuarios, IPs de auditoría y
+  tarifas de `/admin/*`). `ipPeticion()` solo hace caso a
   `x-forwarded-for`/`x-real-ip` si `TRUST_PROXY=1`: esas cabeceras las pone
   quien llama y la clave del rate-limit es usuario+IP, así que sin proxy real
   delante se podía rotar la cabecera y saltarse el bloqueo de 5 intentos.

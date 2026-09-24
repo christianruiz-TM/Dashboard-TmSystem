@@ -15,6 +15,7 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { SelectNativo } from "@/components/admin/select-nativo";
+import { requireRol } from "@/lib/auth/rbac";
 import { db } from "@/lib/db/sqlite";
 import { billingConfig, UNIDADES_FACTURACION } from "@/lib/db/schema";
 import { umbralSlaSeg } from "@/lib/db/settings";
@@ -31,6 +32,7 @@ export default async function PaginaFacturacionAdmin({
 }: {
   searchParams: Promise<{ msg?: string }>;
 }) {
+  await requireRol(); // solo admin; el layout no basta (ver admin/layout.tsx)
   const { msg } = await searchParams;
   const [campanias, servicios] = await Promise.all([listadoCampanias(), listaServicios()]);
   const lineas = db

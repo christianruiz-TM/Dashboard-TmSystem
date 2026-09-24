@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
+import { requireRol } from "@/lib/auth/rbac";
 import { campaniasDeCliente, listarClientes } from "@/lib/db/clientes";
 import { alternarActivoCliente, crearCliente } from "../acciones";
 
@@ -25,6 +26,7 @@ export default async function PaginaClientesAdmin({
 }: {
   searchParams: Promise<{ msg?: string }>;
 }) {
+  await requireRol(); // solo admin; el layout no basta (ver admin/layout.tsx)
   const { msg } = await searchParams;
   const clientes = listarClientes();
 

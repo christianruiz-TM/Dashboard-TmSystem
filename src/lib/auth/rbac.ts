@@ -6,6 +6,9 @@ import { obtenerSesion } from "./session";
 // Control de acceso por rol. El middleware solo comprueba que
 // exista cookie; la autorización REAL ocurre aquí, en servidor.
 // `admin` tiene acceso a todo.
+// Se llama desde CADA page.tsx (y cada Server Action / route
+// handler), nunca solo desde un layout: el layout se renderiza en
+// paralelo a la página y no impide que esta se envíe.
 // ============================================================
 
 /** Ruta de inicio según el rol del usuario. */

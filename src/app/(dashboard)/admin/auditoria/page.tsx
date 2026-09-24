@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SelectNativo } from "@/components/admin/select-nativo";
+import { requireRol } from "@/lib/auth/rbac";
 import { db } from "@/lib/db/sqlite";
 import { auditLog } from "@/lib/db/schema";
 
@@ -38,6 +39,7 @@ export default async function PaginaAuditoria({
 }: {
   searchParams: Promise<{ accion?: string }>;
 }) {
+  await requireRol(); // solo admin; el layout no basta (ver admin/layout.tsx)
   const { accion } = await searchParams;
   const filtro = ACCIONES.includes(accion as (typeof ACCIONES)[number]) ? accion : undefined;
 

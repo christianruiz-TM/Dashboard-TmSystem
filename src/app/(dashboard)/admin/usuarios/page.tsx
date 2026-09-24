@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { SelectNativo } from "@/components/admin/select-nativo";
+import { requireRol } from "@/lib/auth/rbac";
 import { db } from "@/lib/db/sqlite";
 import { users, ROLES } from "@/lib/db/schema";
 import { listarClientes } from "@/lib/db/clientes";
@@ -41,6 +42,7 @@ export default async function PaginaUsuarios({
 }: {
   searchParams: Promise<{ msg?: string; editar?: string }>;
 }) {
+  await requireRol(); // solo admin; el layout no basta (ver admin/layout.tsx)
   const { msg, editar } = await searchParams;
   const listaUsuarios = db.select().from(users).orderBy(asc(users.username)).all();
   const clientes = listarClientes();

@@ -3,6 +3,7 @@ import { sql } from "drizzle-orm";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
+import { requireRol } from "@/lib/auth/rbac";
 import { contarSesionesActivas } from "@/lib/auth/session";
 import { estadoAgregados } from "@/lib/db/agregados";
 import { db } from "@/lib/db/sqlite";
@@ -22,6 +23,7 @@ function hace(iso: string | null): string {
 }
 
 export default async function PaginaAdmin() {
+  await requireRol(); // solo admin; el layout no basta (ver admin/layout.tsx)
   const salud = await saludRdb();
   const agregados = estadoAgregados();
   const totalUsuarios = db.select({ n: sql<number>`COUNT(*)` }).from(users).get()?.n ?? 0;
