@@ -7,6 +7,12 @@ datos (usuarios, config, agregados) en **SQLite**.
 Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proyecto:
 **español** (UI, comentarios, commits).
 
+**Estado (29/09/2026): aún NO desplegado en servidor.** Corre en el equipo de
+desarrollo de Christian (Windows 10, `npm run dev`) contra la RDBv2 real; ese
+PC no es el servidor, así que NSSM y las tareas programadas se configuran al
+desplegar (`docs/despliegue-windows.md`). Rama principal: `master`. El repo no
+tiene remoto git todavía.
+
 ## Reglas de dominio CRÍTICAS (no negociables)
 
 1. **DÉCIMAS DE SEGUNDO**: TODAS las columnas de duración de RDBv2 (`duration`,

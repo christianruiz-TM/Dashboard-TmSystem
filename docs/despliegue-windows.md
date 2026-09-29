@@ -8,6 +8,12 @@ la LAN de TmSystem con acceso al SQL Server de RDBv2.
 - Windows Server (o Windows 10/11 Pro) con acceso por TCP 1433 al SQL Server.
 - **Node.js 22 LTS o superior** (probado con Node 24): https://nodejs.org
 - Usuario SQL de **solo lectura** sobre la BBDD `RDBv2`.
+- **Zona horaria del servidor: la de España** («(UTC+01:00) Bruselas,
+  Copenhague, Madrid, París»), la misma
+  que el SQL Server de Altitude. La conexión a RDBv2 trabaja en hora local
+  (`useUTC: false`, regla 14 de CLAUDE.md): con otra zona, todos los rangos de
+  fechas y el «hoy» del panel quedarían desplazados. Comprobar con `tzutil /g`
+  → `Romance Standard Time`.
 
 ## Instalación
 
@@ -42,6 +48,21 @@ npm start    # → http://localhost:3000  y desde otro PC http://<servidor>:3000
 
 > Si el firewall de Windows bloquea el puerto: `New-NetFirewallRule -DisplayName
 > "Dashboard TmSystem" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow`
+
+### Alternativa a los pasos 4 y 6: llevarse la BBDD del equipo de desarrollo
+
+La SQLite del equipo de desarrollo ya tiene el usuario admin, la configuración
+de facturación y el histórico de agregados recalculado (29/09/2026). Para
+llevarla en vez de empezar de cero:
+
+1. En el equipo de desarrollo: `npm run backup` → `backups\dashboard_AAAAMMDD_HHmm.db`.
+2. En el servidor, **con la app parada**: copiar ese fichero como
+   `data\dashboard.db` (sin ficheros `-wal`/`-shm` de otra copia al lado).
+3. Arrancar: las migraciones que falten se aplican solas. Después, completar
+   los días que falten con `npm run agregados -- --desde <día siguiente al último> --hasta <ayer>`.
+
+Las sesiones abiertas en el equipo de desarrollo viajan en la copia, pero su
+cookie es de otro servidor: en la práctica todos tendrán que volver a entrar.
 
 ## Servicio de Windows con NSSM
 

@@ -61,7 +61,8 @@ Detalles de arquitectura, esquema SQLite, roles/vistas y convenciones: ver
 ### F1 — Autenticación, RBAC y Admin ✅ HECHO
 - [x] Sesiones en SQLite + cookie httpOnly, bcryptjs, expiración deslizante 8 h
 - [x] Rate-limit de login (5 fallos/15 min → bloqueo) + audit_log
-- [x] Proxy (middleware) + `requireRol()` en layouts; scoping cliente EN el SQL
+- [x] Proxy (middleware) + `requireRol()` en CADA página (no basta el layout:
+      corregido 23/09/2026, ver CLAUDE.md); scoping cliente EN el SQL
 - [x] `/admin`: usuarios (crear/editar/activar/reset), clientes + mapeo campañas,
       facturación por campaña, umbral SLA, visor auditoría, salud del sistema
 - [x] `npm run seed:admin`; cambio de contraseña forzado en primer acceso
@@ -71,14 +72,21 @@ Detalles de arquitectura, esquema SQLite, roles/vistas y convenciones: ver
 - [x] `/supervision`: polling 60 s, estados de agentes, KPIs campañas con SLA, top agentes
 - [x] `/operaciones`: unidades facturables + importes según billing_config,
       exports CSV (`;`+BOM) y XLSX, listas outbound, pausas Not Ready
-- [ ] **PENDIENTE (requiere credenciales)**: "tests de oro" — validar 4-5 cifras
-      de un día/campaña contra las queries SSMS de Christian
+- [x] Auditorías contra RDBv2 real (10/09, 23/09 y 29/09/2026): SLA/abandono
+      solo entrantes, horas reales sin duplicar, cola media de atendidas,
+      estado de agentes, driver en hora local… Detalle en CLAUDE.md.
+- [ ] **PENDIENTE**: "tests de oro" — validar 4-5 cifras de un día/campaña
+      contra las queries SSMS de Christian y convertir `npm run verificar` en
+      asserts (recomendado junto con una capa única de definiciones de KPI)
 
-### F3 — Dirección + Portal de clientes ✅ HECHO (backfill real pendiente)
+### F3 — Dirección + Portal de clientes ✅ HECHO (tarea programada al desplegar)
 - [x] `scripts/aggregate-daily.ts` (lotes de 7 días) + tabla agg_daily_campaign
 - [x] `/direccion`: KPIs vs período anterior, tendencia 12 meses, top campañas
 - [x] `/clientes`: scoping estricto por campañas del cliente, export CSV
-- [ ] **PENDIENTE**: backfill con datos reales + tarea programada 02:00
+- [x] Backfill con datos reales 01/06/2025 → 28/09/2026 (recalculado entero el
+      29/09/2026, tras corregir el UTC del driver; cuadra con RDBv2 en vivo)
+- [ ] **PENDIENTE al desplegar**: tareas programadas 02:00 (agregados) y 02:30
+      (backup) en el servidor (comandos en docs/despliegue-windows.md)
 
 ### F4 — Auditorías de coherencia + pulido (PENDIENTE → Sonnet/Opus)
 - Módulo "Calidad de datos" en /operaciones: logins solapados, duraciones
@@ -99,16 +107,26 @@ Detalles de arquitectura, esquema SQLite, roles/vistas y convenciones: ver
   /operaciones, /supervision, /clientes y todo /admin responden 200;
   API supervisión devuelve JSON; export CSV devuelve text/csv con BOM.
 
+Desde el 23/09/2026 las verificaciones se hacen contra RDBv2 REAL (no demo) y
+en build de producción; ver las secciones de auditoría de CLAUDE.md.
+
+## Estado a 29/09/2026
+
+- **Aún no desplegado en servidor.** Corre en el equipo de desarrollo de
+  Christian (Windows 10, `npm run dev`) contra la RDBv2 real.
+- Next 16.3.6 (16.2.9 tenía una RCE sin autenticación en Windows).
+- Rama de la auditoría del 23/09 fusionada en `master`. El repo git no tiene
+  remoto todavía.
+
 ## Primeros pasos de la próxima sesión
 
 1. **Tests de oro contra SSMS** (ver F2): validar con Christian 4-5 cifras de un
-   día/campaña. Atención especial a "horas logadas" por campaña: con agentes
-   blended abiertos en N campañas a la vez, las horas de campaña se duplican
-   entre campañas (op_type=0 cuenta lo mismo en cada una) — definir con negocio
-   si facturar logado, ready o productivo.
+   día/campaña y convertir `npm run verificar` en asserts. (La duda de las
+   horas por campaña ya está resuelta: se factura por horas PRODUCTIVAS.)
 2. Crear clientes reales + mapeo campañas (prefijos: Soc_, Bol_, gh_, Avo_,
    CajaR_, Wit_...; NO mapear Test_*) + usuarios por rol en /admin.
-3. Tarea programada de agregados (02:00) y backup (02:30) en el servidor definitivo
-   (docs/despliegue-windows.md). El backfill 06/2025→06/2026 ya está hecho en el
-   equipo de desarrollo.
+3. **Desplegar en el servidor definitivo** (docs/despliegue-windows.md): NSSM +
+   tareas programadas de agregados (02:00) y backup (02:30). La SQLite del
+   equipo de desarrollo ya tiene el histórico recalculado: se puede llevar
+   copiando un backup o volver a calcular (37 s).
 4. F4 (calidad de datos, wallboard) y F5 (internet) según plan.
