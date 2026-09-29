@@ -13,7 +13,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   interacciones: {
     termino: "Interacciones",
     definicion:
-      "Número total de contactos gestionados en el período (llamadas entrantes y salientes, etc.).",
+      "Volumen total del período: todas las llamadas entrantes y salientes, incluidas las que no llegaron a atenderse (ocupado, no contesta, número inválido, abandonadas…). Al facturar por «interacciones gestionadas» solo cuentan las atendidas.",
   },
   recibidas: {
     termino: "Recibidas",
@@ -49,7 +49,12 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   cola: {
     termino: "Cola media",
     definicion:
-      "Tiempo medio que las llamadas ENTRANTES esperan en cola antes de que las atienda un agente. Las salientes quedan fuera: su tiempo en estado de enrutado es del marcador, no espera de un cliente.",
+      "Tiempo medio que las llamadas ENTRANTES ATENDIDAS esperaron en cola hasta que las cogió un agente. Las que no tuvieron que esperar cuentan 0 s. Las abandonadas no entran aquí (ver «Espera de abandonadas»), y las salientes tampoco: su tiempo de enrutado es del marcador, no espera de un cliente.",
+  },
+  esperaAbandonadas: {
+    termino: "Espera de abandonadas",
+    definicion:
+      "Tiempo medio que esperaron las llamadas ENTRANTES que el cliente colgó antes de ser atendido. Se muestra aparte de la cola media: mezclarlas subía la cola (17,93 s en vez de 12,06 s un día real).",
   },
   sla: {
     termino: "SLA (nivel de servicio)",

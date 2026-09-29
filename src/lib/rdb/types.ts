@@ -75,7 +75,22 @@ export interface KpiCampaniaHoy {
   exitos: number; // sesiones de script con business_status = 3 (Success)
   ahtSeg: number | null;
   acwSeg: number | null;
+  /**
+   * Cola media de las entrantes ATENDIDAS: lo que esperaron hasta que las
+   * cogió un agente; las que no esperaron cuentan 0 s (igual que en el SLA).
+   * Antes promediaba todas las entrantes, abandonadas incluidas: 17,93 s en
+   * vez de 12,06 s el 22/09/2026.
+   */
   colaMediaSeg: number | null;
+  /** Espera media de las entrantes ABANDONADAS antes de colgar (aparte). */
+  esperaAbandonadasSeg: number | null;
+  /**
+   * Sumas SIN redondear de esas esperas, en segundos. La media global de
+   * varias campañas es suma / atendidasInbound (o abandonadasInbound):
+   * nunca promediar las medias ya redondeadas de cada campaña.
+   */
+  colaAtendidasTotalSeg: number;
+  esperaAbandonadasTotalSeg: number;
   slaPct: number | null; // % atendidas con cola <= umbral
 }
 

@@ -163,9 +163,13 @@ async function kpisCampaniasCore(
       -- tanto la cola media como el SLA.
       -- FORCE ORDER: primero el agregado de segmentos (índice en start_time),
       -- después el join por PK de itr_thread.
+      -- Se devuelven SUMAS de espera, no medias: aquí solo están los hilos con
+      -- fila de cola, y la media correcta divide entre TODAS las atendidas (o
+      -- abandonadas) entrantes de Q1, contando 0 s a las que no esperaron.
       SELECT
           RTRIM(c.shortname) AS campania,
-          AVG(x.colaSeg)     AS colaMediaSeg,
+          SUM(CASE WHEN x.termination_state = 1 THEN x.colaSeg ELSE 0 END) AS colaAtendidasTotalSeg,
+          SUM(CASE WHEN x.termination_state = 6 THEN x.colaSeg ELSE 0 END) AS esperaAbandonadasTotalSeg,
           SUM(CASE WHEN x.termination_state = 1 AND x.colaSeg > @umbralSeg
                    THEN 1 ELSE 0 END) AS atendidasFueraSla
       FROM (
@@ -207,7 +211,8 @@ async function kpisCampaniasCore(
     const porCampania = new Map(
       (rColas.recordset as {
         campania: string;
-        colaMediaSeg: number | null;
+        colaAtendidasTotalSeg: number;
+        esperaAbandonadasTotalSeg: number;
         atendidasFueraSla: number;
       }[]).map((f) => [f.campania, f]),
     );
@@ -221,10 +226,18 @@ async function kpisCampaniasCore(
 
     type FilaHilos = Omit<
       KpiCampaniaHoy,
-      "tipo" | "colaMediaSeg" | "slaPct" | "exitos"
+      | "tipo"
+      | "colaMediaSeg"
+      | "esperaAbandonadasSeg"
+      | "colaAtendidasTotalSeg"
+      | "esperaAbandonadasTotalSeg"
+      | "slaPct"
+      | "exitos"
     > & { tipoCodigo: number };
     return (rHilos.recordset as FilaHilos[]).map(({ tipoCodigo, ...fila }) => {
       const cola = porCampania.get(fila.campania);
+      const colaAtendidasTotalSeg = cola?.colaAtendidasTotalSeg ?? 0;
+      const esperaAbandonadasTotalSeg = cola?.esperaAbandonadasTotalSeg ?? 0;
       // SLA solo sobre ENTRANTES atendidas (las salientes no hacen cola).
       // Una entrante atendida sin fila de cola esperó 0 s → dentro de SLA.
       const slaPct =
@@ -240,7 +253,16 @@ async function kpisCampaniasCore(
         exitos: exitosPorCampania.get(fila.campania) ?? 0,
         ahtSeg: redondear2(fila.ahtSeg),
         acwSeg: redondear2(fila.acwSeg),
-        colaMediaSeg: redondear2(cola?.colaMediaSeg ?? null),
+        colaMediaSeg:
+          fila.atendidasInbound > 0
+            ? redondear2(colaAtendidasTotalSeg / fila.atendidasInbound)
+            : null,
+        esperaAbandonadasSeg:
+          fila.abandonadasInbound > 0
+            ? redondear2(esperaAbandonadasTotalSeg / fila.abandonadasInbound)
+            : null,
+        colaAtendidasTotalSeg,
+        esperaAbandonadasTotalSeg,
         slaPct,
         tipo: enums.CampaignType?.[tipoCodigo] ?? `#${tipoCodigo}`,
       };

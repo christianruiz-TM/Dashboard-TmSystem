@@ -55,7 +55,6 @@ export function PanelHistorico({
 }) {
   const recibidas = kpis.reduce((acc, k) => acc + k.recibidas, 0);
   const atendidas = kpis.reduce((acc, k) => acc + k.atendidas, 0);
-  const abandonadas = kpis.reduce((acc, k) => acc + k.abandonadas, 0);
   const exitos = kpis.reduce((acc, k) => acc + k.exitos, 0);
   // Abandono y SLA solo sobre entrantes (las salientes no hacen cola)
   const atendidasIn = kpis.reduce((acc, k) => acc + k.atendidasInbound, 0);
@@ -64,6 +63,16 @@ export function PanelHistorico({
   const slaGlobal =
     atendidasIn > 0
       ? kpis.reduce((acc, k) => acc + (k.slaPct ?? 0) * k.atendidasInbound, 0) / atendidasIn
+      : null;
+  // Cola de las atendidas y espera de las abandonadas (entrantes), por separado.
+  // Medias globales desde las sumas exactas, no promediando medias redondeadas.
+  const colaGlobal =
+    atendidasIn > 0
+      ? kpis.reduce((acc, k) => acc + k.colaAtendidasTotalSeg, 0) / atendidasIn
+      : null;
+  const esperaAbandGlobal =
+    abandonadasIn > 0
+      ? kpis.reduce((acc, k) => acc + k.esperaAbandonadasTotalSeg, 0) / abandonadasIn
       : null;
   const ahtMedio =
     atendidas > 0
@@ -87,7 +96,7 @@ export function PanelHistorico({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <TarjetaKpi titulo="Recibidas" valor={recibidas.toLocaleString("es-ES")} />
         <TarjetaKpi titulo="Atendidas" valor={atendidas.toLocaleString("es-ES")} />
         <TarjetaKpi
@@ -98,12 +107,18 @@ export function PanelHistorico({
         <TarjetaKpi
           titulo="% Abandono"
           valor={pctAbandono != null ? `${pctAbandono.toFixed(1)} %` : "—"}
-          sub={`${abandonadas.toLocaleString("es-ES")} abandonadas`}
+          // Mismo alcance que el %: solo entrantes (antes mostraba las de todos los orígenes)
+          sub={`${abandonadasIn.toLocaleString("es-ES")} entrantes abandonadas`}
         />
         <TarjetaKpi
           titulo="SLA global"
           valor={slaGlobal != null ? `${slaGlobal.toFixed(1)} %` : "—"}
           sub={`Objetivo: cola ≤ ${umbral}s`}
+        />
+        <TarjetaKpi
+          titulo="Cola media (atendidas)"
+          valor={segundosLegibles(colaGlobal)}
+          sub={`Abandonadas: ${segundosLegibles(esperaAbandGlobal)} de espera antes de colgar`}
         />
         <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} />
       </div>
@@ -124,6 +139,7 @@ export function PanelHistorico({
                 <TableHead className="text-right">Éxitos</TableHead>
                 <TableHead className="text-right">Abandono</TableHead>
                 <TableHead className="text-right">Cola media</TableHead>
+                <TableHead className="text-right">Espera aband.</TableHead>
                 <TableHead className="text-right">AHT</TableHead>
                 <TableHead className="text-right">SLA</TableHead>
               </TableRow>
@@ -131,7 +147,7 @@ export function PanelHistorico({
             <TableBody>
               {kpis.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                  <TableCell colSpan={9} className="text-center text-muted-foreground">
                     Sin actividad en el período seleccionado
                   </TableCell>
                 </TableRow>
@@ -159,6 +175,9 @@ export function PanelHistorico({
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {segundosLegibles(k.colaMediaSeg)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">
+                        {segundosLegibles(k.esperaAbandonadasSeg)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">
                         {segundosLegibles(k.ahtSeg)}
@@ -235,6 +254,7 @@ export function PanelHistorico({
           "exitos",
           "abandono",
           "cola",
+          "esperaAbandonadas",
           "sla",
           "aht",
           "acw",

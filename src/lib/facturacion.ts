@@ -10,7 +10,7 @@ import type { UnidadesCampania } from "@/lib/rdb/types";
 
 export const NOMBRE_UNIDAD: Record<UnidadFacturacion, string> = {
   horas: "Horas de agente (productivas)",
-  interacciones: "Interacciones gestionadas",
+  interacciones: "Interacciones gestionadas (atendidas)",
   exitos: "Éxitos / ventas",
   leads: "Leads finalizados",
 };
@@ -67,7 +67,10 @@ function cantidadPara(unidad: UnidadFacturacion, medidas: UnidadesCampania): num
       // horas logadas reales solo se reportan como cifra global.
       return medidas.horasProductivas;
     case "interacciones":
-      return medidas.interacciones;
+      // Gestionadas = ATENDIDAS (termination_state = 1), decidido 29/09/2026.
+      // `medidas.interacciones` es COUNT(*) de hilos: incluye ocupado, no
+      // contesta, número inválido... (+33 % el 22/09: 6.609 frente a 4.954).
+      return medidas.atendidas;
     case "exitos":
       return medidas.exitos;
     case "leads":

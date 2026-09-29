@@ -233,6 +233,23 @@ export function mockEstadoAgentes(campanias?: string[]): AgenteEstado[] {
   }).filter((_, i) => i < 10 + (ahora.getHours() % 3)); // plantilla variable
 }
 
+/** Esperas ficticias coherentes: sumas por campaña y medias sobre sus recuentos. */
+function mockColas(
+  r: () => number,
+  umbralSeg: number,
+  atendidasInbound: number,
+  abandonadasInbound: number,
+) {
+  const cola = 5 + r() * umbralSeg * 1.5;
+  const esperaAband = cola * (1.5 + r()); // quien cuelga suele haber esperado más
+  return {
+    colaMediaSeg: atendidasInbound > 0 ? Math.round(cola * 100) / 100 : null,
+    esperaAbandonadasSeg: abandonadasInbound > 0 ? Math.round(esperaAband * 100) / 100 : null,
+    colaAtendidasTotalSeg: cola * atendidasInbound,
+    esperaAbandonadasTotalSeg: esperaAband * abandonadasInbound,
+  };
+}
+
 export function mockKpisCampaniasHoy(umbralSeg: number, campanias?: string[]): KpiCampaniaHoy[] {
   const hoy = new Date().toISOString().slice(0, 10);
   return campaniasFiltradas(campanias)
@@ -244,18 +261,19 @@ export function mockKpisCampaniasHoy(umbralSeg: number, campanias?: string[]): K
       const avance = Math.min(1, Math.max(0.05, (new Date().getHours() - 8) / 12));
       const recibidas = Math.round(m.inbound * avance);
       const abandonadas = Math.round(m.abandonadas * avance);
+      const atendidasInbound = Math.max(0, recibidas - abandonadas);
       return {
         campania: c.shortname,
         tipo: c.tipo,
         recibidas,
-        atendidas: Math.max(0, recibidas - abandonadas),
+        atendidas: atendidasInbound,
         abandonadas,
-        atendidasInbound: Math.max(0, recibidas - abandonadas),
+        atendidasInbound,
         abandonadasInbound: abandonadas,
         exitos: Math.round((m.exitos ?? 0) * avance),
         ahtSeg: m.ahtSeg,
         acwSeg: m.acwSeg,
-        colaMediaSeg: Math.round(5 + r() * umbralSeg * 1.5),
+        ...mockColas(r, umbralSeg, atendidasInbound, abandonadas),
         slaPct: Math.round((70 + r() * 28) * 10) / 10,
       };
     })
@@ -306,6 +324,9 @@ export function mockKpisCampaniasRango(
       ahtSeg: m.ahtSeg,
       acwSeg: m.acwSeg,
       colaMediaSeg: null,
+      esperaAbandonadasSeg: null,
+      colaAtendidasTotalSeg: 0,
+      esperaAbandonadasTotalSeg: 0,
       slaPct: null,
     };
     k.recibidas += m.inbound;
@@ -324,7 +345,7 @@ export function mockKpisCampaniasRango(
       const r = rng(`slaR|${desde}|${hasta}|${k.campania}`);
       return {
         ...k,
-        colaMediaSeg: Math.round(5 + r() * umbralSeg * 1.5),
+        ...mockColas(r, umbralSeg, k.atendidasInbound, k.abandonadasInbound),
         slaPct: Math.round((70 + r() * 28) * 10) / 10,
       };
     })

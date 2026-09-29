@@ -103,6 +103,16 @@ export function PanelSupervision({
       ? datos.kpis.reduce((acc, k) => acc + (k.slaPct ?? 0) * k.atendidasInbound, 0) /
         atendidasIn
       : null;
+  // Cola de las atendidas y espera de las abandonadas (entrantes), por separado.
+  // Medias globales desde las sumas exactas, no promediando medias redondeadas.
+  const colaGlobal =
+    atendidasIn > 0
+      ? datos.kpis.reduce((acc, k) => acc + k.colaAtendidasTotalSeg, 0) / atendidasIn
+      : null;
+  const esperaAbandGlobal =
+    abandonadasIn > 0
+      ? datos.kpis.reduce((acc, k) => acc + k.esperaAbandonadasTotalSeg, 0) / abandonadasIn
+      : null;
 
   return (
     <div className="space-y-6">
@@ -135,7 +145,7 @@ export function PanelSupervision({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <TarjetaKpi titulo="Agentes Ready" valor={String(enEstado("Ready"))} />
         <TarjetaKpi
           titulo="No disponibles"
@@ -156,6 +166,11 @@ export function PanelSupervision({
           titulo="SLA global (entrantes)"
           valor={slaGlobal != null ? `${slaGlobal.toFixed(1)} %` : "—"}
           sub={`Objetivo: cola ≤ ${datos.umbral}s · sobre ${atendidasIn.toLocaleString("es-ES")} atendidas de entrada`}
+        />
+        <TarjetaKpi
+          titulo="Cola media (atendidas)"
+          valor={segundosLegibles(colaGlobal)}
+          sub={`Abandonadas: ${segundosLegibles(esperaAbandGlobal)} de espera antes de colgar`}
         />
         <TarjetaKpi titulo="Atendidas hoy" valor={atendidas.toLocaleString("es-ES")} />
         <TarjetaKpi
@@ -182,6 +197,7 @@ export function PanelSupervision({
                   <TableHead className="text-right">Éxitos</TableHead>
                   <TableHead className="text-right">Abandono</TableHead>
                   <TableHead className="text-right">Cola media</TableHead>
+                  <TableHead className="text-right">Espera aband.</TableHead>
                   <TableHead className="text-right">AHT</TableHead>
                   <TableHead className="text-right">SLA</TableHead>
                 </TableRow>
@@ -189,7 +205,7 @@ export function PanelSupervision({
               <TableBody>
                 {datos.kpis.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={9} className="text-center text-muted-foreground">
                       Sin actividad registrada hoy
                     </TableCell>
                   </TableRow>
@@ -218,6 +234,9 @@ export function PanelSupervision({
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {segundosLegibles(k.colaMediaSeg)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {segundosLegibles(k.esperaAbandonadasSeg)}
                         </TableCell>
                         <TableCell className="text-right tabular-nums">
                           {segundosLegibles(k.ahtSeg)}
@@ -350,6 +369,7 @@ export function PanelSupervision({
           "abandonadas",
           "abandono",
           "cola",
+          "esperaAbandonadas",
           "sla",
           "aht",
           "acw",

@@ -7,7 +7,9 @@ import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./uti
 
 // ============================================================
 // Unidades facturables por campaña. Tres fuentes:
-//  - itr_thread      → interacciones y horas productivas (gestión real)
+//  - itr_thread      → interacciones (volumen: todos los hilos), atendidas (lo
+//                      que se factura como «interacciones gestionadas») y
+//                      horas productivas (gestión real)
 //  - script_session  → éxitos (business_status = 3 Success)
 //  - activity        → leads finalizados (status = 3 Done), fechados por el
 //                      último event_moment de activity_history

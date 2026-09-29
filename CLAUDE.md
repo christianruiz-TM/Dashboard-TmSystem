@@ -29,6 +29,9 @@ Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proye
    - Atendida = `termination_state = 1` · Abandonada = `termination_state = 6`
    - Agente humano = `ph_e_user.type = 1`
    - Tiempo de cola = suma de `itr_segment.duration` con `state IN (2,3)`
+   - Cola media = media sobre entrantes ATENDIDAS (0 s si no esperaron); la
+     espera de las abandonadas se muestra APARTE, nunca mezclada
+   - Interacciones gestionadas (unidad facturable) = atendidas, no todos los hilos
    - Origen: `origin` 1=Inbound · 2=Outbound · 3=Workflow
 6.b **SLA, cola y % abandono SOLO sobre `origin = 1`** (entrantes). Verificado
    09/09/2026 con datos reales: de 4.894 atendidas de un día, 4.322 eran
@@ -293,10 +296,18 @@ Verificado contra RDBv2 real y, lo de seguridad, en build de producción:
 - [ ] **Tendencia 12 meses de Dirección**: sigue sumando las abandonadas de
       todos los orígenes (sale de `agg_daily_campaign`, que no tiene columna de
       entrantes). Arreglar junto con el re-ejecutado de agregados.
-- [ ] **Cola media**: promedia todas las entrantes, abandonadas incluidas
-      (17,93 s); el glosario dice «hasta que la atiende un agente» (12,06 s).
-- [ ] **«Interacciones gestionadas»** (unidad facturable) es `COUNT(*)` de
-      hilos: incluye ocupado/no contesta/número inválido (+33 % el 22/09).
+- [x] **Cola media** (decidido 29/09): solo entrantes ATENDIDAS, contando 0 s
+      a las que no esperaron (12,06 s el 22/09, antes 17,93 s con las
+      abandonadas dentro). La espera de las abandonadas va APARTE
+      (`esperaAbandonadasSeg`, 25,88 s). Q2 devuelve SUMAS y la media divide
+      entre `atendidasInbound`/`abandonadasInbound` de Q1: no cambiar a
+      `AVG(colaSeg)`, que solo ve los hilos con fila de cola. Las medias
+      globales salen de `colaAtendidasTotalSeg`/`esperaAbandonadasTotalSeg`.
+      Verificado: 217 campañas-día idénticas a una consulta independiente.
+- [x] **«Interacciones gestionadas»** (unidad facturable, decidido 29/09) =
+      ATENDIDAS (`termination_state = 1`), en `lib/facturacion.ts`. La medida
+      `interacciones` (COUNT(*) de hilos) queda solo como volumen. Antes se
+      facturaban todos los hilos: 1.701 frente a 1.160 en GrupoHuertas el 22/09.
 - [ ] Menores: agregados con fecha UTC (`aggregate-daily.ts`), sin límite de
       rango de fechas, cache sin deduplicar peticiones simultáneas, pool mssql
       sin listener de `error`, SLA global calculado con % ya redondeados, IVR
