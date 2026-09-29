@@ -1,0 +1,1 @@
+ALTER TABLE `agg_daily_campaign` ADD `abandonadas_inbound` integer;

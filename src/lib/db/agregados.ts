@@ -1,4 +1,4 @@
-import { inArray, sql } from "drizzle-orm";
+import { and, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "./sqlite";
 import { aggDailyCampaign } from "./schema";
 import type { MetricaDiariaCampania } from "@/lib/rdb/types";
@@ -11,15 +11,30 @@ import { guardarAjuste, obtenerAjuste } from "./settings";
 //
 // Las columnas horas_logadas / horas_ready de la tabla están OBSOLETAS: se
 // alimentaban de un SUM por campaña de ag_in_cp_log, que multiplica el tiempo
-// (~×13,8 medido). Ya no se escriben ni se leen; las filas anteriores a esta
-// corrección conservan el valor inflado. La hora logada real es global y sale
-// de queries/agentes.ts::horasAgenteReales. Ver regla 11 de CLAUDE.md.
+// (~×13,8 medido). Ya no se escriben ni se leen, y al re-agregar un día sus
+// filas se reescriben enteras, así que el valor inflado desaparece (queda
+// NULL). La hora logada real es global y sale de
+// queries/agentes.ts::horasAgenteReales. Ver regla 11 de CLAUDE.md.
 // ============================================================
 
-/** Inserta/actualiza las métricas de un conjunto de días y campañas. */
-export function upsertMetricasDiarias(filas: MetricaDiariaCampania[]): void {
+/**
+ * REEMPLAZA los agregados de los días [desde, hasta] por `filas`, en una sola
+ * transacción: borra esos días y los vuelve a escribir. Así re-ejecutar un
+ * rango lo deja idéntico a RDBv2 hoy, sin filas huérfanas de campañas que ya
+ * no tienen actividad ese día. `filas` debe traer TODAS las campañas del rango.
+ */
+export function reemplazarMetricasDiarias(
+  desde: string,
+  hasta: string,
+  filas: MetricaDiariaCampania[],
+): void {
+  const fuera = filas.find((m) => m.fecha < desde || m.fecha > hasta);
+  if (fuera) throw new Error(`Fila fuera del rango ${desde}..${hasta}: ${fuera.fecha}`);
   const ahora = new Date();
   db.transaction((tx) => {
+    tx.delete(aggDailyCampaign)
+      .where(and(gte(aggDailyCampaign.fecha, desde), lte(aggDailyCampaign.fecha, hasta)))
+      .run();
     for (const m of filas) {
       tx.insert(aggDailyCampaign)
         .values({
@@ -31,29 +46,13 @@ export function upsertMetricasDiarias(filas: MetricaDiariaCampania[]): void {
           outbound: m.outbound,
           atendidas: m.atendidas,
           abandonadas: m.abandonadas,
+          abandonadasInbound: m.abandonadasInbound,
           ahtSeg: m.ahtSeg,
           acwSeg: m.acwSeg,
           talkSeg: m.talkSeg,
           exitos: m.exitos,
           leadsFinalizados: m.leadsFinalizados,
           actualizadoAt: ahora,
-        })
-        .onConflictDoUpdate({
-          target: [aggDailyCampaign.fecha, aggDailyCampaign.campaignShortname],
-          set: {
-            tipoCampania: m.tipo,
-            interacciones: m.interacciones,
-            inbound: m.inbound,
-            outbound: m.outbound,
-            atendidas: m.atendidas,
-            abandonadas: m.abandonadas,
-            ahtSeg: m.ahtSeg,
-            acwSeg: m.acwSeg,
-            talkSeg: m.talkSeg,
-            exitos: m.exitos,
-            leadsFinalizados: m.leadsFinalizados,
-            actualizadoAt: ahora,
-          },
         })
         .run();
     }
@@ -65,7 +64,8 @@ export interface TendenciaMes {
   mes: string; // YYYY-MM
   interacciones: number;
   atendidas: number;
-  abandonadas: number;
+  /** Solo entrantes. null si el mes tiene días agregados antes de existir el dato. */
+  abandonadasInbound: number | null;
   exitos: number;
 }
 
@@ -83,7 +83,11 @@ export function tendenciaMensual(meses = 12, campanias?: string[]): TendenciaMes
       mes: sql<string>`substr(${aggDailyCampaign.fecha}, 1, 7)`,
       interacciones: sql<number>`SUM(${aggDailyCampaign.interacciones})`,
       atendidas: sql<number>`SUM(${aggDailyCampaign.atendidas})`,
-      abandonadas: sql<number>`SUM(${aggDailyCampaign.abandonadas})`,
+      // Si algún día del mes no tiene el dato (agregado antes del 29/09/2026),
+      // hueco en la gráfica en vez de una suma parcial que parezca real.
+      abandonadasInbound: sql<number | null>`CASE
+        WHEN COUNT(*) = COUNT(${aggDailyCampaign.abandonadasInbound})
+        THEN SUM(${aggDailyCampaign.abandonadasInbound}) END`,
       exitos: sql<number>`SUM(${aggDailyCampaign.exitos})`,
     })
     .from(aggDailyCampaign)

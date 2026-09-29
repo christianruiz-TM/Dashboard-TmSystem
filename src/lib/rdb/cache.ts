@@ -22,8 +22,16 @@ export const TTL = {
 const cache = new LRUCache<string, object>({ max: 500, ttl: TTL.diaEnCurso });
 
 /**
+ * Consultas EN VUELO por clave. Sin esto, cuando caducaba una entrada y varios
+ * supervisores refrescaban a la vez, cada uno lanzaba su propia query idéntica
+ * contra RDBv2. Ahora todos esperan a la misma promesa.
+ */
+const enCurso = new Map<string, Promise<object>>();
+
+/**
  * Ejecuta `fn` con cache por clave. La clave debe incluir todo lo que
  * cambia el resultado: vista + rango + campañas permitidas.
+ * Si falla, no se cachea nada y la siguiente llamada reintenta.
  */
 export async function conCache<T extends object>(
   clave: string,
@@ -32,9 +40,17 @@ export async function conCache<T extends object>(
 ): Promise<T> {
   const hit = cache.get(clave);
   if (hit !== undefined) return hit as T;
-  const valor = await fn();
-  cache.set(clave, valor, { ttl: ttlMs });
-  return valor;
+  const pendiente = enCurso.get(clave);
+  if (pendiente) return pendiente as Promise<T>;
+
+  const promesa = fn()
+    .then((valor) => {
+      cache.set(clave, valor, { ttl: ttlMs });
+      return valor;
+    })
+    .finally(() => enCurso.delete(clave));
+  enCurso.set(clave, promesa);
+  return promesa;
 }
 
 /**

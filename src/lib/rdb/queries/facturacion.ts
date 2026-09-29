@@ -59,6 +59,8 @@ export async function metricasDiariasPorCampania(
           SUM(CASE WHEN t.origin = 2 THEN 1 ELSE 0 END)                   AS outbound,
           SUM(CASE WHEN t.termination_state = 1 THEN 1 ELSE 0 END)        AS atendidas,
           SUM(CASE WHEN t.termination_state = 6 THEN 1 ELSE 0 END)        AS abandonadas,
+          -- Solo entrantes: la tendencia de abandono de Dirección (regla 6.b)
+          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 6 THEN 1 ELSE 0 END) AS abandonadasInbound,
           AVG(CASE WHEN t.termination_state = 1 THEN t.duration / 10.0 END)                       AS ahtSeg,
           AVG(CASE WHEN t.termination_state = 1 THEN t.wrapup_duration / 10.0 END)                AS acwSeg,
           AVG(CASE WHEN t.termination_state = 1 THEN (t.duration - t.wrapup_duration) / 10.0 END) AS talkSeg,
@@ -150,6 +152,7 @@ export async function metricasDiariasPorCampania(
           outbound: 0,
           atendidas: 0,
           abandonadas: 0,
+          abandonadasInbound: 0,
           ahtSeg: null,
           acwSeg: null,
           talkSeg: null,
@@ -169,6 +172,7 @@ export async function metricasDiariasPorCampania(
       outbound: number;
       atendidas: number;
       abandonadas: number;
+      abandonadasInbound: number;
       ahtSeg: number | null;
       acwSeg: number | null;
       talkSeg: number | null;
@@ -182,6 +186,7 @@ export async function metricasDiariasPorCampania(
       m.outbound = f.outbound;
       m.atendidas = f.atendidas;
       m.abandonadas = f.abandonadas;
+      m.abandonadasInbound = f.abandonadasInbound;
       m.ahtSeg = redondear2(f.ahtSeg);
       m.acwSeg = redondear2(f.acwSeg);
       m.talkSeg = redondear2(f.talkSeg);

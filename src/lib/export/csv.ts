@@ -3,6 +3,8 @@
 // (sin BOM, Excel ES rompe los acentos; con coma, no separa).
 // ============================================================
 
+import { cabeceraAdjunto } from "./adjunto";
+
 const BOM = "﻿";
 const SEPARADOR = ";";
 
@@ -35,7 +37,7 @@ export function respuestaCsv(nombreArchivo: string, contenido: string): Response
   return new Response(contenido, {
     headers: {
       "Content-Type": "text/csv; charset=utf-8",
-      "Content-Disposition": `attachment; filename="${nombreArchivo}"`,
+      "Content-Disposition": cabeceraAdjunto(nombreArchivo),
       "Cache-Control": "no-store",
     },
   });

@@ -1,4 +1,5 @@
 import ExcelJS from "exceljs";
+import { cabeceraAdjunto } from "./adjunto";
 
 /** Formato numérico de Excel para tiempos: 2 decimales fijos (8,50 y no 8,5). */
 export const FORMATO_2_DECIMALES = "#,##0.00";
@@ -42,7 +43,7 @@ export function respuestaXlsx(nombreArchivo: string, contenido: Buffer): Respons
   return new Response(new Uint8Array(contenido), {
     headers: {
       "Content-Type": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-      "Content-Disposition": `attachment; filename="${nombreArchivo}"`,
+      "Content-Disposition": cabeceraAdjunto(nombreArchivo),
       "Cache-Control": "no-store",
     },
   });

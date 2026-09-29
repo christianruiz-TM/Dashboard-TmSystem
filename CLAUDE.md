@@ -108,6 +108,16 @@ Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proye
     Comparar contra `MAX(event_moment)` por actividad usa el índice
     `ixactivity_act_hist` y da **0,2 s con resultado idéntico** (176×).
 
+14. **El driver trabaja en HORA LOCAL (`useUTC: false` en `rdb/pool.ts`). No
+    quitarlo.** RDBv2 guarda `start_time`/`event_moment` en hora local de España
+    (`gmt_start_time` es la UTC; diferencia medida: 120 min en verano) y el
+    servidor SQL está en +02:00, igual que Node. Con el valor por defecto del
+    driver (`true`) los parámetros viajaban en UTC: pedir el día 21 a las 00:00
+    llegaba como el 20 a las 22:00, y al leer, un 10:00 salía como 12:00 (la
+    frescura de /admin decía siempre «hace menos de 1 min»). Verificado
+    29/09/2026. En llamadas apenas se notaba (10 hilos de 117.929 entre las
+    22 y las 24 h en septiembre); en leads, 365 eventos al mes caían mal.
+
 ## Referencia del esquema RDBv2
 
 - `docs/referencia_bbdd_altitude_v85.md` — esquema completo, enumerados, relaciones
@@ -183,6 +193,9 @@ Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proye
 - `npm run seed:admin` — crear usuario admin inicial (parámetros por env vars)
 - `npm run introspect` — validar esquema real de RDBv2 → `docs/esquema-real.md`
 - `npm run agregados [-- --desde 2026-01-01 --hasta 2026-01-31]` — agregados diarios
+  (sin argumentos: ayer, en hora local). Cada lote de 7 días REEMPLAZA sus días
+  enteros, así que re-ejecutar un rango lo deja idéntico a RDBv2. Recalculado
+  entero el 29/09/2026 (01/06/2025 → 28/09/2026, 37 s).
 - `npm run backup` — backup consistente del SQLite a `./backups/`
 - `npm run verificar` — ejecuta los KPIs clave contra RDBv2 real y muestra
   cifras y tiempos (SLA por origen, horas reales de hoy y de ayer, unidades
@@ -197,7 +210,10 @@ Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proye
   polling y formularios interactivos.
 - Exports CSV: separador `;` y BOM UTF-8 (Excel español). Ver `src/lib/export/`.
 - Fechas en parámetros de URL y BBDD propia: `YYYY-MM-DD` (hora local del servidor,
-  que coincide con la hora de España de la centralita).
+  que coincide con la hora de España de la centralita). Nunca `toISOString()`
+  para sacar una fecha o una hora: da UTC (ver regla 14). Rangos por URL
+  validados con `esquemaRango` (fechas que existan y máximo `MAX_DIAS_RANGO` =
+  366 días); si se descartan, la vista lo avisa con `AvisoRango`.
 - **Tiempos: 2 decimales fijos y unidad según tipo** (decidido 18/09/2026):
   - Por interacción (AHT, conversación, ACW, cola) → **segundos**:
     `segundosLegibles()` → «192,35 s».
@@ -293,9 +309,16 @@ Verificado contra RDBv2 real y, lo de seguridad, en build de producción:
       inicial (op 2) comparten `start_time` y el empate era aleatorio. Ahora se
       elige fila abierta → estado antes que sesión → más reciente. Reproducido
       en 25 instantes del 23/09: 14 errores antes, 0 ahora.
-- [ ] **Tendencia 12 meses de Dirección**: sigue sumando las abandonadas de
-      todos los orígenes (sale de `agg_daily_campaign`, que no tiene columna de
-      entrantes). Arreglar junto con el re-ejecutado de agregados.
+- [x] **Tendencia 12 meses de Dirección** (29/09): columna nueva
+      `abandonadas_inbound` en `agg_daily_campaign` (migración 0002) y la
+      gráfica pinta solo entrantes. Histórico recalculado entero: agosto 2026
+      cuadra al número con RDBv2 en vivo. Del histórico viejo se fueron 4.021
+      filas de ceros y las horas logadas infladas; interacciones y atendidas
+      apenas cambian (0-17 al mes) y leads un 0,1-1 %.
+- [x] **Driver en UTC** (29/09, regla 14): todas las fechas del panel iban
+      desplazadas 2 h y la frescura de /admin no podía funcionar. Lo destapó
+      la comprobación de `reemplazarMetricasDiarias`, que rechazaba filas del
+      día anterior al rango.
 - [x] **Cola media** (decidido 29/09): solo entrantes ATENDIDAS, contando 0 s
       a las que no esperaron (12,06 s el 22/09, antes 17,93 s con las
       abandonadas dentro). La espera de las abandonadas va APARTE
@@ -308,21 +331,27 @@ Verificado contra RDBv2 real y, lo de seguridad, en build de producción:
       ATENDIDAS (`termination_state = 1`), en `lib/facturacion.ts`. La medida
       `interacciones` (COUNT(*) de hilos) queda solo como volumen. Antes se
       facturaban todos los hilos: 1.701 frente a 1.160 en GrupoHuertas el 22/09.
-- [ ] Menores: agregados con fecha UTC (`aggregate-daily.ts`), sin límite de
-      rango de fechas, cache sin deduplicar peticiones simultáneas, pool mssql
-      sin listener de `error`, SLA global calculado con % ya redondeados, IVR
-      del tiempo real cacheada 5 min, export de cliente sin mirar `activo`.
+- [x] Menores (29/09): agregados y nombre del backup en hora local; rango
+      máximo 366 días y fechas inexistentes rechazadas (con aviso en la vista);
+      `conCache` comparte la consulta en vuelo entre peticiones simultáneas;
+      listener de `error` en el pool; SLA global desde recuentos
+      (`atendidasFueraSla`, diferencia < 0,01 p.p.); tarjeta IVR de hoy a 60 s
+      (94-125 ms); export de cliente comprueba `activo`; `Content-Disposition`
+      con `filename*` UTF-8 (un «€» en el nombre del cliente daba error 500).
+- [ ] Decidido NO cambiar: el bloqueo de login va por usuario (sin
+      `TRUST_PROXY` no hay IP fiable), así que 5 fallos desde cualquier PC
+      bloquean esa cuenta 15 min. Se resuelve en F5 con Caddy.
 
-## Mejoras recomendadas pendientes (auditoría 10/09/2026, sin implementar)
+## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
-Ninguna de estas se ha empezado. Orden de recomendación (1 = primero):
+Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:
 
 1. Tests de oro (F2): convertir `npm run verificar` en asserts contra las
    queries SSMS de Christian.
-2. Programar `npm run agregados` como tarea nocturna (Programador de tareas de
-   Windows) y **re-ejecutar el histórico completo** — los agregados llevan
-   parados desde el 12/06/2026 y las filas anteriores al 10/09 guardan las
-   horas logadas por campaña infladas (×13,8, ya eliminadas del código).
+2. Programar `npm run agregados` (02:00) y `npm run backup` (02:30) como
+   tareas nocturnas en el SERVIDOR (comandos `schtasks` listos en
+   `docs/despliegue-windows.md`). El histórico ya está recalculado entero
+   (29/09/2026) y el backup se ha ejecutado a mano; falta solo programarlos.
 3. Degradación elegante cuando RDBv2 no responde (hoy: `ConnectionError` de
    Next sin más). `error.tsx` por vista + banner de salud visible (ya existe
    `saludRdb()`, solo lo ve /admin).
@@ -336,9 +365,8 @@ Ninguna de estas se ha empezado. Orden de recomendación (1 = primero):
    nota "PENDIENTE de definir el mecanismo real" en la sección de Campañas IVR.
 9. Módulo de calidad de datos (F4): campañas sin servicio, `Test_*` mapeadas a
    clientes, duraciones imposibles, huecos de replicación.
-10. F5 (2FA + Caddy + `TRUST_PROXY=1` + `COOKIE_SECURE=1`) y programar
-    `npm run backup` — nunca se ha ejecutado, no existe `./backups`. Solo
-    urgente si se decide exponer a internet.
+10. F5 (2FA + Caddy + `TRUST_PROXY=1` + `COOKIE_SECURE=1`). Solo urgente si
+    se decide exponer a internet.
 
 ## Estrategia de modelos (contexto para futuros Claude)
 

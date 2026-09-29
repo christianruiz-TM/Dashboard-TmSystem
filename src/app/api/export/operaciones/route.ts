@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { obtenerSesion } from "@/lib/auth/session";
 import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { NOMBRE_UNIDAD, calcularFacturacion } from "@/lib/facturacion";
-import { esquemaRango } from "@/lib/fechas";
+import { esquemaRango, motivoRangoInvalido } from "@/lib/fechas";
 import { unidadesPorCampania } from "@/lib/rdb/queries/facturacion";
 import {
   campaniasEfectivas,
@@ -25,7 +25,7 @@ export async function GET(peticion: NextRequest) {
     hasta: params.get("hasta"),
   });
   if (!rango.success) {
-    return NextResponse.json({ error: "Rango de fechas inválido" }, { status: 400 });
+    return NextResponse.json({ error: motivoRangoInvalido(rango) }, { status: 400 });
   }
   const { desde, hasta } = rango.data;
   const formato = params.get("formato") === "xlsx" ? "xlsx" : "csv";

@@ -135,7 +135,11 @@ export const aggDailyCampaign = sqliteTable(
     inbound: integer("inbound").notNull().default(0),
     outbound: integer("outbound").notNull().default(0),
     atendidas: integer("atendidas").notNull().default(0),
-    abandonadas: integer("abandonadas").notNull().default(0),
+    abandonadas: integer("abandonadas").notNull().default(0), // todos los orígenes
+    // Abandonadas de ENTRADA (origin = 1): las que usa la tendencia de Dirección
+    // (regla 6.b). NULL = fila agregada antes de existir la columna (29/09/2026):
+    // se rellena al re-ejecutar `npm run agregados` sobre ese rango.
+    abandonadasInbound: integer("abandonadas_inbound"),
     ahtSeg: real("aht_seg"),
     acwSeg: real("acw_seg"),
     talkSeg: real("talk_seg"),

@@ -25,11 +25,10 @@ async function main() {
   const carpeta = path.resolve(process.cwd(), "backups");
   fs.mkdirSync(carpeta, { recursive: true });
 
-  const marca = new Date()
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace("T", "_")
-    .slice(0, 13);
+  // Hora LOCAL del servidor, como el resto del proyecto (con toISOString salía
+  // en UTC: un backup de las 08:16 se llamaba ..._0616.db)
+  const { format } = await import("date-fns");
+  const marca = format(new Date(), "yyyyMMdd_HHmm");
   const destino = path.join(carpeta, `dashboard_${marca}.db`);
 
   const db = new Database(origen, { readonly: true });

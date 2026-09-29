@@ -3,6 +3,7 @@ import { format, subMonths } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GraficaBarras } from "@/components/graficas/grafica-barras";
 import { GraficaLineas } from "@/components/graficas/grafica-lineas";
+import { AvisoRango } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
@@ -10,7 +11,13 @@ import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { requireRol } from "@/lib/auth/rbac";
 import { estadoAgregados, tendenciaMensual } from "@/lib/db/agregados";
-import { segundosLegibles, esquemaRango, horasLegibles, presetsRango } from "@/lib/fechas";
+import {
+  segundosLegibles,
+  esquemaRango,
+  horasLegibles,
+  motivoRangoInvalido,
+  presetsRango,
+} from "@/lib/fechas";
 import { horasAgenteReales } from "@/lib/rdb/queries/agentes";
 import { unidadesPorCampania } from "@/lib/rdb/queries/facturacion";
 import { volumenPorCampania } from "@/lib/rdb/queries/interacciones";
@@ -121,6 +128,7 @@ export default async function PaginaDireccion({
           <SelectorIvr incluir={incluirIvr} />
         </div>
       </div>
+      <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <TarjetaKpi
@@ -174,7 +182,11 @@ export default async function PaginaDireccion({
               series={[
                 { clave: "interacciones", nombre: "Interacciones", color: "var(--chart-1)" },
                 { clave: "atendidas", nombre: "Atendidas", color: "var(--chart-3)" },
-                { clave: "abandonadas", nombre: "Abandonadas", color: "var(--chart-4)" },
+                {
+                  clave: "abandonadasInbound",
+                  nombre: "Abandonadas (entrantes)",
+                  color: "var(--chart-4)",
+                },
               ]}
             />
           </CardContent>

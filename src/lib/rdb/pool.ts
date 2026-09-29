@@ -29,6 +29,14 @@ function configuracion(): sql.config {
       trustServerCertificate: process.env.RDB_TRUST_CERT !== "false",
       // La app solo lee: marcar la intención a nivel de driver
       readOnlyIntent: true,
+      // Fechas en HORA LOCAL, sin pasar por UTC. RDBv2 guarda start_time en
+      // hora local de España (gmt_start_time es la UTC) y Node corre en la misma
+      // zona. Con el valor por defecto (true) el driver convertía los parámetros
+      // a UTC: pedir el día 21 a las 00:00 llegaba como el 20 a las 22:00 (1 h en
+      // invierno), y al leer, un 10:00 de la BBDD salía como las 12:00, así que
+      // la frescura de /admin decía siempre «hace menos de 1 min». Verificado
+      // 29/09/2026 contra el servidor (SYSDATETIMEOFFSET = +02:00).
+      useUTC: false,
     },
     pool: { max: 10, min: 0, idleTimeoutMillis: 30_000 },
     connectionTimeout: 15_000,
@@ -44,7 +52,14 @@ declare global {
 /** Devuelve el pool conectado (lo crea la primera vez). */
 export function obtenerPool(): Promise<sql.ConnectionPool> {
   if (!globalThis.__rdbPool) {
-    globalThis.__rdbPool = new sql.ConnectionPool(configuracion())
+    const pool = new sql.ConnectionPool(configuracion());
+    // mssql emite 'error' en el pool cuando falla adquirir una conexión o
+    // tedious da un error que no es de socket. Sin listener, el EventEmitter
+    // lanza la excepción, y dentro del listener de tedious eso puede tumbar el
+    // proceso entero. La query afectada ya recibe su propio error; aquí solo
+    // se registra.
+    pool.on("error", (err) => console.error("[rdb] error en el pool de RDBv2:", err));
+    globalThis.__rdbPool = pool
       .connect()
       .catch((err) => {
         // Si falla la conexión inicial, permitir reintento en la siguiente petición

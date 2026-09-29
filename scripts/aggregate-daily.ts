@@ -6,17 +6,20 @@
  * Uso:
  *   npm run agregados                                     → ayer
  *   npm run agregados -- --desde 2025-06-01 --hasta 2026-06-10   → backfill por lotes
+ *
+ * Cada lote REEMPLAZA sus días completos (borra y vuelve a escribir), así que
+ * re-ejecutar un rango lo deja exactamente como está hoy en RDBv2.
  */
+import { addDays, format, parseISO } from "date-fns";
 
 function leerArgumento(nombre: string): string | undefined {
   const idx = process.argv.indexOf(`--${nombre}`);
   return idx >= 0 ? process.argv[idx + 1] : undefined;
 }
 
+/** Suma días en hora LOCAL (con toISOString salía la fecha UTC). */
 function sumarDias(fechaISO: string, dias: number): string {
-  const d = new Date(`${fechaISO}T12:00:00`);
-  d.setDate(d.getDate() + dias);
-  return d.toISOString().slice(0, 10);
+  return format(addDays(parseISO(fechaISO), dias), "yyyy-MM-dd");
 }
 
 async function main() {
@@ -27,13 +30,20 @@ async function main() {
   }
 
   const { metricasDiariasPorCampania } = await import("../src/lib/rdb/queries/facturacion");
-  const { upsertMetricasDiarias } = await import("../src/lib/db/agregados");
+  const { reemplazarMetricasDiarias } = await import("../src/lib/db/agregados");
   const { esMock } = await import("../src/lib/rdb/pool");
+  const { ayerISO, esquemaFechaISO } = await import("../src/lib/fechas");
 
-  const ayer = sumarDias(new Date().toISOString().slice(0, 10), -1);
-  const desde = leerArgumento("desde") ?? ayer;
+  // «Ayer» en hora LOCAL. Antes se sacaba de toISOString() (UTC): con la tarea
+  // programada antes de las 02:00 (01:00 en invierno) daba ANTEAYER y el día
+  // de ayer no se agregaba nunca.
+  const desde = leerArgumento("desde") ?? ayerISO();
   const hasta = leerArgumento("hasta") ?? desde;
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(desde) || !/^\d{4}-\d{2}-\d{2}$/.test(hasta) || desde > hasta) {
+  if (
+    !esquemaFechaISO.safeParse(desde).success ||
+    !esquemaFechaISO.safeParse(hasta).success ||
+    desde > hasta
+  ) {
     console.error("Rango inválido. Uso: --desde YYYY-MM-DD --hasta YYYY-MM-DD");
     process.exit(1);
   }
@@ -46,7 +56,7 @@ async function main() {
   while (inicio <= hasta) {
     const fin = sumarDias(inicio, 6) > hasta ? hasta : sumarDias(inicio, 6);
     const filas = await metricasDiariasPorCampania(inicio, fin);
-    upsertMetricasDiarias(filas);
+    reemplazarMetricasDiarias(inicio, fin, filas);
     totalFilas += filas.length;
     console.log(`  ${inicio} → ${fin}: ${filas.length} filas (día×campaña)`);
     inicio = sumarDias(fin, 1);

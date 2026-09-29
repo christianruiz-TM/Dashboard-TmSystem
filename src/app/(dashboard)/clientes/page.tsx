@@ -14,13 +14,14 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { GraficaLineas } from "@/components/graficas/grafica-lineas";
+import { AvisoRango } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { requireRol } from "@/lib/auth/rbac";
 import { campaniasDeCliente, listarClientes, obtenerCliente } from "@/lib/db/clientes";
-import { segundosLegibles, esquemaRango, presetsRango } from "@/lib/fechas";
+import { segundosLegibles, esquemaRango, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
 import { penetracionListas } from "@/lib/rdb/queries/outbound";
 import { volumenPorCampania, volumenPorDia } from "@/lib/rdb/queries/interacciones";
 import { esIvr } from "@/lib/rdb/queries/servicios";
@@ -147,6 +148,7 @@ export default async function PaginaClientes({
         <SelectorRango desde={desde} hasta={hasta} presets={presets} />
         <SelectorIvr incluir={incluirIvr} />
       </div>
+      <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
         <TarjetaKpi titulo="Interacciones" valor={total.toLocaleString("es-ES")} />

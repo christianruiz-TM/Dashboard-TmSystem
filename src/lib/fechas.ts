@@ -1,4 +1,13 @@
-import { addDays, format, startOfMonth, subDays, subMonths } from "date-fns";
+import {
+  addDays,
+  differenceInCalendarDays,
+  format,
+  isValid,
+  parseISO,
+  startOfMonth,
+  subDays,
+  subMonths,
+} from "date-fns";
 import { z } from "zod";
 
 // ============================================================
@@ -7,14 +16,39 @@ import { z } from "zod";
 // la misma que usa la centralita Altitude).
 // ============================================================
 
+/**
+ * Máximo de días de un rango consultado desde la web. Cada vista lanza varias
+ * queries sobre itr_thread (Dirección, 6 a la vez) con timeout de 120 s y un
+ * pool de 10 conexiones: sin tope, pedir varios años por URL podía dejar RDBv2
+ * ocupada. Las tendencias largas salen de los agregados, no de aquí.
+ */
+export const MAX_DIAS_RANGO = 366;
+
 export const esquemaFechaISO = z
   .string()
-  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida, formato YYYY-MM-DD");
+  .regex(/^\d{4}-\d{2}-\d{2}$/, "Fecha inválida, formato YYYY-MM-DD")
+  // Que exista de verdad (2026-02-30 o 2026-13-45 pasaban la regex)
+  .refine((f) => {
+    const d = parseISO(f);
+    return isValid(d) && format(d, "yyyy-MM-dd") === f;
+  }, "La fecha no existe");
 
 /** Rango de fechas validado: ambos inclusive a nivel de día. */
 export const esquemaRango = z
   .object({ desde: esquemaFechaISO, hasta: esquemaFechaISO })
-  .refine((r) => r.desde <= r.hasta, { message: "El rango de fechas está invertido" });
+  .refine((r) => r.desde <= r.hasta, { message: "El rango de fechas está invertido" })
+  .refine(
+    (r) =>
+      differenceInCalendarDays(parseISO(r.hasta), parseISO(r.desde)) + 1 <= MAX_DIAS_RANGO,
+    { message: `El rango no puede superar ${MAX_DIAS_RANGO} días` },
+  );
+
+/** Motivo por el que se descartó el rango de la URL (null si era válido). */
+export function motivoRangoInvalido(
+  resultado: ReturnType<typeof esquemaRango.safeParse>,
+): string | null {
+  return resultado.success ? null : (resultado.error.issues[0]?.message ?? "Rango no válido");
+}
 
 export type RangoFechas = z.infer<typeof esquemaRango>;
 

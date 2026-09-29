@@ -232,20 +232,20 @@ async function kpisCampaniasCore(
       | "colaAtendidasTotalSeg"
       | "esperaAbandonadasTotalSeg"
       | "slaPct"
+      | "atendidasFueraSla"
       | "exitos"
     > & { tipoCodigo: number };
     return (rHilos.recordset as FilaHilos[]).map(({ tipoCodigo, ...fila }) => {
       const cola = porCampania.get(fila.campania);
       const colaAtendidasTotalSeg = cola?.colaAtendidasTotalSeg ?? 0;
       const esperaAbandonadasTotalSeg = cola?.esperaAbandonadasTotalSeg ?? 0;
+      const atendidasFueraSla = cola?.atendidasFueraSla ?? 0;
       // SLA solo sobre ENTRANTES atendidas (las salientes no hacen cola).
       // Una entrante atendida sin fila de cola esperó 0 s → dentro de SLA.
       const slaPct =
         fila.atendidasInbound > 0
           ? Math.round(
-              ((fila.atendidasInbound - (cola?.atendidasFueraSla ?? 0)) /
-                fila.atendidasInbound) *
-                1000,
+              ((fila.atendidasInbound - atendidasFueraSla) / fila.atendidasInbound) * 1000,
             ) / 10
           : null;
       return {
@@ -264,6 +264,7 @@ async function kpisCampaniasCore(
         colaAtendidasTotalSeg,
         esperaAbandonadasTotalSeg,
         slaPct,
+        atendidasFueraSla,
         tipo: enums.CampaignType?.[tipoCodigo] ?? `#${tipoCodigo}`,
       };
     });
@@ -380,9 +381,12 @@ export async function metricasIvr(
   campanias?: string[],
 ): Promise<MetricasIvr> {
   if (esMock()) return mockMetricasIvr(desdeISO, hastaISO, campanias);
+  // Solo hoy = tarjeta del tiempo real: 60 s como el resto de la pestaña (con
+  // ttlSegunRango eran 5 min y la tarjeta IVR se quedaba atrás del resto).
+  const soloHoy = desdeISO === hoyISO() && hastaISO === hoyISO();
   return conCache(
     `rdb:sup:ivr:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}`,
-    ttlSegunRango(hastaISO),
+    soloHoy ? TTL.supervision : ttlSegunRango(hastaISO),
     async () => {
       const pool = await obtenerPool();
       const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);

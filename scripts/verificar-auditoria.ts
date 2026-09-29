@@ -23,10 +23,16 @@ async function main() {
   const sum = (f: (k: (typeof kpis)[0]) => number) => kpis.reduce((a, k) => a + f(k), 0);
   const atIn = sum((k) => k.atendidasInbound);
   const atTot = sum((k) => k.atendidas);
-  const slaNuevo = atIn > 0 ? kpis.reduce((a, k) => a + (k.slaPct ?? 0) * k.atendidasInbound, 0) / atIn : null;
+  // Igual que los paneles: desde los recuentos, no ponderando % ya redondeados
+  const slaNuevo = atIn > 0 ? ((atIn - sum((k) => k.atendidasFueraSla)) / atIn) * 100 : null;
+  const abIn = sum((k) => k.abandonadasInbound);
   console.log(`recibidas(in)=${sum((k) => k.recibidas)}  atendidas(todas)=${atTot}  atendidas(in)=${atIn}`);
-  console.log(`abandonadas(todas)=${sum((k) => k.abandonadas)}  abandonadas(in)=${sum((k) => k.abandonadasInbound)}`);
+  console.log(`abandonadas(todas)=${sum((k) => k.abandonadas)}  abandonadas(in)=${abIn}`);
   console.log(`SLA global CORREGIDO (solo entrantes): ${slaNuevo?.toFixed(1)} %`);
+  console.log(
+    `cola media (atendidas)=${(sum((k) => k.colaAtendidasTotalSeg) / atIn).toFixed(2)} s  ` +
+      `espera abandonadas=${abIn > 0 ? (sum((k) => k.esperaAbandonadasTotalSeg) / abIn).toFixed(2) : "—"} s`,
+  );
   console.log("top 5 campañas por entrantes:");
   console.table(
     [...kpis].sort((a, b) => b.recibidas - a.recibidas).slice(0, 5)

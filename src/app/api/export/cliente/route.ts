@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { obtenerSesion } from "@/lib/auth/session";
 import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { campaniasDeCliente, obtenerCliente } from "@/lib/db/clientes";
-import { esquemaRango } from "@/lib/fechas";
+import { esquemaRango, motivoRangoInvalido } from "@/lib/fechas";
 import { volumenPorDia } from "@/lib/rdb/queries/interacciones";
 import { esIvr } from "@/lib/rdb/queries/servicios";
 import { generarCsv, respuestaCsv } from "@/lib/export/csv";
@@ -23,7 +23,7 @@ export async function GET(peticion: NextRequest) {
     hasta: params.get("hasta"),
   });
   if (!rango.success) {
-    return NextResponse.json({ error: "Rango de fechas inválido" }, { status: 400 });
+    return NextResponse.json({ error: motivoRangoInvalido(rango) }, { status: 400 });
   }
   const { desde, hasta } = rango.data;
 
@@ -31,8 +31,9 @@ export async function GET(peticion: NextRequest) {
   const clientId =
     usuario.rol === "cliente" ? usuario.clientId : Number(params.get("cliente") ?? NaN);
   const cliente = clientId != null && !Number.isNaN(clientId) ? obtenerCliente(clientId) : null;
-  if (!cliente) {
-    return NextResponse.json({ error: "Cliente no encontrado" }, { status: 404 });
+  // Un cliente desactivado no ve su portal; tampoco puede exportar sus datos
+  if (!cliente || !cliente.activo) {
+    return NextResponse.json({ error: "Cliente no encontrado o inactivo" }, { status: 404 });
   }
   const campanias = campaniasDeCliente(cliente.id);
   if (campanias.length === 0) {

@@ -60,10 +60,9 @@ export function PanelHistorico({
   const atendidasIn = kpis.reduce((acc, k) => acc + k.atendidasInbound, 0);
   const abandonadasIn = kpis.reduce((acc, k) => acc + k.abandonadasInbound, 0);
   const pctAbandono = recibidas > 0 ? (abandonadasIn / recibidas) * 100 : null;
-  const slaGlobal =
-    atendidasIn > 0
-      ? kpis.reduce((acc, k) => acc + (k.slaPct ?? 0) * k.atendidasInbound, 0) / atendidasIn
-      : null;
+  // SLA global desde los recuentos, no ponderando los % ya redondeados
+  const fueraSla = kpis.reduce((acc, k) => acc + k.atendidasFueraSla, 0);
+  const slaGlobal = atendidasIn > 0 ? ((atendidasIn - fueraSla) / atendidasIn) * 100 : null;
   // Cola de las atendidas y espera de las abandonadas (entrantes), por separado.
   // Medias globales desde las sumas exactas, no promediando medias redondeadas.
   const colaGlobal =

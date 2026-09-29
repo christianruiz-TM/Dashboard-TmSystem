@@ -91,7 +91,13 @@ export interface KpiCampaniaHoy {
    */
   colaAtendidasTotalSeg: number;
   esperaAbandonadasTotalSeg: number;
-  slaPct: number | null; // % atendidas con cola <= umbral
+  slaPct: number | null; // % atendidas con cola <= umbral (redondeado, por campaña)
+  /**
+   * Entrantes atendidas con cola > umbral. El SLA GLOBAL de varias campañas es
+   * (Σ atendidasInbound − Σ atendidasFueraSla) / Σ atendidasInbound: no se
+   * promedian los slaPct, que ya vienen redondeados a 1 decimal.
+   */
+  atendidasFueraSla: number;
 }
 
 /**
@@ -147,7 +153,8 @@ export interface MetricaDiariaCampania {
   inbound: number;
   outbound: number;
   atendidas: number;
-  abandonadas: number;
+  abandonadas: number; // todos los orígenes
+  abandonadasInbound: number; // solo entrantes: la tendencia de abandono (regla 6.b)
   ahtSeg: number | null;
   acwSeg: number | null;
   talkSeg: number | null;

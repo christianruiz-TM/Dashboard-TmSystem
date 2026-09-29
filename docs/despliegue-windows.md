@@ -32,8 +32,9 @@ npm run seed:admin
 # 5. Validar el esquema real contra la documentación (genera docs/esquema-real.md)
 npm run introspect
 
-# 6. Backfill del histórico para las tendencias de Dirección (12 meses, por lotes)
-npm run agregados -- --desde 2025-06-01 --hasta 2026-06-11
+# 6. Backfill del histórico para las tendencias de Dirección (por lotes de 7 días;
+#    cada lote reemplaza sus días enteros, se puede repetir sin miedo)
+npm run agregados -- --desde 2025-06-01 --hasta <ayer, YYYY-MM-DD>
 
 # 7. Arranque manual de prueba
 npm start    # → http://localhost:3000  y desde otro PC http://<servidor>:3000
@@ -65,6 +66,22 @@ apunta a la raíz del proyecto.)
 |---|---|---|
 | Agregados diarios | `cmd /c "cd /d C:\apps\dashboard-tmsystem && npm run agregados"` | 02:00 |
 | Backup SQLite | `cmd /c "cd /d C:\apps\dashboard-tmsystem && npm run backup"` | 02:30 |
+
+Para darlas de alta de una vez (PowerShell **como administrador**, con la
+carpeta `logs` ya creada; corren como SYSTEM, así que Node debe estar en el
+PATH del sistema, que es lo que hace su instalador):
+
+```powershell
+schtasks /Create /TN "Dashboard TmSystem\Agregados" /SC DAILY /ST 02:00 /RU SYSTEM `
+  /TR "cmd /c cd /d C:\apps\dashboard-tmsystem && npm run agregados >> logs\agregados.log 2>&1"
+schtasks /Create /TN "Dashboard TmSystem\Backup" /SC DAILY /ST 02:30 /RU SYSTEM `
+  /TR "cmd /c cd /d C:\apps\dashboard-tmsystem && npm run backup >> logs\backup.log 2>&1"
+# Probarlas sin esperar a la noche:
+schtasks /Run /TN "Dashboard TmSystem\Agregados"
+```
+
+«Ayer» se calcula en hora local, así que la tarea puede ir a cualquier hora de
+la madrugada (antes, programada antes de las 02:00, se saltaba un día).
 
 El backup deja copias en `.\backups\` (retención: 30). Incluir esa carpeta en la
 política de copias del servidor.

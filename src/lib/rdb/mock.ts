@@ -122,6 +122,7 @@ function metricaDia(fecha: string, c: { shortname: string; tipo: string }): Metr
     outbound,
     atendidas,
     abandonadas,
+    abandonadasInbound: abandonadas, // el mock solo abandona entrantes
     ahtSeg: total ? Math.round(aht) : null,
     acwSeg: total ? Math.round(acw) : null,
     talkSeg: total ? Math.round(aht - acw) : null,
@@ -250,6 +251,18 @@ function mockColas(
   };
 }
 
+/** SLA ficticio: el % por campaña sale del mismo recuento que usa el global. */
+function mockSla(r: () => number, atendidasInbound: number) {
+  const fuera = Math.round(atendidasInbound * (0.02 + r() * 0.28));
+  return {
+    atendidasFueraSla: fuera,
+    slaPct:
+      atendidasInbound > 0
+        ? Math.round(((atendidasInbound - fuera) / atendidasInbound) * 1000) / 10
+        : null,
+  };
+}
+
 export function mockKpisCampaniasHoy(umbralSeg: number, campanias?: string[]): KpiCampaniaHoy[] {
   const hoy = new Date().toISOString().slice(0, 10);
   return campaniasFiltradas(campanias)
@@ -274,7 +287,7 @@ export function mockKpisCampaniasHoy(umbralSeg: number, campanias?: string[]): K
         ahtSeg: m.ahtSeg,
         acwSeg: m.acwSeg,
         ...mockColas(r, umbralSeg, atendidasInbound, abandonadas),
-        slaPct: Math.round((70 + r() * 28) * 10) / 10,
+        ...mockSla(r, atendidasInbound),
       };
     })
     .filter((k) => k.recibidas > 0);
@@ -328,6 +341,7 @@ export function mockKpisCampaniasRango(
       colaAtendidasTotalSeg: 0,
       esperaAbandonadasTotalSeg: 0,
       slaPct: null,
+      atendidasFueraSla: 0,
     };
     k.recibidas += m.inbound;
     k.atendidas += m.atendidas;
@@ -346,7 +360,7 @@ export function mockKpisCampaniasRango(
       return {
         ...k,
         ...mockColas(r, umbralSeg, k.atendidasInbound, k.abandonadasInbound),
-        slaPct: Math.round((70 + r() * 28) * 10) / 10,
+        ...mockSla(r, k.atendidasInbound),
       };
     })
     .sort((a, b) => b.recibidas - a.recibidas);

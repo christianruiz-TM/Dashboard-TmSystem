@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
+import { AvisoRango } from "@/components/filtros/aviso-rango";
 import { requireRol } from "@/lib/auth/rbac";
 import { umbralSlaSeg } from "@/lib/db/settings";
-import { esquemaRango, hoyISO, presetsRango } from "@/lib/fechas";
+import { esquemaRango, hoyISO, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
 import {
   agentesHoy,
   agentesProductividadRango,
@@ -61,6 +62,7 @@ export default async function PaginaSupervision({
     return (
       <div className="space-y-6">
         <TabsSupervision vista="historico" servicio={params.servicio} incluirIvr={incluirIvr} />
+        <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el día de ayer" />
         <PanelHistorico
           kpis={kpis}
           agentes={agentes}

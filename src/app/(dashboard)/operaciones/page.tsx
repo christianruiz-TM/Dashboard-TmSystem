@@ -12,6 +12,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { AvisoRango } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
@@ -19,7 +20,13 @@ import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { requireRol } from "@/lib/auth/rbac";
 import { NOMBRE_UNIDAD, calcularFacturacion } from "@/lib/facturacion";
-import { esquemaRango, horasDesdeSegundos, horasLegibles, presetsRango } from "@/lib/fechas";
+import {
+  esquemaRango,
+  horasDesdeSegundos,
+  horasLegibles,
+  motivoRangoInvalido,
+  presetsRango,
+} from "@/lib/fechas";
 import { horasAgenteReales, razonesNotReady } from "@/lib/rdb/queries/agentes";
 import { unidadesPorCampania } from "@/lib/rdb/queries/facturacion";
 import { penetracionListas } from "@/lib/rdb/queries/outbound";
@@ -115,6 +122,7 @@ export default async function PaginaOperaciones({
           <SelectorIvr incluir={incluirIvr} />
         </div>
       </div>
+      <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
         <TarjetaKpi
