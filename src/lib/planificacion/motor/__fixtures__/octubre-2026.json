@@ -3120,7 +3120,7 @@
     "ritmoManual": null,
     "horasSemanaFijas": null,
     "fechaFin": null,
-    "curva": "anio_anterior",
+    "curva": "uniforme",
     "pesoContacto": 1,
     "kDia": 6
    },
@@ -3681,7 +3681,7 @@
   {
    "cliente": "UGR",
    "semanaLunes": "2026-09-28",
-   "horas": 59,
+   "horas": 17,
    "origen": "calculado",
    "detalle": {
     "total": 6177,
@@ -3691,14 +3691,14 @@
     "ritmo": 14.57,
     "ritmoOrigen": "medido",
     "horasLista": 176,
-    "criterio": "anio_anterior",
+    "criterio": "uniforme",
     "laborables": 2
    }
   },
   {
    "cliente": "UGR",
    "semanaLunes": "2026-10-05",
-   "horas": 48,
+   "horas": 42,
    "origen": "calculado",
    "detalle": {
     "total": 6177,
@@ -3708,14 +3708,14 @@
     "ritmo": 14.57,
     "ritmoOrigen": "medido",
     "horasLista": 176,
-    "criterio": "anio_anterior",
+    "criterio": "uniforme",
     "laborables": 5
    }
   },
   {
    "cliente": "UGR",
    "semanaLunes": "2026-10-12",
-   "horas": 69,
+   "horas": 33,
    "origen": "calculado",
    "detalle": {
     "total": 6177,
@@ -3725,14 +3725,14 @@
     "ritmo": 14.57,
     "ritmoOrigen": "medido",
     "horasLista": 176,
-    "criterio": "anio_anterior",
+    "criterio": "uniforme",
     "laborables": 4
    }
   },
   {
    "cliente": "UGR",
    "semanaLunes": "2026-10-19",
-   "horas": 0,
+   "horas": 42,
    "origen": "calculado",
    "detalle": {
     "total": 6177,
@@ -3742,14 +3742,14 @@
     "ritmo": 14.57,
     "ritmoOrigen": "medido",
     "horasLista": 176,
-    "criterio": "anio_anterior",
+    "criterio": "uniforme",
     "laborables": 5
    }
   },
   {
    "cliente": "UGR",
    "semanaLunes": "2026-10-26",
-   "horas": 0,
+   "horas": 42,
    "origen": "calculado",
    "detalle": {
     "total": 6177,
@@ -3759,7 +3759,7 @@
     "ritmo": 14.57,
     "ritmoOrigen": "medido",
     "horasLista": 176,
-    "criterio": "anio_anterior",
+    "criterio": "uniforme",
     "laborables": 5
    }
   },
@@ -3938,12 +3938,20 @@
   {
    "cliente": "GH",
    "horas": 1263.82,
-   "origen": "prorrateo"
+   "origen": "prorrateo",
+   "base": {
+    "mes": "2026-09",
+    "horas": 1324
+   }
   },
   {
    "cliente": "AV",
    "horas": 147,
-   "origen": "prorrateo"
+   "origen": "prorrateo",
+   "base": {
+    "mes": "2026-09",
+    "horas": 154
+   }
   }
  ],
  "experiencia": [

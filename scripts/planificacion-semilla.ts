@@ -92,11 +92,13 @@ const CLIENTES = [
   {
     codigo: "UGR", nombre: "UGR · encuesta de egresados", color: "#C1E5F5", servicioAltitude: "UGR", cuentaComo: null,
     modo: "objetivo" as const, prioridad: 30, orden: 5, campanias: ["UGR[_]EGRE26"],
-    // 28,32 % = 1.562 vivos de 5.516 con que acabó la lista de 2025 (UGR_EGRE)
+    // 28,32 % = 1.562 vivos de 5.516 con que acabó la lista de 2025 (UGR_EGRE).
+    // Ritmo medido y reparto uniforme (decidido 30/09/2026): la curva de 2025
+    // acababa a mediados de octubre y dejaba vacías las últimas semanas.
     parametros: {
       bloques: [{ inicioMin: 660, finMin: 840, bonus: 0.3 }, { inicioMin: 960, finMin: 1080, bonus: 0 }],
       evitar: [{ inicioMin: 1080, finMin: 1140 }],
-      maxHorasDiaAgente: 5, pctVivosObjetivo: 28.32, curva: "anio_anterior", kDia: 6,
+      maxHorasDiaAgente: 5, pctVivosObjetivo: 28.32, curva: "uniforme", kDia: 6,
     },
   },
   {

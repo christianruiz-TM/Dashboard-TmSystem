@@ -329,6 +329,18 @@ Diferencias con lo previsto (y por qué):
 
 Confirmado de las preguntas abiertas: `TipoDia` solo vale `FESTIVO`.
 
+Decidido por Christian al cerrar F1 (30/09/2026):
+
+- **UGR: ritmo medido y reparto uniforme** (`curva: "uniforme"`). Con el fixture de octubre
+  queda 17 / 42 / 33 / 42 / 42 h (176 h) en vez de concentrarse en las tres primeras semanas.
+- **El déficit de los jueves de semana B (17-18 h) se acepta**: el plan saldrá con ese aviso
+  blando mientras no cambien los turnos.
+- **CR solo con `CajaR_Autonomos_26`**: confirmado.
+
+Borrador v1 de octubre guardado en la SQLite real con datos hasta el 29/09: 1.596 h, UGR 148 h
+(el 29/09 se cerraron ~400 contactos más), CR 0 h (la lista se terminó ese día), CEFF 18 h,
+BD 42 h y LX 45 h.
+
 ### F2 · Tablero de solo lectura, «Generar borrador» y configuración
 
 - **Archivos**:
