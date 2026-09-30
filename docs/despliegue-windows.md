@@ -6,7 +6,7 @@ la LAN de TmSystem con acceso al SQL Server de RDBv2.
 ## Requisitos
 
 - Windows Server (o Windows 10/11 Pro) con acceso por TCP 1433 al SQL Server.
-- **Node.js 22 LTS o superior** (probado con Node 24): https://nodejs.org
+- **Node.js 22.12 o superior** (22 LTS o 24; probado con Node 24.15): https://nodejs.org
 - Usuario SQL de **solo lectura** sobre la BBDD `RDBv2`.
 - **Zona horaria del servidor: la de España** («(UTC+01:00) Bruselas,
   Copenhague, Madrid, París»), la misma

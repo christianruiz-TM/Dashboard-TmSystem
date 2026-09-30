@@ -324,8 +324,8 @@ Diferencias con lo previsto (y por qué):
   modo `resto` con `parametros.erlang` (base y entrante a la vez).
 - **Bolsas**: si el mes anterior tampoco tiene bolsa confirmada, se prorratea la última
   confirmada (noviembre sale de septiembre: 1.324 × 20/22 = 1.203,64 h).
-- **Vitest 4.1** (la 5 exige `@types/node` ≥ 22) y `vitest.config.mts` (con `.ts` Vite avisaba
-  de ESM en CommonJS).
+- **Vitest 5** con `@types/node` subido de ^20 a ^22 (Vitest 5 lo exige; 22 es el mínimo del
+  servidor) y `vitest.config.mts` (con `.ts` Vite avisaba de ESM en CommonJS).
 
 Confirmado de las preguntas abiertas: `TipoDia` solo vale `FESTIVO`.
 

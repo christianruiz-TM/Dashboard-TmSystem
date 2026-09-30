@@ -254,8 +254,9 @@ tiene remoto git todavía.
   entero el 29/09/2026 (01/06/2025 → 28/09/2026, 37 s).
 - `npm run backup` — backup consistente del SQLite a `./backups/`
 - `npm test` — tests unitarios con Vitest (`vitest.config.mts`, junto al código
-  como `*.test.ts`). Vitest 4: la 5 exige `@types/node` ≥ 22 y el proyecto
-  usa la 20. El test del motor usa un fixture real sin nombres y un snapshot:
+  como `*.test.ts`). Vitest 5, que exige Node ≥ 22.12; `@types/node` va en
+  ^22, el mínimo del servidor, para que no se cuele ninguna API exclusiva de
+  Node 24. El test del motor usa un fixture real sin nombres y un snapshot:
   si cambia a propósito, `npx vitest -u` y explicarlo en el commit.
 - `npm run planificacion:semilla` — clientes, prefijos, patrones, contratos y
   parámetros de planificación. Idempotente: nunca pisa lo ya configurado.
