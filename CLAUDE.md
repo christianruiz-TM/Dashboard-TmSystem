@@ -374,6 +374,12 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 10. F5 (2FA + Caddy + `TRUST_PROXY=1` + `COOKIE_SECURE=1`). Solo urgente si
     se decide exponer a internet.
 
+**Módulo «Planificación de turnos»** (aprobado 30/09/2026, rama
+`feature/planificacion`): plan por fases F1-F6 en `docs/plan-planificacion.md`.
+Cubre también las mejoras 4 (alertas, en su F4) y 5 (curva intradía: la
+tabla `agg_hora_servicio` de su F1). Sus fases F1-F6 son propias del
+módulo; no confundir con las F2/F4/F5 del plan general.
+
 ## Estrategia de modelos (contexto para futuros Claude)
 
 La base (auth, motor de KPIs, queries) la construyó Fable 5 (junio 2026). Las tareas
