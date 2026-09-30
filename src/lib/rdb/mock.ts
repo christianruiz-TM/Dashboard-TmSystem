@@ -1,8 +1,16 @@
+import { coincideLike } from "@/lib/planificacion/motor/campanias";
 import type {
   AgenteEstado,
   AgenteHoy,
   CampaniaInfo,
+  CierresDia,
+  DemandaFranja,
+  EntrantesNoAtendidas,
+  EstadoLista,
+  FestivosServicio,
+  HorarioServicio,
   HorasAgenteReales,
+  IslaSesion,
   KpiCampaniaHoy,
   MetricaDiariaCampania,
   MetricasIvr,
@@ -11,6 +19,7 @@ import type {
   SaludRdb,
   ServicioConCampanias,
   UnidadesCampania,
+  UsuarioAgenteRdb,
   VolumenCampania,
   VolumenDia,
 } from "./types";
@@ -528,4 +537,218 @@ export function mockSalud(): SaludRdb {
     ultimaFlat: new Date(ahora.getTime() - 9 * 60_000).toISOString(),
     error: null,
   };
+}
+
+// ---------- Planificación de turnos ----------
+// Plantilla ficticia identificada solo por nº (sin nombres reales): un
+// usuario por cliente, como en la instalación (GH_0851, UGR_0851...).
+
+const USUARIOS_PLAN_DEMO: Record<string, string[]> = {
+  "0851": ["GH", "GH|_BD", "UGR", "AEP"],
+  "0892": ["GH", "GH|_BD"],
+  "0925": ["GH", "GH|_BD", "UGR"],
+  "0940": ["GH", "GH|_BD", "UGR", "Av", "CEFF"],
+  "0950": ["GH", "UGR"],
+  "0973": ["GH", "GH|_BD", "UGR", "Av", "CR"],
+  "0985": ["GH", "GH|_BD", "UGR", "Av", "CR", "Sat"],
+  "1008": ["GH", "GH|_BD"],
+  "1045": ["GH", "GH|_BD", "UGR"],
+  "1048": ["GH", "GH|_BD", "GH|_BD_LX", "UGR", "Av", "CEFF"],
+  "1067": ["GH", "GH|_BD", "GH|_BD_LX", "UGR"],
+  "1086": ["GH", "UGR"],
+  "1118": ["GH", "UGR"],
+  "1010": ["GH", "Av"], // con actividad pero fuera de la plantilla
+};
+/** Agentes demo sin ninguna sesión (aviso de inactividad). */
+const INACTIVOS_PLAN_DEMO = new Set(["0950"]);
+
+function usrDemo(numero: string, clave: string): string {
+  const [prefijo, sufijo = ""] = clave.split("|");
+  return `${prefijo}_${numero}${sufijo}`;
+}
+
+export function mockUsuariosAgente(): UsuarioAgenteRdb[] {
+  let codigo = 500;
+  return Object.entries(USUARIOS_PLAN_DEMO)
+    .flatMap(([numero, claves]) =>
+      claves.map((clave) => ({
+        usrName: usrDemo(numero, clave),
+        altitudeCode: codigo++,
+        fullname: `Agente ${numero} (demo)`,
+      })),
+    )
+    .sort((a, b) => a.usrName.localeCompare(b.usrName));
+}
+
+/** Islas de sesión ficticias: GH de 9 a 14 y de 16 a 20; otros clientes, a ratos. */
+export function mockIslasSesionUsuario(desde: string, hasta: string, usuarios?: string[]): IslaSesion[] {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const filas: IslaSesion[] = [];
+  for (const fecha of listaFechas(desde, hasta)) {
+    if (fecha >= hoy || factorDia(fecha) < 1) continue;
+    for (const [numero, claves] of Object.entries(USUARIOS_PLAN_DEMO)) {
+      if (INACTIVOS_PLAN_DEMO.has(numero)) continue;
+      for (const clave of claves) {
+        const usrName = usrDemo(numero, clave);
+        if (usuarios && usuarios.length > 0 && !usuarios.includes(usrName)) continue;
+        const r = rng(`sesion|${fecha}|${usrName}`);
+        const desvio = () => entre(r, -10, 10) * 60;
+        if (clave === "GH") {
+          if (numero === "1010" && r() < 0.5) continue;
+          filas.push({ fecha, usrName, inicioSeg: 9 * 3600 + desvio(), finSeg: 14 * 3600 + desvio() });
+          if (r() < 0.7) filas.push({ fecha, usrName, inicioSeg: 16 * 3600 + desvio(), finSeg: 20 * 3600 + desvio() });
+        } else if (clave === "UGR") {
+          if (fecha >= "2025-09-15" && fecha < "2025-10-18" && r() < 0.35) {
+            filas.push({ fecha, usrName, inicioSeg: 11 * 3600, finSeg: 14 * 3600 });
+          }
+          if (fecha >= "2026-09-14" && r() < 0.4) filas.push({ fecha, usrName, inicioSeg: 11 * 3600, finSeg: 14 * 3600 });
+        } else if (r() < 0.12) {
+          filas.push({ fecha, usrName, inicioSeg: 18 * 3600, finSeg: 20 * 3600 });
+        }
+      }
+    }
+  }
+  return filas;
+}
+
+/** Entrantes GH por hora (media real por día de la semana, 9-13 y 16-19 h). */
+const LAMBDA_GH_DEMO: Record<number, number[]> = {
+  1: [25.2, 32.9, 30.6, 28.5, 22.3, 15.8, 22.3, 21.2, 14.6],
+  2: [14, 24.5, 24.8, 25.1, 17.3, 11.2, 18.6, 18.4, 11.4],
+  3: [17.6, 21.3, 25.5, 26.8, 19.4, 12.3, 20.4, 17.4, 11.4],
+  4: [14.4, 23.1, 25.3, 24.5, 18.1, 13.2, 17.5, 14.6, 10.7],
+  5: [16.4, 19.8, 22.8, 21.9, 15.4, 10.1, 14.8, 15.5, 7.8],
+};
+const HORAS_GH_DEMO = [9, 10, 11, 12, 13, 16, 17, 18, 19];
+
+function filaDemandaVacia(fecha: string, servicio: string, inicioMin: number): DemandaFranja {
+  return {
+    fecha,
+    servicio,
+    inicioMin,
+    entrantes: 0,
+    entrantesAtendidas: 0,
+    entrantesAbandonadas: 0,
+    entrantesRechazadas: 0,
+    salientes: 0,
+    salientesAtendidas: 0,
+    segGestionEntrantes: 0,
+  };
+}
+
+export function mockDemandaPorFranja(desde: string, hasta: string): DemandaFranja[] {
+  const filas: DemandaFranja[] = [];
+  for (const fecha of listaFechas(desde, hasta)) {
+    const dia = new Date(`${fecha}T12:00:00`).getDay();
+    if (dia === 0 || dia === 6) continue;
+    HORAS_GH_DEMO.forEach((hora, h) => {
+      for (const media of [0, 30]) {
+        const inicioMin = hora * 60 + media;
+        const r = rng(`demanda|${fecha}|${inicioMin}`);
+        const entrantes = Math.round((LAMBDA_GH_DEMO[dia][h] / 2) * (0.85 + r() * 0.3));
+        const atendidas = Math.round(entrantes * 0.8);
+        const abandonadas = Math.round(entrantes * 0.1);
+        const salientes = entre(r, 40, 80);
+        filas.push({
+          ...filaDemandaVacia(fecha, "GrupoHuertas", inicioMin),
+          entrantes,
+          entrantesAtendidas: atendidas,
+          entrantesAbandonadas: abandonadas,
+          entrantesRechazadas: Math.max(0, entrantes - atendidas - abandonadas),
+          salientes,
+          salientesAtendidas: Math.round(salientes * (0.68 + r() * 0.06)),
+          segGestionEntrantes: atendidas * 280,
+        });
+        if (hora < 14) {
+          const av = entre(r, 1, 3);
+          filas.push({
+            ...filaDemandaVacia(fecha, "Avolo", inicioMin),
+            entrantes: av,
+            entrantesAtendidas: av > 2 ? 1 : 0,
+            entrantesRechazadas: av > 2 ? av - 1 : av,
+            segGestionEntrantes: av > 2 ? 240 : 0,
+          });
+        }
+        if (fecha >= "2026-09-14" && hora !== 18) {
+          const sal = entre(r, 30, 50);
+          filas.push({
+            ...filaDemandaVacia(fecha, "UGR", inicioMin),
+            salientes: sal,
+            salientesAtendidas: Math.round(sal * (hora >= 11 && hora < 14 ? 0.66 : 0.6)),
+          });
+        }
+      }
+    });
+  }
+  return filas;
+}
+
+/** Listas salientes de la instalación (nombres de campaña, sin datos personales). */
+const LISTAS_PLAN_DEMO: EstadoLista[] = [
+  { campania: "CajaR_Autonomos_26", total: 265, vivos: 47, vivosSinTocar: 0 },
+  { campania: "CEFF_Zaragoza", total: 1318, vivos: 222, vivosSinTocar: 80 },
+  { campania: "gh_bbdd_autoclasse", total: 1729, vivos: 302, vivosSinTocar: 0 },
+  { campania: "gh_bbdd_dimovil", total: 5393, vivos: 909, vivosSinTocar: 0 },
+  { campania: "gh_bbdd_granada", total: 2437, vivos: 559, vivosSinTocar: 0 },
+  { campania: "gh_bbdd_lexus", total: 324, vivos: 310, vivosSinTocar: 228 },
+  { campania: "UGR_EGRE", total: 5516, vivos: 1562, vivosSinTocar: 660 },
+  { campania: "UGR_EGRE26", total: 6177, vivos: 4310, vivosSinTocar: 1370 },
+];
+
+export function mockEstadoListas(patrones: string[]): EstadoLista[] {
+  return LISTAS_PLAN_DEMO.filter((l) => patrones.some((p) => coincideLike(l.campania, p)));
+}
+
+export function mockCierresPorDia(desde: string, hasta: string, campanias?: string[]): CierresDia[] {
+  // campaña → [desde, cierres medios por laborable]
+  const ritmo: Record<string, [string, number]> = {
+    UGR_EGRE26: ["2026-09-14", 150],
+    CajaR_Autonomos_26: ["2026-09-01", 6],
+    CEFF_Zaragoza: ["2026-08-01", 7],
+    gh_bbdd_dimovil: ["2026-06-01", 20],
+    gh_bbdd_granada: ["2026-06-01", 10],
+    gh_bbdd_lexus: ["2026-09-28", 3],
+  };
+  const filas: CierresDia[] = [];
+  for (const fecha of listaFechas(desde, hasta)) {
+    if (factorDia(fecha) < 1) continue;
+    for (const [campania, [inicio, media]] of Object.entries(ritmo)) {
+      if (fecha < inicio || (campanias && campanias.length > 0 && !campanias.includes(campania))) continue;
+      const r = rng(`cierres|${fecha}|${campania}`);
+      filas.push({ fecha, campania, cierres: Math.max(1, Math.round(media * (0.7 + r() * 0.6))) });
+    }
+  }
+  return filas;
+}
+
+const FESTIVOS_DEMO = [
+  "2025-08-15", "2025-10-13", "2025-12-08", "2025-12-25", "2026-01-01", "2026-01-06",
+  "2026-04-02", "2026-04-03", "2026-05-01", "2026-10-12", "2026-11-02", "2026-12-07",
+  "2026-12-08", "2026-12-24", "2026-12-25", "2026-12-31",
+];
+
+export function mockFestivosServicio(desde: string, hasta: string): FestivosServicio {
+  const festivos = FESTIVOS_DEMO.filter((f) => f >= desde && f <= hasta).flatMap((fecha) => [
+    { fecha, servicio: "GrupoAvolo", tipo: "FESTIVO" },
+    { fecha, servicio: "GrupoHuertas", tipo: "FESTIVO" },
+  ]);
+  return { festivos, ultimaFechaPorServicio: { GrupoAvolo: "2026-12-31", GrupoHuertas: "2026-12-31" } };
+}
+
+export function mockHorariosServicio(): HorarioServicio[] {
+  const lv = [true, true, true, true, true, false, false];
+  return [
+    { servicio: "GrupoAvolo", dias: lv, entradaMin: 540, salidaMin: 840, desde: "2024-01-01", hasta: "2026-12-31" },
+    { servicio: "GrupoAvolo", dias: lv, entradaMin: 960, salidaMin: 1080, desde: "2026-07-12", hasta: "2026-12-31" },
+    { servicio: "GrupoHuertas", dias: lv, entradaMin: 540, salidaMin: 840, desde: "2024-01-01", hasta: "2026-12-31" },
+    { servicio: "GrupoHuertas", dias: lv, entradaMin: 960, salidaMin: 1200, desde: "2024-01-01", hasta: "2026-12-31" },
+  ];
+}
+
+export function mockEntrantesNoAtendidasHoy(campanias: string[]): EntrantesNoAtendidas {
+  const r = rng(`noAtendidas|${new Date().toISOString().slice(0, 13)}|${campanias.join(",")}`);
+  const n = entre(r, 0, 4);
+  return n === 0
+    ? { noAtendidas: 0, primera: null, ultima: null, ultimaAtendida: "10:05" }
+    : { noAtendidas: n, primera: "09:12", ultima: "11:40", ultimaAtendida: "10:05" };
 }

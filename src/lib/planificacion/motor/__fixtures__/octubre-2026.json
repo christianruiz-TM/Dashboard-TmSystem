@@ -1,0 +1,4395 @@
+{
+ "version": 1,
+ "mes": "2026-10",
+ "pasoMin": 60,
+ "inicioDiaMin": 480,
+ "finDiaMin": 1200,
+ "fechaDatos": "2026-09-28",
+ "clienteBase": "GH",
+ "servicioCalendario": "GrupoHuertas",
+ "diasInactividad": 30,
+ "dias": [
+  {
+   "fecha": "2026-10-01",
+   "diaSemana": 3,
+   "lunes": "2026-09-28",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 3
+  },
+  {
+   "fecha": "2026-10-02",
+   "diaSemana": 4,
+   "lunes": "2026-09-28",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 4
+  },
+  {
+   "fecha": "2026-10-03",
+   "diaSemana": 5,
+   "lunes": "2026-09-28",
+   "rotacion": "A",
+   "laborable": false,
+   "festivos": [],
+   "diaEquivalente": 5
+  },
+  {
+   "fecha": "2026-10-04",
+   "diaSemana": 6,
+   "lunes": "2026-09-28",
+   "rotacion": "A",
+   "laborable": false,
+   "festivos": [],
+   "diaEquivalente": 6
+  },
+  {
+   "fecha": "2026-10-05",
+   "diaSemana": 0,
+   "lunes": "2026-10-05",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 0
+  },
+  {
+   "fecha": "2026-10-06",
+   "diaSemana": 1,
+   "lunes": "2026-10-05",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 1
+  },
+  {
+   "fecha": "2026-10-07",
+   "diaSemana": 2,
+   "lunes": "2026-10-05",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 2
+  },
+  {
+   "fecha": "2026-10-08",
+   "diaSemana": 3,
+   "lunes": "2026-10-05",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 3
+  },
+  {
+   "fecha": "2026-10-09",
+   "diaSemana": 4,
+   "lunes": "2026-10-05",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 4
+  },
+  {
+   "fecha": "2026-10-10",
+   "diaSemana": 5,
+   "lunes": "2026-10-05",
+   "rotacion": "B",
+   "laborable": false,
+   "festivos": [],
+   "diaEquivalente": 5
+  },
+  {
+   "fecha": "2026-10-11",
+   "diaSemana": 6,
+   "lunes": "2026-10-05",
+   "rotacion": "B",
+   "laborable": false,
+   "festivos": [],
+   "diaEquivalente": 6
+  },
+  {
+   "fecha": "2026-10-12",
+   "diaSemana": 0,
+   "lunes": "2026-10-12",
+   "rotacion": "A",
+   "laborable": false,
+   "festivos": [
+    "GrupoAvolo",
+    "GrupoHuertas"
+   ],
+   "diaEquivalente": 0
+  },
+  {
+   "fecha": "2026-10-13",
+   "diaSemana": 1,
+   "lunes": "2026-10-12",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 0
+  },
+  {
+   "fecha": "2026-10-14",
+   "diaSemana": 2,
+   "lunes": "2026-10-12",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 2
+  },
+  {
+   "fecha": "2026-10-15",
+   "diaSemana": 3,
+   "lunes": "2026-10-12",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 3
+  },
+  {
+   "fecha": "2026-10-16",
+   "diaSemana": 4,
+   "lunes": "2026-10-12",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 4
+  },
+  {
+   "fecha": "2026-10-17",
+   "diaSemana": 5,
+   "lunes": "2026-10-12",
+   "rotacion": "A",
+   "laborable": false,
+   "festivos": [],
+   "diaEquivalente": 5
+  },
+  {
+   "fecha": "2026-10-18",
+   "diaSemana": 6,
+   "lunes": "2026-10-12",
+   "rotacion": "A",
+   "laborable": false,
+   "festivos": [],
+   "diaEquivalente": 6
+  },
+  {
+   "fecha": "2026-10-19",
+   "diaSemana": 0,
+   "lunes": "2026-10-19",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 0
+  },
+  {
+   "fecha": "2026-10-20",
+   "diaSemana": 1,
+   "lunes": "2026-10-19",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 1
+  },
+  {
+   "fecha": "2026-10-21",
+   "diaSemana": 2,
+   "lunes": "2026-10-19",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 2
+  },
+  {
+   "fecha": "2026-10-22",
+   "diaSemana": 3,
+   "lunes": "2026-10-19",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 3
+  },
+  {
+   "fecha": "2026-10-23",
+   "diaSemana": 4,
+   "lunes": "2026-10-19",
+   "rotacion": "B",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 4
+  },
+  {
+   "fecha": "2026-10-24",
+   "diaSemana": 5,
+   "lunes": "2026-10-19",
+   "rotacion": "B",
+   "laborable": false,
+   "festivos": [],
+   "diaEquivalente": 5
+  },
+  {
+   "fecha": "2026-10-25",
+   "diaSemana": 6,
+   "lunes": "2026-10-19",
+   "rotacion": "B",
+   "laborable": false,
+   "festivos": [],
+   "diaEquivalente": 6
+  },
+  {
+   "fecha": "2026-10-26",
+   "diaSemana": 0,
+   "lunes": "2026-10-26",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 0
+  },
+  {
+   "fecha": "2026-10-27",
+   "diaSemana": 1,
+   "lunes": "2026-10-26",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 1
+  },
+  {
+   "fecha": "2026-10-28",
+   "diaSemana": 2,
+   "lunes": "2026-10-26",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 2
+  },
+  {
+   "fecha": "2026-10-29",
+   "diaSemana": 3,
+   "lunes": "2026-10-26",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 3
+  },
+  {
+   "fecha": "2026-10-30",
+   "diaSemana": 4,
+   "lunes": "2026-10-26",
+   "rotacion": "A",
+   "laborable": true,
+   "festivos": [],
+   "diaEquivalente": 4
+  },
+  {
+   "fecha": "2026-10-31",
+   "diaSemana": 5,
+   "lunes": "2026-10-26",
+   "rotacion": "A",
+   "laborable": false,
+   "festivos": [],
+   "diaEquivalente": 5
+  }
+ ],
+ "agentes": [
+  {
+   "numero": "0851",
+   "contratoSemanalH": 30,
+   "habilidades": [
+    "BD",
+    "GH",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "0892",
+   "contratoSemanalH": 38,
+   "habilidades": [
+    "AV",
+    "BD",
+    "GH"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "0925",
+   "contratoSemanalH": 38,
+   "habilidades": [
+    "BD",
+    "GH",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "0940",
+   "contratoSemanalH": 38,
+   "habilidades": [
+    "AV",
+    "BD",
+    "CEFF",
+    "GH",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "0950",
+   "contratoSemanalH": 25,
+   "habilidades": [
+    "AV",
+    "BD",
+    "GH",
+    "UGR"
+   ],
+   "turnos": {},
+   "ausencias": [],
+   "ultimaSesion": "2025-11-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "0973",
+   "contratoSemanalH": 38,
+   "habilidades": [
+    "AV",
+    "BD",
+    "CR",
+    "GH",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "0985",
+   "contratoSemanalH": 38,
+   "habilidades": [
+    "AV",
+    "BD",
+    "CR",
+    "GH",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "1008",
+   "contratoSemanalH": 25,
+   "habilidades": [
+    "BD",
+    "GH"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "1045",
+   "contratoSemanalH": 25,
+   "habilidades": [
+    "BD",
+    "GH",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "1048",
+   "contratoSemanalH": 35,
+   "habilidades": [
+    "AV",
+    "BD",
+    "CEFF",
+    "GH",
+    "LX",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 660,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 660,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "1067",
+   "contratoSemanalH": 35,
+   "habilidades": [
+    "BD",
+    "GH",
+    "LX",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 660,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 600,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 660,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "1086",
+   "contratoSemanalH": 25,
+   "habilidades": [
+    "GH",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  },
+  {
+   "numero": "1118",
+   "contratoSemanalH": 25,
+   "habilidades": [
+    "GH",
+    "UGR"
+   ],
+   "turnos": {
+    "2026-10-01": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-12": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     }
+    ]
+   },
+   "ausencias": [],
+   "ultimaSesion": "2026-09-28",
+   "forzarActivo": false
+  }
+ ],
+ "clientes": [
+  {
+   "codigo": "GH",
+   "nombre": "Grupo Huertas",
+   "color": "#FFCCFF",
+   "modo": "resto",
+   "prioridad": 100,
+   "cuentaComo": null,
+   "parametros": {
+    "calendario": "GrupoHuertas",
+    "erlang": {
+     "ahtSeg": null,
+     "slaPct": 80,
+     "umbralSeg": 20,
+     "margen": 1
+    },
+    "bloques": [],
+    "evitar": [],
+    "maxHorasDiaAgente": null,
+    "maxHorasSeguidas": null,
+    "maxBloquesDiaAgente": null,
+    "pctVivosObjetivo": 0,
+    "ritmoManual": null,
+    "horasSemanaFijas": null,
+    "fechaFin": null,
+    "curva": "anio_anterior",
+    "pesoContacto": 1,
+    "kDia": 6
+   },
+   "horario": {
+    "2026-10-01": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-03": [],
+    "2026-10-04": [],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-10": [],
+    "2026-10-11": [],
+    "2026-10-12": [],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-17": [],
+    "2026-10-18": [],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-24": [],
+    "2026-10-25": [],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1200
+     }
+    ],
+    "2026-10-31": []
+   }
+  },
+  {
+   "codigo": "BD",
+   "nombre": "GH BBDD",
+   "color": "#FF99FF",
+   "modo": "objetivo",
+   "prioridad": 50,
+   "cuentaComo": "GH",
+   "parametros": {
+    "calendario": null,
+    "erlang": null,
+    "bloques": [
+     {
+      "inicioMin": 540,
+      "finMin": 660,
+      "bonus": 0
+     },
+     {
+      "inicioMin": 1080,
+      "finMin": 1200,
+      "bonus": 0
+     }
+    ],
+    "evitar": [],
+    "maxHorasDiaAgente": null,
+    "maxHorasSeguidas": null,
+    "maxBloquesDiaAgente": 1,
+    "pctVivosObjetivo": 0,
+    "ritmoManual": null,
+    "horasSemanaFijas": 10,
+    "fechaFin": null,
+    "curva": "anio_anterior",
+    "pesoContacto": 0,
+    "kDia": 4
+   },
+   "horario": null
+  },
+  {
+   "codigo": "LX",
+   "nombre": "GH BBDD Lexus",
+   "color": "#CDA4E8",
+   "modo": "objetivo",
+   "prioridad": 40,
+   "cuentaComo": "GH",
+   "parametros": {
+    "calendario": null,
+    "erlang": null,
+    "bloques": [
+     {
+      "inicioMin": 540,
+      "finMin": 660,
+      "bonus": 0
+     },
+     {
+      "inicioMin": 1080,
+      "finMin": 1200,
+      "bonus": 0
+     }
+    ],
+    "evitar": [],
+    "maxHorasDiaAgente": null,
+    "maxHorasSeguidas": null,
+    "maxBloquesDiaAgente": 1,
+    "pctVivosObjetivo": 0,
+    "ritmoManual": 6.9,
+    "horasSemanaFijas": null,
+    "fechaFin": null,
+    "curva": "anio_anterior",
+    "pesoContacto": 0,
+    "kDia": 4
+   },
+   "horario": null
+  },
+  {
+   "codigo": "AV",
+   "nombre": "Ávolo",
+   "color": "#4E95D9",
+   "modo": "a_demanda",
+   "prioridad": 60,
+   "cuentaComo": null,
+   "parametros": {
+    "calendario": "GrupoAvolo",
+    "erlang": null,
+    "bloques": [],
+    "evitar": [],
+    "maxHorasDiaAgente": null,
+    "maxHorasSeguidas": null,
+    "maxBloquesDiaAgente": null,
+    "pctVivosObjetivo": 0,
+    "ritmoManual": null,
+    "horasSemanaFijas": null,
+    "fechaFin": null,
+    "curva": "anio_anterior",
+    "pesoContacto": 1,
+    "kDia": 6
+   },
+   "horario": {
+    "2026-10-01": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-02": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-03": [],
+    "2026-10-04": [],
+    "2026-10-05": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-06": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-07": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-08": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-09": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-10": [],
+    "2026-10-11": [],
+    "2026-10-12": [],
+    "2026-10-13": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-14": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-15": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-16": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-17": [],
+    "2026-10-18": [],
+    "2026-10-19": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-20": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-21": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-22": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-23": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-24": [],
+    "2026-10-25": [],
+    "2026-10-26": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-27": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-28": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-29": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-30": [
+     {
+      "inicioMin": 540,
+      "finMin": 840
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080
+     }
+    ],
+    "2026-10-31": []
+   }
+  },
+  {
+   "codigo": "UGR",
+   "nombre": "UGR · encuesta de egresados",
+   "color": "#C1E5F5",
+   "modo": "objetivo",
+   "prioridad": 30,
+   "cuentaComo": null,
+   "parametros": {
+    "calendario": null,
+    "erlang": null,
+    "bloques": [
+     {
+      "inicioMin": 660,
+      "finMin": 840,
+      "bonus": 0.3
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080,
+      "bonus": 0
+     }
+    ],
+    "evitar": [
+     {
+      "inicioMin": 1080,
+      "finMin": 1140
+     }
+    ],
+    "maxHorasDiaAgente": 5,
+    "maxHorasSeguidas": null,
+    "maxBloquesDiaAgente": null,
+    "pctVivosObjetivo": 28.32,
+    "ritmoManual": null,
+    "horasSemanaFijas": null,
+    "fechaFin": null,
+    "curva": "anio_anterior",
+    "pesoContacto": 1,
+    "kDia": 6
+   },
+   "horario": null
+  },
+  {
+   "codigo": "CR",
+   "nombre": "Caja Rural",
+   "color": "#B4E5A2",
+   "modo": "objetivo",
+   "prioridad": 10,
+   "cuentaComo": null,
+   "parametros": {
+    "calendario": null,
+    "erlang": null,
+    "bloques": [
+     {
+      "inicioMin": 600,
+      "finMin": 720,
+      "bonus": 0.3
+     },
+     {
+      "inicioMin": 960,
+      "finMin": 1080,
+      "bonus": 0
+     }
+    ],
+    "evitar": [],
+    "maxHorasDiaAgente": null,
+    "maxHorasSeguidas": null,
+    "maxBloquesDiaAgente": 1,
+    "pctVivosObjetivo": 0,
+    "ritmoManual": null,
+    "horasSemanaFijas": null,
+    "fechaFin": null,
+    "curva": "inicio",
+    "pesoContacto": 1,
+    "kDia": 6
+   },
+   "horario": null
+  },
+  {
+   "codigo": "CEFF",
+   "nombre": "CEFF Zaragoza",
+   "color": "#F8CBAD",
+   "modo": "objetivo",
+   "prioridad": 20,
+   "cuentaComo": null,
+   "parametros": {
+    "calendario": null,
+    "erlang": null,
+    "bloques": [
+     {
+      "inicioMin": 1080,
+      "finMin": 1200,
+      "bonus": 0
+     }
+    ],
+    "evitar": [],
+    "maxHorasDiaAgente": null,
+    "maxHorasSeguidas": null,
+    "maxBloquesDiaAgente": 1,
+    "pctVivosObjetivo": 0,
+    "ritmoManual": null,
+    "horasSemanaFijas": 4,
+    "fechaFin": null,
+    "curva": "uniforme",
+    "pesoContacto": 1,
+    "kDia": 6
+   },
+   "horario": null
+  }
+ ],
+ "demanda": [
+  {
+   "cliente": "GH",
+   "lambda": [
+    {
+     "diaSemana": 0,
+     "inicioMin": 480,
+     "llamadasHora": 2.4167
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 540,
+     "llamadasHora": 24.1667
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 600,
+     "llamadasHora": 34.5833
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 660,
+     "llamadasHora": 31.6667
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 720,
+     "llamadasHora": 28.25
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 780,
+     "llamadasHora": 23.5
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 840,
+     "llamadasHora": 5.8333
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 900,
+     "llamadasHora": 2.8333
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 960,
+     "llamadasHora": 16.9167
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 1020,
+     "llamadasHora": 22.0833
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 1080,
+     "llamadasHora": 21.0833
+    },
+    {
+     "diaSemana": 0,
+     "inicioMin": 1140,
+     "llamadasHora": 15.6667
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 480,
+     "llamadasHora": 3.6667
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 540,
+     "llamadasHora": 15.3333
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 600,
+     "llamadasHora": 26.5
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 660,
+     "llamadasHora": 26.4167
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 720,
+     "llamadasHora": 26.0833
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 780,
+     "llamadasHora": 19
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 840,
+     "llamadasHora": 3.5833
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 900,
+     "llamadasHora": 3.1667
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 960,
+     "llamadasHora": 12.4167
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 1020,
+     "llamadasHora": 19.9167
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 1080,
+     "llamadasHora": 19.3333
+    },
+    {
+     "diaSemana": 1,
+     "inicioMin": 1140,
+     "llamadasHora": 11.8333
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 480,
+     "llamadasHora": 2.25
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 540,
+     "llamadasHora": 17.6667
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 600,
+     "llamadasHora": 22
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 660,
+     "llamadasHora": 25.9167
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 720,
+     "llamadasHora": 27.4167
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 780,
+     "llamadasHora": 20.25
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 840,
+     "llamadasHora": 4
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 900,
+     "llamadasHora": 3.4167
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 960,
+     "llamadasHora": 13.0833
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 1020,
+     "llamadasHora": 21.75
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 1080,
+     "llamadasHora": 18.6667
+    },
+    {
+     "diaSemana": 2,
+     "inicioMin": 1140,
+     "llamadasHora": 12.0833
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 480,
+     "llamadasHora": 1.75
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 540,
+     "llamadasHora": 14.75
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 600,
+     "llamadasHora": 24.5833
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 660,
+     "llamadasHora": 26.25
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 720,
+     "llamadasHora": 24.9167
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 780,
+     "llamadasHora": 18.75
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 840,
+     "llamadasHora": 3.8333
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 900,
+     "llamadasHora": 2.25
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 960,
+     "llamadasHora": 13
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 1020,
+     "llamadasHora": 18.75
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 1080,
+     "llamadasHora": 15.4167
+    },
+    {
+     "diaSemana": 3,
+     "inicioMin": 1140,
+     "llamadasHora": 11.25
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 480,
+     "llamadasHora": 1.6667
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 540,
+     "llamadasHora": 16.75
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 600,
+     "llamadasHora": 19.9167
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 660,
+     "llamadasHora": 22.5
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 720,
+     "llamadasHora": 22.6667
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 780,
+     "llamadasHora": 16.3333
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 840,
+     "llamadasHora": 3.5833
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 900,
+     "llamadasHora": 3.1667
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 960,
+     "llamadasHora": 10.3333
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 1020,
+     "llamadasHora": 15.1667
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 1080,
+     "llamadasHora": 16.75
+    },
+    {
+     "diaSemana": 4,
+     "inicioMin": 1140,
+     "llamadasHora": 8.4167
+    }
+   ],
+   "ahtSeg": 283.92,
+   "slaPct": 80,
+   "umbralSeg": 20,
+   "margen": 1,
+   "factorEstacional": 0.6546,
+   "aplicarEstacionalidad": false
+  }
+ ],
+ "objetivos": [
+  {
+   "cliente": "BD",
+   "semanaLunes": "2026-09-28",
+   "horas": 4,
+   "origen": "calculado",
+   "detalle": {
+    "total": 9559,
+    "vivos": 1770,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 1770,
+    "ritmo": 7.53,
+    "ritmoOrigen": "medido",
+    "horasLista": 236,
+    "criterio": "fijas: 10 h/semana",
+    "laborables": 2
+   }
+  },
+  {
+   "cliente": "BD",
+   "semanaLunes": "2026-10-05",
+   "horas": 10,
+   "origen": "calculado",
+   "detalle": {
+    "total": 9559,
+    "vivos": 1770,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 1770,
+    "ritmo": 7.53,
+    "ritmoOrigen": "medido",
+    "horasLista": 236,
+    "criterio": "fijas: 10 h/semana",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "BD",
+   "semanaLunes": "2026-10-12",
+   "horas": 8,
+   "origen": "calculado",
+   "detalle": {
+    "total": 9559,
+    "vivos": 1770,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 1770,
+    "ritmo": 7.53,
+    "ritmoOrigen": "medido",
+    "horasLista": 236,
+    "criterio": "fijas: 10 h/semana",
+    "laborables": 4
+   }
+  },
+  {
+   "cliente": "BD",
+   "semanaLunes": "2026-10-19",
+   "horas": 10,
+   "origen": "calculado",
+   "detalle": {
+    "total": 9559,
+    "vivos": 1770,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 1770,
+    "ritmo": 7.53,
+    "ritmoOrigen": "medido",
+    "horasLista": 236,
+    "criterio": "fijas: 10 h/semana",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "BD",
+   "semanaLunes": "2026-10-26",
+   "horas": 10,
+   "origen": "calculado",
+   "detalle": {
+    "total": 9559,
+    "vivos": 1770,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 1770,
+    "ritmo": 7.53,
+    "ritmoOrigen": "medido",
+    "horasLista": 236,
+    "criterio": "fijas: 10 h/semana",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "LX",
+   "semanaLunes": "2026-09-28",
+   "horas": 4,
+   "origen": "calculado",
+   "detalle": {
+    "total": 324,
+    "vivos": 310,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 310,
+    "ritmo": 6.9,
+    "ritmoOrigen": "manual",
+    "horasLista": 45,
+    "criterio": "uniforme (sin curva del año anterior)",
+    "laborables": 2
+   }
+  },
+  {
+   "cliente": "LX",
+   "semanaLunes": "2026-10-05",
+   "horas": 11,
+   "origen": "calculado",
+   "detalle": {
+    "total": 324,
+    "vivos": 310,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 310,
+    "ritmo": 6.9,
+    "ritmoOrigen": "manual",
+    "horasLista": 45,
+    "criterio": "uniforme (sin curva del año anterior)",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "LX",
+   "semanaLunes": "2026-10-12",
+   "horas": 8,
+   "origen": "calculado",
+   "detalle": {
+    "total": 324,
+    "vivos": 310,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 310,
+    "ritmo": 6.9,
+    "ritmoOrigen": "manual",
+    "horasLista": 45,
+    "criterio": "uniforme (sin curva del año anterior)",
+    "laborables": 4
+   }
+  },
+  {
+   "cliente": "LX",
+   "semanaLunes": "2026-10-19",
+   "horas": 11,
+   "origen": "calculado",
+   "detalle": {
+    "total": 324,
+    "vivos": 310,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 310,
+    "ritmo": 6.9,
+    "ritmoOrigen": "manual",
+    "horasLista": 45,
+    "criterio": "uniforme (sin curva del año anterior)",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "LX",
+   "semanaLunes": "2026-10-26",
+   "horas": 11,
+   "origen": "calculado",
+   "detalle": {
+    "total": 324,
+    "vivos": 310,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 310,
+    "ritmo": 6.9,
+    "ritmoOrigen": "manual",
+    "horasLista": 45,
+    "criterio": "uniforme (sin curva del año anterior)",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "UGR",
+   "semanaLunes": "2026-09-28",
+   "horas": 59,
+   "origen": "calculado",
+   "detalle": {
+    "total": 6177,
+    "vivos": 4310,
+    "pctVivosObjetivo": 28.32,
+    "cierresNecesarios": 2560.67,
+    "ritmo": 14.57,
+    "ritmoOrigen": "medido",
+    "horasLista": 176,
+    "criterio": "anio_anterior",
+    "laborables": 2
+   }
+  },
+  {
+   "cliente": "UGR",
+   "semanaLunes": "2026-10-05",
+   "horas": 48,
+   "origen": "calculado",
+   "detalle": {
+    "total": 6177,
+    "vivos": 4310,
+    "pctVivosObjetivo": 28.32,
+    "cierresNecesarios": 2560.67,
+    "ritmo": 14.57,
+    "ritmoOrigen": "medido",
+    "horasLista": 176,
+    "criterio": "anio_anterior",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "UGR",
+   "semanaLunes": "2026-10-12",
+   "horas": 69,
+   "origen": "calculado",
+   "detalle": {
+    "total": 6177,
+    "vivos": 4310,
+    "pctVivosObjetivo": 28.32,
+    "cierresNecesarios": 2560.67,
+    "ritmo": 14.57,
+    "ritmoOrigen": "medido",
+    "horasLista": 176,
+    "criterio": "anio_anterior",
+    "laborables": 4
+   }
+  },
+  {
+   "cliente": "UGR",
+   "semanaLunes": "2026-10-19",
+   "horas": 0,
+   "origen": "calculado",
+   "detalle": {
+    "total": 6177,
+    "vivos": 4310,
+    "pctVivosObjetivo": 28.32,
+    "cierresNecesarios": 2560.67,
+    "ritmo": 14.57,
+    "ritmoOrigen": "medido",
+    "horasLista": 176,
+    "criterio": "anio_anterior",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "UGR",
+   "semanaLunes": "2026-10-26",
+   "horas": 0,
+   "origen": "calculado",
+   "detalle": {
+    "total": 6177,
+    "vivos": 4310,
+    "pctVivosObjetivo": 28.32,
+    "cierresNecesarios": 2560.67,
+    "ritmo": 14.57,
+    "ritmoOrigen": "medido",
+    "horasLista": 176,
+    "criterio": "anio_anterior",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "CR",
+   "semanaLunes": "2026-09-28",
+   "horas": 4,
+   "origen": "calculado",
+   "detalle": {
+    "total": 265,
+    "vivos": 47,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 47,
+    "ritmo": 11.77,
+    "ritmoOrigen": "medido",
+    "horasLista": 4,
+    "criterio": "inicio",
+    "laborables": 2
+   }
+  },
+  {
+   "cliente": "CR",
+   "semanaLunes": "2026-10-05",
+   "horas": 0,
+   "origen": "calculado",
+   "detalle": {
+    "total": 265,
+    "vivos": 47,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 47,
+    "ritmo": 11.77,
+    "ritmoOrigen": "medido",
+    "horasLista": 4,
+    "criterio": "inicio",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "CR",
+   "semanaLunes": "2026-10-12",
+   "horas": 0,
+   "origen": "calculado",
+   "detalle": {
+    "total": 265,
+    "vivos": 47,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 47,
+    "ritmo": 11.77,
+    "ritmoOrigen": "medido",
+    "horasLista": 4,
+    "criterio": "inicio",
+    "laborables": 4
+   }
+  },
+  {
+   "cliente": "CR",
+   "semanaLunes": "2026-10-19",
+   "horas": 0,
+   "origen": "calculado",
+   "detalle": {
+    "total": 265,
+    "vivos": 47,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 47,
+    "ritmo": 11.77,
+    "ritmoOrigen": "medido",
+    "horasLista": 4,
+    "criterio": "inicio",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "CR",
+   "semanaLunes": "2026-10-26",
+   "horas": 0,
+   "origen": "calculado",
+   "detalle": {
+    "total": 265,
+    "vivos": 47,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 47,
+    "ritmo": 11.77,
+    "ritmoOrigen": "medido",
+    "horasLista": 4,
+    "criterio": "inicio",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "CEFF",
+   "semanaLunes": "2026-09-28",
+   "horas": 2,
+   "origen": "calculado",
+   "detalle": {
+    "total": 1320,
+    "vivos": 224,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 224,
+    "ritmo": 8.89,
+    "ritmoOrigen": "medido",
+    "horasLista": 26,
+    "criterio": "fijas: 4 h/semana",
+    "laborables": 2
+   }
+  },
+  {
+   "cliente": "CEFF",
+   "semanaLunes": "2026-10-05",
+   "horas": 4,
+   "origen": "calculado",
+   "detalle": {
+    "total": 1320,
+    "vivos": 224,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 224,
+    "ritmo": 8.89,
+    "ritmoOrigen": "medido",
+    "horasLista": 26,
+    "criterio": "fijas: 4 h/semana",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "CEFF",
+   "semanaLunes": "2026-10-12",
+   "horas": 4,
+   "origen": "calculado",
+   "detalle": {
+    "total": 1320,
+    "vivos": 224,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 224,
+    "ritmo": 8.89,
+    "ritmoOrigen": "medido",
+    "horasLista": 26,
+    "criterio": "fijas: 4 h/semana",
+    "laborables": 4
+   }
+  },
+  {
+   "cliente": "CEFF",
+   "semanaLunes": "2026-10-19",
+   "horas": 4,
+   "origen": "calculado",
+   "detalle": {
+    "total": 1320,
+    "vivos": 224,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 224,
+    "ritmo": 8.89,
+    "ritmoOrigen": "medido",
+    "horasLista": 26,
+    "criterio": "fijas: 4 h/semana",
+    "laborables": 5
+   }
+  },
+  {
+   "cliente": "CEFF",
+   "semanaLunes": "2026-10-26",
+   "horas": 4,
+   "origen": "calculado",
+   "detalle": {
+    "total": 1320,
+    "vivos": 224,
+    "pctVivosObjetivo": 0,
+    "cierresNecesarios": 224,
+    "ritmo": 8.89,
+    "ritmoOrigen": "medido",
+    "horasLista": 26,
+    "criterio": "fijas: 4 h/semana",
+    "laborables": 5
+   }
+  }
+ ],
+ "bolsas": [
+  {
+   "cliente": "GH",
+   "horas": 1263.82,
+   "origen": "prorrateo"
+  },
+  {
+   "cliente": "AV",
+   "horas": 147,
+   "origen": "prorrateo"
+  }
+ ],
+ "experiencia": [
+  {
+   "agente": "0851",
+   "cliente": "BD",
+   "horas": 39.11
+  },
+  {
+   "agente": "0851",
+   "cliente": "GH",
+   "horas": 135.91
+  },
+  {
+   "agente": "0851",
+   "cliente": "UGR",
+   "horas": 7.06
+  },
+  {
+   "agente": "0892",
+   "cliente": "BD",
+   "horas": 28.67
+  },
+  {
+   "agente": "0892",
+   "cliente": "GH",
+   "horas": 162.09
+  },
+  {
+   "agente": "0925",
+   "cliente": "BD",
+   "horas": 38.24
+  },
+  {
+   "agente": "0925",
+   "cliente": "GH",
+   "horas": 164.49
+  },
+  {
+   "agente": "0925",
+   "cliente": "UGR",
+   "horas": 25.09
+  },
+  {
+   "agente": "0940",
+   "cliente": "AV",
+   "horas": 2.42
+  },
+  {
+   "agente": "0940",
+   "cliente": "BD",
+   "horas": 51.37
+  },
+  {
+   "agente": "0940",
+   "cliente": "CEFF",
+   "horas": 35.33
+  },
+  {
+   "agente": "0940",
+   "cliente": "GH",
+   "horas": 121.3
+  },
+  {
+   "agente": "0940",
+   "cliente": "UGR",
+   "horas": 30.82
+  },
+  {
+   "agente": "0973",
+   "cliente": "AV",
+   "horas": 12.61
+  },
+  {
+   "agente": "0973",
+   "cliente": "BD",
+   "horas": 43.94
+  },
+  {
+   "agente": "0973",
+   "cliente": "GH",
+   "horas": 228.96
+  },
+  {
+   "agente": "0973",
+   "cliente": "UGR",
+   "horas": 21.16
+  },
+  {
+   "agente": "0985",
+   "cliente": "AV",
+   "horas": 19.86
+  },
+  {
+   "agente": "0985",
+   "cliente": "BD",
+   "horas": 28.2
+  },
+  {
+   "agente": "0985",
+   "cliente": "CR",
+   "horas": 17.27
+  },
+  {
+   "agente": "0985",
+   "cliente": "GH",
+   "horas": 156.93
+  },
+  {
+   "agente": "0985",
+   "cliente": "UGR",
+   "horas": 1.78
+  },
+  {
+   "agente": "1008",
+   "cliente": "GH",
+   "horas": 231.88
+  },
+  {
+   "agente": "1045",
+   "cliente": "BD",
+   "horas": 30.87
+  },
+  {
+   "agente": "1045",
+   "cliente": "GH",
+   "horas": 85.76
+  },
+  {
+   "agente": "1045",
+   "cliente": "UGR",
+   "horas": 11.99
+  },
+  {
+   "agente": "1048",
+   "cliente": "AV",
+   "horas": 7.22
+  },
+  {
+   "agente": "1048",
+   "cliente": "BD",
+   "horas": 33.07
+  },
+  {
+   "agente": "1048",
+   "cliente": "CEFF",
+   "horas": 76.89
+  },
+  {
+   "agente": "1048",
+   "cliente": "GH",
+   "horas": 145.55
+  },
+  {
+   "agente": "1048",
+   "cliente": "LX",
+   "horas": 1.83
+  },
+  {
+   "agente": "1048",
+   "cliente": "UGR",
+   "horas": 17.9
+  },
+  {
+   "agente": "1067",
+   "cliente": "BD",
+   "horas": 50.42
+  },
+  {
+   "agente": "1067",
+   "cliente": "GH",
+   "horas": 139.38
+  },
+  {
+   "agente": "1067",
+   "cliente": "LX",
+   "horas": 1.97
+  },
+  {
+   "agente": "1067",
+   "cliente": "UGR",
+   "horas": 4.25
+  },
+  {
+   "agente": "1086",
+   "cliente": "GH",
+   "horas": 71.61
+  },
+  {
+   "agente": "1086",
+   "cliente": "UGR",
+   "horas": 6.07
+  },
+  {
+   "agente": "1118",
+   "cliente": "GH",
+   "horas": 70.73
+  },
+  {
+   "agente": "1118",
+   "cliente": "UGR",
+   "horas": 6.03
+  }
+ ],
+ "tasaContacto": [
+  {
+   "cliente": "BD",
+   "inicioMin": 540,
+   "tasa": 0.716
+  },
+  {
+   "cliente": "BD",
+   "inicioMin": 600,
+   "tasa": 0.7125
+  },
+  {
+   "cliente": "BD",
+   "inicioMin": 660,
+   "tasa": 0.7396
+  },
+  {
+   "cliente": "BD",
+   "inicioMin": 720,
+   "tasa": 0.7249
+  },
+  {
+   "cliente": "BD",
+   "inicioMin": 780,
+   "tasa": 0.7206
+  },
+  {
+   "cliente": "BD",
+   "inicioMin": 960,
+   "tasa": 0.7099
+  },
+  {
+   "cliente": "BD",
+   "inicioMin": 1020,
+   "tasa": 0.7106
+  },
+  {
+   "cliente": "BD",
+   "inicioMin": 1080,
+   "tasa": 0.7038
+  },
+  {
+   "cliente": "BD",
+   "inicioMin": 1140,
+   "tasa": 0.6944
+  },
+  {
+   "cliente": "LX",
+   "inicioMin": 540,
+   "tasa": 0.716
+  },
+  {
+   "cliente": "LX",
+   "inicioMin": 600,
+   "tasa": 0.7125
+  },
+  {
+   "cliente": "LX",
+   "inicioMin": 660,
+   "tasa": 0.7396
+  },
+  {
+   "cliente": "LX",
+   "inicioMin": 720,
+   "tasa": 0.7249
+  },
+  {
+   "cliente": "LX",
+   "inicioMin": 780,
+   "tasa": 0.7206
+  },
+  {
+   "cliente": "LX",
+   "inicioMin": 960,
+   "tasa": 0.7099
+  },
+  {
+   "cliente": "LX",
+   "inicioMin": 1020,
+   "tasa": 0.7106
+  },
+  {
+   "cliente": "LX",
+   "inicioMin": 1080,
+   "tasa": 0.7038
+  },
+  {
+   "cliente": "LX",
+   "inicioMin": 1140,
+   "tasa": 0.6944
+  },
+  {
+   "cliente": "UGR",
+   "inicioMin": 540,
+   "tasa": 0.5652
+  },
+  {
+   "cliente": "UGR",
+   "inicioMin": 600,
+   "tasa": 0.5877
+  },
+  {
+   "cliente": "UGR",
+   "inicioMin": 660,
+   "tasa": 0.6026
+  },
+  {
+   "cliente": "UGR",
+   "inicioMin": 720,
+   "tasa": 0.601
+  },
+  {
+   "cliente": "UGR",
+   "inicioMin": 780,
+   "tasa": 0.5962
+  },
+  {
+   "cliente": "UGR",
+   "inicioMin": 960,
+   "tasa": 0.54
+  },
+  {
+   "cliente": "UGR",
+   "inicioMin": 1020,
+   "tasa": 0.5876
+  },
+  {
+   "cliente": "UGR",
+   "inicioMin": 1080,
+   "tasa": 0.5968
+  },
+  {
+   "cliente": "UGR",
+   "inicioMin": 1140,
+   "tasa": 0.5662
+  },
+  {
+   "cliente": "CR",
+   "inicioMin": 540,
+   "tasa": 0.8256
+  },
+  {
+   "cliente": "CR",
+   "inicioMin": 600,
+   "tasa": 0.8065
+  },
+  {
+   "cliente": "CR",
+   "inicioMin": 660,
+   "tasa": 0.8168
+  },
+  {
+   "cliente": "CR",
+   "inicioMin": 720,
+   "tasa": 0.8066
+  },
+  {
+   "cliente": "CR",
+   "inicioMin": 780,
+   "tasa": 0.7778
+  },
+  {
+   "cliente": "CEFF",
+   "inicioMin": 600,
+   "tasa": 0.6148
+  },
+  {
+   "cliente": "CEFF",
+   "inicioMin": 660,
+   "tasa": 0.619
+  },
+  {
+   "cliente": "CEFF",
+   "inicioMin": 720,
+   "tasa": 0.6236
+  },
+  {
+   "cliente": "CEFF",
+   "inicioMin": 780,
+   "tasa": 0.6474
+  },
+  {
+   "cliente": "CEFF",
+   "inicioMin": 1020,
+   "tasa": 0.6147
+  },
+  {
+   "cliente": "CEFF",
+   "inicioMin": 1080,
+   "tasa": 0.6144
+  },
+  {
+   "cliente": "CEFF",
+   "inicioMin": 1140,
+   "tasa": 0.6239
+  }
+ ],
+ "fijados": [],
+ "meta": {
+  "prefijosSinCliente": [
+   {
+    "usrName": "Sat_0985",
+    "agenteNumero": "0985",
+    "prefijo": "Sat",
+    "sufijo": "",
+    "ultimaSesion": "2026-09-01"
+   }
+  ],
+  "fueraDePlantilla": [
+   {
+    "agenteNumero": "1010",
+    "horas": 30.22,
+    "clientes": [
+     "AV",
+     "BD",
+     "GH"
+    ]
+   },
+   {
+    "agenteNumero": "1071",
+    "horas": 17.07,
+    "clientes": [
+     "AV",
+     "GH"
+    ]
+   }
+  ],
+  "ultimoAgregado": "2026-09-29",
+  "vigenciaFestivos": {
+   "GrupoAvolo": "2026-12-31",
+   "GrupoHuertas": "2026-12-31"
+  },
+  "vigenciaHorarios": {
+   "GrupoAvolo": "2026-12-31",
+   "GrupoHuertas": "2026-12-31"
+  },
+  "avisosCarga": [
+   {
+    "codigo": "listas_reconstruidas",
+    "gravedad": "info",
+    "mensaje": "No hay foto de listas del 2026-09-29: se usa la del 2026-09-30 sumando a los vivos los cierres posteriores al 2026-09-28"
+   }
+  ]
+ }
+}

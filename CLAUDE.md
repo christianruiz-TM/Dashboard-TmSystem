@@ -124,6 +124,26 @@ tiene remoto git todavía.
     29/09/2026. En llamadas apenas se notaba (10 hilos de 117.929 entre las
     22 y las 24 h en septiembre); en leads, 365 eventos al mes caían mal.
 
+15. **Un usuario de Altitude por agente y cliente** (planificación de turnos):
+    `usr_name = <PREFIJO>_<nº 4 díg.>[_SUFIJO]` (GH_0851, GH_0851_BD,
+    GH_1067_BD_LX, UGR_0851, Av_0985, Soc_Fed_0892…; parseo en
+    `planificacion/usuarios.ts`). Por eso la unión de sesiones (`ag_in_cp_log`
+    op_type 0) **por usuario** da horas por cliente sin el ×13 de la regla 11
+    (`agg_sesion_usuario`: verificado 30/09/2026, su suma de un día cuadra al
+    céntimo con `horasAgenteReales` en 5 días). Por agente (nº), la unión de
+    TODOS sus usuarios da la hora real de la persona. No mezclar las dos: con
+    dos usuarios logados a la vez, la suma por cliente supera la hora real.
+    - Los usuarios sin nº de agente (Angeles, Christian, TM_*, 1053_KIT…) quedan fuera.
+    - Festivos y horarios: tablas propias de RDBv2 `festivos_servicio` y
+      `horarios_servicio`, que mantiene supervisión, con vigencia hasta el
+      31/12/2026 (el módulo avisa al salirse). `TipoDia` solo vale `FESTIVO`.
+      `ServicioDirectorio` NO siempre es `ph_service.name`: GrupoHuertas sí,
+      pero Ávolo es `GrupoAvolo` → cada cliente lleva `parametros.calendario`.
+    - Los hilos de 2 h o más se descartan de la gestión (CEFF tiene duraciones
+      imposibles): `t.duration < @maxSeg * 10`, con `plan.maxSegHilo` = 7200.
+    - El SQL de las islas es común (`queries/islas.ts`) a `horasAgenteReales` y
+      a la planificación: `npm run verificar` dio lo mismo antes y después.
+
 ## Referencia del esquema RDBv2
 
 - `docs/referencia_bbdd_altitude_v85.md` — esquema completo, enumerados, relaciones
@@ -185,6 +205,36 @@ tiene remoto git todavía.
   callback (los hermanos `origin=2` son salientes del agente en llamadas atendidas)
   y los números salientes van codificados ≠ entrante → el seguimiento
   «devuelta/pendiente» de callbacks quedó PENDIENTE de definir el mecanismo real.
+- **Planificación de turnos** (rama `feature/planificacion`, plan por fases en
+  `docs/plan-planificacion.md`; F1 = datos y motor, sin UI, hecha el 30/09/2026):
+  - **Motor PURO** en `src/lib/planificacion/motor/`: sin I/O, sin
+    `Date.now()` ni azar, solo date-fns y zod (una regla de ESLint lo impide).
+    **No añadirle I/O**: corre también en el navegador (tablero, F2) y en los
+    tests. Entrada `EntradaMotor` → `generarPlan()` → bloques, avisos, resumen
+    y mínimos. `validaciones.ts` son las MISMAS reglas duras/blandas en motor,
+    tablero y Server Actions.
+  - `cargador.ts` arma la entrada desde SQLite (+ festivos/horarios de RDBv2,
+    cacheados 24 h); `repositorio.ts` es todo el acceso a SQLite del módulo;
+    `parametros.ts`, los globales `plan.*` de `app_settings` (zod + valores por
+    defecto). Nada de agentes, clientes, colores ni parámetros en el código:
+    la semilla (`npm run planificacion:semilla`) solo rellena lo que falta.
+  - Tablas (migración 0003): configuración `plan_clientes`, `plan_prefijos`,
+    `plan_tipos_ausencia`, `plan_agentes`, `plan_agente_usuarios`,
+    `plan_patrones` + `plan_patron_tramos`, `plan_agente_turnos` (rotación A/B
+    desde `plan.semanaA`); plan `plan_versiones` (como mucho un borrador por
+    mes, también con índice único parcial), `plan_bloques`, `plan_ausencias`,
+    `plan_bolsas`, `plan_objetivos`; agregados propios `agg_hora_servicio`
+    (franjas de 30 min, sumas), `agg_sesion_usuario` (islas por usuario y día,
+    `inicio_seg`/`fin_seg` desde las 00:00), `agg_cierres_campania` y
+    `plan_listas_estado` (foto de `activity`). El motor y el tablero NO
+    consultan RDBv2 en caliente: leen estos agregados.
+  - Cliente de planificación ≠ servicio: GH, BD (usuarios `_BD`) y LX
+    (`_BD_LX`) son del servicio GrupoHuertas; BD y LX «cuentan como» GH en la
+    cobertura. Los patrones de campaña (`plan_clientes.campanias`) son LIKE y
+    gana el más específico. Deben apuntar SOLO a la lista EN CURSO
+    (`UGR[_]EGRE26`, `CajaR[_]Autonomos[_]26`): las antiguas conservan vivos
+    que ya nadie llama y inflan el objetivo.
+  - Todo en minutos; `plan.pasoMin` = 60 (pasar a 30 min es cambiar el parámetro).
 - **Facturación por servicio o campaña**: `billing_config` tiene dos ámbitos
   mutuamente excluyentes — `serviceName` (lo normal: aplica a TODAS las campañas
   del servicio/cliente) o `campaignShortname` (excepción puntual). Al facturar,
@@ -203,6 +253,22 @@ tiene remoto git todavía.
   enteros, así que re-ejecutar un rango lo deja idéntico a RDBv2. Recalculado
   entero el 29/09/2026 (01/06/2025 → 28/09/2026, 37 s).
 - `npm run backup` — backup consistente del SQLite a `./backups/`
+- `npm test` — tests unitarios con Vitest (`vitest.config.mts`, junto al código
+  como `*.test.ts`). Vitest 4: la 5 exige `@types/node` ≥ 22 y el proyecto
+  usa la 20. El test del motor usa un fixture real sin nombres y un snapshot:
+  si cambia a propósito, `npx vitest -u` y explicarlo en el commit.
+- `npm run planificacion:semilla` — clientes, prefijos, patrones, contratos y
+  parámetros de planificación. Idempotente: nunca pisa lo ya configurado.
+- `npm run planificacion:agregados [-- --desde 2025-06-01 --hasta 2026-09-29]`
+  — agregados de planificación (sin argumentos: ayer; `hasta` se limita a
+  ayer). Lotes de 7 días que REEMPLAZAN sus días; en la misma pasada
+  sincroniza usuarios de agente y hace la foto de listas (`--sin-foto` la
+  omite). Backfill completo hecho el 30/09/2026: 70 lotes en 63,5 s, consulta
+  más lenta 0,7 s.
+- `npm run planificacion:generar -- --mes 2026-11 [--hasta-datos D] [--guardar [--reemplazar]]`
+  — ejecuta el motor e imprime resumen y avisos; con `--guardar` crea el borrador.
+- `npm run planificacion:fixture -- --mes 2026-10 --hasta-datos 2026-09-28` —
+  regenera el fixture del test del motor (aborta si detecta un nombre).
 - `npm run verificar` — ejecuta los KPIs clave contra RDBv2 real y muestra
   cifras y tiempos (SLA por origen, horas reales de hoy y de ayer, unidades
   facturables, Not Ready). Es el arranque de los «tests de oro» de F2: sirve
@@ -274,8 +340,9 @@ Todas verificadas contra RDBv2 real, no solo leyendo código:
 - [x] `ttlSegunRango` comparaba contra fecha UTC en vez de local.
 - [x] `x-forwarded-for` ya no se cree sin `TRUST_PROXY=1`.
 - [x] Lint a cero (componente creado en render, `<a>` interno, var sin usar).
-- [ ] **Sin resolver**: no hay tests automáticos. `npm run verificar` imprime
-      cifras pero no afirma nada; convertirlo en asserts es el paso natural.
+- [x] ~~No hay tests automáticos~~ (30/09/2026): hay runner, Vitest (`npm test`),
+      con los tests del motor de planificación. `npm run verificar` sigue
+      imprimiendo cifras sin afirmar nada: convertirlo en asserts es la mejora 1.
 
 ## Precisión decimal 18/09/2026 (Sonnet 5) — tiempos a 2 decimales
 
@@ -353,7 +420,7 @@ Verificado contra RDBv2 real y, lo de seguridad, en build de producción:
 Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:
 
 1. Tests de oro (F2): convertir `npm run verificar` en asserts contra las
-   queries SSMS de Christian.
+   queries SSMS de Christian. El runner (Vitest) ya existe desde el 30/09/2026.
 2. Programar `npm run agregados` (02:00) y `npm run backup` (02:30) como
    tareas nocturnas en el SERVIDOR (comandos `schtasks` listos en
    `docs/despliegue-windows.md`). El histórico ya está recalculado entero
@@ -376,6 +443,8 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 
 **Módulo «Planificación de turnos»** (aprobado 30/09/2026, rama
 `feature/planificacion`): plan por fases F1-F6 en `docs/plan-planificacion.md`.
+F1 (datos y motor) hecha el 30/09/2026; sus resultados y desviaciones están
+en la sección «Estado de F1» de ese documento. Siguiente: F2 (tablero).
 Cubre también las mejoras 4 (alertas, en su F4) y 5 (curva intradía: la
 tabla `agg_hora_servicio` de su F1). Sus fases F1-F6 son propias del
 módulo; no confundir con las F2/F4/F5 del plan general.

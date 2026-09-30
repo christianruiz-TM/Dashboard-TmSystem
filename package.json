@@ -13,7 +13,12 @@
     "introspect": "tsx scripts/introspect-rdb.ts",
     "agregados": "tsx scripts/aggregate-daily.ts",
     "backup": "tsx scripts/backup-sqlite.ts",
-    "verificar": "tsx scripts/verificar-auditoria.ts"
+    "verificar": "tsx scripts/verificar-auditoria.ts",
+    "test": "vitest run",
+    "planificacion:agregados": "tsx scripts/planificacion-agregados.ts",
+    "planificacion:semilla": "tsx scripts/planificacion-semilla.ts",
+    "planificacion:generar": "tsx scripts/planificacion-generar.ts",
+    "planificacion:fixture": "tsx scripts/planificacion-fixture.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",
@@ -48,6 +53,7 @@
     "eslint-config-next": "16.3.6",
     "tailwindcss": "^4",
     "tsx": "^4.22.4",
-    "typescript": "^5"
+    "typescript": "^5",
+    "vitest": "^4.1.11"
   }
 }

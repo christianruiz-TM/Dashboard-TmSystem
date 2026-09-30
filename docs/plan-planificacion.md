@@ -38,8 +38,8 @@ Decisiones de diseño propias (aprobadas con el plan):
 - **Arrastre**: `@dnd-kit/core` + `@dnd-kit/modifiers` (MIT). El redimensionado va con pointer events propios, porque dnd-kit no lo trae. Todas las operaciones tienen también menú contextual y teclado.
 - **Lexus (`_BD_LX`) es un cliente de planificación propio** (`LX`, cuenta como GH). Así desaparece el caso especial del prototipo: cada par prefijo+sufijo corresponde a un cliente de planificación.
 
-Quedan por confirmar durante las fases (no bloquean): qué significa `TipoDia` en
-`festivos_servicio`; qué es RTO y qué tipos de ausencia cuentan como horas justificadas en el
+Quedan por confirmar durante las fases (no bloquean): ~~qué significa `TipoDia` en
+`festivos_servicio`~~ (resuelto en F1: solo vale `FESTIVO`); qué es RTO y qué tipos de ausencia cuentan como horas justificadas en el
 saldo; el contrato de Celia (25 h frente a ~30 h reales); la fecha de fin de UGR; y la fecha
 límite de publicación.
 
@@ -278,6 +278,56 @@ termina con el lint a cero, `npm test` en verde, `npm run build` sin errores y u
   - los comandos `npm test` y `npm run planificacion:*`;
   - que el motor es puro y no se le añade I/O;
   - que el test runner ya existe: se cierra el pendiente «no hay tests automáticos».
+
+#### Estado de F1 (hecha el 30/09/2026)
+
+Verificado contra RDBv2 real:
+
+- **Backfill** 01/06/2025 → 29/09/2026: 70 lotes en 63,5 s; la consulta más lenta, 0,7 s
+  (islas de sesión de una semana). Ninguna isla cruza la medianoche.
+- **Sesiones = `horasAgenteReales`**: la suma de `agg_sesion_usuario` sin filtrar por número
+  es idéntica en 5 días cerrados (21, 22, 25, 28 y 29/09: 181,75 / 175,44 / 118,42 / 190,35 /
+  178,58 h). Las horas por cliente y mes del equipo reproducen al decimal la tabla F del
+  prototipo (GH 1.115,2 / 1.181,4 / 789,5 / 890,4 h de junio a septiembre; BD+LX 347,5 h,
+  UGR 132,2 h, CEFF 17,2 h, CR 17,3 h en septiembre).
+- **`npm run verificar`** da lo mismo antes y después de extraer `islas.ts` (y las horas de
+  22/09, 28/09 y 1-28/09, con y sin filtro de servicio).
+- **Octubre** (`--hasta-datos 2026-09-28`): capacidad 1.596 h (la misma que el prototipo);
+  CR 4 h, CEFF 18 h, BD+LX 87 h, Ávolo 0 h y UGR al 100 % de su objetivo. Vivos reconstruidos
+  al 28/09 a partir de la foto del 30/09: UGR 4.310 y CR 47, como el prototipo.
+- `planificacion:generar -- --mes 2026-11` imprime resumen y avisos; con `RDB_MOCK=1` (y otra
+  SQLite) funcionan semilla, agregados, generar y el control de un solo borrador.
+
+Diferencias con lo previsto (y por qué):
+
+- **Mínimo de GH de 3 a 6**, no de 4 a 6: el viernes de 19 a 20 h sale 3 también en la hoja
+  «Demanda» del prototipo. El máximo, 6, sí cae el lunes de 10 a 13 h.
+- **Dos franjas bajo el mínimo** en octubre (jueves 08 y 22/10, 17-18 h, semanas B): con la
+  ventana de 12 semanas la λ de esa franja es 18,8 llamadas/h (el prototipo usaba 17,5 con
+  jun-sep) y el mínimo sube de 4 a 5, pero a esa hora solo 4 agentes tienen turno y los 4 están
+  en GH. Es un déficit de turnos, no del reparto: el test exige que el motor no cree ninguno.
+- **UGR: 176 h, no 214 h**. El ritmo medido en las 2 últimas semanas completas es 14,57
+  cierres/h (15,04 la del 14/09 y 14,39 la del 21/09); los ~12/h del prototipo eran la semana
+  del 28/09, incompleta (11,71 con dos días). La curva de 2025 acaba a mediados de octubre, así
+  que UGR se concentra en las tres primeras semanas; si la campaña de 2026 va a durar más, basta
+  con poner su `curva` en `uniforme`.
+- **Ávolo**: el «~3 h de `Av_`» del plan eran las horas con `Av_` DENTRO de los bloques de Ávolo
+  planificados en septiembre (necesita el plan de septiembre: F4). El total de septiembre con
+  `Av_` es 17,8 h del equipo, como en el prototipo.
+- **CR** apunta solo a `CajaR_Autonomos_26`: `CajaR_Banca_26` (acabada en junio) conserva 23
+  vivos que nadie va a llamar.
+- **BD**: tope fijo de 10 h/semana (restos sin contactos nuevos); LX usa `ritmoManual` 6,9
+  porque su lista es del 28/09 y no tiene historia.
+- **Modelo**: `plan_agentes.forzarActivo` (para «salvo que se fuercen») y
+  `plan_agente_usuarios.prefijo/sufijo` (el cliente se resuelve con los prefijos vigentes);
+  `agg_sesion_usuario` guarda `inicio_seg`/`fin_seg` (segundos exactos, cuadran con SQL). GH es
+  modo `resto` con `parametros.erlang` (base y entrante a la vez).
+- **Bolsas**: si el mes anterior tampoco tiene bolsa confirmada, se prorratea la última
+  confirmada (noviembre sale de septiembre: 1.324 × 20/22 = 1.203,64 h).
+- **Vitest 4.1** (la 5 exige `@types/node` ≥ 22) y `vitest.config.mts` (con `.ts` Vite avisaba
+  de ESM en CommonJS).
+
+Confirmado de las preguntas abiertas: `TipoDia` solo vale `FESTIVO`.
 
 ### F2 · Tablero de solo lectura, «Generar borrador» y configuración
 

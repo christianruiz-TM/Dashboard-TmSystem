@@ -2,6 +2,7 @@ import { conCache, ttlSegunRango } from "../cache";
 import { mockHorasAgenteReales, mockRazonesNotReady } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type { HorasAgenteReales, RazonNotReady } from "../types";
+import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
 import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./util";
 
 /**
@@ -16,7 +17,8 @@ import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./uti
  *
  * Se calcula con la misma técnica de clústeres de solapamiento (gaps & islands)
  * que las pausas: por agente+op_type se funden los intervalos que se solapan y
- * se suma la duración de cada isla.
+ * se suma la duración de cada isla. El SQL de las islas es común con la
+ * planificación (islas.ts).
  */
 export async function horasAgenteReales(
   desdeISO: string,
@@ -46,45 +48,14 @@ export async function horasAgenteReales(
                  -- 0 hacía que las sesiones en curso contasen CERO horas, así que
                  -- la cifra de "hoy" se quedaba corta. Se cierra el intervalo en
                  -- el instante actual, sin salirse nunca del rango pedido.
-                 CASE
-                     WHEN l.duration IS NOT NULL
-                          THEN DATEADD(SECOND, l.duration / 10, l.start_time)
-                     WHEN GETDATE() < @hastaExcl THEN GETDATE()
-                     ELSE @hastaExcl
-                 END AS fin
+                 ${sqlFinIntervalo("l")} AS fin
           FROM ag_in_cp_log l
           INNER JOIN ph_e_user u ON l.agent = u.code AND u.type = 1
           INNER JOIN ph_campaign c ON l.campaign = c.code
           WHERE l.op_type IN (0, 1)
             AND l.start_time >= @desde AND l.start_time < @hastaExcl${filtro}
       ),
-      max_fin_previo AS (
-          SELECT *,
-              MAX(fin) OVER (
-                  PARTITION BY agente, op ORDER BY ini
-                  ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING
-              ) AS maxfin
-          FROM base
-      ),
-      marca AS (
-          SELECT *,
-              CASE WHEN maxfin IS NULL OR ini >= maxfin THEN 1 ELSE 0 END AS abre
-          FROM max_fin_previo
-      ),
-      grupo AS (
-          SELECT *,
-              SUM(abre) OVER (
-                  PARTITION BY agente, op ORDER BY ini ROWS UNBOUNDED PRECEDING
-              ) AS gid
-          FROM marca
-      ),
-      islas AS (
-          SELECT agente, op, gid, MIN(ini) AS ini,
-                 -- Guarda anti-desfase de reloj: el fin nunca antes del inicio
-                 CASE WHEN MAX(fin) < MIN(ini) THEN MIN(ini) ELSE MAX(fin) END AS fin
-          FROM grupo
-          GROUP BY agente, op, gid
-      )
+      ${sqlCtesIslas("agente, op")}
       SELECT op,
              SUM(CAST(DATEDIFF(SECOND, ini, fin) AS BIGINT)) / 3600.0 AS horas
       FROM islas

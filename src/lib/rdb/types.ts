@@ -208,3 +208,88 @@ export interface SaludRdb {
   ultimaFlat: string | null; // MAX(flat_agent_login.StartMoment) → frescura flats
   error: string | null;
 }
+
+// ------------------------------------------------------------
+// Planificación de turnos (queries/planificacion.ts)
+// ------------------------------------------------------------
+
+/** Usuario de Altitude con nº de agente (<PREFIJO>_<nnnn>[_SUFIJO]). */
+export interface UsuarioAgenteRdb {
+  usrName: string;
+  altitudeCode: number;
+  fullname: string | null;
+}
+
+/**
+ * Parte de una isla de sesión (unión de intervalos op_type 0) de un usuario,
+ * recortada a un día. Segundos desde las 00:00 de `fecha` (0..86400).
+ */
+export interface IslaSesion {
+  fecha: string;
+  usrName: string;
+  inicioSeg: number;
+  finSeg: number;
+}
+
+/** Demanda de un servicio en una franja de 30 min de un día (sumas). */
+export interface DemandaFranja {
+  fecha: string;
+  servicio: string;
+  inicioMin: number;
+  entrantes: number;
+  entrantesAtendidas: number;
+  entrantesAbandonadas: number;
+  entrantesRechazadas: number;
+  salientes: number;
+  salientesAtendidas: number;
+  /** Segundos de gestión de entrantes atendidas por humanos (hilos < umbral). */
+  segGestionEntrantes: number;
+}
+
+/** Contactos que dejan de estar vivos un día, por campaña. */
+export interface CierresDia {
+  fecha: string;
+  campania: string;
+  cierres: number;
+}
+
+/** Estado actual de una lista saliente (tabla activity). */
+export interface EstadoLista {
+  campania: string;
+  total: number;
+  vivos: number;
+  vivosSinTocar: number;
+}
+
+/** Día de festivos_servicio (tabla propia de la instalación). */
+export interface FestivoServicio {
+  fecha: string;
+  servicio: string; // ServicioDirectorio: 'GrupoHuertas', 'GrupoAvolo'...
+  tipo: string; // TipoDia: hoy solo 'FESTIVO'
+}
+
+export interface FestivosServicio {
+  festivos: FestivoServicio[];
+  /** Última fecha cargada por servicio: la vigencia de la tabla. */
+  ultimaFechaPorServicio: Record<string, string>;
+}
+
+/** Tramo de horarios_servicio. dias[0] = lunes … dias[6] = domingo. */
+export interface HorarioServicio {
+  servicio: string;
+  dias: boolean[];
+  entradaMin: number;
+  salidaMin: number;
+  desde: string;
+  hasta: string;
+}
+
+/** Entrantes de hoy que no atendió nadie (alerta de clientes «a demanda»). */
+export interface EntrantesNoAtendidas {
+  noAtendidas: number;
+  /** HH:MM de la primera y la última no atendida de hoy (null si ninguna). */
+  primera: string | null;
+  ultima: string | null;
+  /** HH:MM de la última entrante atendida de hoy (null si ninguna). */
+  ultimaAtendida: string | null;
+}
