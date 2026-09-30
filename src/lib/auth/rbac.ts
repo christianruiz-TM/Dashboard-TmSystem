@@ -20,12 +20,26 @@ export const RUTA_POR_ROL: Record<Rol, string> = {
   cliente: "/clientes",
 };
 
+/**
+ * Planificación de turnos: supervisión (y admin) generan, editan, publican y
+ * configuran; operaciones y dirección solo leen (con nombres de agentes: son
+ * roles internos). El rol cliente nunca entra.
+ */
+export const ROLES_PLAN_LECTURA: Rol[] = ["supervision", "operaciones", "direccion"];
+export const ROLES_PLAN_EDICION: Rol[] = ["supervision"];
+
+/** ¿Puede este rol generar, editar o configurar la planificación? (admin siempre). */
+export function puedeEditarPlan(rol: Rol): boolean {
+  return rol === "admin" || ROLES_PLAN_EDICION.includes(rol);
+}
+
 /** Entradas de navegación visibles por rol (layout del dashboard). */
 export function rutasVisibles(rol: Rol): { ruta: string; etiqueta: string }[] {
   const todas = [
     { ruta: "/direccion", etiqueta: "Dirección", roles: ["admin", "direccion"] },
     { ruta: "/operaciones", etiqueta: "Operaciones", roles: ["admin", "operaciones"] },
     { ruta: "/supervision", etiqueta: "Supervisión", roles: ["admin", "supervision"] },
+    { ruta: "/planificacion", etiqueta: "Planificación", roles: ["admin", ...ROLES_PLAN_LECTURA] },
     { ruta: "/clientes", etiqueta: "Mi servicio", roles: ["admin", "cliente"] },
     { ruta: "/admin", etiqueta: "Administración", roles: ["admin"] },
   ];

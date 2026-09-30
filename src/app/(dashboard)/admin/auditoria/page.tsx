@@ -32,6 +32,13 @@ const ACCIONES = [
   "editar_cliente",
   "config_facturacion",
   "export",
+  "plan_generar",
+  "plan_editar",
+  "plan_publicar",
+  "plan_ausencia",
+  "plan_bolsa",
+  "plan_config",
+  "plan_saldo_ajuste",
 ] as const;
 
 export default async function PaginaAuditoria({

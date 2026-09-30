@@ -34,9 +34,9 @@ import {
   type EntradaMotor,
   type ObjetivoSemana,
 } from "./motor";
+import { fueraDePlantilla, leerEquipo, prefijosSinCliente, ultimaSesionAgente } from "./equipo";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
-import { resolverCliente } from "./usuarios";
 
 export interface OpcionesCarga {
   /** Último día cerrado con datos (por defecto, ayer). */
@@ -98,29 +98,22 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
   const servicioDe = new Map(filasClientes.map((c) => [c.codigo, c.servicioAltitude]));
 
   // ---------- Usuarios y agentes ----------
-  const prefijos = repo.leerPrefijos();
-  const usuarios = repo.leerUsuarios().map((u) => ({ ...u, cliente: resolverCliente(u.prefijo, u.sufijo, prefijos) }));
-  const clienteDeUsuario = new Map(usuarios.map((u) => [u.usrName, u.cliente]));
-  const agenteDeUsuario = new Map(usuarios.map((u) => [u.usrName, u.agenteNumero]));
-  const ultimas = repo.ultimaSesionPorUsuario(fechaDatos);
-  const filasAgentes = repo.leerAgentes();
-  const plantilla = filasAgentes.filter((a) => a.enPlantilla && a.equipo === p.equipo);
-  const numerosPlantilla = new Set(plantilla.map((a) => a.numero));
+  const eq = leerEquipo(p.equipo, fechaDatos);
+  const { usuarios, clienteDeUsuario, agenteDeUsuario, plantilla, numerosPlantilla } = eq;
   const turnos = expandirTurnos(repo.leerAsignacionesTurno(), repo.leerPatrones(), dias);
   const ausencias = expandirAusencias(repo.leerAusencias(inicioMes, finMes), dias);
 
   const agentes: AgenteMotor[] = plantilla.map((a) => {
     const suyos = usuarios.filter((u) => u.agenteNumero === a.numero);
     const habilidades = [...new Set(suyos.map((u) => u.cliente).filter((c): c is string => !!c && codigos.has(c)))].sort();
-    // La persona está activa si ha usado CUALQUIERA de sus usuarios
-    const ultimaSesion = suyos.map((u) => ultimas.get(u.usrName)).filter((x): x is string => !!x).sort().pop() ?? null;
     return {
       numero: a.numero,
       contratoSemanalH: a.contratoSemanalH,
       habilidades,
       turnos: turnos[a.numero] ?? {},
       ausencias: ausencias[a.numero] ?? [],
-      ultimaSesion,
+      // La persona está activa si ha usado CUALQUIERA de sus usuarios
+      ultimaSesion: ultimaSesionAgente(eq, a.numero),
       forzarActivo: a.forzarActivo,
     };
   });
@@ -334,28 +327,6 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
   }
 
   // ---------- Meta: avisos de la entrada ----------
-  const desdeReciente = sumarDias(fechaDatos, -p.diasInactividad + 1);
-  const prefijosSinCliente = usuarios
-    .filter((u) => numerosPlantilla.has(u.agenteNumero) && u.cliente == null)
-    .map((u) => ({ ...u, ultima: ultimas.get(u.usrName) ?? null }))
-    .filter((u) => u.ultima != null && u.ultima >= desdeReciente)
-    .map((u) => ({ usrName: u.usrName, agenteNumero: u.agenteNumero, prefijo: u.prefijo, sufijo: u.sufijo, ultimaSesion: u.ultima }));
-
-  const recientes = new Map<string, { horas: number; clientes: Set<string> }>();
-  for (const f of repo.segundosSesionPorUsuarioDia(desdeReciente, fechaDatos)) {
-    const c = clienteDeUsuario.get(f.usrName);
-    const a = agenteDeUsuario.get(f.usrName);
-    if (!c || !a || !codigos.has(c) || numerosPlantilla.has(a)) continue;
-    const r = recientes.get(a) ?? { horas: 0, clientes: new Set<string>() };
-    r.horas += f.segundos / 3600;
-    r.clientes.add(c);
-    recientes.set(a, r);
-  }
-  const fueraDePlantilla = [...recientes.entries()]
-    .filter(([, r]) => r.horas >= 1)
-    .map(([agenteNumero, r]) => ({ agenteNumero, horas: Math.round(r.horas * 100) / 100, clientes: [...r.clientes].sort() }))
-    .sort((a, b) => a.agenteNumero.localeCompare(b.agenteNumero));
-
   const vigenciaHorarios: Record<string, string> = {};
   for (const h of horarios) {
     if (!vigenciaHorarios[h.servicio] || h.hasta > vigenciaHorarios[h.servicio]) vigenciaHorarios[h.servicio] = h.hasta;
@@ -386,8 +357,8 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
     tasaContacto,
     fijados: opciones.fijados ?? [],
     meta: {
-      prefijosSinCliente,
-      fueraDePlantilla,
+      prefijosSinCliente: prefijosSinCliente(eq, p.diasInactividad),
+      fueraDePlantilla: fueraDePlantilla(eq, p.diasInactividad, codigos),
       ultimoAgregado: repo.ultimoAgregado(),
       vigenciaFestivos: festivos.ultimaFechaPorServicio,
       vigenciaHorarios,

@@ -7,6 +7,7 @@ import {
   parseISO,
   startOfISOWeek,
 } from "date-fns";
+import { rangoCorto } from "./franjas";
 import type { AusenciaMotor, DiaMotor, SemanaResumen, Tramo } from "./tipos";
 
 // ============================================================
@@ -152,6 +153,44 @@ export function normalizarTramos(tramos: readonly Tramo[]): Tramo[] {
     else salida.push({ inicioMin: t.inicioMin, finMin: t.finMin });
   }
   return salida;
+}
+
+/** «9», «9:30», «09:30» → minutos desde las 00:00 (null si no es una hora). */
+function minutosDeHora(texto: string): number | null {
+  const m = /^(\d{1,2})(?::(\d{2}))?$/.exec(texto.trim());
+  if (!m) return null;
+  const h = Number(m[1]);
+  const min = Number(m[2] ?? 0);
+  if (min > 59 || h * 60 + min > 1440) return null;
+  return h * 60 + min;
+}
+
+/**
+ * Tramos escritos como en la plantilla de supervisión: «9-14, 16-20» o
+ * «9:30-14». Vacío = sin tramos. null si algo no se entiende o un tramo acaba
+ * antes de empezar. Salen ordenados y fundidos.
+ */
+export function parsearTramos(texto: string): Tramo[] | null {
+  const limpio = texto.trim();
+  if (limpio === "") return [];
+  const tramos: Tramo[] = [];
+  for (const parte of limpio.split(/[,;]|\s+y\s+/)) {
+    if (parte.trim() === "") continue;
+    const [a, b, ...resto] = parte.split("-");
+    if (b === undefined || resto.length > 0) return null;
+    const inicioMin = minutosDeHora(a);
+    const finMin = minutosDeHora(b);
+    if (inicioMin == null || finMin == null || finMin <= inicioMin) return null;
+    tramos.push({ inicioMin, finMin });
+  }
+  return normalizarTramos(tramos);
+}
+
+/** [{540,840},{960,1200}] → «9-14, 16-20» (vacío si no hay tramos). */
+export function textoTramos(tramos: readonly Tramo[]): string {
+  return normalizarTramos(tramos)
+    .map((t) => rangoCorto(t.inicioMin, t.finMin))
+    .join(", ");
 }
 
 export interface PatronLike {

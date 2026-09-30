@@ -12,6 +12,24 @@ import type { Aviso, BloqueBasico, EntradaMotor, MinimosDia, Tramo } from "./tip
 //     semana_sobre_contrato · horas_seguidas · fuera_horario_servicio (salientes)
 // ============================================================
 
+/**
+ * Códigos que produce validarPlan. El resto de avisos de una versión (datos
+ * caducados, agente inactivo, objetivo no alcanzado...) salen al generar y
+ * se guardan con ella; estos, en cambio, el tablero los recalcula sobre los
+ * bloques y los datos vivos (una ausencia nueva ya cuenta).
+ */
+export const CODIGOS_VALIDACION: ReadonlySet<string> = new Set([
+  "solapado",
+  "sin_usuario",
+  "sobre_ausencia",
+  "fuera_horario_servicio",
+  "fuera_turno",
+  "trabajo_festivo",
+  "semana_sobre_contrato",
+  "horas_seguidas",
+  "franja_bajo_minimo",
+]);
+
 export interface ClienteValidacion {
   codigo: string;
   cuentaComo: string | null;

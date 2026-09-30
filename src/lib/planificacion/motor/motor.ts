@@ -1,7 +1,7 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { laborablesDelMes, semanasDelMes } from "./calendario";
-import { minimoFranja } from "./erlang";
 import { franjaDentro, generarFranjas, horasTexto, rangoCorto, redondear2, solapan } from "./franjas";
+import { calcularMinimos } from "./minimos";
 import type {
   AgenteMotor,
   Aviso,
@@ -184,25 +184,12 @@ export function generarPlan(entrada: EntradaMotor): SalidaMotor {
   }
 
   // ---------- 3. Mínimos (Erlang C) ----------
-  const minimos: MinimosDia[] = [];
+  const minimos: MinimosDia[] = calcularMinimos(entrada);
   const minimosCliente = new Map<string, Map<string, number[]>>();
-  for (const dem of [...entrada.demanda].sort((a, b) => a.cliente.localeCompare(b.cliente))) {
-    const c = clientes.get(dem.cliente);
-    if (!c) continue;
-    const lambda = new Map(dem.lambda.map((l) => [`${l.diaSemana}|${l.inicioMin}`, l.llamadasHora]));
-    const factor = dem.aplicarEstacionalidad && dem.factorEstacional ? dem.factorEstacional : 1;
-    const porFecha = new Map<string, number[]>();
-    for (const d of dias) {
-      const horario = c.horario ? (c.horario[d.fecha] ?? []) : null;
-      const fila = franjas.map((f) => {
-        if (horario ? !franjaDentro(f, paso, horario) : !d.laborable) return 0;
-        const l = (lambda.get(`${d.diaEquivalente}|${f}`) ?? 0) * factor;
-        return minimoFranja(l, dem.ahtSeg, dem.slaPct, dem.umbralSeg, dem.margen);
-      });
-      porFecha.set(d.fecha, fila);
-      minimos.push({ fecha: d.fecha, cliente: c.codigo, porFranja: fila });
-    }
-    minimosCliente.set(c.codigo, porFecha);
+  for (const m of minimos) {
+    const porFecha = minimosCliente.get(m.cliente) ?? new Map<string, number[]>();
+    porFecha.set(m.fecha, m.porFranja);
+    minimosCliente.set(m.cliente, porFecha);
   }
 
   /** Agentes en el grupo de `cliente` (él o los que cuentan como él) en una franja. */

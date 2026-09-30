@@ -7,9 +7,10 @@ const eslintConfig = defineConfig([
   ...nextTs,
   // El motor de planificación es PURO: sin I/O, sin reloj ni azar, y solo
   // date-fns y zod. Así corre igual en el servidor, en los tests y en el
-  // navegador (tablero). Ver src/lib/planificacion/motor/tipos.ts.
+  // navegador (tablero). Ver src/lib/planificacion/motor/tipos.ts. El modelo
+  // de vista del tablero (tablero.ts) sigue las mismas reglas.
   {
-    files: ["src/lib/planificacion/motor/**/*.ts"],
+    files: ["src/lib/planificacion/motor/**/*.ts", "src/lib/planificacion/tablero.ts"],
     rules: {
       "no-restricted-imports": [
         "error",

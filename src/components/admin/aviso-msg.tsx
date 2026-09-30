@@ -18,14 +18,21 @@ const MENSAJES: Record<string, { texto: string; error: boolean }> = {
   error_propio: { texto: "No puedes desactivar tu propio usuario.", error: true },
 };
 
-/** Banner de resultado de las acciones de admin (?msg=...). */
-export function AvisoMsg({ msg }: { msg?: string }) {
+/**
+ * Banner de resultado de las acciones de admin (?msg=...). `detalle` (p. ej.
+ * ?detalle=... de la configuración de planificación) precisa qué falló; React
+ * lo escapa como texto.
+ */
+export function AvisoMsg({ msg, detalle }: { msg?: string; detalle?: string }) {
   if (!msg) return null;
   const info = MENSAJES[msg];
   if (!info) return null;
   return (
     <Alert variant={info.error ? "destructive" : "default"}>
-      <AlertDescription>{info.texto}</AlertDescription>
+      <AlertDescription>
+        {info.texto}
+        {detalle ? ` ${detalle.slice(0, 300)}` : null}
+      </AlertDescription>
     </Alert>
   );
 }

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Building2,
+  CalendarRange,
   Headset,
   LayoutDashboard,
   Settings,
@@ -16,6 +17,7 @@ const ICONOS: Record<string, LucideIcon> = {
   "/direccion": LayoutDashboard,
   "/operaciones": Building2,
   "/supervision": Headset,
+  "/planificacion": CalendarRange,
   "/clientes": Users,
   "/admin": Settings,
 };

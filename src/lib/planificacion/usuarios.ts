@@ -23,6 +23,39 @@ export function parsearUsuario(usrName: string): UsuarioParseado | null {
   return { usrName: usrName.trim(), prefijo: m[1], numero: m[2], sufijo: m[3] ?? "" };
 }
 
+/**
+ * Nombre visible de un agente a partir de los fullname de sus usuarios de
+ * Altitude, que supervisión escribe a su manera («Lourdes GH», «Lourdes BD»,
+ * «Lourdes»): de cada uno, la primera palabra que no sea un prefijo o sufijo
+ * de usuario ni lleve números, y de todas, la más repetida (a igualdad, la
+ * primera en orden alfabético). null si no sale ninguna. El alias que ponga
+ * supervisión en configuración manda sobre esto.
+ */
+export function nombreDesdeFullnames(
+  fullnames: readonly (string | null)[],
+  tokensIgnorados: ReadonlySet<string>,
+): string | null {
+  const cuenta = new Map<string, number>();
+  for (const f of fullnames) {
+    const palabra = (f ?? "")
+      .split(/\s+/)
+      .map((p) => p.trim())
+      .find((p) => p.length > 1 && !/[\d_]/.test(p) && !tokensIgnorados.has(p.toLowerCase()));
+    if (palabra) cuenta.set(palabra, (cuenta.get(palabra) ?? 0) + 1);
+  }
+  const orden = [...cuenta.entries()].sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]));
+  return orden[0]?.[0] ?? null;
+}
+
+/** Prefijos y trozos de sufijo en minúsculas (GH, BD, LX, UGR, AV...) para nombreDesdeFullnames. */
+export function tokensDeUsuarios(usuarios: readonly { prefijo: string; sufijo: string }[]): Set<string> {
+  const tokens = new Set<string>(["bbdd"]);
+  for (const u of usuarios) {
+    for (const t of `${u.prefijo}${u.sufijo}`.split("_")) if (t) tokens.add(t.toLowerCase());
+  }
+  return tokens;
+}
+
 export interface PrefijoCliente {
   prefijo: string;
   sufijo: string;

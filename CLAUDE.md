@@ -176,7 +176,8 @@ tiene remoto git todavía.
 - **Modo mock**: con `RDB_MOCK=1` (ver `.env.example`) la capa RDB devuelve datos
   ficticios realistas (`src/lib/rdb/mock.ts`). Permite desarrollar UI sin
   credenciales. Las páginas no distinguen mock de real.
-- Vistas por rol: `/direccion`, `/operaciones`, `/supervision`, `/clientes`, `/admin`.
+- Vistas por rol: `/direccion`, `/operaciones`, `/supervision`, `/clientes`, `/admin`
+  y `/planificacion` (ver «Planificación de turnos» más abajo).
 - **Supervisión** tiene dos pestañas (`?vista=`): «Tiempo real» (hoy, polling 60 s,
   incluye estado de agentes ahora) e «Histórico» (rango de fechas: ayer, últimos 7
   días, mes anterior o intervalo) con las mismas métricas de cola/SLA/productividad.
@@ -206,7 +207,8 @@ tiene remoto git todavía.
   y los números salientes van codificados ≠ entrante → el seguimiento
   «devuelta/pendiente» de callbacks quedó PENDIENTE de definir el mecanismo real.
 - **Planificación de turnos** (rama `feature/planificacion`, plan por fases en
-  `docs/plan-planificacion.md`; F1 = datos y motor, sin UI, hecha el 30/09/2026):
+  `docs/plan-planificacion.md`; F1 = datos y motor y F2 = tablero de solo
+  lectura, «Generar» y configuración, hechas el 30/09/2026):
   - **Motor PURO** en `src/lib/planificacion/motor/`: sin I/O, sin
     `Date.now()` ni azar, solo date-fns y zod (una regla de ESLint lo impide).
     **No añadirle I/O**: corre también en el navegador (tablero, F2) y en los
@@ -235,6 +237,28 @@ tiene remoto git todavía.
     (`UGR[_]EGRE26`, `CajaR[_]Autonomos[_]26`): las antiguas conservan vivos
     que ya nadie llama y inflan el objetivo.
   - Todo en minutos; `plan.pasoMin` = 60 (pasar a 30 min es cambiar el parámetro).
+  - **Rutas y permisos** (`ROLES_PLAN_LECTURA` / `ROLES_PLAN_EDICION` en
+    `rbac.ts`): `/planificacion` (meses y avisos de entrada) y
+    `/planificacion/[mes]?vista=agente|cliente|dia&semana=&dia=&version=` las
+    leen supervisión, operaciones y dirección (con nombres: roles internos);
+    `/planificacion/configuracion/{clientes,agentes,patrones,parametros,ausencias}`
+    y TODAS las Server Actions (`acciones.ts` de cada carpeta), solo
+    supervisión. Cliente, nunca. Como en el resto del panel, cada `page.tsx` y
+    cada acción llaman a `requireRol` (el layout de configuración es solo menú).
+  - **La configuración vive en SQLite**: no hardcodear clientes, colores,
+    agentes, contratos, patrones ni parámetros; se editan en
+    `/planificacion/configuracion` y cada cambio queda en `audit_log`
+    (`plan_config`; generar, `plan_generar`).
+  - **Tablero** (`components/planificacion/`): recibe la FOTO de la entrada
+    guardada con la versión con lo vivo encima (nombre/color/orden de
+    clientes, contratos, ausencias; `vistas.ts::cargarTablero`) y recalcula en
+    el navegador, con el motor puro, mínimos (`calcularMinimos`), cobertura,
+    validaciones y barras (`lib/planificacion/tablero.ts`, puro, misma regla de
+    ESLint). La vista, semana y día van en la URL por `history.replaceState`.
+    Solo guardar (F3) volverá al servidor.
+  - «Generar borrador» (`generar.ts`, la misma cadena que el script): si ya hay
+    borrador, «respetar mis cambios» pasa sus bloques fijados o manuales como
+    `fijados` al motor; «empezar de cero», no. El anterior queda «descartada».
 - **Facturación por servicio o campaña**: `billing_config` tiene dos ámbitos
   mutuamente excluyentes — `serviceName` (lo normal: aplica a TODAS las campañas
   del servicio/cliente) o `campaignShortname` (excepción puntual). Al facturar,
@@ -444,8 +468,10 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 
 **Módulo «Planificación de turnos»** (aprobado 30/09/2026, rama
 `feature/planificacion`): plan por fases F1-F6 en `docs/plan-planificacion.md`.
-F1 (datos y motor) hecha el 30/09/2026; sus resultados y desviaciones están
-en la sección «Estado de F1» de ese documento. Siguiente: F2 (tablero).
+F1 (datos y motor) y F2 (tablero de solo lectura, «Generar borrador» y
+configuración) hechas el 30/09/2026; sus resultados y desviaciones están en
+las secciones «Estado de F1» y «Estado de F2» de ese documento. Siguiente:
+F3 (edición, ausencias, bolsas, publicación y versiones).
 Cubre también las mejoras 4 (alertas, en su F4) y 5 (curva intradía: la
 tabla `agg_hora_servicio` de su F1). Sus fases F1-F6 son propias del
 módulo; no confundir con las F2/F4/F5 del plan general.

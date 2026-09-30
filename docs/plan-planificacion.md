@@ -360,6 +360,63 @@ BD 42 h y LX 45 h.
 - **Riesgos**: rendimiento del tablero con ~1.500 bloques (medir; posicionar en % y memoizar por fila).
 - **CLAUDE.md**: rutas y permisos del módulo; «la configuración vive en SQLite: no hardcodear clientes, colores ni agentes».
 
+#### Estado de F2 (hecha el 30/09/2026)
+
+Verificado con `next build` + `next start` sobre una COPIA de la SQLite real (usuarios de prueba de
+cada rol) y RDBv2 real; la SQLite real no se ha tocado (sigue con el borrador v1 de octubre).
+
+- **Permisos**, con curl sobre las 9 rutas nuevas: cookie inventada → 307 a `/login` sin contenido
+  en el cuerpo (solo el `<title>` estático, como el resto del panel); cliente → 307 a `/clientes`;
+  operaciones y dirección ven el tablero (200) sin «Generar» y reciben 307 en `configuracion/*`.
+  Las Server Actions llamadas a mano (el POST exacto que manda el navegador, capturado) se
+  rechazan para operaciones, dirección, cliente y cookie inventada sin tocar la BBDD; la misma
+  petición como supervisión sí crea el borrador (control positivo).
+- **Noviembre generado desde la web** (2,9 s): 1.572 h, 456 bloques, GH+BD+LX 1.407 h frente a
+  1.203,64 h de bolsa, UGR 148/148, BD 40/40, LX 45/45, CEFF 17/17 y dos franjas bajo mínimo
+  (jueves 05 y 19/11, 17-18 h): lo mismo que `planificacion:generar`. Además, lo que recalcula el
+  navegador a partir de la foto es idéntico a la salida del motor en octubre y noviembre (bloques,
+  mínimos, validaciones, horas por cliente y semana, franjas en rojo).
+- **Tooltips**: 114 bloques con tooltip en la semana del 09/11 = 114 bloques en la BBDD; el
+  texto sale de `explicarBloque` («UGR aquí: holgura GH 6, contacto 60 %, objetivo de la semana
+  37,00 h…»).
+- **Configuración sin tocar código**: cambiar el color de GH y el contrato de 1118 (25 → 30 h) se
+  ve en el tablero al recargar, sin regenerar.
+- **Regenerar respetando mis cambios**: con un bloque marcado a mano como fijado, la v2 lo
+  conserva tal cual (`recalculo`, basada en la v1, que queda «descartada»).
+- **Rendimiento** (Chrome headless, equipo de desarrollo): con 423 bloques, cambio de semana
+  85-103 ms; con 1.435 bloques (cada bloque partido en horas), carga completa 0,6 s, cambio de
+  semana 130-190 ms y de vista 66-149 ms. Basta con posicionar en % y memoizar por fila.
+- **Modo demo** (`RDB_MOCK=1`, SQLite nueva): semilla, agregados, generar y las 8 pantallas.
+
+Diferencias con lo previsto (y por qué):
+
+- **Vistas**: agente, cliente y día. «Hoy» (sesiones reales superpuestas) queda para F4, con el
+  resto del seguimiento. La vista de día usa `?dia=`, además de `?semana=`.
+- **Foto + datos vivos**: el tablero usa la entrada guardada con la versión (explica el plan aunque
+  cambien los datos), pero con nombre, color y orden de los clientes, contrato de los agentes y
+  ausencias VIVOS encima: así un color o un contrato se ven sin regenerar y una ausencia nueva ya
+  cuenta en las validaciones (F3). Los mínimos no se guardan: se recalculan de la foto
+  (`motor/minimos.ts`, extraído del motor sin cambiar el snapshot).
+- **Incidencias**: las validaciones (`CODIGOS_VALIDACION`) se recalculan en el navegador; el resto
+  de avisos (datos caducados, inactivos, objetivos…) son los guardados al generar.
+- **Barras**: GH va con los que cuentan como GH (BD y LX), que comparten su bolsa, como en la hoja
+  «Resumen» del prototipo; BD y LX llevan además su barra contra su objetivo.
+- **Nombres**: alias de configuración o, si no hay, la primera palabra de los `fullname` de sus
+  usuarios que no sea un prefijo («Lourdes GH» → «Lourdes»), la más repetida.
+- **Configuración**: los parámetros de cada cliente se editan como JSON validado con el esquema
+  del motor en modo estricto (una clave mal escrita se rechaza en vez de ignorarse). Se exige un
+  único cliente «resto» activo en el equipo planificado. Los prefijos sin cliente se asignan desde
+  la misma pantalla.
+- **Aprender patrones**: franja trabajada = al menos media franja con sesión; entra en el patrón si
+  se trabajó en MÁS de la mitad de los días válidos de esa rotación (semanas sin ninguna sesión y
+  festivos fuera). Aceptar reutiliza el patrón con esos mismos tramos o crea «Aprendido 0851 A…».
+  Con datos reales coinciden 0851, 0985, 1048 y 1067; 1086 parece tener A y B cruzadas y 1008
+  trabaja menos tardes de las configuradas (a revisar con supervisión).
+- **Avisos de entrada** en `/planificacion`: los mismos criterios que el cargador (se extrajeron a
+  `equipo.ts`; la entrada del motor sale idéntica byte a byte para octubre y noviembre) más los
+  agentes de plantilla sin turno vigente.
+- **Ventana de generación**: el mes actual y los tres siguientes.
+
 ### F3 · Edición, ausencias, bolsas, publicación, versiones y saldo previsto
 
 - **Archivos**:

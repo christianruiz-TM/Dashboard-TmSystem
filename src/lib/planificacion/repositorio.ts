@@ -297,6 +297,11 @@ export function crearBorrador(opciones: {
   origen?: "motor" | "copia" | "recalculo";
   basadaEnId?: number | null;
   reemplazar?: boolean;
+  /**
+   * Borrador que se espera encontrar (id, o null = ninguno). Si al guardar
+   * hay otro (alguien generó mientras tanto), error en vez de descartarlo.
+   */
+  esperado?: number | null;
 }): { id: number; numero: number } {
   return db.transaction((tx) => {
     const existente = tx
@@ -304,6 +309,11 @@ export function crearBorrador(opciones: {
       .from(planVersiones)
       .where(and(eq(planVersiones.mes, opciones.mes), eq(planVersiones.estado, "borrador")))
       .get();
+    if (opciones.esperado !== undefined && (existente?.id ?? null) !== opciones.esperado) {
+      throw new Error(
+        `El borrador de ${opciones.mes} ha cambiado mientras se generaba (otra persona lo ha regenerado); vuelve a intentarlo`,
+      );
+    }
     if (existente) {
       if (!opciones.reemplazar) throw new Error(`Ya hay un borrador de ${opciones.mes} (v${existente.numero})`);
       tx.update(planVersiones).set({ estado: "descartada" }).where(eq(planVersiones.id, existente.id)).run();
@@ -351,4 +361,181 @@ export function crearBorrador(opciones: {
 
 export function versionesMes(mes: string) {
   return db.select().from(planVersiones).where(eq(planVersiones.mes, mes)).orderBy(desc(planVersiones.numero)).all();
+}
+
+/** Todas las versiones sin la foto de la entrada (la lista de meses no la necesita). */
+export function listarVersiones() {
+  return db
+    .select({
+      id: planVersiones.id,
+      mes: planVersiones.mes,
+      numero: planVersiones.numero,
+      estado: planVersiones.estado,
+      origen: planVersiones.origen,
+      avisos: planVersiones.avisos,
+      resumen: planVersiones.resumen,
+      creadaPor: planVersiones.creadaPor,
+      creadaAt: planVersiones.creadaAt,
+      publicadaPor: planVersiones.publicadaPor,
+      publicadaAt: planVersiones.publicadaAt,
+    })
+    .from(planVersiones)
+    .orderBy(desc(planVersiones.mes), desc(planVersiones.numero))
+    .all();
+}
+
+export function borradorMes(mes: string) {
+  return db
+    .select()
+    .from(planVersiones)
+    .where(and(eq(planVersiones.mes, mes), eq(planVersiones.estado, "borrador")))
+    .get();
+}
+
+export function bloquesVersion(versionId: number) {
+  return db
+    .select()
+    .from(planBloques)
+    .where(eq(planBloques.versionId, versionId))
+    .orderBy(asc(planBloques.agenteNumero), asc(planBloques.fecha), asc(planBloques.inicioMin))
+    .all();
+}
+
+/** Bloques que «regenerar respetando mis cambios» conserva: fijados o editados a mano. */
+export function bloquesConservables(versionId: number) {
+  return bloquesVersion(versionId).filter((b) => b.fijado || b.origen === "manual");
+}
+
+// ---------- Configuración: escritura (supervisión, desde /planificacion/configuracion) ----------
+
+type NuevoCliente = Omit<typeof planClientes.$inferInsert, "id">;
+/** Transacción de drizzle (mismas consultas que db). */
+type Tx = Parameters<Parameters<typeof db.transaction>[0]>[0];
+
+export function crearCliente(valores: NuevoCliente): void {
+  db.insert(planClientes).values(valores).run();
+}
+
+/** El código no cambia: lo usan los bloques, los prefijos y las bolsas. */
+export function actualizarCliente(id: number, cambios: Omit<NuevoCliente, "codigo">): void {
+  db.update(planClientes).set(cambios).where(eq(planClientes.id, id)).run();
+}
+
+export function leerClientesTodos() {
+  return db.select().from(planClientes).orderBy(asc(planClientes.orden), asc(planClientes.codigo)).all();
+}
+
+/**
+ * Tras cambiar los prefijos, rehace el cliente guardado de cada usuario
+ * (el cargador ya lo resuelve en vivo; esto mantiene la tabla coherente).
+ */
+function recalcularClientesUsuarios(tx: Tx): void {
+  const prefijos = tx.select().from(planPrefijos).all();
+  for (const u of tx.select().from(planAgenteUsuarios).all()) {
+    const cliente = resolverCliente(u.prefijo, u.sufijo, prefijos);
+    if (cliente !== u.clienteCodigo) {
+      tx.update(planAgenteUsuarios).set({ clienteCodigo: cliente }).where(eq(planAgenteUsuarios.usrName, u.usrName)).run();
+    }
+  }
+}
+
+export function guardarPrefijo(valores: { prefijo: string; sufijo: string; clienteCodigo: string }): void {
+  db.transaction((tx) => {
+    tx.insert(planPrefijos)
+      .values(valores)
+      .onConflictDoUpdate({ target: [planPrefijos.prefijo, planPrefijos.sufijo], set: { clienteCodigo: valores.clienteCodigo } })
+      .run();
+    recalcularClientesUsuarios(tx);
+  });
+}
+
+export function borrarPrefijo(id: number) {
+  return db.transaction((tx) => {
+    const fila = tx.select().from(planPrefijos).where(eq(planPrefijos.id, id)).get();
+    if (fila) {
+      tx.delete(planPrefijos).where(eq(planPrefijos.id, id)).run();
+      recalcularClientesUsuarios(tx);
+    }
+    return fila ?? null;
+  });
+}
+
+export function guardarAgente(
+  numero: string,
+  valores: Pick<
+    typeof planAgentes.$inferInsert,
+    "alias" | "contratoSemanalH" | "enPlantilla" | "equipo" | "forzarActivo" | "notas"
+  >,
+): boolean {
+  const r = db
+    .update(planAgentes)
+    .set({ ...valores, actualizadoAt: new Date() })
+    .where(eq(planAgentes.numero, numero))
+    .run();
+  return r.changes > 0;
+}
+
+/** Crea o actualiza un patrón con sus tramos (los reemplaza enteros). Devuelve el id. */
+export function guardarPatron(valores: {
+  id?: number;
+  nombre: string;
+  activo: boolean;
+  tramos: readonly { diaSemana: number; inicioMin: number; finMin: number }[];
+}): number {
+  return db.transaction((tx) => {
+    let id = valores.id;
+    if (id == null) {
+      id = tx.insert(planPatrones).values({ nombre: valores.nombre, activo: valores.activo }).returning({ id: planPatrones.id }).get().id;
+    } else {
+      tx.update(planPatrones).set({ nombre: valores.nombre, activo: valores.activo }).where(eq(planPatrones.id, id)).run();
+      tx.delete(planPatronTramos).where(eq(planPatronTramos.patronId, id)).run();
+    }
+    for (const t of valores.tramos) tx.insert(planPatronTramos).values({ patronId: id, ...t }).run();
+    return id;
+  });
+}
+
+/**
+ * Asigna el turno A/B de un agente desde una fecha. Si ya hay una asignación
+ * que empieza ese mismo día, se sustituye; si no, se añade (gana la de
+ * `desde` más reciente, ver expandirTurnos).
+ */
+export function asignarTurno(valores: {
+  agenteNumero: string;
+  patronAId: number | null;
+  patronBId: number | null;
+  desde: string;
+  hasta: string | null;
+}): void {
+  db.transaction((tx) => {
+    const existente = tx
+      .select()
+      .from(planAgenteTurnos)
+      .where(and(eq(planAgenteTurnos.agenteNumero, valores.agenteNumero), eq(planAgenteTurnos.desde, valores.desde)))
+      .get();
+    if (existente) tx.update(planAgenteTurnos).set(valores).where(eq(planAgenteTurnos.id, existente.id)).run();
+    else tx.insert(planAgenteTurnos).values(valores).run();
+  });
+}
+
+export function guardarTipoAusencia(valores: typeof planTiposAusencia.$inferInsert, crear: boolean): void {
+  if (crear) db.insert(planTiposAusencia).values(valores).run();
+  else {
+    const { codigo, ...cambios } = valores;
+    db.update(planTiposAusencia).set(cambios).where(eq(planTiposAusencia.codigo, codigo)).run();
+  }
+}
+
+/** Islas de sesión de todos los usuarios en el rango (para «Aprender patrones»). */
+export function sesionesRango(desde: string, hasta: string) {
+  return db
+    .select({
+      usrName: aggSesionUsuario.usrName,
+      fecha: aggSesionUsuario.fecha,
+      inicioSeg: aggSesionUsuario.inicioSeg,
+      finSeg: aggSesionUsuario.finSeg,
+    })
+    .from(aggSesionUsuario)
+    .where(and(gte(aggSesionUsuario.fecha, desde), lte(aggSesionUsuario.fecha, hasta)))
+    .all();
 }

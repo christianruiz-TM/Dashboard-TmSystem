@@ -15,7 +15,15 @@ export type AccionAuditoria =
   | "crear_cliente"
   | "editar_cliente"
   | "config_facturacion"
-  | "export";
+  | "export"
+  // Planificación de turnos
+  | "plan_generar"
+  | "plan_editar"
+  | "plan_publicar"
+  | "plan_ausencia"
+  | "plan_bolsa"
+  | "plan_config"
+  | "plan_saldo_ajuste";
 
 /** Inserta una entrada de auditoría (síncrono, SQLite local). */
 export function registrarAuditoria(entrada: {

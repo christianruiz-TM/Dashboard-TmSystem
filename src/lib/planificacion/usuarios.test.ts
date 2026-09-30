@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parsearUsuario, resolverCliente } from "./usuarios";
+import { nombreDesdeFullnames, parsearUsuario, resolverCliente, tokensDeUsuarios } from "./usuarios";
 
 describe("usuarios de agente", () => {
   it("separa prefijo, nº y sufijo", () => {
@@ -27,5 +27,18 @@ describe("usuarios de agente", () => {
     expect(resolverCliente("AV", "", prefijos)).toBe("AV");
     expect(resolverCliente("Av", "_2", prefijos)).toBeNull();
     expect(resolverCliente("AEP", "", prefijos)).toBeNull();
+  });
+
+  it("nombre visible: la primera palabra que no es prefijo, la más repetida", () => {
+    const tokens = tokensDeUsuarios([
+      { prefijo: "GH", sufijo: "" },
+      { prefijo: "GH", sufijo: "_BD_LX" },
+      { prefijo: "UGR", sufijo: "" },
+      { prefijo: "Av", sufijo: "_2" },
+    ]);
+    expect(tokens.has("lx")).toBe(true);
+    expect(nombreDesdeFullnames(["Ana GH", "Ana BD", "UGR Ana", "Ana López"], tokens)).toBe("Ana");
+    expect(nombreDesdeFullnames(["GH Bea", "Bego BBDD", "Bego"], tokens)).toBe("Bego");
+    expect(nombreDesdeFullnames(["GH_0851", null, ""], tokens)).toBeNull();
   });
 });
