@@ -1,10 +1,22 @@
-import type { Aviso, BolsaMotor, ClienteMotor, EntradaMotor, Gravedad, ObjetivoSemana } from "./motor";
+import {
+  franjaDentro,
+  generarFranjas,
+  horasTexto,
+  solapan,
+  type AgenteMotor,
+  type Aviso,
+  type BolsaMotor,
+  type ClienteMotor,
+  type EntradaMotor,
+  type Gravedad,
+  type ObjetivoSemana,
+} from "./motor";
 
 // ============================================================
 // Modelo de vista del tablero de planificación. PURO (como el motor, y lo
 // vigila la misma regla de ESLint): corre en el navegador sobre los datos
 // que carga la página, así que las barras, el mapa y las incidencias se
-// recalculan sin volver al servidor. Solo guardar (F3) llama al servidor,
+// recalculan sin volver al servidor. Solo guardar llama al servidor,
 // que vuelve a validar.
 // ============================================================
 
@@ -60,7 +72,14 @@ export interface DatosTablero {
   bloques: BloqueTablero[];
   /** Avisos del momento de generar que no son validaciones (datos caducados, objetivos...). */
   avisosGeneracion: Aviso[];
-  tiposAusencia: Record<string, { nombre: string; color: string }>;
+  tiposAusencia: Record<string, TipoAusenciaTablero>;
+}
+
+export interface TipoAusenciaTablero {
+  nombre: string;
+  color: string;
+  /** Justifica horas en el saldo (vacaciones, libranza por festivo...). */
+  computaComoTrabajada: boolean;
 }
 
 const MESES = [
@@ -129,6 +148,19 @@ export function bloquesPorAgenteDia<B extends Pick<BloqueTablero, "agenteNumero"
   }
   for (const lista of mapa.values()) lista.sort((a, b) => a.inicioMin - b.inicioMin);
   return mapa;
+}
+
+/**
+ * Agentes con fila en el tablero, y por tanto a los que se les puede poner
+ * bloques al editar: los que el motor planificó y cualquiera con bloques en
+ * la versión guardada (p. ej. un fijado de alguien que ya no está activo).
+ * El servidor usa la misma lista al repetir las operaciones.
+ */
+export function agentesConFila(
+  activos: readonly string[],
+  bloquesGuardados: readonly Pick<BloqueTablero, "agenteNumero">[],
+): string[] {
+  return [...new Set([...activos, ...bloquesGuardados.map((b) => b.agenteNumero)])].sort();
 }
 
 type BloqueHoras = Pick<BloqueTablero, "agenteNumero" | "fecha" | "inicioMin" | "finMin" | "clienteCodigo">;
@@ -232,6 +264,112 @@ export function barrasBolsa(
     }
   }
   return barras;
+}
+
+type AgenteCapacidad = Pick<AgenteMotor, "numero" | "contratoSemanalH" | "turnos" | "ausencias">;
+
+/** Festivos del calendario del equipo (en ellos no se trabaja ni cuenta el contrato). */
+function festivosEquipo(entrada: Pick<EntradaMotor, "dias" | "servicioCalendario">): Set<string> {
+  return new Set(entrada.dias.filter((d) => d.festivos.includes(entrada.servicioCalendario)).map((d) => d.fecha));
+}
+
+/**
+ * Capacidad del mes en horas: turno − ausencias − festivos de los agentes
+ * indicados, franja a franja, con el mismo criterio que el motor (franja
+ * entera dentro del turno y sin tocar ninguna ausencia). Con las ausencias
+ * VIVAS: una ausencia nueva la baja al momento, sin regenerar.
+ */
+export function capacidadPlan(
+  entrada: Pick<EntradaMotor, "dias" | "servicioCalendario" | "inicioDiaMin" | "finDiaMin" | "pasoMin">,
+  agentes: readonly AgenteCapacidad[],
+): number {
+  const festivos = festivosEquipo(entrada);
+  const franjas = generarFranjas(entrada.inicioDiaMin, entrada.finDiaMin, entrada.pasoMin);
+  let n = 0;
+  for (const a of agentes) {
+    for (const d of entrada.dias) {
+      const turno = a.turnos[d.fecha] ?? [];
+      if (turno.length === 0 || festivos.has(d.fecha)) continue;
+      const ausencias = a.ausencias.filter((x) => x.fecha === d.fecha);
+      for (const f of franjas) {
+        const franja = { inicioMin: f, finMin: f + entrada.pasoMin };
+        if (franjaDentro(f, entrada.pasoMin, turno) && !ausencias.some((x) => solapan(x, franja))) n++;
+      }
+    }
+  }
+  return (n * entrada.pasoMin) / 60;
+}
+
+export interface SaldoPrevisto {
+  /** Horas planificadas. */
+  plan: number;
+  /** Horas de ausencias que cuentan como trabajadas (dentro de su turno, fuera de festivos). */
+  justificadas: number;
+  /** Contrato semanal × laborables (del mes) ÷ 5. */
+  contrato: number;
+  /** plan + justificadas − contrato. */
+  saldo: number;
+}
+
+/**
+ * Saldo PREVISTO por agente: plan + justificadas − contrato, por semana
+ * (`${agente}|${lunes}`) y del mes (`${agente}|mes`). El contrato de cada
+ * semana se prorratea por sus laborables dentro del mes (una semana partida
+ * o con festivo cuenta menos), igual que el contrato del mes del motor. Los
+ * agentes sin contrato no tienen saldo. En F4 los días cerrados pasarán a
+ * usar las horas reales.
+ */
+export function saldosPrevistos(
+  entrada: Pick<EntradaMotor, "dias" | "servicioCalendario">,
+  agentes: readonly AgenteCapacidad[],
+  bloques: readonly BloqueHoras[],
+  computaComoTrabajada: (tipo: string) => boolean,
+): Map<string, SaldoPrevisto> {
+  const festivos = festivosEquipo(entrada);
+  const semanaDe = new Map(entrada.dias.map((d) => [d.fecha, d.lunes]));
+  const laborables = new Map<string, number>();
+  for (const d of entrada.dias) if (d.laborable) laborables.set(d.lunes, (laborables.get(d.lunes) ?? 0) + 1);
+  const plan = new Map<string, number>();
+  for (const b of bloques) {
+    const k = `${b.agenteNumero}|${semanaDe.get(b.fecha) ?? b.fecha}`;
+    plan.set(k, (plan.get(k) ?? 0) + horasBloque(b));
+  }
+
+  const saldos = new Map<string, SaldoPrevisto>();
+  for (const a of agentes) {
+    if (a.contratoSemanalH == null) continue;
+    const mes: SaldoPrevisto = { plan: 0, justificadas: 0, contrato: 0, saldo: 0 };
+    for (const lunes of [...new Set(entrada.dias.map((d) => d.lunes))]) {
+      let justificadas = 0;
+      for (const x of a.ausencias) {
+        if (semanaDe.get(x.fecha) !== lunes || festivos.has(x.fecha) || !computaComoTrabajada(x.tipo)) continue;
+        for (const t of a.turnos[x.fecha] ?? []) {
+          justificadas += Math.max(0, Math.min(t.finMin, x.finMin) - Math.max(t.inicioMin, x.inicioMin)) / 60;
+        }
+      }
+      const s: SaldoPrevisto = {
+        plan: plan.get(`${a.numero}|${lunes}`) ?? 0,
+        justificadas,
+        contrato: (a.contratoSemanalH * (laborables.get(lunes) ?? 0)) / 5,
+        saldo: 0,
+      };
+      s.saldo = s.plan + s.justificadas - s.contrato;
+      saldos.set(`${a.numero}|${lunes}`, s);
+      mes.plan += s.plan;
+      mes.justificadas += s.justificadas;
+      mes.contrato += s.contrato;
+      mes.saldo += s.saldo;
+    }
+    saldos.set(`${a.numero}|mes`, mes);
+  }
+  return saldos;
+}
+
+/** «+1,00 h» / «−2,50 h» / «0,00 h». */
+export function saldoTexto(horas: number): string {
+  const r = Math.round(horas * 100) / 100;
+  if (r === 0) return horasTexto(0);
+  return `${r > 0 ? "+" : "−"}${horasTexto(Math.abs(r))}`;
 }
 
 export type EstadoFranja = "sin_minimo" | "bajo" | "justo" | "holgado";

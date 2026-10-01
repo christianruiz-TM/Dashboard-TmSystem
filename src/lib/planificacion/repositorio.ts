@@ -1,8 +1,10 @@
 // NOTA: solo servidor (SQLite). El motor NO importa este módulo.
-import { and, asc, desc, eq, gte, lt, lte, sql } from "drizzle-orm";
+import { format } from "date-fns";
+import { and, asc, desc, eq, gte, inArray, like, lt, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db/sqlite";
 import {
   aggCierresCampania,
+  auditLog,
   aggHoraServicio,
   aggSesionUsuario,
   planAgenteTurnos,
@@ -20,8 +22,10 @@ import {
   planTiposAusencia,
   planVersiones,
 } from "@/lib/db/schema";
+import type { PlanBloqueRow } from "@/lib/db/schema";
 import type { CierresDia, DemandaFranja, EstadoLista, IslaSesion, UsuarioAgenteRdb } from "@/lib/rdb/types";
-import type { EntradaMotor, SalidaMotor } from "./motor/tipos";
+import type { Aviso, EntradaMotor, ResumenMotor, SalidaMotor } from "./motor/tipos";
+import type { BloqueTablero } from "./tablero";
 import { parsearUsuario, resolverCliente } from "./usuarios";
 
 // ============================================================
@@ -406,6 +410,301 @@ export function bloquesConservables(versionId: number) {
   return bloquesVersion(versionId).filter((b) => b.fijado || b.origen === "manual");
 }
 
+// ---------- Edición, publicación y copias (F3) ----------
+
+/**
+ * La versión ya no está como se leyó: otra persona guardó antes (cambió la
+ * revisión) o dejó de ser borrador (publicada, descartada al regenerar).
+ */
+export class ConflictoVersion extends Error {}
+
+export function leerVersion(id: number) {
+  return db.select().from(planVersiones).where(eq(planVersiones.id, id)).get();
+}
+
+export type BloqueGuardable = Pick<
+  BloqueTablero,
+  "id" | "agenteNumero" | "fecha" | "inicioMin" | "finMin" | "clienteCodigo" | "regla" | "datos" | "fijado" | "origen"
+>;
+
+const contenido = (b: BloqueGuardable | PlanBloqueRow) =>
+  JSON.stringify([b.agenteNumero, b.fecha, b.inicioMin, b.finMin, b.clienteCodigo, b.regla, b.origen, b.datos ?? {}]);
+
+/**
+ * Guarda el resultado de una edición del tablero sobre un borrador: borra,
+ * actualiza e inserta solo los bloques que cambian respecto a `original` (lo
+ * que había en la BBDD con la revisión leída) y sube la revisión, todo en una
+ * transacción. Revisión optimista: si al escribir la versión ya no tiene esa
+ * revisión o no es borrador, ConflictoVersion y no se toca nada.
+ *
+ * Quién y cuándo: un bloque manual que cambia, o uno que se fija o desfija,
+ * lleva el autor y la hora (en las columnas y, los manuales, también en
+ * `datos`, de donde sale la explicación). Los trozos de un bloque del motor
+ * que solo se recortan siguen siendo del motor.
+ */
+export function guardarEdicion(opciones: {
+  versionId: number;
+  revision: number;
+  original: readonly PlanBloqueRow[];
+  final: readonly BloqueGuardable[];
+  autor: string;
+  ahora: Date;
+  avisos: Aviso[];
+  resumen: ResumenMotor | null;
+}): { revision: number; insertados: number; actualizados: number; borrados: number } {
+  const { autor, ahora } = opciones;
+  const textoAhora = format(ahora, "dd/MM/yyyy HH:mm");
+  const originales = new Map(opciones.original.map((b) => [b.id, b]));
+  const finales = new Set(opciones.final.map((b) => b.id));
+
+  const sellar = (nuevo: BloqueGuardable, viejo: PlanBloqueRow | undefined) => {
+    const manual = nuevo.origen === "manual" && (!viejo || contenido(nuevo) !== contenido(viejo));
+    const fijado = viejo != null && viejo.fijado !== nuevo.fijado;
+    if (!manual && !fijado) {
+      return { datos: nuevo.datos, editadoPor: viejo?.editadoPor ?? null, editadoAt: viejo?.editadoAt ?? null };
+    }
+    return {
+      datos: nuevo.origen === "manual" ? { ...nuevo.datos, editadoPor: autor, editadoAt: textoAhora } : nuevo.datos,
+      editadoPor: autor,
+      editadoAt: ahora,
+    };
+  };
+
+  return db.transaction((tx) => {
+    const r = tx
+      .update(planVersiones)
+      .set({
+        revision: sql`${planVersiones.revision} + 1`,
+        avisos: opciones.avisos,
+        ...(opciones.resumen ? { resumen: opciones.resumen } : {}),
+      })
+      .where(
+        and(
+          eq(planVersiones.id, opciones.versionId),
+          eq(planVersiones.revision, opciones.revision),
+          eq(planVersiones.estado, "borrador"),
+        ),
+      )
+      .run();
+    if (r.changes !== 1) {
+      throw new ConflictoVersion(
+        "El borrador ha cambiado desde que lo abriste (otra persona ha guardado, publicado o regenerado).",
+      );
+    }
+    let insertados = 0;
+    let actualizados = 0;
+    let borrados = 0;
+    for (const b of opciones.original) {
+      if (finales.has(b.id)) continue;
+      tx.delete(planBloques).where(and(eq(planBloques.id, b.id), eq(planBloques.versionId, opciones.versionId))).run();
+      borrados++;
+    }
+    for (const b of opciones.final) {
+      const viejo = originales.get(b.id);
+      if (viejo && contenido(b) === contenido(viejo) && viejo.fijado === b.fijado) continue;
+      const valores = {
+        agenteNumero: b.agenteNumero,
+        fecha: b.fecha,
+        inicioMin: b.inicioMin,
+        finMin: b.finMin,
+        clienteCodigo: b.clienteCodigo,
+        origen: b.origen,
+        fijado: b.fijado,
+        regla: b.regla,
+        ...sellar(b, viejo),
+      };
+      if (viejo) {
+        tx.update(planBloques)
+          .set(valores)
+          .where(and(eq(planBloques.id, b.id), eq(planBloques.versionId, opciones.versionId)))
+          .run();
+        actualizados++;
+      } else {
+        if (b.id > 0) throw new ConflictoVersion(`El bloque ${b.id} no está en el borrador.`);
+        tx.insert(planBloques).values({ versionId: opciones.versionId, ...valores }).run();
+        insertados++;
+      }
+    }
+    return { revision: opciones.revision + 1, insertados, actualizados, borrados };
+  });
+}
+
+/**
+ * Publica un borrador: la publicada anterior del mes pasa a «sustituida».
+ * Revisión optimista como al guardar (no se publica algo distinto de lo que
+ * se revisó).
+ */
+export function publicarVersion(opciones: {
+  versionId: number;
+  revision: number;
+  autor: string;
+  ahora: Date;
+  motivo: string | null;
+  avisos: Aviso[];
+}): { sustituida: number | null } {
+  return db.transaction((tx) => {
+    const v = tx.select().from(planVersiones).where(eq(planVersiones.id, opciones.versionId)).get();
+    if (!v || v.estado !== "borrador" || v.revision !== opciones.revision) {
+      throw new ConflictoVersion("El borrador ha cambiado desde que lo revisaste: recarga y vuelve a comprobarlo.");
+    }
+    const anterior = tx
+      .select()
+      .from(planVersiones)
+      .where(and(eq(planVersiones.mes, v.mes), eq(planVersiones.estado, "publicada")))
+      .get();
+    if (anterior) tx.update(planVersiones).set({ estado: "sustituida" }).where(eq(planVersiones.id, anterior.id)).run();
+    tx.update(planVersiones)
+      .set({
+        estado: "publicada",
+        publicadaPor: opciones.autor,
+        publicadaAt: opciones.ahora,
+        motivoPublicacion: opciones.motivo,
+        avisos: opciones.avisos,
+        revision: v.revision + 1,
+      })
+      .where(eq(planVersiones.id, v.id))
+      .run();
+    return { sustituida: anterior?.numero ?? null };
+  });
+}
+
+/**
+ * Nuevo borrador copiado de la versión publicada (para cambiarla: la
+ * publicada no se edita). Misma foto de entrada y mismos bloques, con su
+ * origen, regla y quién los editó. Error si el mes ya tiene borrador.
+ */
+export function copiarPublicada(versionId: number, autor: string): { id: number; numero: number; publicada: number } {
+  return db.transaction((tx) => {
+    const v = tx.select().from(planVersiones).where(eq(planVersiones.id, versionId)).get();
+    if (!v || v.estado !== "publicada") throw new ConflictoVersion("Esa versión ya no es la publicada.");
+    const borrador = tx
+      .select({ numero: planVersiones.numero })
+      .from(planVersiones)
+      .where(and(eq(planVersiones.mes, v.mes), eq(planVersiones.estado, "borrador")))
+      .get();
+    if (borrador) throw new ConflictoVersion(`Ya hay un borrador de ${v.mes} (v${borrador.numero}): edita ese.`);
+    const ultimo = tx
+      .select({ n: sql<number | null>`MAX(${planVersiones.numero})` })
+      .from(planVersiones)
+      .where(eq(planVersiones.mes, v.mes))
+      .get();
+    const numero = (ultimo?.n ?? 0) + 1;
+    const { id } = tx
+      .insert(planVersiones)
+      .values({
+        mes: v.mes,
+        numero,
+        estado: "borrador",
+        origen: "copia",
+        basadaEnId: v.id,
+        entradas: v.entradas,
+        avisos: v.avisos,
+        resumen: v.resumen,
+        creadaPor: autor,
+      })
+      .returning({ id: planVersiones.id })
+      .get();
+    for (const b of tx.select().from(planBloques).where(eq(planBloques.versionId, v.id)).all()) {
+      tx.insert(planBloques)
+        .values({
+          versionId: id,
+          agenteNumero: b.agenteNumero,
+          fecha: b.fecha,
+          inicioMin: b.inicioMin,
+          finMin: b.finMin,
+          clienteCodigo: b.clienteCodigo,
+          origen: b.origen,
+          fijado: b.fijado,
+          regla: b.regla,
+          datos: b.datos,
+          editadoPor: b.editadoPor,
+          editadoAt: b.editadoAt,
+        })
+        .run();
+    }
+    return { id, numero, publicada: v.numero };
+  });
+}
+
+// ---------- Ausencias (F3: /planificacion/[mes]/ausencias) ----------
+
+export function crearAusencia(valores: Omit<typeof planAusencias.$inferInsert, "id" | "creadoAt">): number {
+  return db.insert(planAusencias).values(valores).returning({ id: planAusencias.id }).get().id;
+}
+
+export function borrarAusencia(id: number) {
+  return db.transaction((tx) => {
+    const fila = tx.select().from(planAusencias).where(eq(planAusencias.id, id)).get();
+    if (fila) tx.delete(planAusencias).where(eq(planAusencias.id, id)).run();
+    return fila ?? null;
+  });
+}
+
+// ---------- Bolsas y objetivos (F3: /planificacion/[mes]/bolsas) ----------
+
+export function confirmarBolsa(valores: {
+  mes: string;
+  clienteCodigo: string;
+  horas: number;
+  origen: "prorrateo" | "manual";
+  confirmadaPor: string;
+  confirmadaAt: Date;
+}): void {
+  db.insert(planBolsas)
+    .values(valores)
+    .onConflictDoUpdate({
+      target: [planBolsas.mes, planBolsas.clienteCodigo],
+      set: {
+        horas: valores.horas,
+        origen: valores.origen,
+        confirmadaPor: valores.confirmadaPor,
+        confirmadaAt: valores.confirmadaAt,
+      },
+    })
+    .run();
+}
+
+/** Quita la bolsa confirmada: el mes vuelve a usar la anterior prorrateada. */
+export function borrarBolsa(mes: string, clienteCodigo: string) {
+  return db.transaction((tx) => {
+    const fila = tx
+      .select()
+      .from(planBolsas)
+      .where(and(eq(planBolsas.mes, mes), eq(planBolsas.clienteCodigo, clienteCodigo)))
+      .get();
+    if (fila) tx.delete(planBolsas).where(eq(planBolsas.id, fila.id)).run();
+    return fila ?? null;
+  });
+}
+
+/**
+ * Objetivo semanal fijado a mano (prevalece sobre el calculado al generar).
+ * `horas` null lo quita: la semana vuelve al calculado.
+ */
+export function guardarObjetivoManual(valores: {
+  mes: string;
+  clienteCodigo: string;
+  semanaLunes: string;
+  horas: number | null;
+}): void {
+  const donde = and(
+    eq(planObjetivos.mes, valores.mes),
+    eq(planObjetivos.clienteCodigo, valores.clienteCodigo),
+    eq(planObjetivos.semanaLunes, valores.semanaLunes),
+  );
+  if (valores.horas == null) {
+    db.delete(planObjetivos).where(donde).run();
+    return;
+  }
+  db.insert(planObjetivos)
+    .values({ ...valores, horas: valores.horas, origen: "manual" })
+    .onConflictDoUpdate({
+      target: [planObjetivos.mes, planObjetivos.clienteCodigo, planObjetivos.semanaLunes],
+      set: { horas: valores.horas, origen: "manual" },
+    })
+    .run();
+}
+
 // ---------- Configuración: escritura (supervisión, desde /planificacion/configuracion) ----------
 
 type NuevoCliente = Omit<typeof planClientes.$inferInsert, "id">;
@@ -537,5 +836,39 @@ export function sesionesRango(desde: string, hasta: string) {
     })
     .from(aggSesionUsuario)
     .where(and(gte(aggSesionUsuario.fecha, desde), lte(aggSesionUsuario.fecha, hasta)))
+    .all();
+}
+
+// ---------- Historial de un mes (F3: /planificacion/[mes]/versiones) ----------
+
+/** Nº de bloques de cada versión de un mes. */
+export function bloquesPorVersion(mes: string): Map<number, number> {
+  const filas = db
+    .select({ id: planBloques.versionId, n: sql<number>`COUNT(*)` })
+    .from(planBloques)
+    .innerJoin(planVersiones, eq(planVersiones.id, planBloques.versionId))
+    .where(eq(planVersiones.mes, mes))
+    .groupBy(planBloques.versionId)
+    .all();
+  return new Map(filas.map((f) => [f.id, f.n]));
+}
+
+/**
+ * Auditoría del plan de un mes: generar, editar, publicar, ausencias y
+ * bolsas. Todas las acciones del módulo escriben el detalle empezando por
+ * «mes=YYYY-MM ».
+ */
+export function historialMes(mes: string, limite = 100) {
+  return db
+    .select()
+    .from(auditLog)
+    .where(
+      and(
+        inArray(auditLog.accion, ["plan_generar", "plan_editar", "plan_publicar", "plan_ausencia", "plan_bolsa"]),
+        like(auditLog.detalle, `mes=${mes} %`),
+      ),
+    )
+    .orderBy(desc(auditLog.ts), desc(auditLog.id))
+    .limit(limite)
     .all();
 }

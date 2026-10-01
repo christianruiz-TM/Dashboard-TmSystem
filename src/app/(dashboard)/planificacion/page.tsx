@@ -182,7 +182,7 @@ export default async function PaginaPlanificacion() {
                 <TableHead>Borrador</TableHead>
                 <TableHead>Publicada</TableHead>
                 <TableHead className="text-right">Planificado</TableHead>
-                <TableHead>Incidencias al generar</TableHead>
+                <TableHead>Incidencias</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -221,9 +221,14 @@ export default async function PaginaPlanificacion() {
                     <TableCell>
                       <div className="flex flex-wrap items-start justify-end gap-2">
                         {m.versiones > 0 ? (
-                          <Button variant="outline" size="sm" render={<Link href={`/planificacion/${m.mes}`} />}>
-                            Ver tablero
-                          </Button>
+                          <>
+                            <Button variant="outline" size="sm" render={<Link href={`/planificacion/${m.mes}`} />}>
+                              Ver tablero
+                            </Button>
+                            <Button variant="ghost" size="sm" render={<Link href={`/planificacion/${m.mes}/versiones`} />}>
+                              Versiones
+                            </Button>
+                          </>
                         ) : null}
                         {editar && m.generable ? (
                           <BotonGenerar

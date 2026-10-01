@@ -438,6 +438,85 @@ Diferencias con lo previsto (y por qué):
   - la accesibilidad del arrastre.
 - **CLAUDE.md**: el ciclo de versiones (borrador → publicada → sustituida), las validaciones duras y blandas y el registro de auditoría.
 
+#### Estado de F3 (hecha el 01/10/2026)
+
+Verificado con `next build` + `next start` sobre una COPIA de la SQLite real (usuarios de prueba de cada
+rol) y RDBv2 real, con Chrome headless por CDP; la SQLite real no se ha tocado (sigue con el borrador
+v1 de octubre).
+
+- **Edición en el tablero** (octubre, semana del 05/10): arrastrar UGR 11-14 de 0851 a 0973; soltar
+  UGR sobre 1008, que no tiene usuario de UGR, avisa bajo el bloque («No se puede: … no podría
+  logarse») y no se aplica; estirar GH 16-18 de 0940 hasta las 19 recorta su CEFF; dividir GH 9-14 a
+  las 12 y pasar 12-14 a UGR por el menú (sus submenús); y con el teclado ←, Mayús+←, Alt+←, Ctrl+Z,
+  Ctrl+Y e Intro (abre el menú). Al guardar: «6 operaciones, 6 tramos cambiados», justo los
+  esperados, con autor y hora en cada bloque manual y la entrada en `audit_log`. También «Mover a…»
+  y «Añadir bloque» (validan en el propio diálogo), doble clic en un hueco, unir, fijar, descartar y
+  la vista de día. Cada edición con teclado tarda 33 ms de mediana (máx. 39) con 115 bloques a la
+  vista; guardar, 172 ms con la página repintada (el guardado en sí, 36-56 ms).
+- **Dos supervisores a la vez** (dos navegadores): el segundo en guardar recibe el aviso, no se
+  escribe nada y la barra de edición desaparece; «Recargar» le enseña lo del primero.
+- **El servidor no se fía del navegador**: repitiendo a mano el POST capturado, operaciones,
+  dirección, cliente, cookie inventada y sin cookie salen redirigidos; supervisión con una operación
+  que crea una incidencia dura, una operación inventada, bloques en vez de operaciones, un agente que
+  no está en el plan, una fecha de otro mes, un lote con la 2.ª operación mala (todo o nada) o una
+  revisión vieja recibe el error, y la BBDD queda idéntica (misma huella); los rechazos de
+  supervisión quedan en `audit_log`. Igual con publicar (otros roles, sin motivo, motivo corto,
+  recuento de avisos distinto, revisión vieja) y con las acciones de ausencias, bolsas y objetivos.
+- **Publicar**: con 6 avisos blandos el botón no se activa hasta marcar «Publicar con 6 avisos» y
+  escribir un motivo de 10 caracteres o más; queda en `motivo_publicacion` y en `audit_log` con los
+  avisos aceptados por código (`fuera_turno×3, semana_sobre_contrato×1, franja_bajo_minimo×2`). Al
+  publicar la v2, la v1 pasa a «sustituida».
+- **Borrador desde la publicada**: la v2 sale como `copia` basada en la v1, con los mismos bloques.
+- **Diff**: tras mover un UGR y borrar otro en la v2, `/versiones` muestra exactamente 3 tramos
+  (0925 08/10 10-11 GH → UGR y 13-14 UGR → GH; 1067 08/10 11-14 UGR → libre), lo mismo que una
+  comparación independiente minuto a minuto (300 min).
+- **Ausencias**: VAC de 0985 el 14/10 «quitando lo que pisa»: capacidad 1.596 → 1.587 h, GH+BD+LX
+  1.433 → 1.424 h y la celda vacía con la banda de VAC, sin regenerar; su saldo no cambia (VAC cuenta
+  como trabajada). Una AUS sin quitar da 1 incidencia dura, bloquea publicar y «Quitar lo que pisa
+  ausencias (1)» la resuelve.
+- **Bolsa**: GH de octubre = 1.324 h (septiembre) × 21/22 = 1.263,82 h; confirmarla así la guarda
+  como `prorrateo`.
+- **Modo demo** (`RDB_MOCK=1`, SQLite nueva): semilla, agregados, generar y las seis pantallas del
+  mes, con formularios solo para supervisión.
+- El cargador usa ahora `bolsas.ts` (lo comparte con la página de bolsas): la entrada del motor de
+  octubre, noviembre y diciembre sale idéntica byte a byte.
+
+Diferencias con lo previsto (y por qué):
+
+- **Soltar encima recorta**: lo que se suelta, estira o crea encima de otros bloques del mismo
+  agente y día los recorta, así que el solape (dura) no se puede producir desde el tablero (sigue
+  validándose en el servidor). Al mover o encoger un bloque de otro cliente, su hueco dentro del
+  turno (sin ausencias ni festivos) vuelve a GH, como hace el motor; si el bloque es de GH, el hueco
+  queda libre. Eliminar deja el hueco libre; «Devolver a GH» es cambiar de cliente. Un bloque
+  fijado no se pisa.
+- **Duras nuevas**: una edición se rechaza si crea una incidencia dura que no estaba; las que ya
+  había (p. ej. una ausencia dada de alta después) no bloquean otras ediciones del mismo día.
+  Publicar sí exige cero duras.
+- **Guardado por operaciones**: el navegador manda la lista de operaciones (zod) y el servidor las
+  repite con las mismas funciones puras (`lib/planificacion/edicion.ts`) sobre los bloques de la
+  BBDD; los ids nuevos son negativos y deterministas («el menor − 1»). Operaciones: mover,
+  redimensionar, dividir, unir, cambiar de cliente, eliminar, fijar, crear y quitar ausencias.
+- **El diff es por tramos**, no por bloques: dividir o unir no es un cambio y mover un bloque de una
+  agente a otra son dos (`motor/diff.ts`, con test).
+- **Saldo previsto** en la fila del agente: plan + justificadas − contrato, con el contrato de cada
+  semana prorrateado por sus laborables dentro del mes (como el contrato del mes del motor);
+  justificadas = horas de turno cubiertas por ausencias de tipos que cuentan como trabajadas, fuera
+  de festivos. Sin contrato, sin saldo. El contrato pasa al tooltip de la fila.
+- **Capacidad viva**: la cabecera la recalcula con las ausencias de hoy (antes era la de generar).
+- **Ausencias, bolsas y versiones** las ven también operaciones y dirección (sin formularios). Dar
+  de alta una ausencia puede recortar los bloques que pisa en los BORRADORES de los meses que toca
+  (casilla marcada por defecto); las publicadas no se tocan. Borrar una ausencia no devuelve sus
+  horas.
+- **Al guardar** se ponen al día los avisos (validaciones) y las horas del resumen de la versión: la
+  columna de `/planificacion` pasa a ser «Incidencias» de ahora.
+- **Arreglado de F2**: el tablero escribía la URL con `history.replaceState(null, …)` en el primer
+  montaje, antes de que Next instale su versión parcheada, y borraba su estado del historial: «Atrás»
+  desde otra página no volvía al tablero. Ahora va en un `setTimeout`. Y guardar, publicar, copiar y
+  las acciones de ausencias y bolsas invalidan la caché del router (`revalidatePath`), para que
+  «Atrás» no enseñe el plan de antes del cambio.
+- **Base UI**: el menú del bloque es uno solo para todo el tablero, anclado al bloque; necesita un
+  `Menu.Trigger` oculto, porque sin él los submenús se tienen por «hermanos» y cierran el menú.
+
 ### F4 · Seguimiento: Hoy, adherencia, saldo real, alertas y cierre de mes
 
 - **Archivos**:

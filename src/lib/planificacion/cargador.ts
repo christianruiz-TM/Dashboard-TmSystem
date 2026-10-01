@@ -21,7 +21,6 @@ import {
   generarFranjas,
   horarioPorFecha,
   laborablesDelMes,
-  prorratearBolsa,
   semanasDelMes,
   sumarDias,
   ultimoDomingo,
@@ -34,6 +33,7 @@ import {
   type EntradaMotor,
   type ObjetivoSemana,
 } from "./motor";
+import { resolverBolsas } from "./bolsas";
 import { fueraDePlantilla, leerEquipo, prefijosSinCliente, ultimaSesionAgente } from "./equipo";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
@@ -283,38 +283,23 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
 
   // ---------- Bolsas: la confirmada o la última anterior prorrateada ----------
   // Por laborables: 1.324 h de septiembre (22) → octubre (21) = 1.263,82 h
-  const bolsasMes = repo.leerBolsas(mes);
-  const previas = repo.ultimasBolsasAnteriores(mes);
-  const laborablesMes = laborablesDelMes(dias);
-  const laborablesDe = new Map<string, number>();
-  const bolsas: BolsaMotor[] = [];
-  for (const c of clientes) {
-    const propia = bolsasMes.find((b) => b.clienteCodigo === c.codigo);
-    if (propia) {
-      bolsas.push({ cliente: c.codigo, horas: propia.horas, origen: propia.origen });
-      continue;
-    }
-    const previa = previas.find((b) => b.clienteCodigo === c.codigo);
-    if (!previa) continue;
-    if (!laborablesDe.has(previa.mes)) {
-      const fechas = fechasDelMes(previa.mes);
+  const detalleBolsas = await resolverBolsas({
+    mes,
+    clientes: clientes.map((c) => c.codigo),
+    laborablesMes: laborablesDelMes(dias),
+    laborablesDe: async (otro) => {
+      const fechas = fechasDelMes(otro);
       // Los festivos ya leídos valen si cubren ese mes entero (y su víspera)
       const fest =
         sumarDias(fechas[0], -1) >= desdeFestivos
           ? festivos.festivos
           : (await festivosServicio(sumarDias(fechas[0], -1), fechas[fechas.length - 1])).festivos;
-      laborablesDe.set(
-        previa.mes,
-        laborablesDelMes(construirDias({ mes: previa.mes, semanaA: p.semanaA, servicioCalendario: p.servicioCalendario, festivos: fest })),
+      return laborablesDelMes(
+        construirDias({ mes: otro, semanaA: p.semanaA, servicioCalendario: p.servicioCalendario, festivos: fest }),
       );
-    }
-    bolsas.push({
-      cliente: c.codigo,
-      horas: prorratearBolsa(previa.horas, laborablesDe.get(previa.mes)!, laborablesMes),
-      origen: "prorrateo",
-      base: { mes: previa.mes, horas: previa.horas },
-    });
-  }
+    },
+  });
+  const bolsas: BolsaMotor[] = detalleBolsas.flatMap((d) => (d.bolsa ? [d.bolsa] : []));
 
   // ---------- Experiencia: horas reales recientes por agente y cliente ----------
   const experiencia = new Map<string, number>();

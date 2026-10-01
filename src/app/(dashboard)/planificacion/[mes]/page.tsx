@@ -11,6 +11,7 @@ import { bloquesConservables } from "@/lib/planificacion/repositorio";
 import { nombreMes, VISTAS_TABLERO, type VistaTablero } from "@/lib/planificacion/tablero";
 import { cargarTablero, mesesGenerables } from "@/lib/planificacion/vistas";
 import { generarBorradorAccion } from "../acciones";
+import { crearBorradorDesdePublicadaAccion, guardarCambiosAccion, publicarAccion } from "./acciones";
 
 export const metadata: Metadata = { title: "Planificación" };
 export const dynamic = "force-dynamic";
@@ -99,13 +100,21 @@ export default async function PaginaTableroMes({
 
   return (
     <Tablero
-      // Al cambiar de versión (o regenerar) el tablero empieza de nuevo
-      key={datos.version.id}
+      // Al cambiar de versión, regenerar o publicar, el tablero empieza de nuevo. Guardar
+      // vuelve a pintar la página (caché del router al día) sin perder el estado de edición
+      key={`${datos.version.id}-${datos.version.estado}`}
       datos={datos}
       vistaInicial={vista}
       semanaInicial={semana}
       diaInicial={dia}
       acciones={acciones}
+      editable={editar && datos.version.estado === "borrador"}
+      puedeEditar={editar}
+      accionesServidor={
+        editar
+          ? { guardar: guardarCambiosAccion, publicar: publicarAccion, copiarPublicada: crearBorradorDesdePublicadaAccion }
+          : undefined
+      }
     />
   );
 }

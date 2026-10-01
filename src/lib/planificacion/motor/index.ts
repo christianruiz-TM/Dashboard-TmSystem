@@ -10,4 +10,5 @@ export * from "./objetivos";
 export * from "./validaciones";
 export * from "./explicaciones";
 export * from "./aprender";
+export * from "./diff";
 export { generarPlan, textoBloque } from "./motor";

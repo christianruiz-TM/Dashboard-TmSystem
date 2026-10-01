@@ -208,7 +208,8 @@ tiene remoto git todavía.
   «devuelta/pendiente» de callbacks quedó PENDIENTE de definir el mecanismo real.
 - **Planificación de turnos** (rama `feature/planificacion`, plan por fases en
   `docs/plan-planificacion.md`; F1 = datos y motor y F2 = tablero de solo
-  lectura, «Generar» y configuración, hechas el 30/09/2026):
+  lectura, «Generar» y configuración, hechas el 30/09/2026; F3 = edición,
+  ausencias, bolsas, publicación y versiones, hecha el 01/10/2026):
   - **Motor PURO** en `src/lib/planificacion/motor/`: sin I/O, sin
     `Date.now()` ni azar, solo date-fns y zod (una regla de ESLint lo impide).
     **No añadirle I/O**: corre también en el navegador (tablero, F2) y en los
@@ -239,8 +240,10 @@ tiene remoto git todavía.
   - Todo en minutos; `plan.pasoMin` = 60 (pasar a 30 min es cambiar el parámetro).
   - **Rutas y permisos** (`ROLES_PLAN_LECTURA` / `ROLES_PLAN_EDICION` en
     `rbac.ts`): `/planificacion` (meses y avisos de entrada) y
-    `/planificacion/[mes]?vista=agente|cliente|dia&semana=&dia=&version=` las
-    leen supervisión, operaciones y dirección (con nombres: roles internos);
+    `/planificacion/[mes]?vista=agente|cliente|dia&semana=&dia=&version=` y
+    `/planificacion/[mes]/{ausencias,bolsas,versiones}` las leen supervisión,
+    operaciones y dirección (con nombres: roles internos; los formularios y la
+    edición, solo supervisión);
     `/planificacion/configuracion/{clientes,agentes,patrones,parametros,ausencias}`
     y TODAS las Server Actions (`acciones.ts` de cada carpeta), solo
     supervisión. Cliente, nunca. Como en el resto del panel, cada `page.tsx` y
@@ -249,13 +252,55 @@ tiene remoto git todavía.
     agentes, contratos, patrones ni parámetros; se editan en
     `/planificacion/configuracion` y cada cambio queda en `audit_log`
     (`plan_config`; generar, `plan_generar`).
+  - **Auditoría del plan de un mes**: `plan_generar`, `plan_editar` (guardar,
+    copiar la publicada, recortes por ausencia y también los guardados
+    RECHAZADOS), `plan_publicar` (avisos aceptados por código y motivo),
+    `plan_ausencia` y `plan_bolsa`. Su detalle empieza SIEMPRE por
+    `mes=YYYY-MM `: así lo lista `/planificacion/[mes]/versiones`.
   - **Tablero** (`components/planificacion/`): recibe la FOTO de la entrada
     guardada con la versión con lo vivo encima (nombre/color/orden de
     clientes, contratos, ausencias; `vistas.ts::cargarTablero`) y recalcula en
     el navegador, con el motor puro, mínimos (`calcularMinimos`), cobertura,
-    validaciones y barras (`lib/planificacion/tablero.ts`, puro, misma regla de
-    ESLint). La vista, semana y día van en la URL por `history.replaceState`.
-    Solo guardar (F3) volverá al servidor.
+    validaciones, barras, capacidad y saldo previsto (`lib/planificacion/tablero.ts`,
+    puro, misma regla de ESLint). La vista, semana y día van en la URL por
+    `history.replaceState`, **dentro de un `setTimeout`**: en el primer montaje
+    el efecto del tablero corre antes de que Next instale su `replaceState`
+    parcheado, y el original borraba su estado del historial («Atrás» no
+    volvía al tablero; verificado 01/10/2026).
+  - **Ciclo de versiones**: `borrador` → `publicada` → `sustituida` (al
+    publicar otra); regenerar deja el borrador anterior como `descartada`. Una
+    publicada NO se edita: «Nuevo borrador desde la vN» la copia (`copia`,
+    `basadaEnId`). Como mucho un borrador por mes.
+  - **Edición (borrador + supervisión)**: arrastrar (dnd-kit), estirar
+    (pointer events propios), menú del bloque (uno para todo el tablero, Base
+    UI; necesita un `Menu.Trigger` oculto o los submenús lo cierran) y
+    teclado, con deshacer. Las operaciones son PURAS (`lib/planificacion/edicion.ts`,
+    misma regla de ESLint): el navegador las aplica al momento y guardar manda
+    SOLO la lista de operaciones con la `revision` leída; el servidor
+    (`guardar.ts`) las repite sobre los bloques de la BBDD, vuelve a validar y
+    escribe en una transacción que exige esa revisión (si otro guardó antes:
+    conflicto, aviso y recargar). Nunca aceptar bloques del navegador. Soltar
+    encima RECORTA lo que hay (no hay solapes desde el tablero); el hueco de un
+    bloque de otro cliente vuelve a GH dentro del turno; un bloque fijado no se
+    pisa. Guardar, publicar y las acciones de ausencias y bolsas hacen
+    `revalidatePath("/planificacion", "layout")`, para que la caché del router
+    no enseñe el plan de antes al volver atrás.
+  - **Validaciones** (`motor/validaciones.ts`, las mismas en motor, tablero y
+    servidor): DURAS (solape, agente sin usuario del cliente, bloque sobre una
+    ausencia, entrante fuera de `horarios_servicio`) impiden soltar y guardar
+    si son NUEVAS (las que ya había no bloquean otras ediciones) y publicar
+    siempre. BLANDAS (bajo el mínimo, fuera de turno, festivo, semana sobre
+    contrato, horas seguidas, saliente fuera de horario): se publica marcando
+    «Publicar con N avisos» y con un motivo (≥ 10 caracteres) que queda en
+    `motivo_publicacion` y en `audit_log`. El servidor exige que N sea el que
+    vio quien publica.
+  - Ausencias (`[mes]/ausencias`): son hechos, sin versiones; al darlas de alta
+    se pueden recortar los bloques que pisan en los BORRADORES de esos meses
+    (no en la publicada). Bolsas y objetivos (`[mes]/bolsas`): la bolsa
+    confirmada o, si no, la última anterior prorrateada por laborables
+    (`bolsas.ts`, la comparten página y cargador); objetivos semanales a mano
+    (vacío = calculado). Se aplican al regenerar. Saldo previsto = plan +
+    justificadas − contrato prorrateado por laborables de la semana.
   - «Generar borrador» (`generar.ts`, la misma cadena que el script): si ya hay
     borrador, «respetar mis cambios» pasa sus bloques fijados o manuales como
     `fijados` al motor; «empezar de cero», no. El anterior queda «descartada».
@@ -469,9 +514,10 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 **Módulo «Planificación de turnos»** (aprobado 30/09/2026, rama
 `feature/planificacion`): plan por fases F1-F6 en `docs/plan-planificacion.md`.
 F1 (datos y motor) y F2 (tablero de solo lectura, «Generar borrador» y
-configuración) hechas el 30/09/2026; sus resultados y desviaciones están en
-las secciones «Estado de F1» y «Estado de F2» de ese documento. Siguiente:
-F3 (edición, ausencias, bolsas, publicación y versiones).
+configuración) hechas el 30/09/2026 y F3 (edición, ausencias, bolsas,
+publicación y versiones) el 01/10/2026; sus resultados y desviaciones están
+en las secciones «Estado de F1/F2/F3» de ese documento. Siguiente: F4
+(seguimiento: Hoy, adherencia, saldo real, alertas y cierre de mes).
 Cubre también las mejoras 4 (alertas, en su F4) y 5 (curva intradía: la
 tabla `agg_hora_servicio` de su F1). Sus fases F1-F6 son propias del
 módulo; no confundir con las F2/F4/F5 del plan general.

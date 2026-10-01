@@ -31,8 +31,8 @@ export default async function PaginaTiposAusencia({
         <CardHeader>
           <CardTitle className="text-base">Tipos de ausencia</CardTitle>
           <CardDescription>
-            Los que se marcan al dar de alta vacaciones y permisos (F3). «Cuenta como trabajada» decide si justifica horas
-            en el saldo (F4): pendiente de confirmar qué es RTO.
+            Los que se marcan al dar de alta vacaciones y permisos (en cada mes, «Ausencias»). «Cuenta como trabajada»
+            decide si justifica horas en el saldo previsto del tablero: pendiente de confirmar qué es RTO.
           </CardDescription>
         </CardHeader>
         <CardContent>

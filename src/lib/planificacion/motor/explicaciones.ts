@@ -10,6 +10,25 @@ import type { BloqueMotor } from "./tipos";
 
 type BloqueExplicable = Pick<BloqueMotor, "clienteCodigo" | "regla" | "datos" | "fijado">;
 
+/** Cómo se llama cada regla en las explicaciones («antes: base del turno»). */
+export const TEXTO_REGLA: Record<string, string> = {
+  base_turno: "base del turno",
+  minimo_erlang: "mínimo de Erlang",
+  objetivo: "objetivo del cliente",
+  fijado: "fijado",
+  manual: "a mano",
+  devuelto_a_base: "devuelto a la base",
+};
+
+/** datos.accion de un bloque manual (lib/planificacion/edicion.ts) → texto. */
+const VERBOS_MANUAL: Record<string, string> = {
+  movido: "movido a mano",
+  ajustado: "horario cambiado a mano",
+  cliente: "cliente cambiado a mano",
+  creado: "añadido a mano",
+  unido: "unido a mano",
+};
+
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);
 const txt = (v: unknown): string | null => (typeof v === "string" && v.length > 0 ? v : null);
 
@@ -40,8 +59,18 @@ export function explicarBloque(bloque: BloqueExplicable, clienteBase: string): s
     case "manual": {
       const quien = txt(d.editadoPor);
       const cuando = txt(d.editadoAt);
-      const antes = txt(d.reglaAnterior);
-      return `${c}: cambiado a mano${quien ? ` por ${quien}` : ""}${cuando ? ` el ${cuando}` : ""}${antes ? ` (antes: ${antes})` : ""}.`;
+      const autor = `${quien ? ` por ${quien}` : ""}${cuando ? ` el ${cuando}` : ""}${!quien && !cuando ? " (sin guardar)" : ""}`;
+      const clienteAntes = txt(d.clienteAnterior);
+      const reglaAntes = txt(d.reglaAnterior);
+      if (d.accion === "relleno") {
+        return `${c}: horas que vuelven a ${c} al cambiar a mano ${clienteAntes ?? "otro bloque"}${autor}.`;
+      }
+      const verbo = VERBOS_MANUAL[txt(d.accion) ?? ""] ?? "cambiado a mano";
+      const antes = [
+        clienteAntes && clienteAntes !== c ? clienteAntes : null,
+        reglaAntes ? (TEXTO_REGLA[reglaAntes] ?? reglaAntes) : null,
+      ].filter(Boolean);
+      return `${c}: ${verbo}${autor}${antes.length > 0 ? ` (antes: ${antes.join(", ")})` : ""}.`;
     }
     case "fijado":
       return `${c}: fijado; el motor no lo toca al regenerar.`;

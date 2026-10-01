@@ -3,24 +3,46 @@
 // lee festivos y horarios, cacheados 24 h).
 import { format } from "date-fns";
 import { ayerISO, hoyISO } from "@/lib/fechas";
-import type { PlanVersionRow } from "@/lib/db/schema";
+import type { PlanBloqueRow, PlanVersionRow } from "@/lib/db/schema";
 import { fueraDePlantilla, leerEquipo, nombresAgentes, prefijosSinCliente, ultimaSesionAgente } from "./equipo";
 import {
+  balanceCambios,
   CODIGOS_VALIDACION,
   desplazarMes,
+  diffPlanes,
   expandirAusencias,
+  fechasDelMes,
   sumarDias,
   type Aviso,
+  type CambioPlan,
   type EntradaMotor,
   type Gravedad,
   type ResumenMotor,
 } from "./motor";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
-import { contarGravedades, type DatosTablero, type VersionTablero } from "./tablero";
+import { contarGravedades, type BloqueTablero, type DatosTablero, type VersionTablero } from "./tablero";
 
 /** Fecha y hora LOCALES (nunca toISOString: daría UTC, regla 14). */
 const fechaHora = (d: Date | null) => (d ? format(d, "dd/MM/yyyy HH:mm") : null);
+
+/** Fila de plan_bloques → bloque del tablero (serializable, fecha de edición ya en texto local). */
+export function aBloqueTablero(b: PlanBloqueRow): BloqueTablero {
+  return {
+    id: b.id,
+    agenteNumero: b.agenteNumero,
+    fecha: b.fecha,
+    inicioMin: b.inicioMin,
+    finMin: b.finMin,
+    clienteCodigo: b.clienteCodigo,
+    regla: b.regla,
+    datos: b.datos ?? {},
+    fijado: b.fijado,
+    origen: b.origen,
+    editadoPor: b.editadoPor,
+    editadoAt: fechaHora(b.editadoAt),
+  };
+}
 
 /** Meses para los que se puede generar un borrador: el actual y los tres siguientes. */
 export function mesesGenerables(hoy = hoyISO()): string[] {
@@ -176,20 +198,7 @@ export function cargarTablero(mes: string, versionId?: number): DatosTablero | n
     })),
   };
 
-  const bloques = repo.bloquesVersion(version.id).map((b) => ({
-    id: b.id,
-    agenteNumero: b.agenteNumero,
-    fecha: b.fecha,
-    inicioMin: b.inicioMin,
-    finMin: b.finMin,
-    clienteCodigo: b.clienteCodigo,
-    regla: b.regla,
-    datos: b.datos ?? {},
-    fijado: b.fijado,
-    origen: b.origen,
-    editadoPor: b.editadoPor,
-    editadoAt: fechaHora(b.editadoAt),
-  }));
+  const bloques = repo.bloquesVersion(version.id).map(aBloqueTablero);
 
   const enPlan = new Set([...entrada.agentes.map((a) => a.numero), ...bloques.map((b) => b.agenteNumero)]);
   const nombres = nombresAgentes({ usuarios: repo.leerUsuarios(), agentes: agentesVivos });
@@ -217,6 +226,116 @@ export function cargarTablero(mes: string, versionId?: number): DatosTablero | n
     capacidadH: resumen?.capacidadH ?? null,
     bloques,
     avisosGeneracion: ((version.avisos as Aviso[] | null) ?? []).filter((a) => !CODIGOS_VALIDACION.has(a.codigo)),
-    tiposAusencia: Object.fromEntries(repo.leerTiposAusencia().map((t) => [t.codigo, { nombre: t.nombre, color: t.color }])),
+    tiposAusencia: Object.fromEntries(
+      repo
+        .leerTiposAusencia()
+        .map((t) => [t.codigo, { nombre: t.nombre, color: t.color, computaComoTrabajada: t.computaComoTrabajada }]),
+    ),
   };
+}
+
+// ---------- F3: ausencias y versiones de un mes ----------
+
+/** Ausencias que tocan el mes, con el nombre del agente, y lo que necesita el formulario. */
+export function datosAusenciasMes(mes: string) {
+  const p = leerParametrosPlan();
+  const fechas = fechasDelMes(mes);
+  const agentes = repo.leerAgentes();
+  const nombres = nombresAgentes({ usuarios: repo.leerUsuarios(), agentes });
+  const ausencias = repo
+    .leerAusencias(fechas[0], fechas[fechas.length - 1])
+    .sort((a, b) => a.desde.localeCompare(b.desde) || a.agenteNumero.localeCompare(b.agenteNumero) || a.id - b.id);
+  const conAusencia = new Set(ausencias.map((a) => a.agenteNumero));
+  return {
+    primerDia: fechas[0],
+    ultimoDia: fechas[fechas.length - 1],
+    ausencias: ausencias.map((a) => ({
+      ...a,
+      nombre: nombres.get(a.agenteNumero) ?? null,
+      creadoAtTexto: fechaHora(a.creadoAt),
+    })),
+    // Para el formulario: la plantilla del equipo (y quien ya tenga alguna ausencia este mes)
+    agentes: agentes
+      .filter((a) => (a.enPlantilla && a.equipo === p.equipo) || conAusencia.has(a.numero))
+      .map((a) => ({ numero: a.numero, nombre: nombres.get(a.numero) ?? null, enPlantilla: a.enPlantilla })),
+    tipos: repo.leerTiposAusencia().sort((a, b) => Number(b.activo) - Number(a.activo) || a.codigo.localeCompare(b.codigo)),
+  };
+}
+
+export interface FilaVersion {
+  id: number;
+  numero: number;
+  estado: PlanVersionRow["estado"];
+  origen: PlanVersionRow["origen"];
+  basadaEn: number | null;
+  revision: number;
+  creadaPor: string | null;
+  creadaAt: string;
+  publicadaPor: string | null;
+  publicadaAt: string | null;
+  motivoPublicacion: string | null;
+  planificadoH: number | null;
+  bloques: number;
+}
+
+/**
+ * Versiones de un mes y el diff entre dos de ellas (por defecto, el borrador
+ * frente a la publicada; si no, cada versión frente a la que la originó o la
+ * anterior), con el historial de la auditoría.
+ */
+export function datosVersionesMes(mes: string, aId?: number, bId?: number) {
+  const filas = repo.versionesMes(mes);
+  const numeroDe = new Map(filas.map((v) => [v.id, v.numero]));
+  const nBloques = repo.bloquesPorVersion(mes);
+  const versiones: FilaVersion[] = filas.map((v) => ({
+    id: v.id,
+    numero: v.numero,
+    estado: v.estado,
+    origen: v.origen,
+    basadaEn: v.basadaEnId != null ? (numeroDe.get(v.basadaEnId) ?? null) : null,
+    revision: v.revision,
+    creadaPor: v.creadaPor,
+    creadaAt: fechaHora(v.creadaAt)!,
+    publicadaPor: v.publicadaPor,
+    publicadaAt: fechaHora(v.publicadaAt),
+    motivoPublicacion: v.motivoPublicacion,
+    planificadoH: (v.resumen as ResumenMotor | null)?.planificadoH ?? null,
+    bloques: nBloques.get(v.id) ?? 0,
+  }));
+
+  const borrador = filas.find((v) => v.estado === "borrador");
+  const publicada = filas.find((v) => v.estado === "publicada");
+  const b = filas.find((v) => v.id === bId) ?? borrador ?? publicada ?? filas[0];
+  const anteriorA = (v: (typeof filas)[number] | undefined) =>
+    v ? (filas.find((x) => x.id === v.basadaEnId) ?? filas.find((x) => x.numero < v.numero)) : undefined;
+  const a =
+    filas.find((v) => v.id === aId) ??
+    (b && publicada && b.id !== publicada.id ? publicada : anteriorA(b));
+
+  let diff: {
+    a: number;
+    b: number;
+    cambios: (CambioPlan & { nombre: string | null })[];
+    balance: Record<string, number>;
+  } | null = null;
+  if (a && b && a.id !== b.id) {
+    const nombres = nombresAgentes({ usuarios: repo.leerUsuarios(), agentes: repo.leerAgentes() });
+    const cambios = diffPlanes(repo.bloquesVersion(a.id), repo.bloquesVersion(b.id));
+    diff = {
+      a: a.id,
+      b: b.id,
+      cambios: cambios.map((c) => ({ ...c, nombre: nombres.get(c.agenteNumero) ?? null })),
+      balance: balanceCambios(cambios),
+    };
+  }
+
+  const historial = repo.historialMes(mes).map((h) => ({
+    id: h.id,
+    ts: fechaHora(h.ts)!,
+    accion: h.accion,
+    username: h.username,
+    // Sin el «mes=YYYY-MM » del principio: ya se sabe de qué mes es
+    detalle: (h.detalle ?? "").replace(/^mes=\d{4}-\d{2} /, ""),
+  }));
+  return { versiones, diff, historial };
 }

@@ -1,11 +1,12 @@
 "use client";
 
 import { memo } from "react";
+import { useDroppable } from "@dnd-kit/core";
 import { OctagonAlert, TriangleAlert } from "lucide-react";
 import { horasTexto, type AusenciaMotor, type Tramo } from "@/lib/planificacion/motor";
-import { posicionPct, type BloqueTablero } from "@/lib/planificacion/tablero";
+import { posicionPct, saldoTexto, type BloqueTablero, type SaldoPrevisto } from "@/lib/planificacion/tablero";
 import { cn } from "@/lib/utils";
-import { BandaAusencia, Bloque, type ClienteVista } from "./bloque";
+import { BandaAusencia, Bloque, type AccionesBloque, type ClienteVista } from "./bloque";
 
 /** Día que se pinta como columna. */
 export interface DiaColumna {
@@ -24,6 +25,8 @@ export interface ContextoCeldas {
   finDiaMin: number;
   nFranjas: number;
   tiposAusencia: Record<string, { nombre: string; color: string }>;
+  /** null = solo lectura (sin arrastre, menú ni teclado). */
+  edicion: (AccionesBloque & { nuevoBloque: (agente: string, fecha: string, minuto: number) => void }) | null;
 }
 
 const CLIENTE_DESCONOCIDO = (codigo: string): ClienteVista => ({
@@ -44,19 +47,8 @@ export function fondoDia(nFranjas: number, festivo: boolean): React.CSSPropertie
     : { backgroundImage: lineas, backgroundSize: `${100 / nFranjas}% 100%` };
 }
 
-/**
- * Un agente en un día: su turno en gris claro de fondo (lo que queda gris es
- * turno sin bloque), las ausencias rayadas y los bloques encima.
- */
-export const CeldaDia = memo(function CeldaDia({
-  dia,
-  nombreAgente,
-  bloques,
-  turno,
-  ausencias,
-  ctx,
-  alto = "h-10",
-}: {
+interface PropsCelda {
+  agente: string;
   dia: DiaColumna;
   nombreAgente: string;
   bloques: readonly BloqueTablero[];
@@ -64,14 +56,64 @@ export const CeldaDia = memo(function CeldaDia({
   ausencias: readonly AusenciaMotor[];
   ctx: ContextoCeldas;
   alto?: string;
-}) {
+}
+
+/**
+ * Un agente en un día: su turno en gris claro de fondo (lo que queda gris es
+ * turno sin bloque), las ausencias rayadas y los bloques encima. Si se puede
+ * editar, es además el sitio donde se suelta un bloque arrastrado.
+ */
+export const CeldaDia = memo(function CeldaDia(props: PropsCelda) {
+  return props.ctx.edicion ? <CeldaSoltable {...props} /> : <Celda {...props} />;
+});
+
+function CeldaSoltable(props: PropsCelda) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `${props.agente}|${props.dia.fecha}`,
+    data: { agente: props.agente, fecha: props.dia.fecha },
+  });
+  return <Celda {...props} refCelda={setNodeRef} encima={isOver} />;
+}
+
+function Celda({
+  agente,
+  dia,
+  nombreAgente,
+  bloques,
+  turno,
+  ausencias,
+  ctx,
+  alto = "h-10",
+  refCelda,
+  encima = false,
+}: PropsCelda & { refCelda?: (el: HTMLElement | null) => void; encima?: boolean }) {
+  const edicion = ctx.edicion;
   return (
-    <div className={cn("relative border-t border-l", alto)} style={fondoDia(ctx.nFranjas, dia.festivo)}>
+    <div
+      ref={refCelda}
+      data-celda=""
+      data-agente={agente}
+      data-fecha={dia.fecha}
+      className={cn("relative border-t border-l", alto, encima && "bg-primary/10 ring-2 ring-primary ring-inset")}
+      style={fondoDia(ctx.nFranjas, dia.festivo)}
+      onDoubleClick={
+        edicion
+          ? (e) => {
+              // Doble clic en un hueco (no sobre un bloque): añadir un bloque ahí
+              if (e.target !== e.currentTarget && !(e.target as HTMLElement).dataset.turno) return;
+              const r = e.currentTarget.getBoundingClientRect();
+              const minuto = ctx.inicioDiaMin + ((e.clientX - r.left) / r.width) * (ctx.finDiaMin - ctx.inicioDiaMin);
+              edicion.nuevoBloque(agente, dia.fecha, minuto);
+            }
+          : undefined
+      }
+    >
       {turno.map((t) => {
         const { left, width } = posicionPct(t.inicioMin, t.finMin, ctx.inicioDiaMin, ctx.finDiaMin);
         return (
           <div
             key={`t${t.inicioMin}`}
+            data-turno=""
             className="absolute inset-y-1.5 rounded-sm bg-muted-foreground/15"
             style={{ left: `${left}%`, width: `${width}%` }}
             aria-hidden
@@ -96,11 +138,12 @@ export const CeldaDia = memo(function CeldaDia({
           inicioDiaMin={ctx.inicioDiaMin}
           finDiaMin={ctx.finDiaMin}
           nombreAgente={nombreAgente}
+          edicion={edicion}
         />
       ))}
     </div>
   );
-});
+}
 
 export interface FilaAgenteDatos {
   numero: string;
@@ -109,6 +152,9 @@ export interface FilaAgenteDatos {
   /** Horas planificadas en la semana que se ve y en el mes. */
   horasSemana: number;
   horasMes: number;
+  /** Saldo previsto de la semana que se ve y del mes (null = sin contrato). */
+  saldoSemana: SaldoPrevisto | null;
+  saldoMes: SaldoPrevisto | null;
   /** fecha → bloques / turno / ausencias de ese día (solo los días visibles). */
   bloques: Record<string, BloqueTablero[]>;
   turnos: Record<string, Tramo[]>;
@@ -120,7 +166,11 @@ export interface FilaAgenteDatos {
 
 const VACIO: never[] = [];
 
-/** Fila de un agente en la vista semanal: su nombre y horas, y una celda por día. */
+function textoSaldo(nombre: string, s: SaldoPrevisto): string {
+  return `${nombre}: ${horasTexto(s.plan)} planificadas + ${horasTexto(s.justificadas)} justificadas − ${horasTexto(s.contrato)} de contrato = ${saldoTexto(s.saldo)}`;
+}
+
+/** Fila de un agente en la vista semanal: su nombre, horas y saldo previsto, y una celda por día. */
 export const FilaAgente = memo(function FilaAgente({
   fila,
   dias,
@@ -136,6 +186,14 @@ export const FilaAgente = memo(function FilaAgente({
   alto?: string;
 }) {
   const etiqueta = `${fila.numero} ${fila.nombre}`.trim();
+  const s = fila.saldoSemana;
+  const detalle = [
+    `${horasTexto(fila.horasMes)} planificadas en el mes`,
+    s ? textoSaldo("Saldo previsto de la semana", s) : null,
+    fila.saldoMes ? textoSaldo("Del mes", fila.saldoMes) : null,
+  ]
+    .filter(Boolean)
+    .join("\n");
   return (
     <>
       <div
@@ -155,17 +213,29 @@ export const FilaAgente = memo(function FilaAgente({
             <TriangleAlert className="size-3.5 shrink-0 text-amber-600" aria-label={`${fila.blandas} avisos`} />
           ) : null}
         </div>
-        <div
-          className="text-[11px] leading-tight text-muted-foreground tabular-nums"
-          title={`${horasTexto(fila.horasMes)} en el mes`}
-        >
+        <div className="text-[11px] leading-tight text-muted-foreground tabular-nums" title={detalle}>
           {horasTexto(fila.horasSemana)}
-          {fila.contratoSemanalH != null ? ` · contrato ${fila.contratoSemanalH} h` : ""}
+          {s ? (
+            <>
+              {" · "}
+              <span
+                className={cn(
+                  Math.round(s.saldo * 100) > 0 && "text-sky-700 dark:text-sky-400",
+                  Math.round(s.saldo * 100) < 0 && "text-amber-700 dark:text-amber-400",
+                )}
+              >
+                saldo {saldoTexto(s.saldo)}
+              </span>
+            </>
+          ) : fila.contratoSemanalH == null ? (
+            " · sin contrato"
+          ) : null}
         </div>
       </div>
       {dias.map((d) => (
         <CeldaDia
           key={d.fecha}
+          agente={fila.numero}
           dia={d}
           nombreAgente={etiqueta}
           bloques={fila.bloques[d.fecha] ?? VACIO}
