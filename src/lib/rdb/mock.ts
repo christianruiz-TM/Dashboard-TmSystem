@@ -10,6 +10,7 @@ import type {
   FestivosServicio,
   HorarioServicio,
   HorasAgenteReales,
+  HorasLogadasUsuario,
   IslaSesion,
   KpiCampaniaHoy,
   MetricaDiariaCampania,
@@ -496,6 +497,33 @@ export function mockHorasAgenteReales(
     horasLogadas: Math.round(logadas * 10) / 10,
     horasReady: Math.round(logadas * (0.55 + r() * 0.1) * 10) / 10,
   };
+}
+
+export function mockHorasLogadasUsuarios(
+  desde: string,
+  hasta: string,
+  prefijos: string[],
+): HorasLogadasUsuario[] {
+  // 4-8 usuarios <PREFIJO>_08nn por cliente, ~5-7 h por día laborable
+  const d1 = new Date(`${desde}T00:00:00`).getTime();
+  const d2 = new Date(`${hasta}T00:00:00`).getTime();
+  const dias = Math.max(1, Math.round((d2 - d1) / 86_400_000) + 1);
+  const laborables = Math.max(1, Math.round((dias * 5) / 7));
+  const filas: HorasLogadasUsuario[] = [];
+  for (const prefijo of prefijos) {
+    const r = rng(`logadasUsr|${desde}|${hasta}|${prefijo}`);
+    const n = entre(r, 4, 8);
+    for (let i = 0; i < n; i++) {
+      const diasUsuario = Math.max(1, Math.round(laborables * (0.5 + r() * 0.5)));
+      filas.push({
+        prefijo,
+        usuario: `${prefijo}_08${String(10 + i * 7).padStart(2, "0")}`,
+        horas: diasUsuario * (5 + r() * 2),
+        sesiones: diasUsuario + entre(r, 0, diasUsuario),
+      });
+    }
+  }
+  return filas;
 }
 
 export function mockMetricasIvr(

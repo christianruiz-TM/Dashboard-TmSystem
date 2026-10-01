@@ -18,8 +18,18 @@ import {
 export const ROLES = ["admin", "direccion", "operaciones", "supervision", "cliente"] as const;
 export type Rol = (typeof ROLES)[number];
 
-/** Unidades de facturación configurables por campaña. */
-export const UNIDADES_FACTURACION = ["horas", "interacciones", "exitos", "leads"] as const;
+/**
+ * Unidades de facturación configurables. `horas` son las PRODUCTIVAS (en
+ * llamada, por campaña); `horas_logadas` es el tiempo logado (user_log) de
+ * los usuarios del cliente y solo existe con ámbito servicio y prefijo.
+ */
+export const UNIDADES_FACTURACION = [
+  "horas",
+  "horas_logadas",
+  "interacciones",
+  "exitos",
+  "leads",
+] as const;
 export type UnidadFacturacion = (typeof UNIDADES_FACTURACION)[number];
 
 export const users = sqliteTable(
@@ -100,6 +110,9 @@ export const billingConfig = sqliteTable(
     // Ámbito SERVICIO (lo normal): name de ph_service.
     serviceName: text("service_name"),
     unidad: text("unidad", { enum: UNIDADES_FACTURACION }).notNull(),
+    // Solo con unidad `horas_logadas`: prefijo de los usuarios de Altitude del
+    // cliente (GH → cuentan GH_0851...; no GH_0851_BD ni Angeles).
+    prefijoUsuario: text("prefijo_usuario"),
     // Precio por unidad en €. Opcional: si es NULL solo se muestran unidades.
     precioUnitario: real("precio_unitario"),
     notas: text("notas"),

@@ -55,11 +55,18 @@ export default async function PaginaFacturacionAdmin({
             varias líneas por ámbito (modelos mixtos: horas + éxitos). El precio es
             opcional: sin precio solo se muestran las unidades.
           </CardDescription>
+          <CardDescription>
+            <strong>Horas logadas</strong>: solo por servicio y con el prefijo de los
+            usuarios del cliente. Cuenta el tiempo logado (de login a logout, haya o no
+            campaña abierta) de los usuarios <code>PREFIJO_nnnn</code>: con «GH» cuentan
+            GH_0851…, pero no GH_0851_BD (las bbdd se facturan por sus campañas) ni
+            usuarios sin el prefijo como Angeles.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form
             action={crearLineaFacturacion}
-            className="grid items-end gap-3 md:grid-cols-[1.3fr_1fr_120px_1fr_auto]"
+            className="grid items-end gap-3 md:grid-cols-[1.3fr_1fr_110px_110px_1fr_auto]"
           >
             <div className="space-y-1.5">
               <Label>Ámbito (servicio o campaña)</Label>
@@ -89,6 +96,17 @@ export default async function PaginaFacturacionAdmin({
                   </option>
                 ))}
               </SelectNativo>
+            </div>
+            <div className="space-y-1.5">
+              <Label htmlFor="prefijo">Prefijo usuarios</Label>
+              <Input
+                id="prefijo"
+                name="prefijo"
+                placeholder="ej. GH"
+                maxLength={30}
+                pattern="[A-Za-z0-9]+(_[A-Za-z0-9]+)*"
+                title="Solo para horas logadas: letras y números (GH, Av, Soc_Fed)"
+              />
             </div>
             <div className="space-y-1.5">
               <Label htmlFor="precio">€/unidad</Label>
@@ -137,7 +155,14 @@ export default async function PaginaFacturacionAdmin({
                     <TableCell className="font-medium">
                       {l.serviceName ?? l.campaignShortname}
                     </TableCell>
-                    <TableCell>{NOMBRE_UNIDAD[l.unidad]}</TableCell>
+                    <TableCell>
+                      {NOMBRE_UNIDAD[l.unidad]}
+                      {l.unidad === "horas_logadas" && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          · {l.prefijoUsuario ? `${l.prefijoUsuario}_nnnn` : "falta el prefijo"}
+                        </span>
+                      )}
+                    </TableCell>
                     <TableCell className="text-right tabular-nums">
                       {l.precioUnitario != null
                         ? l.precioUnitario.toLocaleString("es-ES", {

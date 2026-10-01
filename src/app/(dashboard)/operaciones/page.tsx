@@ -19,7 +19,11 @@ import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { requireRol } from "@/lib/auth/rbac";
-import { NOMBRE_UNIDAD, calcularFacturacion } from "@/lib/facturacion";
+import {
+  NOMBRE_UNIDAD,
+  calcularFacturacion,
+  facturacionHorasLogadas,
+} from "@/lib/facturacion";
 import {
   esquemaRango,
   horasDesdeSegundos,
@@ -69,11 +73,13 @@ export default async function PaginaOperaciones({
   const servicios = await listaServicios();
   const camp = await campaniasEfectivas(params.servicio, incluirIvr);
 
-  const [unidades, horasReales, razones, listas] = await Promise.all([
+  const [unidades, horasReales, razones, listas, porCliente] = await Promise.all([
     unidadesPorCampania(desde, hasta, camp),
     horasAgenteReales(desde, hasta, camp),
     razonesNotReady(desde, hasta, camp),
     penetracionListas(desde, hasta, camp),
+    // Horas logadas de los usuarios del cliente: no dependen de campañas ni del check IVR
+    facturacionHorasLogadas(desde, hasta, params.servicio),
   ]);
   const facturacion = calcularFacturacion(unidades, mapaCampaniaServicio(servicios));
 
@@ -88,8 +94,11 @@ export default async function PaginaOperaciones({
     }),
     { interacciones: 0, atendidas: 0, exitos: 0, leads: 0 },
   );
-  const importeTotal = facturacion.reduce((acc, f) => acc + (f.importeTotal ?? 0), 0);
-  const hayImportes = facturacion.some((f) => f.importeTotal != null);
+  const importeTotal =
+    facturacion.reduce((acc, f) => acc + (f.importeTotal ?? 0), 0) +
+    porCliente.reduce((acc, c) => acc + (c.importe ?? 0), 0);
+  const hayImportes =
+    facturacion.some((f) => f.importeTotal != null) || porCliente.some((c) => c.importe != null);
 
   const urlExport = (formato: string) =>
     `/api/export/operaciones?desde=${desde}&hasta=${hasta}&formato=${formato}` +
@@ -140,7 +149,7 @@ export default async function PaginaOperaciones({
         <TarjetaKpi
           titulo="Importe estimado"
           valor={hayImportes ? euros(importeTotal) : "—"}
-          sub={hayImportes ? "Campañas con precio configurado" : "Sin precios configurados"}
+          sub={hayImportes ? "Líneas con precio configurado" : "Sin precios configurados"}
         />
       </div>
 
@@ -151,16 +160,74 @@ export default async function PaginaOperaciones({
           <TabsTrigger value="pausas">Pausas (Not Ready)</TabsTrigger>
         </TabsList>
 
-        <TabsContent value="facturacion">
+        <TabsContent value="facturacion" className="space-y-4">
+          {porCliente.length > 0 && (
+            <Card>
+              <CardHeader>
+                <CardTitle className="text-base">Horas logadas por cliente</CardTitle>
+                <CardDescription>
+                  Tiempo logado (de login a logout, haya o no campaña abierta) de los
+                  usuarios del cliente, <code>PREFIJO_nnnn</code>. No cuentan los usuarios
+                  sin el prefijo ni los de bbdd (<code>_BD</code>, <code>_BD_LX</code>), que se
+                  facturan por sus campañas. Las sesiones se asignan al día en que
+                  empiezan. Período: {desde} a {hasta}.
+                </CardDescription>
+              </CardHeader>
+              <CardContent>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <TableHead>Cliente (servicio)</TableHead>
+                      <TableHead>Usuarios</TableHead>
+                      <TableHead className="text-right">Horas logadas</TableHead>
+                      <TableHead className="text-right">€/hora</TableHead>
+                      <TableHead className="text-right">Importe</TableHead>
+                    </TableRow>
+                  </TableHeader>
+                  <TableBody>
+                    {porCliente.map((c) => (
+                      <TableRow key={`${c.servicio}|${c.prefijo}`}>
+                        <TableCell className="font-medium">{c.servicio}</TableCell>
+                        <TableCell>
+                          <details>
+                            <summary className="cursor-pointer text-sm">
+                              {c.prefijo}_nnnn · {c.usuarios.length} usuarios
+                            </summary>
+                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                              {c.usuarios.map((u) => (
+                                <li key={u.usuario} className="flex justify-between gap-6">
+                                  <span>{u.usuario}</span>
+                                  <span className="tabular-nums">{horasLegibles(u.horas)}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </details>
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {horasLegibles(c.horas)}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {euros(c.precioUnitario)}
+                        </TableCell>
+                        <TableCell className="text-right font-medium tabular-nums">
+                          {euros(c.importe)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </CardContent>
+            </Card>
+          )}
           <Card>
             <CardHeader>
               <CardTitle className="text-base">Unidades por campaña</CardTitle>
               <CardDescription>
                 La columna «Facturable» marca las unidades configuradas en Administración →
-                Facturación. Las horas de agente por campaña usan las{" "}
-                <strong>productivas</strong> (gestión real); las logadas/ready solo tienen
-                sentido global (arriba) porque los agentes blended las duplican. Período:{" "}
-                {desde} a {hasta}.
+                Facturación. Las horas por campaña son las <strong>productivas</strong>{" "}
+                (en llamada); las logadas no se pueden repartir por campaña y, si el cliente
+                factura por ellas, van en «Horas logadas por cliente». Período: {desde} a{" "}
+                {hasta}.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -205,7 +272,9 @@ export default async function PaginaOperaciones({
                         </TableCell>
                         <TableCell>
                           {f.lineas.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">Sin configurar</span>
+                            <span className="text-xs text-muted-foreground">
+                              {f.porHorasLogadas ? "Horas logadas (cliente)" : "Sin configurar"}
+                            </span>
                           ) : (
                             <div className="flex flex-wrap gap-1">
                               {f.lineas.map((l, i) => (
@@ -335,6 +404,7 @@ export default async function PaginaOperaciones({
         claves={[
           "servicio",
           "horasLogadas",
+          "horasLogadasCliente",
           "horasProductivas",
           "interacciones",
           "atendidas",

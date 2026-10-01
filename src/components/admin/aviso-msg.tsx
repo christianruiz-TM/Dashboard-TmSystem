@@ -16,6 +16,11 @@ const MENSAJES: Record<string, { texto: string; error: boolean }> = {
   error_existe: { texto: "Ya existe un registro con ese nombre.", error: true },
   error_cliente: { texto: "Los usuarios con rol cliente necesitan un cliente asignado.", error: true },
   error_propio: { texto: "No puedes desactivar tu propio usuario.", error: true },
+  error_horas_logadas: {
+    texto:
+      "Las horas logadas van por servicio (cliente) y necesitan el prefijo de sus usuarios (p. ej. GH).",
+    error: true,
+  },
 };
 
 /**

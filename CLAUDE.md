@@ -89,7 +89,8 @@ tiene remoto git todavía.
       cifra global. Las columnas por campaña NO muestran logadas/ready.
     - **Facturación por campaña que use horas** → unidad `horas` = horas
       PRODUCTIVAS (`itr_thread`, gestión real, no duplicada), no logadas. Ver
-      `src/lib/facturacion.ts`.
+      `src/lib/facturacion.ts`. Facturar horas LOGADAS es otra unidad, por
+      cliente y desde `user_log` (regla 16).
     - Medido 10/09/2026 en un día real: 2.602 h sumando `ag_in_cp_log` por
       campaña frente a 189 h de unión real → **×13,8**. Por eso las horas
       logadas/ready **por campaña ya no se calculan ni se guardan**: se quitaron
@@ -144,6 +145,31 @@ tiene remoto git todavía.
     - El SQL de las islas es común (`queries/islas.ts`) a `horasAgenteReales` y
       a la planificación: `npm run verificar` dio lo mismo antes y después.
 
+16. **Facturar por HORAS LOGADAS = `user_log` de los usuarios del cliente**
+    (decidido 01/10/2026 con Christian; unidad `horas_logadas`).
+    - Cuenta el tiempo logado (login → logout) **aunque no haya campaña
+      abierta**: por eso es `user_log` y no `ag_in_cp_log` op 0 (este solo
+      ve el tiempo con campaña abierta: 5,39 h menos en GH, septiembre 2026).
+    - **Solo los usuarios del cliente**: `<PREFIJO>_nnnn` exacto, con el
+      prefijo en `billing_config.prefijo_usuario` (GH). Fuera: los que no
+      llevan el prefijo (Angeles: 14 h en campañas GH en septiembre), los de
+      bbdd con sufijo (`GH_0851_BD`, `_BD_LX`), que se facturan a propósito
+      de otra forma por sus campañas (`gh_bbdd_*`: horas productivas a 2 € y
+      leads a 3 €, **es correcto así**), y `GH_Cargador2`.
+    - Es una línea por CLIENTE (ámbito servicio), nunca por campaña: `user_log`
+      no sabe de campañas. Las campañas que heredan esa config salen como
+      «Horas logadas (cliente)» y no llevan importe propio.
+    - Solo `ph_e_user.type = 1`: los puertos IVR y el router dejan sesiones
+      con `duration NULL` durante semanas (31/08/2026); en agentes, NULL solo
+      es la sesión de hoy en curso (se cierra en `GETDATE()`, regla 10.b).
+      Las sesiones solapadas de un usuario se funden (173 de 97.798).
+    - Es la misma fuente que el Excel de operaciones («HORAS LOGADAS POR
+      CAMPAÑAS», vista `v_TM_TiempoAgentLogado` = `user_log`, verificado fila
+      a fila): septiembre 2026 cuadra al céntimo usuario a usuario (GH
+      1.027,88 h, UGR 195,42 h, Av 23,45 h). El dashboard antes facturaba
+      GH por productivas: 848,28 h. Análisis completo:
+      `docs/facturacion-horas-logadas.md`.
+
 ## Referencia del esquema RDBv2
 
 - `docs/referencia_bbdd_altitude_v85.md` — esquema completo, enumerados, relaciones
@@ -151,6 +177,9 @@ tiene remoto git todavía.
 - `docs/esquema-real.md` — generado por `npm run introspect` contra la BBDD real
   (si no existe, aún no se ha ejecutado con credenciales).
 - `docs/instrucciones.md` — contexto original del flujo manual con Claude chat.
+- `docs/facturacion-horas-logadas.md` — Excel de horas de operaciones
+  (`v_TM_TiempoAgentLogado` = `user_log`) frente al dashboard y la unidad
+  `horas_logadas` (regla 16).
 
 ## Arquitectura
 
@@ -310,6 +339,11 @@ tiene remoto git todavía.
   `calcularFacturacion()` resuelve por campaña: config de campaña → la de su
   servicio → ninguna (necesita el mapa `mapaCampaniaServicio`). Admin lo gestiona
   en `/admin/facturacion` con un selector de ámbito (servicios + campañas).
+  La unidad `horas_logadas` (regla 16) va aparte: solo con ámbito servicio y
+  prefijo de usuario, la calcula `facturacionHorasLogadas()` una vez por
+  cliente (lógica pura en `lib/facturacion-horas-logadas.ts`, con tests) y
+  Operaciones la muestra en «Horas logadas por cliente», con el detalle por
+  usuario para cuadrar con el Excel de operaciones.
 
 ## Comandos
 
@@ -484,6 +518,22 @@ Verificado contra RDBv2 real y, lo de seguridad, en build de producción:
 - [ ] Decidido NO cambiar: el bloqueo de login va por usuario (sin
       `TRUST_PROXY` no hay IP fiable), así que 5 fallos desde cualquier PC
       bloquean esa cuenta 15 min. Se resuelve en F5 con Caddy.
+
+## Facturación GrupoHuertas 01/10/2026 (Opus 5.5)
+
+Operaciones factura con un Excel de horas logadas por usuario que no cuadraba
+con Operaciones → Facturación. Detalle en `docs/facturacion-horas-logadas.md`.
+
+- [x] **Diagnóstico**: el Excel es `user_log` (tiempo logado: 1.384,22 h en
+      septiembre); el dashboard facturaba horas productivas (848,28 h). Lo
+      que va de una a otra: pausas 280 h, intentos no atendidos 100 h,
+      espera en Ready ~150 h y 5 h logadas sin campaña.
+- [x] **Unidad nueva `horas_logadas`** (regla 16): tiempo logado de los
+      usuarios `PREFIJO_nnnn` del cliente, por servicio. GrupoHuertas pasa a
+      1.027,88 h × 28 € = 28.780,64 € y cuadra al céntimo con el Excel,
+      usuario a usuario. Las bbdd siguen igual (intencionado).
+- [ ] Sin revisar en el navegador (Operaciones pide sesión): verificado con
+      la misma cadena de la página contra RDBv2 real, tests, `tsc` y lint.
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 

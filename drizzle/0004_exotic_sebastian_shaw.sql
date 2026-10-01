@@ -1,0 +1,1 @@
+ALTER TABLE `billing_config` ADD `prefijo_usuario` text;

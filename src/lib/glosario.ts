@@ -73,7 +73,12 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   horasProductivas: {
     termino: "Horas productivas",
     definicion:
-      "Tiempo real dedicado a gestionar interacciones: la suma exacta de la duración de las atendidas. Es la única medida de horas atribuible a una campaña, porque cada interacción pertenece a una sola. Es la que se usa para facturar por horas.",
+      "Tiempo real dedicado a gestionar interacciones: la suma exacta de la duración de las atendidas. Es la única medida de horas atribuible a una campaña, porque cada interacción pertenece a una sola. Es la unidad «Horas productivas» de facturación (p. ej. las campañas de bbdd).",
+  },
+  horasLogadasCliente: {
+    termino: "Horas logadas por cliente (facturación)",
+    definicion:
+      "Tiempo que los usuarios del cliente estuvieron logados en Altitude, de login a logout, haya o no campaña abierta. Solo cuentan los usuarios con el prefijo del cliente seguido del número de agente (GH_0851 para GrupoHuertas): no cuentan los que no llevan el prefijo ni los de bbdd (GH_0851_BD), que se facturan por sus campañas. Si un usuario tiene dos sesiones a la vez, el tiempo cuenta una sola vez.",
   },
   pausas: {
     termino: "Pausas (Not Ready)",

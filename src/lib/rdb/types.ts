@@ -144,6 +144,20 @@ export interface UnidadesCampania {
   leadsFinalizados: number;
 }
 
+/**
+ * Tiempo logado (user_log: login → logout, haya o no campaña abierta) de un
+ * usuario de agente de un cliente en un rango. Es la unidad `horas_logadas`.
+ */
+export interface HorasLogadasUsuario {
+  /** Prefijo de cliente con el que casa el usuario (GH para GH_0851). */
+  prefijo: string;
+  usuario: string;
+  /** Unión de sus sesiones, SIN redondear (se suma por cliente). */
+  horas: number;
+  /** Sesiones tras fundir las que se solapan. */
+  sesiones: number;
+}
+
 /** Métricas de un día y campaña (para agregados nocturnos). */
 export interface MetricaDiariaCampania {
   fecha: string;

@@ -1,8 +1,10 @@
+import { esUsuarioDelCliente, patronLikeUsuarios } from "@/lib/facturacion-horas-logadas";
 import { conCache, ttlSegunRango } from "../cache";
 import { obtenerEnums } from "../enums";
-import { mockMetricasDiarias } from "../mock";
+import { mockHorasLogadasUsuarios, mockMetricasDiarias } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
-import type { MetricaDiariaCampania, UnidadesCampania } from "../types";
+import type { HorasLogadasUsuario, MetricaDiariaCampania, UnidadesCampania } from "../types";
+import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
 import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./util";
 
 // ============================================================
@@ -240,4 +242,71 @@ export async function unidadesPorCampania(
     .map((u) => ({ ...u, horasProductivas: redondear2(u.horasProductivas) ?? 0 }))
     // Se ordena por volumen: las horas logadas por campaña ya no existen aquí
     .sort((a, b) => b.interacciones - a.interacciones);
+}
+
+/**
+ * Horas LOGADAS por usuario de los clientes con los prefijos dados (unidad
+ * de facturación `horas_logadas`). Fuente: user_log, una fila por sesión del
+ * usuario (login → logout), haya o no campaña abierta. Es la misma tabla que
+ * la vista v_TM_TiempoAgentLogado del Excel de operaciones (verificado fila
+ * a fila, septiembre 2026).
+ *
+ * - Solo agentes humanos (type = 1): los puertos IVR y el router dejan
+ *   sesiones sin cerrar durante semanas (31/08/2026) y no son agentes.
+ * - duration NULL = sesión EN CURSO (en agentes, solo las de hoy): se cierra
+ *   en este instante sin salirse del rango (regla 10.b).
+ * - Sesiones solapadas del mismo usuario (173 de 97.798 desde junio 2025) se
+ *   funden: cuenta el tiempo efectivo, no la suma.
+ * - Una sesión cuenta entera en el día en que empieza, como en el Excel.
+ */
+export async function horasLogadasUsuarios(
+  desdeISO: string,
+  hastaISO: string,
+  prefijos: string[],
+): Promise<HorasLogadasUsuario[]> {
+  const unicos = [...new Set(prefijos)].sort();
+  if (unicos.length === 0) return [];
+  if (esMock()) return mockHorasLogadasUsuarios(desdeISO, hastaISO, unicos);
+  const claveCache = `rdb:horasLogadasUsr:${desdeISO}:${hastaISO}:${unicos.join(",")}`;
+  return conCache(claveCache, ttlSegunRango(hastaISO), async () => {
+    const pool = await obtenerPool();
+    const request = pool.request();
+    const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+    request.input("desde", sql.DateTime, desde);
+    request.input("hastaExcl", sql.DateTime, hastaExcl);
+    // Un LIKE por prefijo, parametrizado: <PREFIJO>_nnnn exacto
+    const condiciones = unicos.map((prefijo, i) => {
+      request.input(`usr${i}`, sql.VarChar(80), patronLikeUsuarios(prefijo));
+      return `RTRIM(u.usr_name) LIKE @usr${i}`;
+    });
+
+    const r = await request.query(`
+      -- Tiempo logado por usuario: unión de sus sesiones de user_log
+      -- (duration en DÉCIMAS de segundo, ver sqlFinIntervalo)
+      WITH base AS (
+          SELECT l.e_user AS usuario, l.start_time AS ini,
+                 ${sqlFinIntervalo("l")} AS fin
+          FROM user_log l
+          INNER JOIN ph_e_user u ON u.code = l.e_user AND u.type = 1
+          WHERE l.start_time >= @desde AND l.start_time < @hastaExcl
+            AND (${condiciones.join(" OR ")})
+      ),
+      ${sqlCtesIslas("usuario")}
+      SELECT RTRIM(u.usr_name)                                          AS usuario,
+             COUNT(*)                                                   AS sesiones,
+             SUM(CAST(DATEDIFF(SECOND, i.ini, i.fin) AS BIGINT)) / 3600.0 AS horas
+      FROM islas i
+      INNER JOIN ph_e_user u ON u.code = i.usuario
+      GROUP BY RTRIM(u.usr_name);
+    `);
+
+    const filas = r.recordset as { usuario: string; sesiones: number; horas: number }[];
+    return filas
+      .map((f) => ({
+        ...f,
+        prefijo: unicos.find((p) => esUsuarioDelCliente(f.usuario, p)) ?? "",
+      }))
+      .filter((f) => f.prefijo !== "")
+      .sort((a, b) => a.usuario.localeCompare(b.usuario));
+  });
 }

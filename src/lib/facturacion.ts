@@ -1,19 +1,34 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/sqlite";
 import { billingConfig, type BillingConfigRow, type UnidadFacturacion } from "@/lib/db/schema";
+import {
+  facturarHorasLogadas,
+  type FacturacionHorasLogadas,
+  type LineaHorasLogadas,
+} from "@/lib/facturacion-horas-logadas";
+import { horasLogadasUsuarios } from "@/lib/rdb/queries/facturacion";
 import type { UnidadesCampania } from "@/lib/rdb/types";
 
 // ============================================================
 // Lógica de facturación: cruza las unidades medidas en RDBv2
 // con la configuración por campaña (billing_config de SQLite).
+//
+// Dos niveles:
+//  - Por CAMPAÑA: horas productivas, atendidas, éxitos y leads.
+//  - Por CLIENTE (servicio): horas logadas de sus usuarios. user_log no sabe
+//    de campañas, así que esa línea no se reparte entre ellas.
 // ============================================================
 
 export const NOMBRE_UNIDAD: Record<UnidadFacturacion, string> = {
-  horas: "Horas de agente (productivas)",
+  horas: "Horas productivas (en llamada)",
+  horas_logadas: "Horas logadas (usuarios del cliente)",
   interacciones: "Interacciones gestionadas (atendidas)",
   exitos: "Éxitos / ventas",
   leads: "Leads finalizados",
 };
+
+/** Unidades que se miden por campaña (todas menos las horas logadas). */
+type UnidadPorCampania = Exclude<UnidadFacturacion, "horas_logadas">;
 
 export interface LineaFacturable {
   unidad: UnidadFacturacion;
@@ -30,6 +45,11 @@ export interface FacturacionCampania {
   lineas: LineaFacturable[];
   /** Origen de la configuración aplicada: del servicio, de la campaña o ninguna. */
   ambito: "servicio" | "campania" | null;
+  /**
+   * La config aplicada (la del servicio) factura por horas logadas: esas
+   * horas van en la línea del cliente, no en la campaña.
+   */
+  porHorasLogadas: boolean;
   importeTotal: number | null;
 }
 
@@ -59,12 +79,12 @@ export function configuracionFacturacion(): ConfigFacturacion {
   return { porCampania, porServicio };
 }
 
-function cantidadPara(unidad: UnidadFacturacion, medidas: UnidadesCampania): number {
+function cantidadPara(unidad: UnidadPorCampania, medidas: UnidadesCampania): number {
   switch (unidad) {
     case "horas":
-      // Horas PRODUCTIVAS por campaña (gestión real). NO horas logadas: los
-      // agentes blended las duplican entre campañas simultáneas (~×13). Las
-      // horas logadas reales solo se reportan como cifra global.
+      // Horas PRODUCTIVAS por campaña (gestión real). Las logadas no se
+      // pueden repartir por campaña (ag_in_cp_log las duplica ~×13 y
+      // user_log no sabe de campañas): van por cliente, unidad horas_logadas.
       return medidas.horasProductivas;
     case "interacciones":
       // Gestionadas = ATENDIDAS (termination_state = 1), decidido 29/09/2026.
@@ -99,7 +119,9 @@ export function calcularFacturacion(
         ? "servicio"
         : null;
 
-    const lineas: LineaFacturable[] = config.map((c) => {
+    const lineas: LineaFacturable[] = config.flatMap((c) => {
+      // Las horas logadas se facturan por cliente (facturacionHorasLogadas)
+      if (c.unidad === "horas_logadas") return [];
       const cantidad = cantidadPara(c.unidad, medidas);
       const importe =
         c.precioUnitario == null ? null : Math.round(cantidad * c.precioUnitario * 100) / 100;
@@ -117,10 +139,54 @@ export function calcularFacturacion(
       medidas,
       lineas,
       ambito,
+      porHorasLogadas: config.some((c) => c.unidad === "horas_logadas"),
       importeTotal:
         conImporte.length > 0
           ? Math.round(conImporte.reduce((acc, l) => acc + (l.importe ?? 0), 0) * 100) / 100
           : null,
     };
   });
+}
+
+/**
+ * Líneas `horas_logadas` activas (ámbito servicio, con prefijo), de un
+ * servicio o de todos. Una línea sin prefijo no puede saber qué usuarios
+ * cuentan: el formulario de admin la rechaza y aquí se ignora.
+ */
+export function lineasHorasLogadas(servicio?: string): LineaHorasLogadas[] {
+  const { porServicio } = configuracionFacturacion();
+  const lineas: LineaHorasLogadas[] = [];
+  for (const [nombre, filas] of porServicio) {
+    if (servicio && nombre !== servicio) continue;
+    for (const f of filas) {
+      if (f.unidad !== "horas_logadas" || !f.prefijoUsuario) continue;
+      lineas.push({
+        servicio: nombre,
+        prefijo: f.prefijoUsuario,
+        precioUnitario: f.precioUnitario,
+        notas: f.notas,
+      });
+    }
+  }
+  return lineas.sort((a, b) => a.servicio.localeCompare(b.servicio));
+}
+
+/**
+ * Facturación por horas logadas de los clientes del alcance (`servicio`
+ * vacío = todos los que tengan esa línea). Una consulta a user_log para todos
+ * los prefijos a la vez.
+ */
+export async function facturacionHorasLogadas(
+  desdeISO: string,
+  hastaISO: string,
+  servicio?: string,
+): Promise<FacturacionHorasLogadas[]> {
+  const lineas = lineasHorasLogadas(servicio);
+  if (lineas.length === 0) return [];
+  const horas = await horasLogadasUsuarios(
+    desdeISO,
+    hastaISO,
+    lineas.map((l) => l.prefijo),
+  );
+  return facturarHorasLogadas(lineas, horas);
 }

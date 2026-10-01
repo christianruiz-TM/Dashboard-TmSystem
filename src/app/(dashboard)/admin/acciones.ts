@@ -17,6 +17,7 @@ import { hashearPassword, validarPoliticaPassword } from "@/lib/auth/password";
 import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { guardarCampaniasDeCliente } from "@/lib/db/clientes";
 import { guardarAjuste } from "@/lib/db/settings";
+import { PATRON_PREFIJO_USUARIO } from "@/lib/facturacion-horas-logadas";
 
 // ============================================================
 // Server Actions del área de administración. Todas exigen rol
@@ -221,6 +222,8 @@ const esquemaLineaFacturacion = z.object({
   // Ámbito codificado por el formulario: "svc:<servicio>" o "camp:<campaña>"
   objetivo: z.string().trim().regex(/^(svc|camp):.+/, "Ámbito inválido"),
   unidad: z.enum(UNIDADES_FACTURACION),
+  // Solo para horas logadas: GH, Av, Soc_Fed... (sin el «_nnnn»)
+  prefijo: z.string().trim().max(30).regex(PATRON_PREFIJO_USUARIO).nullable(),
   precio: z.coerce.number().nonnegative().nullable().catch(null),
   notas: z.string().trim().max(300).nullable().catch(null),
 });
@@ -230,6 +233,7 @@ export async function crearLineaFacturacion(formData: FormData): Promise<void> {
   const datos = esquemaLineaFacturacion.safeParse({
     objetivo: formData.get("objetivo"),
     unidad: formData.get("unidad"),
+    prefijo: String(formData.get("prefijo") ?? "").trim() || null,
     precio: formData.get("precio") || null,
     notas: formData.get("notas") || null,
   });
@@ -237,12 +241,20 @@ export async function crearLineaFacturacion(formData: FormData): Promise<void> {
 
   const esServicio = datos.data.objetivo.startsWith("svc:");
   const nombre = datos.data.objetivo.slice(datos.data.objetivo.indexOf(":") + 1);
+  // Las horas logadas son del cliente (user_log no sabe de campañas) y
+  // necesitan el prefijo para saber qué usuarios cuentan
+  const horasLogadas = datos.data.unidad === "horas_logadas";
+  if (horasLogadas && (!esServicio || !datos.data.prefijo)) {
+    volverCon("/admin/facturacion", "error_horas_logadas");
+  }
+  const prefijo = horasLogadas ? datos.data.prefijo : null;
 
   db.insert(billingConfig)
     .values({
       campaignShortname: esServicio ? null : nombre,
       serviceName: esServicio ? nombre : null,
       unidad: datos.data.unidad,
+      prefijoUsuario: prefijo,
       precioUnitario: datos.data.precio,
       notas: datos.data.notas,
     })
@@ -251,7 +263,9 @@ export async function crearLineaFacturacion(formData: FormData): Promise<void> {
     accion: "config_facturacion",
     userId: admin.id,
     username: admin.username,
-    detalle: `+${esServicio ? "servicio" : "campaña"} ${nombre} ${datos.data.unidad} @${datos.data.precio ?? "s/p"}`,
+    detalle:
+      `+${esServicio ? "servicio" : "campaña"} ${nombre} ${datos.data.unidad}` +
+      `${prefijo ? ` usuarios ${prefijo}_nnnn` : ""} @${datos.data.precio ?? "s/p"}`,
     ip: await ipPeticion(),
   });
   volverCon("/admin/facturacion", "creado");
