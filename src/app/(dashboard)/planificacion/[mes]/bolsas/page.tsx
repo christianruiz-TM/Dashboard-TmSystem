@@ -3,6 +3,7 @@ import { format } from "date-fns";
 import { notFound } from "next/navigation";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { CabeceraMes } from "@/components/planificacion/cabecera-mes";
+import { EstimacionFinCampania } from "@/components/planificacion/estimacion-fin";
 import { Muestra } from "@/components/planificacion/campos";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -12,6 +13,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { puedeEditarPlan, requireRol, ROLES_PLAN_LECTURA } from "@/lib/auth/rbac";
 import { horasLegibles } from "@/lib/fechas";
 import { bolsasDelMes } from "@/lib/planificacion/bolsas";
+import { estimacionesFin } from "@/lib/planificacion/estimaciones";
 import { fechasDelMes, lunesDe, semanasDelMes, type ObjetivoSemana } from "@/lib/planificacion/motor";
 import { leerParametrosPlan } from "@/lib/planificacion/parametros";
 import * as repo from "@/lib/planificacion/repositorio";
@@ -36,7 +38,8 @@ function explicarObjetivo(o: ObjetivoSemana | undefined): string | null {
     num(v)?.toLocaleString("es-ES", { minimumFractionDigits: dec, maximumFractionDigits: dec }) ?? "?";
   const partes: string[] = [];
   if (num(d.total) != null && num(d.vivos) != null) {
-    partes.push(`${n(d.vivos)} vivos de ${n(d.total)} (objetivo: dejar el ${n(d.pctVivosObjetivo)} % vivo)`);
+    const pct = num(d.pctVivosObjetivo)?.toLocaleString("es-ES", { maximumFractionDigits: 2 }) ?? "?";
+    partes.push(`${n(d.vivos)} vivos de ${n(d.total)} (objetivo: dejar el ${pct} % vivo)`);
   }
   if (num(d.cierresNecesarios) != null) partes.push(`${n(d.cierresNecesarios)} cierres`);
   if (num(d.ritmo) != null) partes.push(`a ${n(d.ritmo, 2)} cierres/h (${d.ritmoOrigen === "manual" ? "fijado a mano" : "medido"})`);
@@ -64,6 +67,7 @@ export default async function PaginaBolsas({
   const { laborablesMes, filas } = await bolsasDelMes(mes);
   const datos = cargarTablero(mes);
   const manuales = repo.leerObjetivosManuales(mes);
+  const estimaciones = estimacionesFin(datos?.entrada ?? null);
 
   // Lo planificado en la versión vigente (si la hay), por cliente y semana
   const semanaDe = datos ? Object.fromEntries(datos.entrada.dias.map((d) => [d.fecha, d.lunes])) : {};
@@ -84,6 +88,7 @@ export default async function PaginaBolsas({
       <CabeceraMes
         mes={mes}
         nombreMes={nombreMes(mes)}
+        ayuda="bolsas"
         seccion="/bolsas"
         titulo="Bolsas y objetivos"
         descripcion={
@@ -225,7 +230,10 @@ export default async function PaginaBolsas({
                 {explicacion ?? (datos ? "Sin datos de la lista o del ritmo al generar." : "Genera un borrador para ver lo calculado.")}
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              {estimaciones.find((x) => x.cliente === c.codigo) ? (
+                <EstimacionFinCampania e={estimaciones.find((x) => x.cliente === c.codigo)!} />
+              ) : null}
               <form action={guardarObjetivosAccion} className="space-y-3">
                 <input type="hidden" name="mes" value={mes} />
                 <input type="hidden" name="clienteCodigo" value={c.codigo} />

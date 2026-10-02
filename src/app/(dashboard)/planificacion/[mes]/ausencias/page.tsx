@@ -42,6 +42,7 @@ export default async function PaginaAusencias({
       <CabeceraMes
         mes={mes}
         nombreMes={nombreMes(mes)}
+        ayuda="ausencias"
         seccion="/ausencias"
         titulo="Ausencias"
         descripcion="Vacaciones, permisos y libranzas: son hechos, no van por versiones. Cuentan al momento en el tablero (capacidad, barras, saldo y validaciones) sin regenerar."

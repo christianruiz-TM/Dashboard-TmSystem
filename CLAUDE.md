@@ -329,7 +329,18 @@ tiene remoto git todavía.
     confirmada o, si no, la última anterior prorrateada por laborables
     (`bolsas.ts`, la comparten página y cargador); objetivos semanales a mano
     (vacío = calculado). Se aplican al regenerar. Saldo previsto = plan +
-    justificadas − contrato prorrateado por laborables de la semana.
+    justificadas − contrato prorrateado por laborables de la semana. Ausencias
+    que cuentan como trabajadas: VAC, FEST y RTO («retribución de tiempo por
+    objetivos», decidido 02/10/2026); AUS no.
+  - **Fin de campaña**: no se conoce; acaba al agotarse los contactos o las
+    horas contratadas. `[mes]/bolsas` lo ESTIMA (`motor/estimacion.ts`, puro;
+    `estimaciones.ts`): ritmo reciente, lo planificado, campañas parecidas
+    terminadas (UGR_EGRE de 2025 para UGR_EGRE26) y contrato. Los parámetros
+    opcionales `horasContratadas` + `inicioContrato` topan además el objetivo
+    del mes; `campaniasSimilares` fija las referencias.
+  - **Ayuda** en cada pantalla (`components/planificacion/ayuda.tsx`, tecla «?»
+    en el tablero): resume la «Guía de planificación de turnos para
+    supervisión». Si cambia el funcionamiento, actualizar las dos.
   - «Generar borrador» (`generar.ts`, la misma cadena que el script): si ya hay
     borrador, «respetar mis cambios» pasa sus bloques fijados o manuales como
     `fijados` al motor; «empezar de cero», no. El anterior queda «descartada».

@@ -82,6 +82,8 @@ export interface DatosObjetivo {
   ritmoOrigen: "medido" | "manual" | null;
   /** Horas de sus usuarios en la misma semana del año anterior, por lunes del mes. */
   curvaAnterior: Record<string, number> | null;
+  /** Horas de contrato que quedan (null = sin tope): el mes no pasa de ahí. */
+  topeHoras?: number | null;
 }
 
 /**
@@ -98,8 +100,13 @@ export function calcularObjetivos(
     datos.total != null && datos.vivos != null
       ? cierresNecesarios(datos.total, datos.vivos, pctVivosObjetivo)
       : null;
-  const horasLista =
+  const pasoTope = pasoMin / 60;
+  // El tope se redondea HACIA ABAJO a la franja: no se planifica más de lo contratado
+  const tope =
+    datos.topeHoras != null ? Math.max(0, Math.floor(datos.topeHoras / pasoTope + 1e-9) * pasoTope) : null;
+  const horasSinTope =
     cierres != null && datos.ritmo != null ? horasParaCierres(cierres, datos.ritmo, pasoMin) : null;
+  const horasLista = tope != null && horasSinTope != null ? Math.min(horasSinTope, tope) : horasSinTope;
 
   const comun = {
     total: datos.total,
@@ -109,6 +116,7 @@ export function calcularObjetivos(
     ritmo: datos.ritmo != null ? redondear2(datos.ritmo) : null,
     ritmoOrigen: datos.ritmoOrigen,
     horasLista,
+    ...(tope != null ? { topeContrato: tope, horasSinTope } : {}),
   };
 
   let horas: number[];
@@ -117,7 +125,7 @@ export function calcularObjetivos(
     // Tope semanal prorrateado (hacia arriba a la franja) y, si se conoce, sin
     // pasar de lo que necesita la lista
     const pasoH = pasoMin / 60;
-    let quedan = horasLista ?? Infinity;
+    let quedan = horasLista ?? tope ?? Infinity;
     horas = semanas.map((s) => {
       const tope = Math.ceil((horasSemanaFijas * s.laborables) / 5 / pasoH - 1e-9) * pasoH;
       const h = Math.max(0, Math.min(tope, quedan));

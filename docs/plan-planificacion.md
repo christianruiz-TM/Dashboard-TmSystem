@@ -39,9 +39,12 @@ Decisiones de diseño propias (aprobadas con el plan):
 - **Lexus (`_BD_LX`) es un cliente de planificación propio** (`LX`, cuenta como GH). Así desaparece el caso especial del prototipo: cada par prefijo+sufijo corresponde a un cliente de planificación.
 
 Quedan por confirmar durante las fases (no bloquean): ~~qué significa `TipoDia` en
-`festivos_servicio`~~ (resuelto en F1: solo vale `FESTIVO`); qué es RTO y qué tipos de ausencia cuentan como horas justificadas en el
-saldo; el contrato de Celia (25 h frente a ~30 h reales); la fecha de fin de UGR; y la fecha
-límite de publicación.
+`festivos_servicio`~~ (resuelto en F1: solo vale `FESTIVO`); ~~qué es RTO y qué ausencias
+justifican horas~~ (02/10/2026: RTO = «retribución de tiempo por objetivos», tiempo libre
+retribuido: cuenta como trabajada, igual que VAC y FEST; AUS no); el contrato de Celia (25 h frente
+a ~30 h reales); ~~la fecha de fin de UGR~~ (02/10/2026: no se sabe; la campaña acaba cuando se
+agotan los contactos o las horas contratadas, así que se ESTIMA, ver «Después de F3»); y la fecha
+límite de publicación (supervisión la está consultando).
 
 ## Reglas de dominio nuevas (van a CLAUDE.md en F1)
 
@@ -516,6 +519,28 @@ Diferencias con lo previsto (y por qué):
   «Atrás» no enseñe el plan de antes del cambio.
 - **Base UI**: el menú del bloque es uno solo para todo el tablero, anclado al bloque; necesita un
   `Menu.Trigger` oculto, porque sin él los submenús se tienen por «hermanos» y cierran el menú.
+
+#### Después de F3 (02/10/2026)
+
+Pedido por Christian al cerrar F3:
+
+- **Estimación de fin de campaña** en `/[mes]/bolsas`, por cliente `objetivo`: una horquilla con
+  el ritmo de cierres de los últimos 10 laborables, lo planificado en las versiones vigentes × su
+  ritmo por hora, las campañas parecidas ya terminadas (por defecto, las del cliente sin el año:
+  `UGR[_]EGRE26` → `UGR[_]EGRE%`; si no hay, el primer tramo: `CajaR[_]%`; solo campañas
+  puntuales de ≥ 50 cierres y ≤ 65 laborables) y, si se configuran, las horas contratadas.
+  Cálculo puro en `motor/estimacion.ts` (con test); datos en `estimaciones.ts` (SQLite, sin
+  RDBv2). Con datos al 29/09: UGR hacia el 15/10 (213 cierres/día), el 16/10 (UGR_EGRE de 2025:
+  3.954 cierres en 21 laborables) y el 29/10 con las 148 h del borrador v1.
+- **Horas contratadas** (parámetros `horasContratadas` + `inicioContrato` del cliente): el
+  objetivo del mes no pasa de lo que queda (contratadas − trabajadas desde el inicio − lo ya
+  planificado en meses anteriores), con aviso `contrato_limita`. `campaniasSimilares` fija a mano
+  las campañas parecidas. Sin ellos configurados, la entrada del motor de octubre a diciembre es la
+  misma (solo aparecen los tres parámetros con su valor por defecto).
+- **Ayuda** en todas las pantallas del módulo (`components/planificacion/ayuda.tsx`; en el tablero
+  también con la tecla «?»), abierta en el tema de cada pantalla; sustituye al «Cómo editar» del
+  tablero. Es el resumen de la «Guía de planificación de turnos para supervisión» (documento
+  compartible): si cambia el funcionamiento, se cambian las dos.
 
 ### F4 · Seguimiento: Hoy, adherencia, saldo real, alertas y cierre de mes
 

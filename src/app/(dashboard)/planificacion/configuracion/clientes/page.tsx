@@ -36,6 +36,8 @@ const AYUDA_PARAMETROS: [string, string][] = [
   ["ritmoManual", "cierres por hora fijados a mano (null = medido)"],
   ["horasSemanaFijas", "tope semanal de horas (CEFF: 4)"],
   ["fechaFin", "último día que se planifica (YYYY-MM-DD)"],
+  ["horasContratadas / inicioContrato", "horas contratadas de la campaña y desde cuándo cuentan: el objetivo no pasa de lo que queda y se estima cuándo se agota"],
+  ["campaniasSimilares", "[patrones LIKE] de campañas parecidas ya terminadas para estimar el fin (vacío = las del cliente sin el año: UGR[_]EGRE%)"],
   ["curva", "reparto entre semanas: anio_anterior · uniforme · inicio"],
   ["pesoContacto / kDia", "peso de la tasa de contacto y penalización por horas ya puestas ese día"],
 ];

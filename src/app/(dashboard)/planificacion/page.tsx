@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { AlertTriangle, CheckCircle2, Settings } from "lucide-react";
+import { BotonAyuda } from "@/components/planificacion/ayuda";
 import { BotonGenerar } from "@/components/planificacion/boton-generar";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -61,11 +62,14 @@ export default async function PaginaPlanificacion() {
             {editar ? "" : " Solo lectura: generar, editar y publicar es cosa de supervisión."}
           </p>
         </div>
+        <div className="flex flex-wrap items-start gap-2">
+          <BotonAyuda pantalla="inicio" />
         {editar ? (
-          <Button variant="outline" render={<Link href="/planificacion/configuracion" />}>
-            <Settings /> Configuración
-          </Button>
-        ) : null}
+            <Button variant="outline" render={<Link href="/planificacion/configuracion" />}>
+              <Settings /> Configuración
+            </Button>
+          ) : null}
+        </div>
       </div>
 
       <Card>

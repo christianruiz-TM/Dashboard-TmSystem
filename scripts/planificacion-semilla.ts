@@ -133,13 +133,14 @@ const PREFIJOS: [string, string, string][] = [
   ["CEFF", "", "CEFF"],
 ];
 
-// computaComoTrabajada: pendiente de confirmar qué es RTO y qué ausencias
-// justifican horas en el saldo (F4). De momento solo VAC y FEST.
+// computaComoTrabajada = justifica horas en el saldo. RTO es «retribución de
+// tiempo por objetivos» (Christian, 02/10/2026): tiempo libre retribuido, cuenta
+// como VAC y FEST. AUS (médico, asuntos propios...) no.
 const TIPOS_AUSENCIA: [string, string, string, boolean][] = [
   ["VAC", "Vacaciones", "#FF00FF", true],
   ["FEST", "Libranza por festivo", "#FF0000", true],
   ["AUS", "Ausencia", "#BFBFBF", false],
-  ["RTO", "RTO", "#FFC000", false],
+  ["RTO", "Retribución de tiempo por objetivos", "#FFC000", true],
 ];
 
 /** «Horas iniciales» de la plantilla de septiembre (Septiembre V1.xlsx, CZ168 y DB168). */

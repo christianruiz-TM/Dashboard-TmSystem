@@ -77,6 +77,7 @@ export default async function PaginaVersiones({
       <CabeceraMes
         mes={mes}
         nombreMes={nombreMes(mes)}
+        ayuda="versiones"
         seccion="/versiones"
         titulo="Versiones y cambios"
         descripcion="Ciclo de una versión: borrador → publicada → sustituida (cuando se publica otra). Regenerar deja el borrador anterior como «descartada». Una publicada no se edita: se crea un borrador nuevo a partir de ella."

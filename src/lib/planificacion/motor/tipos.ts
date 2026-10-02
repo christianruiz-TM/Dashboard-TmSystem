@@ -69,6 +69,19 @@ export const esquemaParametrosCliente = z.object({
   /** Último día en que se planifica (fin de campaña). */
   fechaFin: esquemaFecha.nullable().default(null),
   /**
+   * Horas contratadas con el cliente para la campaña y desde cuándo cuentan.
+   * Con las dos, el objetivo nunca pasa de lo que queda (contratadas −
+   * trabajadas − ya planificadas en meses anteriores) y la página de bolsas
+   * estima cuándo se agotan.
+   */
+  horasContratadas: z.number().positive().nullable().default(null),
+  inicioContrato: esquemaFecha.nullable().default(null),
+  /**
+   * Patrones LIKE de campañas parecidas ya terminadas, para estimar el fin
+   * (vacío = los del cliente sin el año: «UGR[_]EGRE26» → «UGR[_]EGRE%»).
+   */
+  campaniasSimilares: z.array(z.string().min(1).max(80)).default([]),
+  /**
    * Reparto de las horas entre semanas: la curva del mismo periodo del año
    * anterior (si no hay, a partes iguales), a partes iguales, o todo al
    * principio (listas casi agotadas).

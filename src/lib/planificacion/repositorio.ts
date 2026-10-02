@@ -872,3 +872,36 @@ export function historialMes(mes: string, limite = 100) {
     .limit(limite)
     .all();
 }
+
+/**
+ * Horas de un cliente planificadas entre dos fechas (ambas incluidas) en la
+ * versión VIGENTE de cada mes (el borrador si lo hay; si no, la publicada).
+ * Lo comprometido para el contrato y lo que tiene por delante la estimación de fin.
+ */
+export function horasPlanificadasCliente(cliente: string, desde: string, hasta: string): Map<string, number> {
+  const porFecha = new Map<string, number>();
+  if (desde > hasta) return porFecha;
+  for (let mes = desde.slice(0, 7); mes <= hasta.slice(0, 7); ) {
+    const versiones = versionesMes(mes);
+    const vigente = versiones.find((v) => v.estado === "borrador") ?? versiones.find((v) => v.estado === "publicada");
+    if (vigente) {
+      const filas = db
+        .select({ fecha: planBloques.fecha, minutos: sql<number>`SUM(${planBloques.finMin} - ${planBloques.inicioMin})` })
+        .from(planBloques)
+        .where(
+          and(
+            eq(planBloques.versionId, vigente.id),
+            eq(planBloques.clienteCodigo, cliente),
+            gte(planBloques.fecha, desde),
+            lte(planBloques.fecha, hasta),
+          ),
+        )
+        .groupBy(planBloques.fecha)
+        .all();
+      for (const f of filas) porFecha.set(f.fecha, f.minutos / 60);
+    }
+    const [a, m] = mes.split("-").map(Number);
+    mes = m === 12 ? `${a + 1}-01` : `${a}-${String(m + 1).padStart(2, "0")}`;
+  }
+  return porFecha;
+}

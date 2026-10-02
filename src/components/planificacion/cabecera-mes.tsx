@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { cn } from "@/lib/utils";
+import { BotonAyuda, type PantallaAyuda } from "./ayuda";
 
 const SECCIONES = [
   { ruta: "", texto: "Tablero" },
@@ -15,8 +16,10 @@ export function CabeceraMes({
   seccion,
   titulo,
   descripcion,
+  ayuda,
   children,
 }: {
+  ayuda: PantallaAyuda;
   mes: string;
   nombreMes: string;
   seccion: (typeof SECCIONES)[number]["ruta"];
@@ -43,7 +46,10 @@ export function CabeceraMes({
           </h1>
           {descripcion ? <p className="max-w-3xl text-sm text-muted-foreground">{descripcion}</p> : null}
         </div>
-        {children}
+        <div className="flex flex-wrap items-start gap-2">
+          <BotonAyuda pantalla={ayuda} />
+          {children}
+        </div>
       </div>
       <nav className="flex flex-wrap gap-1 border-b" aria-label="Páginas del mes">
         {SECCIONES.map((s) => (

@@ -119,4 +119,34 @@ describe("objetivos", () => {
     expect(uniforme.map((o) => o.horas)).toEqual([4, 11, 8, 11, 11]); // 45 h de Lexus
     expect(uniforme[0].detalle).toMatchObject({ criterio: "uniforme (sin curva del año anterior)" });
   });
+
+  it("las horas contratadas que quedan son el tope del mes (redondeado hacia abajo a la franja)", () => {
+    const datos = {
+      cliente: "UGR",
+      parametros: { pctVivosObjetivo: 28.32, horasSemanaFijas: null, curva: "uniforme" as const },
+      total: 6177,
+      vivos: 4310,
+      ritmo: 12,
+      ritmoOrigen: "medido" as const,
+      curvaAnterior: null,
+    };
+    const sinTope = calcularObjetivos(datos, SEMANAS_OCTUBRE, 60);
+    expect(sinTope.reduce((a, o) => a + o.horas, 0)).toBe(214);
+    expect(sinTope[0].detalle).not.toHaveProperty("topeContrato");
+
+    const conTope = calcularObjetivos({ ...datos, topeHoras: 120.6 }, SEMANAS_OCTUBRE, 60);
+    expect(conTope.reduce((a, o) => a + o.horas, 0)).toBe(120);
+    expect(conTope[0].detalle).toMatchObject({ horasLista: 120, horasSinTope: 214, topeContrato: 120 });
+    // Un tope mayor que lo que pide la lista no cambia nada
+    expect(calcularObjetivos({ ...datos, topeHoras: 500 }, SEMANAS_OCTUBRE, 60).map((o) => o.horas)).toEqual(
+      sinTope.map((o) => o.horas),
+    );
+    // Con horas fijas por semana (CEFF), el tope corta las últimas semanas
+    const ceff = calcularObjetivos(
+      { ...datos, parametros: { ...datos.parametros, horasSemanaFijas: 4 }, total: null, vivos: null, ritmo: null, topeHoras: 7 },
+      SEMANAS_OCTUBRE,
+      60,
+    );
+    expect(ceff.map((o) => o.horas)).toEqual([2, 4, 1, 0, 0]);
+  });
 });

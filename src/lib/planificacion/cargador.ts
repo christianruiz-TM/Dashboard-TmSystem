@@ -266,11 +266,47 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
         diasEntreSemana: validas.filter((d) => d.diaSemana < 5).length,
       };
     });
+    // Horas contratadas: el mes no pasa de lo que queda (contratadas − trabajadas
+    // desde el inicio del contrato − lo ya planificado en meses anteriores a este)
+    let topeHoras: number | null = null;
+    let consumo: { consumidas: number; comprometidas: number } | null = null;
+    if (pc.horasContratadas != null) {
+      if (pc.inicioContrato == null) {
+        avisosCarga.push({
+          codigo: "contrato_sin_inicio",
+          gravedad: "info",
+          cliente: c.codigo,
+          mensaje: `${c.codigo}: tiene horasContratadas pero no inicioContrato; no se aplica el tope de contrato`,
+        });
+      } else {
+        const consumidas =
+          pc.inicioContrato <= fechaDatos ? (horasPorCliente(pc.inicioContrato, fechaDatos).get(c.codigo) ?? 0) : 0;
+        const comprometidas = [
+          ...repo.horasPlanificadasCliente(c.codigo, sumarDias(fechaDatos, 1), sumarDias(inicioMes, -1)).values(),
+        ].reduce((a, h) => a + h, 0);
+        consumo = { consumidas, comprometidas };
+        topeHoras = Math.max(0, pc.horasContratadas - consumidas - comprometidas);
+      }
+    }
+
     const calculados = calcularObjetivos(
-      { cliente: c.codigo, parametros: pc, total, vivos, ritmo, ritmoOrigen, curvaAnterior },
+      { cliente: c.codigo, parametros: pc, total, vivos, ritmo, ritmoOrigen, curvaAnterior, topeHoras },
       semanasObjetivo,
       p.pasoMin,
     );
+    const sinTope = calculados[0]?.detalle?.horasSinTope;
+    if (topeHoras != null && consumo && typeof sinTope === "number" && sinTope > topeHoras) {
+      const h = (x: number) => x.toLocaleString("es-ES", { maximumFractionDigits: 2 });
+      avisosCarga.push({
+        codigo: "contrato_limita",
+        gravedad: "info",
+        cliente: c.codigo,
+        mensaje:
+          `${c.codigo}: quedan ${h(topeHoras)} h de contrato (${h(pc.horasContratadas!)} h desde el ${pc.inicioContrato}; ` +
+          `${h(consumo.consumidas)} trabajadas y ${h(consumo.comprometidas)} ya planificadas): el objetivo del mes se queda ahí en vez de ${h(sinTope)} h`,
+        datos: { topeHoras, ...consumo, horasSinTope: sinTope },
+      });
+    }
     for (const o of calculados) {
       const manual = manuales.find((m) => m.clienteCodigo === c.codigo && m.semanaLunes === o.semanaLunes);
       objetivos.push(

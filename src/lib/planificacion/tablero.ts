@@ -430,4 +430,6 @@ export const TITULOS_AVISO: Record<string, string> = {
   lista_sin_datos: "Lista sin datos",
   listas_reconstruidas: "Listas reconstruidas",
   ritmo_desconocido: "Ritmo de cierre desconocido",
+  contrato_limita: "Horas de contrato que limitan el objetivo",
+  contrato_sin_inicio: "Horas contratadas sin fecha de inicio",
 };

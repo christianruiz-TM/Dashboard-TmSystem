@@ -80,6 +80,7 @@ import {
   type VistaTablero,
 } from "@/lib/planificacion/tablero";
 import { cn } from "@/lib/utils";
+import { BotonAyuda } from "./ayuda";
 import { BarrasBolsa } from "./barras-bolsa";
 import { BloqueFantasma, type ClienteVista } from "./bloque";
 import {
@@ -889,6 +890,7 @@ export function Tablero({
             </nav>
           </div>
           <div className="flex flex-wrap items-start gap-2">
+            <BotonAyuda pantalla="tablero" atajo />
             {acciones}
             {editable && accionesServidor ? (
               <DialogoPublicar
@@ -994,7 +996,7 @@ export function Tablero({
               {edicion.aviso?.texto ??
                 (pendientes.length > 0
                   ? `${pendientes.length} ${pendientes.length === 1 ? "cambio" : "cambios"} sin guardar`
-                  : "Arrastra, estira o pulsa un bloque para cambiarlo.")}
+                  : "Arrastra, estira o pulsa un bloque para cambiarlo. Con «?», la ayuda.")}
             </span>
           </div>
         ) : null}
@@ -1137,34 +1139,6 @@ export function Tablero({
             ))}
           </div>
         </div>
-
-        {sePuedeEditar ? (
-          <details className="rounded-lg border bg-card px-3 py-2 text-xs text-muted-foreground">
-            <summary className="cursor-pointer font-medium text-foreground">Cómo editar</summary>
-            <ul className="mt-2 list-disc space-y-1 pl-4">
-              <li>
-                <strong>Arrastra</strong> un bloque a otra hora, otro día u otra agente; <strong>estíralo</strong> por los bordes. Lo
-                que haya debajo se recorta. Si no se puede soltar (agente sin usuario de ese cliente, encima de una ausencia,
-                entrante fuera del horario del servicio) lo dice bajo el bloque y no se aplica.
-              </li>
-              <li>
-                Al mover o encoger un bloque de otro cliente, su hueco dentro del turno vuelve a {base}. Si es de {base}, el hueco
-                queda libre. Un bloque <strong>fijado</strong> no se pisa: desfíjalo antes.
-              </li>
-              <li>
-                <strong>Pulsa</strong> un bloque (o Intro, o botón derecho) para su menú: cambiar de cliente, devolver a {base},
-                dividir, unir, mover a…, fijar y eliminar. <strong>Doble clic</strong> en un hueco añade un bloque.
-              </li>
-              <li>
-                Teclado sobre un bloque: ← → mueve una franja; Mayús + ← → alarga o acorta el final y Alt + ← → el principio; ↑ ↓
-                lo pasa al agente de arriba o de abajo; Supr lo elimina. Ctrl+Z deshace, Ctrl+Y rehace y Ctrl+S guarda.
-              </li>
-              <li>
-                Los cambios no se guardan hasta pulsar «Guardar». Si otra persona guardó antes, se avisa y hay que recargar.
-              </li>
-            </ul>
-          </details>
-        ) : null}
 
         {noPlanificados.length > 0 ? (
           <Card size="sm">
