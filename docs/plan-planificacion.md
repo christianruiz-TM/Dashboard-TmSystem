@@ -55,7 +55,7 @@ límite de publicación (supervisión la está consultando).
 
 ## Modelo de datos (SQLite, `src/lib/db/schema.ts`)
 
-Migración `0003` (F1) con el núcleo, y `0004` (F4) con el saldo. Se generan con `npm run db:generate`.
+Migración `0003` (F1) con el núcleo, y la siguiente libre (F4) con el saldo: la `0004` ya la usó facturación (`billing_config.prefijo_usuario`, 01/10/2026), así que será la `0005`. Se generan con `npm run db:generate`.
 Los parámetros globales NO tienen tabla nueva: van en `app_settings` con claves `plan.*` y un
 accesor tipado con zod y valores por defecto (`src/lib/planificacion/parametros.ts`).
 
@@ -84,7 +84,7 @@ accesor tipado con zod y valores por defecto (`src/lib/planificacion/parametros.
 - `agg_cierres_campania`: `fecha`, `campania`, `cierres` (contactos que dejan de estar vivos, fechados por su último `event_moment`).
 - `plan_listas_estado`: `fecha` (foto nocturna), `campania`, `total`, `vivos`, `vivosSinTocar`.
 
-**Saldo** (F4, migración 0004)
+**Saldo** (F4, migración 0005)
 
 - `plan_saldo_dias`: `agenteNumero`, `fecha`, `horasPlan`, `horasReales` (null hasta cerrar), `horasJustificadas`, `cerrado`.
 - `plan_saldo_ajustes`: `agenteNumero`, `fecha`, `horas` (±), `motivo`, `autor`, `creadoAt`.
@@ -550,7 +550,7 @@ Pedido por Christian al cerrar F3:
   - `panel-hoy.tsx`;
   - la ampliación de `api/supervision/datos` y de `panel-supervision.tsx` con la tarjeta «Alertas de planificación»;
   - las páginas `adherencia`, `saldos` y `cierre` (XLSX con `FORMATO_2_DECIMALES`);
-  - la migración `0004` del saldo.
+  - la migración `0005` del saldo (la `0004` es de facturación).
 - **Adherencia**: por turno (logado con cualquier usuario dentro de lo planificado) y por cliente (logado con el usuario correcto). El tiempo en `Av_` cuenta como «a demanda», no como desvío.
 - **Alertas** (la mejora nº 4 pendiente de CLAUDE.md):
   - Ávolo: «N entrantes sin atender desde las HH:MM: que alguien con `Av_` se logue»;
