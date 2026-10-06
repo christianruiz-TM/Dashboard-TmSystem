@@ -5,6 +5,7 @@ import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip
 import { rangoCorto } from "@/lib/planificacion/motor";
 import { diaCorto, estadoFranja, fechaDiaMes, type EstadoFranja } from "@/lib/planificacion/tablero";
 import { cn } from "@/lib/utils";
+import { PuntoAyuda } from "./punto-ayuda";
 
 const COLOR: Record<EstadoFranja, string> = {
   bajo: "bg-red-500 text-white",
@@ -77,7 +78,10 @@ export function LeyendaCobertura({ clienteBase }: { clienteBase: string }) {
   );
   return (
     <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
-      <span>Agentes en {clienteBase} por franja:</span>
+      <span>
+        Agentes en {clienteBase} por franja:
+        <PuntoAyuda id="mapa-cobertura" />
+      </span>
       {muestra("bajo", "por debajo del mínimo")}
       {muestra("justo", "justo en el mínimo")}
       {muestra("holgado", "con holgura")}

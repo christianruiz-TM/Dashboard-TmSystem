@@ -11,13 +11,14 @@ import { resumirAdherencia, resumirPor, type ResumenAdherencia } from "@/lib/pla
 import { fechasDelMes, lunesDe } from "@/lib/planificacion/motor";
 import { adherenciaRango } from "@/lib/planificacion/seguimiento";
 import { fechaDiaMes, nombreMes } from "@/lib/planificacion/tablero";
+import { PuntoAyuda } from "@/components/planificacion/punto-ayuda";
 
 export const metadata: Metadata = { title: "Adherencia" };
 export const dynamic = "force-dynamic";
 
 const pct = (x: number | null) =>
   x == null ? "—" : `${(x * 100).toLocaleString("es-ES", { minimumFractionDigits: 1, maximumFractionDigits: 1 })} %`;
-const ORIGEN: Record<string, string> = { motor: "del motor", copia: "copia", recalculo: "regenerada", importada: "importada del Excel" };
+const ORIGEN: Record<string, string> = { motor: "generada automáticamente", copia: "copia", recalculo: "regenerada", importada: "importada del Excel" };
 /** Desviaciones de un agente y día que se listan en el detalle. */
 const UMBRAL_DETALLE_MIN = 30;
 
@@ -35,18 +36,32 @@ function Celdas({ r }: { r: ResumenAdherencia }) {
   );
 }
 
-function Cabeceras({ primera, extra }: { primera: string; extra?: string }) {
+function Cabeceras({ primera, extra, ayuda = false }: { primera: string; extra?: string; ayuda?: boolean }) {
   return (
     <TableRow>
       <TableHead>{primera}</TableHead>
       <TableHead className="text-right">Planificado</TableHead>
-      <TableHead className="text-right">Correcto</TableHead>
+      <TableHead className="text-right">
+        Correcto
+        {ayuda ? <PuntoAyuda id="adh-columnas" /> : null}
+      </TableHead>
       <TableHead className="text-right">A demanda</TableHead>
       <TableHead className="text-right">Otro cliente</TableHead>
       <TableHead className="text-right">Sin conectar</TableHead>
-      <TableHead className="text-right">Por turno</TableHead>
-      <TableHead className="text-right">Por cliente</TableHead>
-      {extra ? <TableHead className="text-right">{extra}</TableHead> : null}
+      <TableHead className="text-right">
+        Por turno
+        {ayuda ? <PuntoAyuda id="adh-turno" /> : null}
+      </TableHead>
+      <TableHead className="text-right">
+        Por cliente
+        {ayuda ? <PuntoAyuda id="adh-cliente" /> : null}
+      </TableHead>
+      {extra ? (
+        <TableHead className="text-right">
+          {extra}
+          {ayuda ? <PuntoAyuda id="adh-fuera" /> : null}
+        </TableHead>
+      ) : null}
     </TableRow>
   );
 }
@@ -81,10 +96,9 @@ export default async function PaginaAdherencia({ params }: { params: Promise<{ m
         titulo="Adherencia"
         descripcion={
           <>
-            El plan frente a lo que pasó, minuto a minuto, con el tiempo logado de cada usuario (user_log, la misma fuente con
-            que factura operaciones). <strong>Por turno</strong>: estaba conectado cuando le tocaba.{" "}
-            <strong>Por cliente</strong>: además, con el usuario del cliente que tocaba (o uno que cuenta como él; en Ávolo,
-            esperando en GH) o atendiendo Ávolo. {d ? `Datos hasta ${d.hasta === hoyISO() ? "ahora" : fechaDiaMes(d.hasta)}.` : ""}
+            Compara el plan con lo que pasó. <strong>Por turno</strong>: si estaba conectada cuando le tocaba.{" "}
+            <strong>Por cliente</strong>: además, si estaba en el cliente que le tocaba.{" "}
+            {d ? `Datos hasta ${d.hasta === hoyISO() ? "ahora" : fechaDiaMes(d.hasta)}.` : ""}
           </>
         }
       />
@@ -100,7 +114,7 @@ export default async function PaginaAdherencia({ params }: { params: Promise<{ m
           <p className="text-sm text-muted-foreground">
             Plan: v{v.numero} {v.estado === "publicada" ? "publicada" : "en borrador (aún no publicada)"}
             {v.origen ? `, ${ORIGEN[v.origen] ?? v.origen}` : ""}.
-            {d.vivoDesde ? ` Desde el ${fechaDiaMes(d.vivoDesde)} el tiempo logado se lee en vivo (faltan los agregados de esos días).` : ""}
+            {d.vivoDesde ? ` Desde el ${fechaDiaMes(d.vivoDesde)}, las horas conectadas se leen al momento (aún no estaban cargadas).` : ""}
           </p>
           <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
             <TarjetaKpi titulo="Planificado" valor={horasLegibles(total!.planificadoH)} sub="Hasta ahora" />
@@ -121,7 +135,7 @@ export default async function PaginaAdherencia({ params }: { params: Promise<{ m
             <CardContent>
               <Table>
                 <TableHeader>
-                  <Cabeceras primera="Agente" extra="Fuera del plan" />
+                  <Cabeceras primera="Agente" extra="Fuera del plan" ayuda />
                 </TableHeader>
                 <TableBody>
                   {[...resumirPor(d.filas, (f) => f.agenteNumero)].map(([n, r]) => (

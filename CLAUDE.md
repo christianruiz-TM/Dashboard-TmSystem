@@ -341,9 +341,19 @@ tiene remoto git todavía.
     terminadas (UGR_EGRE de 2025 para UGR_EGRE26) y contrato. Los parámetros
     opcionales `horasContratadas` + `inicioContrato` topan además el objetivo
     del mes; `campaniasSimilares` fija las referencias.
-  - **Ayuda** en cada pantalla (`components/planificacion/ayuda.tsx`, tecla «?»
-    en el tablero): resume la «Guía de planificación de turnos para
-    supervisión». Si cambia el funcionamiento, actualizar las dos.
+  - **Ayuda para supervisión, en lenguaje sencillo** (06/10/2026). Fuente
+    ÚNICA de los textos: `components/planificacion/ayuda-contenido.ts` (solo
+    texto, con test). De ahí salen: el botón «Ayuda» de cada pantalla
+    (`ayuda.tsx`, tecla «?» en el tablero: buscador, «Cómo hago…», y por
+    pantalla «¿Qué veo aquí?» con captura numerada, «¿Qué tengo que hacer?» y
+    «Si pasa esto, haz esto»); los «?» junto a las partes confusas
+    (`<PuntoAyuda id="…" />`, textos en `PUNTOS_AYUDA`); y la pestaña «Guía
+    sencilla» de la guía de Claude Docs (la «Guía detallada» es la de antes).
+    Las capturas (`public/ayuda/*.webp` + `ayuda-capturas.json`) se hacen en
+    MODO DEMO con `node scripts/ayuda-capturas.mjs --sqlite <demo.db>` (se
+    niega con `dashboard.db`); el JSON entra en el build, así que hay que
+    recompilar después. Si cambia el funcionamiento o una pantalla: textos en
+    `ayuda-contenido.ts`, capturas con el script y la guía de Claude Docs.
   - «Generar borrador» (`generar.ts`, la misma cadena que el script): si ya hay
     borrador, «respetar mis cambios» pasa sus bloques fijados o manuales como
     `fijados` al motor; «empezar de cero», no. El anterior queda «descartada».

@@ -72,7 +72,7 @@ function Explicacion({ bloque, cliente, clienteBase, nombreAgente, rango }: Prop
         {nombreAgente} · {cliente.nombre} · {rango} ({horasTexto((bloque.finMin - bloque.inicioMin) / 60)})
       </div>
       <div>{explicacion}</div>
-      {bloque.fijado && bloque.regla !== "fijado" ? <div className="opacity-80">Fijado: el motor no lo toca al regenerar.</div> : null}
+      {bloque.fijado && bloque.regla !== "fijado" ? <div className="opacity-80">Fijado: no cambia al regenerar.</div> : null}
     </TooltipContent>
   );
 }

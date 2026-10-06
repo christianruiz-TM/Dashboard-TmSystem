@@ -51,7 +51,7 @@ export default async function PaginaTableroMes({
             <CardTitle className="text-base">{nombreMes(mes)}: sin plan</CardTitle>
             <CardDescription>
               {generable
-                ? "Todavía no hay ninguna versión de este mes. El motor la genera con los datos cerrados hasta ayer."
+                ? "Todavía no hay ninguna versión de este mes. Se genera con los datos hasta ayer."
                 : "Todavía no hay ninguna versión de este mes."}
             </CardDescription>
           </CardHeader>

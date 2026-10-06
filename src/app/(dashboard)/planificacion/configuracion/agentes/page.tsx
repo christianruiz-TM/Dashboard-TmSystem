@@ -172,7 +172,7 @@ export default async function PaginaAgentesPlan({
         <CardHeader>
           <CardTitle className="text-base">Plantilla ({plantilla.length})</CardTitle>
           <CardDescription>
-            Los agentes salen solos de Altitude al sincronizar (npm run planificacion:agregados); aquí se decide quién
+            Los agentes llegan solos de Altitude cada vez que se cargan los datos; aquí se decide quién
             entra en el plan, su contrato y su alias. Las habilidades son los clientes de sus usuarios.
           </CardDescription>
         </CardHeader>

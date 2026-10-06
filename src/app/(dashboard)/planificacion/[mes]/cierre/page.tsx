@@ -12,6 +12,7 @@ import { fechasDelMes } from "@/lib/planificacion/motor";
 import { cierreMes } from "@/lib/planificacion/seguimiento";
 import { fechaDiaMes, nombreMes, saldoTexto } from "@/lib/planificacion/tablero";
 import { cn } from "@/lib/utils";
+import { PuntoAyuda } from "@/components/planificacion/punto-ayuda";
 
 export const metadata: Metadata = { title: "Cierre de mes" };
 export const dynamic = "force-dynamic";
@@ -46,9 +47,8 @@ export default async function PaginaCierre({ params }: { params: Promise<{ mes: 
         titulo="Cierre de mes"
         descripcion={
           <>
-            Por cliente: la bolsa, lo planificado en la versión vigente y lo real, que son las horas logadas (user_log) con los
-            usuarios de cada cliente, estén o no en la plantilla: lo mismo que factura operaciones por horas logadas (GH_nnnn
-            para GH; los GH_nnnn_BD son de BD). En un cliente a demanda (Ávolo) solo cuenta el tiempo con su usuario: la espera
+            Por cliente: la bolsa, lo planificado y lo real, que son las horas conectadas con los usuarios de cada cliente,
+            estén o no en el equipo: lo mismo que se factura (GH_nnnn para GH; los GH_nnnn_BD son de BD). En un cliente a demanda (Ávolo) solo cuenta el tiempo con su usuario: la espera
             en GH es de GH.
           </>
         }
@@ -84,7 +84,10 @@ export default async function PaginaCierre({ params }: { params: Promise<{ mes: 
                     <TableHead>Cliente</TableHead>
                     <TableHead className="text-right">Bolsa</TableHead>
                     <TableHead className="text-right">Planificado</TableHead>
-                    <TableHead className="text-right">Real (logado)</TableHead>
+                    <TableHead className="text-right">
+                      Real (logado)
+                      <PuntoAyuda id="cierre-real" />
+                    </TableHead>
                     <TableHead className="text-right">Real − bolsa</TableHead>
                     <TableHead className="text-right">Real − planificado</TableHead>
                   </TableRow>
@@ -112,7 +115,10 @@ export default async function PaginaCierre({ params }: { params: Promise<{ mes: 
                   ))}
                   {d.grupos.map((g) => (
                     <TableRow key={`g-${g.cabeza}`} className="bg-muted/40">
-                      <TableCell>Grupo {g.miembros.join(" + ")}</TableCell>
+                      <TableCell>
+                        Grupo {g.miembros.join(" + ")}
+                        <PuntoAyuda id="cierre-grupo" />
+                      </TableCell>
                       <TableCell className="text-right tabular-nums">{g.bolsaH != null ? horasLegibles(g.bolsaH) : "—"}</TableCell>
                       <TableCell className="text-right tabular-nums">{horasLegibles(g.planificadoH)}</TableCell>
                       <TableCell className="text-right tabular-nums font-medium">{horasLegibles(g.realH)}</TableCell>

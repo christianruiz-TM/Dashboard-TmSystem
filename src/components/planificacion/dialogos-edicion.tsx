@@ -11,6 +11,7 @@ import { Label } from "@/components/ui/label";
 import { horaCorta, rangoCorto, type Aviso } from "@/lib/planificacion/motor";
 import type { Operacion } from "@/lib/planificacion/edicion";
 import { TITULOS_AVISO, type BloqueTablero } from "@/lib/planificacion/tablero";
+import { PuntoAyuda } from "./punto-ayuda";
 
 export type EstadoFormulario = { error: string | null };
 export type AccionFormulario = (previo: EstadoFormulario, formData: FormData) => Promise<EstadoFormulario>;
@@ -435,10 +436,13 @@ export function DialogoPublicar({
                   placeholder="p. ej. el déficit de los jueves de 17 a 18 h está aceptado mientras no cambien los turnos"
                 />
               </div>
-              <label className="inline-flex items-center gap-2 text-sm">
-                <input type="checkbox" className="size-4 accent-foreground" checked={acepto} onChange={(e) => setAcepto(e.target.checked)} />
-                Publicar con {n} avisos
-              </label>
+              <div className="flex items-center">
+                <label className="inline-flex items-center gap-2 text-sm">
+                  <input type="checkbox" className="size-4 accent-foreground" checked={acepto} onChange={(e) => setAcepto(e.target.checked)} />
+                  Publicar con {n} avisos
+                </label>
+                <PuntoAyuda id="publicar-avisos" />
+              </div>
             </>
           ) : (
             <input type="hidden" name="motivo" value="" />

@@ -98,6 +98,7 @@ import { MenuBloque, type AnclaMenu, type EstadoMenuBloque } from "./menu-bloque
 import { PanelIncidencias } from "./panel-incidencias";
 import { VistaCliente } from "./vista-cliente";
 import { VistaDia } from "./vista-dia";
+import { PuntoAyuda } from "./punto-ayuda";
 
 const NOMBRE_VISTA: Record<VistaTablero, string> = { agente: "Agente", cliente: "Cliente", dia: "Día" };
 
@@ -1083,7 +1084,10 @@ export function Tablero({
         {/* Bolsas y objetivos del mes */}
         <Card size="sm">
           <CardHeader>
-            <CardTitle className="text-sm">Horas del mes frente a bolsas y objetivos</CardTitle>
+            <CardTitle className="text-sm">
+              Horas del mes frente a bolsas y objetivos
+              <PuntoAyuda id="barras-horas" />
+            </CardTitle>
           </CardHeader>
           <CardContent>
             <BarrasBolsa barras={barras} clientes={clientes} semanas={semanas} horasCliente={horasCliente} />

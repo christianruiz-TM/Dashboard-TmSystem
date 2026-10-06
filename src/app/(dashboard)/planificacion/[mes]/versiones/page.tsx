@@ -27,7 +27,7 @@ const ESTADO: Record<FilaVersion["estado"], string> = {
   simulacion: "bg-sky-100 text-sky-900",
 };
 const ORIGEN: Record<FilaVersion["origen"], string> = {
-  motor: "generada por el motor",
+  motor: "generada automáticamente",
   copia: "copia",
   recalculo: "regenerada respetando cambios",
   importada: "importada del Excel de supervisión",

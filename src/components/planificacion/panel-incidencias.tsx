@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import type { Aviso, Gravedad } from "@/lib/planificacion/motor";
 import { TITULOS_AVISO } from "@/lib/planificacion/tablero";
+import { PuntoAyuda } from "./punto-ayuda";
 
 const GRAVEDADES: { gravedad: Gravedad; titulo: string; icono: React.ReactNode; texto: string }[] = [
   {
@@ -49,7 +50,10 @@ export function PanelIncidencias({
   return (
     <Card id="incidencias">
       <CardHeader>
-        <CardTitle className="text-base">Incidencias y avisos</CardTitle>
+        <CardTitle className="text-base">
+          Incidencias y avisos
+          <PuntoAyuda id="incidencias" />
+        </CardTitle>
         <CardDescription>
           Las validaciones se recalculan sobre el plan y los datos de hoy (una ausencia nueva ya cuenta); el resto son
           avisos del momento de generar.

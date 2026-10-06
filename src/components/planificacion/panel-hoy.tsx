@@ -9,6 +9,7 @@ import type { DatosHoy } from "@/lib/planificacion/seguimiento";
 import { colorTexto, estadoFranja, posicionPct, type EstadoFranja } from "@/lib/planificacion/tablero";
 import { cn } from "@/lib/utils";
 import { BotonAyuda } from "./ayuda";
+import { PuntoAyuda } from "./punto-ayuda";
 
 const REFRESCO_MS = 60_000;
 const SIN_CLIENTE = "#A1A1AA";
@@ -72,7 +73,7 @@ export function PanelHoy({ inicial }: { inicial: DatosHoy }) {
             {datos.version
               ? `Plan: v${datos.version.numero} ${datos.version.estado === "publicada" ? "publicada" : "en borrador (aún no publicada)"}. `
               : "Este mes no tiene plan: solo se ve quién está conectado. "}
-            Tiempo logado de cada usuario (user_log) · refresco cada 60 s · actualizado a las {datos.actualizado}.
+            Horas conectadas de cada usuario · se actualiza cada minuto · actualizado a las {datos.actualizado}.
           </p>
         </div>
         <div className="flex flex-wrap items-start gap-2">
@@ -92,7 +93,10 @@ export function PanelHoy({ inicial }: { inicial: DatosHoy }) {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Alertas</CardTitle>
+          <CardTitle className="text-base">
+            Alertas
+            <PuntoAyuda id="hoy-alertas" />
+          </CardTitle>
           <CardDescription>Umbrales en Configuración → Parámetros (grupo «Seguimiento»).</CardDescription>
         </CardHeader>
         <CardContent>
@@ -114,7 +118,10 @@ export function PanelHoy({ inicial }: { inicial: DatosHoy }) {
       {datos.coberturaBase.some((f) => f.minimo > 0 || f.planificados > 0) ? (
         <Card>
           <CardHeader>
-            <CardTitle className="text-base">Cobertura de {datos.clienteBase}</CardTitle>
+            <CardTitle className="text-base">
+              Cobertura de {datos.clienteBase}
+              <PuntoAyuda id="hoy-cobertura" />
+            </CardTitle>
             <CardDescription>
               Agentes conectados con {datos.clienteBase} o con los que cuentan como él, frente al mínimo de cada franja (en la
               actual, los conectados ahora; en las pasadas, los que llegaron a estarlo). En las que faltan, lo planificado.
@@ -150,6 +157,7 @@ export function PanelHoy({ inicial }: { inicial: DatosHoy }) {
         <CardHeader>
           <CardTitle className="text-base">
             Agentes · {conectados} de {datos.agentes.length} conectados
+            <PuntoAyuda id="hoy-filas" />
           </CardTitle>
           <CardDescription>
             Arriba, lo planificado; abajo, lo logado con cada usuario, del color de su cliente (gris: un usuario de otro servicio).

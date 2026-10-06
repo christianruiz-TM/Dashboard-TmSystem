@@ -16,6 +16,7 @@ import { saldosMes } from "@/lib/planificacion/seguimiento";
 import { fechaDiaMes, nombreMes, saldoTexto } from "@/lib/planificacion/tablero";
 import { cn } from "@/lib/utils";
 import { borrarAjusteSaldoAccion, guardarAjusteSaldoAccion } from "../acciones";
+import { PuntoAyuda } from "@/components/planificacion/punto-ayuda";
 
 export const metadata: Metadata = { title: "Saldos" };
 export const dynamic = "force-dynamic";
@@ -57,10 +58,9 @@ export default async function PaginaSaldos({
         titulo="Saldos"
         descripcion={
           <>
-            Por día: trabajadas + justificadas − contrato. Trabajadas son las horas logadas de la persona (todos sus usuarios)
-            en los días cerrados y lo planificado en los que quedan; justificadas, las horas de su turno que cubre una ausencia
-            que cuenta como trabajada (vacaciones, libranza por festivo, RTO); contrato, el semanal entre cinco cada laborable.
-            En cursiva, lo que aún es previsto.
+            Horas que le sobran (+) o le faltan (−) a cada persona para cumplir su contrato. Hasta ayer cuentan las horas que
+            estuvo conectada; de hoy en adelante, las planificadas (en cursiva). Las vacaciones, libranzas y RTO cuentan como
+            horas trabajadas.
           </>
         }
       />
@@ -98,9 +98,15 @@ export default async function PaginaSaldos({
                         Sem. {fechaDiaMes(s.lunes)}
                       </TableHead>
                     ))}
-                    <TableHead className="text-right">Arrastre</TableHead>
+                    <TableHead className="text-right">
+                      Arrastre
+                      <PuntoAyuda id="saldo-arrastre" />
+                    </TableHead>
                     <TableHead className="text-right">Real del mes</TableHead>
-                    <TableHead className="text-right">Previsto a fin de mes</TableHead>
+                    <TableHead className="text-right">
+                      Previsto a fin de mes
+                      <PuntoAyuda id="saldo-previsto" />
+                    </TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -185,7 +191,10 @@ export default async function PaginaSaldos({
 
           <Card>
             <CardHeader>
-              <CardTitle className="text-base">Ajustes manuales</CardTitle>
+              <CardTitle className="text-base">
+                Ajustes manuales
+                <PuntoAyuda id="saldo-ajustes" />
+              </CardTitle>
               <CardDescription>
                 Horas que no salen del tiempo logado (una formación fuera del sistema, una corrección acordada…). Se imputan a un
                 día y quedan en el historial del mes con su motivo.

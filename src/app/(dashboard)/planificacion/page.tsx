@@ -12,6 +12,7 @@ import { fechaCorta, hoyISO, horasLegibles } from "@/lib/fechas";
 import { nombreMes } from "@/lib/planificacion/tablero";
 import { estadoEntrada, resumenMeses, type ResumenVersion } from "@/lib/planificacion/vistas";
 import { generarBorradorAccion } from "./acciones";
+import { PuntoAyuda } from "@/components/planificacion/punto-ayuda";
 
 export const metadata: Metadata = { title: "Planificación" };
 export const dynamic = "force-dynamic";
@@ -77,9 +78,12 @@ export default async function PaginaPlanificacion() {
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Estado de los datos</CardTitle>
+          <CardTitle className="text-base">
+            Estado de los datos
+            <PuntoAyuda id="estado-datos" />
+          </CardTitle>
           <CardDescription>
-            Lo que el motor usará al generar (datos cerrados hasta ayer, {fechaCorta(e.fechaDatos)}).
+            Con estos datos se calcula el plan (hasta ayer, {fechaCorta(e.fechaDatos)}).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -88,12 +92,12 @@ export default async function PaginaPlanificacion() {
               ok={!e.caducados}
               titulo={
                 e.ultimoAgregado
-                  ? `Agregados de planificación hasta el ${fechaCorta(e.ultimoAgregado)}`
-                  : "No hay agregados de planificación"
+                  ? `Datos cargados hasta el ${fechaCorta(e.ultimoAgregado)}`
+                  : "No hay datos cargados"
               }
             >
               {e.caducados
-                ? "No llegan a ayer: ejecutar npm run planificacion:agregados antes de generar (la tarea nocturna llega en F5)."
+                ? "Faltan los datos de los últimos días: avisa a TI antes de generar el plan (npm run planificacion:agregados)."
                 : null}
             </Aviso>
             <Aviso

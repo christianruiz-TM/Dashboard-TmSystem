@@ -167,7 +167,7 @@ export function MenuBloque({
                 </Menu.Item>
 
                 <Menu.Item className={ITEM} onClick={operar({ tipo: "fijar", id: b.id, fijado: !b.fijado })}>
-                  {b.fijado ? <PinOff /> : <Pin />} {b.fijado ? "Desfijar" : "Fijar (el motor no lo toca al regenerar)"}
+                  {b.fijado ? <PinOff /> : <Pin />} {b.fijado ? "Desfijar" : "Fijar (no cambia al regenerar)"}
                 </Menu.Item>
 
                 <Menu.Separator className="my-1 h-px bg-border" />

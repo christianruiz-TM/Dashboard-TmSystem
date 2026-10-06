@@ -20,6 +20,7 @@ import * as repo from "@/lib/planificacion/repositorio";
 import { barrasBolsa, fechaDiaMes, horasPorCliente, nombreMes } from "@/lib/planificacion/tablero";
 import { cargarTablero } from "@/lib/planificacion/vistas";
 import { confirmarBolsaAccion, guardarObjetivosAccion } from "../acciones";
+import { PuntoAyuda } from "@/components/planificacion/punto-ayuda";
 
 export const metadata: Metadata = { title: "Bolsas y objetivos" };
 export const dynamic = "force-dynamic";
@@ -93,10 +94,10 @@ export default async function PaginaBolsas({
         titulo="Bolsas y objetivos"
         descripcion={
           <>
-            Supervisión confirma la bolsa de cada mes; mientras no lo haga, vale la última confirmada prorrateada por días
-            laborables ({nombreMes(mes)} tiene {laborablesMes}). Los objetivos semanales de los clientes salientes salen de la
-            lista y el ritmo de cierre; fijar uno a mano prevalece. Todo se aplica al generar o regenerar el borrador
-            {v ? `; lo «usado» y lo «planificado» son de la ${v}` : ""}.
+            Aquí se confirman las horas del mes de cada cliente (la bolsa). Mientras no se confirme, vale la del último mes
+            confirmado, ajustada a los días laborables ({nombreMes(mes)} tiene {laborablesMes}). Los objetivos de cada semana
+            salen de lo que queda por llamar en cada lista; si escribes otro, vale el tuyo. Todo entra en el plan al volver a
+            generar el borrador{v ? `; lo «usado» y lo «planificado» son de la ${v}` : ""}.
           </>
         }
       />
@@ -104,7 +105,10 @@ export default async function PaginaBolsas({
 
       <Card>
         <CardHeader>
-          <CardTitle className="text-base">Bolsas de horas</CardTitle>
+          <CardTitle className="text-base">
+            Bolsas de horas
+            <PuntoAyuda id="bolsa" />
+          </CardTitle>
           <CardDescription>
             Los clientes que «cuentan como» otro (BD y LX con GH) comparten su bolsa: lo planificado de la cabeza es el del grupo.
           </CardDescription>
@@ -224,6 +228,7 @@ export default async function PaginaBolsas({
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-base">
                 <Muestra color={c.color} /> Objetivos semanales de {c.codigo}
+                <PuntoAyuda id="objetivos" className="ml-0" />
                 <span className="text-sm font-normal text-muted-foreground">{c.nombre}</span>
               </CardTitle>
               <CardDescription>
