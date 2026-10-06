@@ -379,7 +379,8 @@ tiene remoto git todavía.
   - **Importar un mes hecho en Excel** (`importar-excel.ts`): el cliente sale
     del COLOR de la celda (`COLORES_PLANTILLA`); entra como versión publicada
     con origen `importada` y sus ausencias. Septiembre de 2026 está importado
-    así (en la SQLite de pruebas; en la real, pendiente de hacerlo a mano).
+    así en la SQLite real (06/10/2026, v1 publicada, tras backup), con los
+    agregados de planificación al día hasta el 05/10.
 - **Facturación por servicio o campaña**: `billing_config` tiene dos ámbitos
   mutuamente excluyentes — `serviceName` (lo normal: aplica a TODAS las campañas
   del servicio/cliente) o `campaignShortname` (excepción puntual). Al facturar,
