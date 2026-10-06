@@ -597,6 +597,20 @@ con Operaciones → Facturación. Detalle en `docs/facturacion-horas-logadas.md`
 - [ ] Sin revisar en el navegador (Operaciones pide sesión): verificado con
       la misma cadena de la página contra RDBv2 real, tests, `tsc` y lint.
 
+## Sesión 01-06/10/2026 (Opus 5.5): planificación F3, F4 y ayuda
+
+Registro completo (decisiones, operaciones sobre la SQLite real con sus
+backups, incidencias y pendientes) en `docs/registro-sesion-01-06-octubre-2026.md`.
+
+- [x] F3 (01/10), estimación de fin y RTO (02/10), F4 seguimiento (06/10) y
+      ayuda en lenguaje sencillo (06/10). Septiembre importado en la SQLite
+      real; adherencia 97,8 % por turno; cierre = facturación.
+- [x] **Incidencia**: `npm run build` aplica las migraciones pendientes a la
+      SQLite de `.env` (la 0005 entró así, sin backup): con una migración
+      pendiente, `npm run backup` ANTES de compilar.
+- [ ] Pendiente de supervisión: fecha límite de publicación, contrato de
+      1008 y compartir la guía de Claude Docs. Siguiente fase: F5.
+
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
 Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:
