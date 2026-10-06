@@ -6,6 +6,7 @@ import {
   mockEstadoListas,
   mockFestivosServicio,
   mockHorariosServicio,
+  mockIslasLogadoUsuario,
   mockIslasSesionUsuario,
   mockUsuariosAgente,
 } from "../mock";
@@ -123,25 +124,85 @@ export async function islasSesionUsuario(
       ORDER BY usrName, i.ini;
     `);
 
-    type Fila = { usrName: string; fechaIni: string; iniSeg: number; fechaFin: string; finSeg: number };
-    const partes: IslaSesion[] = [];
-    for (const f of r.recordset as Fila[]) {
-      if (f.fechaIni === f.fechaFin) {
-        if (f.finSeg > f.iniSeg) {
-          partes.push({ fecha: f.fechaIni, usrName: f.usrName, inicioSeg: f.iniSeg, finSeg: f.finSeg });
-        }
-        continue;
-      }
-      // Cruza la medianoche: un trozo hasta las 24:00 y otro desde las 00:00
-      // del día del fin (una sesión nunca dura más de un día entero).
-      if (f.iniSeg < 86_400) {
-        partes.push({ fecha: f.fechaIni, usrName: f.usrName, inicioSeg: f.iniSeg, finSeg: 86_400 });
-      }
-      if (f.finSeg > 0 && f.fechaFin <= hastaISO) {
-        partes.push({ fecha: f.fechaFin, usrName: f.usrName, inicioSeg: 0, finSeg: f.finSeg });
-      }
+    return partirPorDia(r.recordset as FilaIsla[], hastaISO);
+  });
+}
+
+type FilaIsla = { usrName: string; fechaIni: string; iniSeg: number; fechaFin: string; finSeg: number };
+
+/**
+ * Islas con fecha y segundos de inicio y fin → trozos por día. Si una isla
+ * cruza la medianoche, un trozo hasta las 24:00 y otro desde las 00:00 del
+ * día del fin (una sesión nunca dura más de un día entero).
+ */
+function partirPorDia(filas: readonly FilaIsla[], hastaISO: string): IslaSesion[] {
+  const partes: IslaSesion[] = [];
+  for (const f of filas) {
+    if (f.fechaIni === f.fechaFin) {
+      if (f.finSeg > f.iniSeg) partes.push({ fecha: f.fechaIni, usrName: f.usrName, inicioSeg: f.iniSeg, finSeg: f.finSeg });
+      continue;
     }
-    return partes;
+    if (f.iniSeg < 86_400) partes.push({ fecha: f.fechaIni, usrName: f.usrName, inicioSeg: f.iniSeg, finSeg: 86_400 });
+    if (f.finSeg > 0 && f.fechaFin <= hastaISO) {
+      partes.push({ fecha: f.fechaFin, usrName: f.usrName, inicioSeg: 0, finSeg: f.finSeg });
+    }
+  }
+  return partes;
+}
+
+/**
+ * Tiempo LOGADO por usuario y día: unión de sus sesiones de `user_log`
+ * (login → logout), haya o no campaña abierta. Es la fuente del seguimiento
+ * (adherencia, saldo y cierre de mes) y la misma que factura operaciones
+ * (regla 16): agg_sesion_usuario (ag_in_cp_log op 0) solo ve el tiempo con
+ * campaña abierta. Solo agentes humanos (type 1: los puertos IVR dejan
+ * sesiones sin cerrar durante semanas). duration NULL = sesión de hoy en
+ * curso, cerrada en GETDATE() sin salirse del rango (regla 10.b). Con hoy
+ * dentro, cache de 60 s (vista «Hoy» y alertas); días cerrados, ttlSegunRango.
+ */
+export async function islasLogadoUsuario(
+  desdeISO: string,
+  hastaISO: string,
+  usuarios?: string[],
+): Promise<IslaSesion[]> {
+  if (esMock()) return mockIslasLogadoUsuario(desdeISO, hastaISO, usuarios);
+  const ttl = hastaISO >= hoyISO() ? TTL.supervision : ttlSegunRango(hastaISO);
+  const claveCache = `rdb:plan:logado:${desdeISO}:${hastaISO}:${claveCampanias(usuarios)}`;
+  return conCache(claveCache, ttl, async () => {
+    const pool = await obtenerPool();
+    const request = pool.request();
+    const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+    request.input("desde", sql.DateTime, desde);
+    request.input("hastaExcl", sql.DateTime, hastaExcl);
+    let filtroUsuarios = "";
+    if (usuarios && usuarios.length > 0) {
+      const marcadores = usuarios.map((u, i) => {
+        request.input(`usr${i}`, sql.VarChar(50), u);
+        return `@usr${i}`;
+      });
+      filtroUsuarios = ` AND u.usr_name IN (${marcadores.join(", ")})`;
+    }
+
+    const r = await request.query(`
+      -- Unión de las sesiones de user_log por usuario (duration en DÉCIMAS de segundo)
+      WITH base AS (
+          SELECT l.e_user AS usuario, l.start_time AS ini,
+                 ${sqlFinIntervalo("l")} AS fin
+          FROM user_log l
+          INNER JOIN ph_e_user u ON u.code = l.e_user AND u.type = 1
+          WHERE l.start_time >= @desde AND l.start_time < @hastaExcl${filtroUsuarios}
+      ),
+      ${sqlCtesIslas("usuario")}
+      SELECT RTRIM(u.usr_name)                                                AS usrName,
+             CONVERT(varchar(10), i.ini, 23)                                  AS fechaIni,
+             DATEDIFF(SECOND, CAST(CAST(i.ini AS date) AS datetime), i.ini)   AS iniSeg,
+             CONVERT(varchar(10), i.fin, 23)                                  AS fechaFin,
+             DATEDIFF(SECOND, CAST(CAST(i.fin AS date) AS datetime), i.fin)   AS finSeg
+      FROM islas i
+      INNER JOIN ph_e_user u ON u.code = i.usuario
+      ORDER BY usrName, i.ini;
+    `);
+    return partirPorDia(r.recordset as FilaIsla[], hastaISO);
   });
 }
 

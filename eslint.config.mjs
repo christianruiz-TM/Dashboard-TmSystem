@@ -8,10 +8,14 @@ const eslintConfig = defineConfig([
   // El motor de planificación es PURO: sin I/O, sin reloj ni azar, y solo
   // date-fns y zod. Así corre igual en el servidor, en los tests y en el
   // navegador (tablero). Ver src/lib/planificacion/motor/tipos.ts. El modelo
-  // de vista del tablero (tablero.ts) y la edición (edicion.ts, que el
-  // servidor repite al guardar) siguen las mismas reglas.
+  // de vista del tablero (tablero.ts), la edición (edicion.ts, que el
+  // servidor repite al guardar) y el seguimiento (adherencia, saldo y
+  // alertas) siguen las mismas reglas.
   {
-    files: ["src/lib/planificacion/motor/**/*.ts", "src/lib/planificacion/tablero.ts", "src/lib/planificacion/edicion.ts"],
+    files: [
+      "src/lib/planificacion/motor/**/*.ts",
+      "src/lib/planificacion/{tablero,edicion,adherencia,saldo,alertas}.ts",
+    ],
     rules: {
       "no-restricted-imports": [
         "error",

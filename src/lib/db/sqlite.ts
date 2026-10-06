@@ -33,7 +33,15 @@ function crearDb() {
   // Aplica las migraciones pendientes de ./drizzle al arrancar
   const carpetaMigraciones = path.resolve(/* turbopackIgnore: true */ process.cwd(), "drizzle");
   if (fs.existsSync(carpetaMigraciones)) {
-    migrate(db, { migrationsFolder: carpetaMigraciones });
+    try {
+      migrate(db, { migrationsFolder: carpetaMigraciones });
+    } catch {
+      // Otro proceso migró a la vez: `next build` abre la BBDD desde varios
+      // workers en paralelo y, con una migración pendiente, el segundo
+      // fallaba con «table ... already exists» (06/10/2026, la 0005). La
+      // segunda pasada ya la ve registrada; si el error era otro, vuelve a saltar.
+      migrate(db, { migrationsFolder: carpetaMigraciones });
+    }
   }
 
   return db;

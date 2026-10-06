@@ -219,7 +219,7 @@ export const ESTADOS_VERSION_PLAN = [
 ] as const;
 export type EstadoVersionPlan = (typeof ESTADOS_VERSION_PLAN)[number];
 
-export const ORIGENES_VERSION_PLAN = ["motor", "copia", "recalculo"] as const;
+export const ORIGENES_VERSION_PLAN = ["motor", "copia", "recalculo", "importada"] as const;
 export const ORIGENES_BLOQUE_PLAN = ["motor", "manual"] as const;
 export const ORIGENES_BOLSA_PLAN = ["prorrateo", "manual"] as const;
 export const ORIGENES_OBJETIVO_PLAN = ["calculado", "manual"] as const;
@@ -506,6 +506,46 @@ export const aggSesionUsuario = sqliteTable(
     index("idx_agg_sesion_fecha").on(t.fecha),
     index("idx_agg_sesion_usr").on(t.usrName, t.fecha),
   ],
+);
+
+/**
+ * Tiempo LOGADO por usuario de Altitude y día cerrado: unión de sus sesiones
+ * de `user_log` (login → logout, haya o no campaña abierta), recortadas al
+ * día. Es la fuente del seguimiento (adherencia, saldo, cierre de mes): la
+ * misma que factura operaciones (regla 16). agg_sesion_usuario (ag_in_cp_log,
+ * con campaña abierta) sigue siendo la del motor. inicioSeg/finSeg = segundos
+ * desde las 00:00 de `fecha`.
+ */
+export const aggLogadoUsuario = sqliteTable(
+  "agg_logado_usuario",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    fecha: text("fecha").notNull(),
+    usrName: text("usr_name").notNull(),
+    inicioSeg: integer("inicio_seg").notNull(),
+    finSeg: integer("fin_seg").notNull(),
+  },
+  (t) => [
+    index("idx_agg_logado_fecha").on(t.fecha),
+    index("idx_agg_logado_usr").on(t.usrName, t.fecha),
+  ],
+);
+
+/** Ajustes manuales del saldo de horas de un agente (con motivo; F4). */
+export const planSaldoAjustes = sqliteTable(
+  "plan_saldo_ajustes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    agenteNumero: text("agente_numero").notNull(),
+    fecha: text("fecha").notNull(), // YYYY-MM-DD: el día al que se imputa
+    horas: real("horas").notNull(), // ± horas
+    motivo: text("motivo").notNull(),
+    autor: text("autor").notNull(),
+    creadoAt: integer("creado_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index("idx_plan_saldo_ajustes").on(t.agenteNumero, t.fecha)],
 );
 
 /** Contactos que dejan de estar vivos, fechados por su último event_moment. */

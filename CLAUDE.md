@@ -238,7 +238,8 @@ tiene remoto git todavía.
 - **Planificación de turnos** (rama `feature/planificacion`, plan por fases en
   `docs/plan-planificacion.md`; F1 = datos y motor y F2 = tablero de solo
   lectura, «Generar» y configuración, hechas el 30/09/2026; F3 = edición,
-  ausencias, bolsas, publicación y versiones, hecha el 01/10/2026):
+  ausencias, bolsas, publicación y versiones, hecha el 01/10/2026; F4 =
+  seguimiento, hecha el 06/10/2026):
   - **Motor PURO** en `src/lib/planificacion/motor/`: sin I/O, sin
     `Date.now()` ni azar, solo date-fns y zod (una regla de ESLint lo impide).
     **No añadirle I/O**: corre también en el navegador (tablero, F2) y en los
@@ -259,7 +260,9 @@ tiene remoto git todavía.
     (franjas de 30 min, sumas), `agg_sesion_usuario` (islas por usuario y día,
     `inicio_seg`/`fin_seg` desde las 00:00), `agg_cierres_campania` y
     `plan_listas_estado` (foto de `activity`). El motor y el tablero NO
-    consultan RDBv2 en caliente: leen estos agregados.
+    consultan RDBv2 en caliente: leen estos agregados. F4 (migración 0005):
+    `agg_logado_usuario` (islas de `user_log` por usuario y día) y
+    `plan_saldo_ajustes`.
   - Cliente de planificación ≠ servicio: GH, BD (usuarios `_BD`) y LX
     (`_BD_LX`) son del servicio GrupoHuertas; BD y LX «cuentan como» GH en la
     cobertura. Los patrones de campaña (`plan_clientes.campanias`) son LIKE y
@@ -344,6 +347,39 @@ tiene remoto git todavía.
   - «Generar borrador» (`generar.ts`, la misma cadena que el script): si ya hay
     borrador, «respetar mis cambios» pasa sus bloques fijados o manuales como
     `fijados` al motor; «empezar de cero», no. El anterior queda «descartada».
+  - **Seguimiento (F4)**, `seguimiento.ts` (servidor) sobre los puros
+    `adherencia.ts`, `saldo.ts` y `alertas.ts` (misma regla de ESLint). Plan
+    = versión VIGENTE (la publicada; si no hay, el borrador). Lo real es
+    **`user_log`** (la fuente de facturación, regla 16), no `ag_in_cp_log`:
+    días cerrados desde `agg_logado_usuario`, lo que falte (hoy) en vivo con
+    caché de 60 s. Pantallas: `/planificacion/hoy` (polling 60 s,
+    `api/planificacion/hoy`) y las pestañas del mes `adherencia`, `saldos`
+    (ajustes manuales: supervisión, `plan_saldo_ajuste`) y `cierre` (XLSX en
+    `api/planificacion/cierre`).
+    - **Adherencia**, minuto a minuto: por turno = conectado (cualquier
+      usuario) ÷ planificado; por cliente = con el usuario del cliente
+      planificado ÷ planificado. Cuenta como correcto un cliente que «cuenta
+      como» el planificado (BD en GH) y, en un bloque de cliente a demanda,
+      estar en el cliente base (Ávolo se espera en GH); estar con `Av_`
+      durante otro bloque es «a demanda», no desvío. Septiembre: 97,8 % por
+      turno y 82,6 % por cliente (sin esa regla, 55 %).
+    - **Saldo** = trabajadas + justificadas − contrato del día + ajustes; se
+      calcula al vuelo (no hay tabla de días). Trabajadas: hasta ayer, lo
+      logado de la PERSONA (unión de todos sus usuarios); después, lo
+      planificado. Arrastre desde `plan.inicioSaldo` (01/10/2026).
+    - **Cierre**: real = `user_log` de los usuarios de cada cliente; cuadra
+      con facturación (GH 1.027,88 h en septiembre) y el grupo GH+BD+LX con el
+      Excel de operaciones (1.384,22 h).
+    - **Alertas** (vista «Hoy» y tarjeta «Alertas de planificación» de
+      Supervisión): Ávolo con entrantes sin atender y nadie con `Av_`; GH bajo
+      el mínimo de la franja (si la franja lo sube, tras los minutos de
+      margen); planificado sin conectar tras `plan.minutosAlertaConexion`
+      (más de 3 → una alerta con la lista); saliente por debajo de
+      `plan.pctAlertaRetraso` en la semana.
+  - **Importar un mes hecho en Excel** (`importar-excel.ts`): el cliente sale
+    del COLOR de la celda (`COLORES_PLANTILLA`); entra como versión publicada
+    con origen `importada` y sus ausencias. Septiembre de 2026 está importado
+    así (en la SQLite de pruebas; en la real, pendiente de hacerlo a mano).
 - **Facturación por servicio o campaña**: `billing_config` tiene dos ámbitos
   mutuamente excluyentes — `serviceName` (lo normal: aplica a TODAS las campañas
   del servicio/cliente) o `campaignShortname` (excepción puntual). Al facturar,
@@ -384,6 +420,10 @@ tiene remoto git todavía.
   — ejecuta el motor e imprime resumen y avisos; con `--guardar` crea el borrador.
 - `npm run planificacion:fixture -- --mes 2026-10 --hasta-datos 2026-09-28` —
   regenera el fixture del test del motor (aborta si detecta un nombre).
+- `npm run planificacion:importar-excel -- --archivo "ruta.xlsx" --mes 2026-09 [--guardar [--reemplazar]] [--sin-ausencias]`
+  — importa la plantilla Excel de supervisión como versión publicada (sin
+  `--guardar`, solo enseña lo que saldría: horas por cliente, colores
+  desconocidos y validaciones).
 - `npm run verificar` — ejecuta los KPIs clave contra RDBv2 real y muestra
   cifras y tiempos (SLA por origen, horas reales de hoy y de ayer, unidades
   facturables, Not Ready). Es el arranque de los «tests de oro» de F2: sirve
@@ -560,7 +600,10 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
    Next sin más). `error.tsx` por vista + banner de salud visible (ya existe
    `saludRdb()`, solo lo ve /admin).
 4. Alertas proactivas en Supervisión (SLA bajo, abandono alto, Not Ready largo,
-   campaña con entrantes y cero agentes logados).
+   campaña con entrantes y cero agentes logados). **A medias** (06/10/2026):
+   las de planificación (F4 del módulo) ya salen en Supervisión, incluida
+   «Ávolo con entrantes y nadie con su usuario»; faltan SLA bajo, abandono
+   alto y Not Ready largo.
 5. Curva intradía por franjas de 30 min (hoy todo es total diario).
 6. KPI de ocupación (productivas / logadas) y % ready.
 7. Cerrar o completar el portal de clientes: 0 mapeos en `client_campaigns`,
@@ -576,11 +619,12 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 `feature/planificacion`): plan por fases F1-F6 en `docs/plan-planificacion.md`.
 F1 (datos y motor) y F2 (tablero de solo lectura, «Generar borrador» y
 configuración) hechas el 30/09/2026 y F3 (edición, ausencias, bolsas,
-publicación y versiones) el 01/10/2026; sus resultados y desviaciones están
-en las secciones «Estado de F1/F2/F3» de ese documento. Siguiente: F4
-(seguimiento: Hoy, adherencia, saldo real, alertas y cierre de mes).
-Cubre también las mejoras 4 (alertas, en su F4) y 5 (curva intradía: la
-tabla `agg_hora_servicio` de su F1). Sus fases F1-F6 son propias del
+publicación y versiones) el 01/10/2026 y F4 (seguimiento: Hoy, adherencia,
+saldo real, alertas y cierre de mes) el 06/10/2026; sus resultados y
+desviaciones están en las secciones «Estado de F1…F4» de ese documento.
+Siguiente: F5 (tarea nocturna única). Cubre también parte de la mejora 4
+(alertas de planificación) y la 5 (curva intradía: la tabla
+`agg_hora_servicio` de su F1). Sus fases F1-F6 son propias del
 módulo; no confundir con las F2/F4/F5 del plan general.
 
 ## Estrategia de modelos (contexto para futuros Claude)

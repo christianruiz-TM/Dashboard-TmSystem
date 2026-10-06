@@ -14,7 +14,17 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 // funcionamiento, cambiar las dos.
 // ============================================================
 
-export type PantallaAyuda = "inicio" | "tablero" | "ausencias" | "bolsas" | "versiones" | "configuracion";
+export type PantallaAyuda =
+  | "inicio"
+  | "tablero"
+  | "ausencias"
+  | "bolsas"
+  | "versiones"
+  | "configuracion"
+  | "hoy"
+  | "adherencia"
+  | "saldos"
+  | "cierre";
 
 const T = "w-full border-collapse text-xs [&_td]:border-t [&_td]:py-1 [&_td]:pr-3 [&_td]:align-top [&_th]:py-1 [&_th]:pr-3 [&_th]:text-left [&_th]:font-medium";
 
@@ -62,6 +72,10 @@ const TEMAS: { id: string; etiqueta: string; contenido: React.ReactNode }[] = [
         <p>
           Durante el mes, la versión publicada no se toca: «Nuevo borrador desde la vN» la copia, se ajusta y se vuelve a
           publicar.
+        </p>
+        <p>
+          <strong>Seguimiento:</strong> cada día, <em>Hoy</em> y las alertas (también en Supervisión); durante y al acabar el
+          mes, las pestañas <em>Adherencia</em>, <em>Saldos</em> y <em>Cierre</em>.
         </p>
       </Tema>
     ),
@@ -516,6 +530,172 @@ const TEMAS: { id: string; etiqueta: string; contenido: React.ReactNode }[] = [
     ),
   },
   {
+    id: "hoy",
+    etiqueta: "Hoy y alertas",
+    contenido: (
+      <Tema titulo="Hoy y alertas">
+        <p>
+          <em>Planificación → Hoy</em> enseña el día en curso y se actualiza sola cada minuto. Por agente, arriba lo planificado
+          y abajo lo logado con cada usuario, del color de su cliente (gris: un usuario de otro servicio); la línea roja es la
+          hora actual. El plan es el de la versión publicada (si aún no hay, el borrador).
+        </p>
+        <p>
+          <strong>Cobertura de GH</strong>: por franja, agentes conectados con GH o con BD/LX frente al mínimo (rojo por debajo,
+          ámbar justo, verde con holgura). En las franjas que faltan, lo planificado.
+        </p>
+        <h4>Alertas</h4>
+        <p>Salen aquí y en la tarjeta «Alertas de planificación» de Supervisión. Las rojas primero.</p>
+        <table className={T}>
+          <thead>
+            <tr>
+              <th>Alerta</th>
+              <th>Cuándo</th>
+              <th>Qué hacer</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Ávolo sin atender</td>
+              <td>Hay entrantes sin atender después de la última atendida y nadie conectado con Av_.</td>
+              <td>Que alguien con usuario Av_ se conecte.</td>
+            </tr>
+            <tr>
+              <td>GH por debajo del mínimo</td>
+              <td>
+                Conectados ahora con GH/BD/LX por debajo del mínimo de la franja (si la franja sube el mínimo, pasados los
+                minutos de margen).
+              </td>
+              <td>Pasar a GH a alguien de un saliente o llamar a quien falte.</td>
+            </tr>
+            <tr>
+              <td>Sin conectar</td>
+              <td>Agente planificado que no se ha conectado (o se desconectó) hace más de 15 min.</td>
+              <td>Comprobar si está o si falta una ausencia.</td>
+            </tr>
+            <tr>
+              <td>Campaña retrasada</td>
+              <td>
+                Un saliente lleva en la semana menos del 80 % de las horas planificadas hasta ahora (con al menos 2 h
+                planificadas).
+              </td>
+              <td>Revisar quién está en esa campaña; si no se recupera, ajustar el plan.</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          Los umbrales (15 min, 80 %, 2 h) están en <em>Configuración → Parámetros</em>, grupo «Seguimiento». El tiempo logado de
+          hoy llega con uno o dos minutos de retraso.
+        </p>
+      </Tema>
+    ),
+  },
+  {
+    id: "adherencia",
+    etiqueta: "Adherencia",
+    contenido: (
+      <Tema titulo="Adherencia (pestaña del mes)">
+        <p>
+          Compara, minuto a minuto, lo planificado con el tiempo logado de cada usuario (la misma fuente con que factura
+          operaciones). Cada minuto planificado es:
+        </p>
+        <table className={T}>
+          <tbody>
+            <tr>
+              <td className="font-medium">Correcto</td>
+              <td>
+                Conectado con un usuario del cliente que tocaba, o con uno que cuenta como él (BD o LX en un bloque de GH). En un
+                bloque de Ávolo también vale estar en GH esperando la llamada.
+              </td>
+            </tr>
+            <tr>
+              <td className="font-medium">A demanda</td>
+              <td>Atendiendo Ávolo durante otro bloque: no es un desvío.</td>
+            </tr>
+            <tr>
+              <td className="font-medium">Otro cliente</td>
+              <td>Conectado, pero con el usuario de otro cliente (GH cuando tocaba UGR, por ejemplo).</td>
+            </tr>
+            <tr>
+              <td className="font-medium">Sin conectar</td>
+              <td>No estaba logado.</td>
+            </tr>
+          </tbody>
+        </table>
+        <ul>
+          <li>
+            <strong>Por turno</strong> = (correcto + a demanda + otro) ÷ planificado: estaba trabajando cuando le tocaba.
+          </li>
+          <li>
+            <strong>Por cliente</strong> = (correcto + a demanda) ÷ planificado: además, donde le tocaba.
+          </li>
+          <li>
+            <strong>Fuera del plan</strong>: horas logadas sin estar planificado (horas extra o cambios que no se pasaron al
+            plan).
+          </li>
+        </ul>
+        <p>
+          La tabla de desviaciones lista los agentes y días con 30 min o más en otro cliente o sin conectar. Septiembre (plan
+          del Excel) dio un 97,8 % por turno y un 82,6 % por cliente.
+        </p>
+      </Tema>
+    ),
+  },
+  {
+    id: "saldos",
+    etiqueta: "Saldos",
+    contenido: (
+      <Tema titulo="Saldos (pestaña del mes)">
+        <p>El «+1 / −1» de cada agente con contrato, día a día:</p>
+        <p className="font-medium">saldo = trabajadas + justificadas − contrato del día (+ ajustes)</p>
+        <ul>
+          <li>
+            <strong>Trabajadas</strong>: hasta ayer, las horas logadas de la persona con todos sus usuarios; de hoy en adelante,
+            lo planificado (en cursiva: es previsto).
+          </li>
+          <li>
+            <strong>Justificadas</strong>: horas de su turno cubiertas por una ausencia que cuenta como trabajada (vacaciones,
+            libranza por festivo, RTO). Las ausencias «AUS» no justifican.
+          </li>
+          <li>
+            <strong>Contrato del día</strong>: el semanal entre cinco, cada laborable (sin festivos).
+          </li>
+          <li>
+            <strong>Arrastre</strong>: saldo real de los meses anteriores, desde el «Inicio del saldo» (parámetro; el 1 de
+            octubre de 2026).
+          </li>
+        </ul>
+        <h4>Ajustes manuales</h4>
+        <p>
+          Para lo que no sale del tiempo logado (una formación fuera del sistema, una corrección acordada): agente, día, horas
+          (con signo) y un motivo de al menos 10 caracteres. Quedan en el historial del mes; borrar un ajuste también.
+        </p>
+      </Tema>
+    ),
+  },
+  {
+    id: "cierre",
+    etiqueta: "Cierre de mes",
+    contenido: (
+      <Tema titulo="Cierre de mes (pestaña del mes)">
+        <p>Por cliente: bolsa, planificado y real, con las diferencias. Se puede descargar en XLSX.</p>
+        <ul>
+          <li>
+            <strong>Real</strong> = horas logadas con los usuarios de cada cliente (estén o no en la plantilla): lo mismo que
+            factura operaciones por horas logadas. Los GH_nnnn_BD son de BD; los GH_nnnn, de GH.
+          </li>
+          <li>
+            <strong>Grupo GH + BD + LX</strong>: comparten la bolsa de GH, así que «Real − bolsa» se mira en esa fila.
+          </li>
+          <li>Mientras el mes no ha acabado, lo real llega hasta ayer y lo planificado es el del mes entero.</li>
+        </ul>
+        <p>
+          Septiembre de 2026 cuadra con la facturación: GH 1.027,88 h, UGR 195,42 h y Ávolo 23,45 h; el grupo GH + BD + LX
+          suma 1.384,22 h, como el Excel de horas de operaciones.
+        </p>
+      </Tema>
+    ),
+  },
+  {
     id: "glosario",
     etiqueta: "Glosario",
     contenido: (
@@ -536,6 +716,10 @@ const TEMAS: { id: string; etiqueta: string; contenido: React.ReactNode }[] = [
               ["Semana A / B", "Los turnos se alternan por semanas; cada agente tiene un patrón para cada una."],
               ["Fijado", "Bloque que el motor no cambia al regenerar."],
               ["Saldo previsto", "Planificado + justificado − contrato."],
+              ["Saldo real", "Logado + justificado − contrato, en los días ya cerrados (hasta ayer)."],
+              ["Adherencia por turno", "Parte de lo planificado en que el agente estaba conectado."],
+              ["Adherencia por cliente", "Parte de lo planificado en que estaba conectado con el usuario del cliente que tocaba."],
+              ["Real (logado)", "Horas logadas (user_log) de los usuarios de un cliente: lo que factura operaciones."],
             ].map(([termino, texto]) => (
               <tr key={termino}>
                 <td className="font-medium whitespace-nowrap">{termino}</td>
@@ -556,6 +740,10 @@ const TEMA_DE: Record<PantallaAyuda, string> = {
   bolsas: "bolsas",
   versiones: "publicar",
   configuracion: "configuracion",
+  hoy: "hoy",
+  adherencia: "adherencia",
+  saldos: "saldos",
+  cierre: "cierre",
 };
 
 /**

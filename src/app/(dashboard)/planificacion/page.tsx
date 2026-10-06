@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { AlertTriangle, CheckCircle2, Settings } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Settings } from "lucide-react";
 import { BotonAyuda } from "@/components/planificacion/ayuda";
 import { BotonGenerar } from "@/components/planificacion/boton-generar";
 import { Badge } from "@/components/ui/badge";
@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { puedeEditarPlan, requireRol, ROLES_PLAN_LECTURA } from "@/lib/auth/rbac";
-import { fechaCorta, horasLegibles } from "@/lib/fechas";
+import { fechaCorta, hoyISO, horasLegibles } from "@/lib/fechas";
 import { nombreMes } from "@/lib/planificacion/tablero";
 import { estadoEntrada, resumenMeses, type ResumenVersion } from "@/lib/planificacion/vistas";
 import { generarBorradorAccion } from "./acciones";
@@ -64,7 +64,10 @@ export default async function PaginaPlanificacion() {
         </div>
         <div className="flex flex-wrap items-start gap-2">
           <BotonAyuda pantalla="inicio" />
-        {editar ? (
+          <Button variant="outline" render={<Link href="/planificacion/hoy" />}>
+            <Activity /> Hoy
+          </Button>
+          {editar ? (
             <Button variant="outline" render={<Link href="/planificacion/configuracion" />}>
               <Settings /> Configuración
             </Button>
@@ -232,6 +235,11 @@ export default async function PaginaPlanificacion() {
                             <Button variant="ghost" size="sm" render={<Link href={`/planificacion/${m.mes}/versiones`} />}>
                               Versiones
                             </Button>
+                            {m.mes <= hoyISO().slice(0, 7) ? (
+                              <Button variant="ghost" size="sm" render={<Link href={`/planificacion/${m.mes}/adherencia`} />}>
+                                Seguimiento
+                              </Button>
+                            ) : null}
                           </>
                         ) : null}
                         {editar && m.generable ? (

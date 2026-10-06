@@ -27,6 +27,7 @@ const VERBOS_MANUAL: Record<string, string> = {
   cliente: "cliente cambiado a mano",
   creado: "añadido a mano",
   unido: "unido a mano",
+  importado: "importado de la plantilla Excel",
 };
 
 const num = (v: unknown): number | null => (typeof v === "number" && Number.isFinite(v) ? v : null);

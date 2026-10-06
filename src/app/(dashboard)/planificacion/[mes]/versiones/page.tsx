@@ -30,13 +30,16 @@ const ORIGEN: Record<FilaVersion["origen"], string> = {
   motor: "generada por el motor",
   copia: "copia",
   recalculo: "regenerada respetando cambios",
+  importada: "importada del Excel de supervisión",
 };
 const ACCION: Record<string, string> = {
   plan_generar: "Generar",
   plan_editar: "Editar",
   plan_publicar: "Publicar",
+  plan_importar: "Importar Excel",
   plan_ausencia: "Ausencia",
   plan_bolsa: "Bolsa / objetivo",
+  plan_saldo_ajuste: "Ajuste de saldo",
 };
 const MAX_CAMBIOS = 400;
 

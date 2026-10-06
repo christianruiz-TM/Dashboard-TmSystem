@@ -609,6 +609,43 @@ export function mockUsuariosAgente(): UsuarioAgenteRdb[] {
 }
 
 /** Islas de sesión ficticias: GH de 9 a 14 y de 16 a 20; otros clientes, a ratos. */
+/**
+ * Tiempo logado (user_log) de demo: las mismas islas que las sesiones con
+ * campaña, unos minutos más largas (se loga antes de abrir campaña), y HOY
+ * las sesiones hasta este momento (vista «Hoy» y alertas).
+ */
+export function mockIslasLogadoUsuario(desde: string, hasta: string, usuarios?: string[]): IslaSesion[] {
+  const ahora = new Date();
+  const hoy = `${ahora.getFullYear()}-${String(ahora.getMonth() + 1).padStart(2, "0")}-${String(ahora.getDate()).padStart(2, "0")}`;
+  const segAhora = ahora.getHours() * 3600 + ahora.getMinutes() * 60 + ahora.getSeconds();
+  const filas: IslaSesion[] = [];
+  const hastaCerrado = hasta < hoy ? hasta : sumarDiaDemo(hoy, -1);
+  if (desde <= hastaCerrado) {
+    for (const f of mockIslasSesionUsuario(desde, hastaCerrado, usuarios)) {
+      const r = rng(`logado|${f.fecha}|${f.usrName}|${f.inicioSeg}`);
+      filas.push({
+        ...f,
+        inicioSeg: Math.max(0, f.inicioSeg - entre(r, 1, 5) * 60),
+        finSeg: Math.min(86_400, f.finSeg + entre(r, 0, 3) * 60),
+      });
+    }
+  }
+  if (desde <= hoy && hoy <= hasta && factorDia(hoy) >= 1) {
+    // Hoy: el patrón de un día laborable cualquiera, cortado en este instante
+    for (const f of mockIslasSesionUsuario("2026-09-01", "2026-09-01", usuarios)) {
+      if (f.inicioSeg >= segAhora) continue;
+      filas.push({ fecha: hoy, usrName: f.usrName, inicioSeg: f.inicioSeg, finSeg: Math.min(f.finSeg, segAhora) });
+    }
+  }
+  return filas;
+}
+
+function sumarDiaDemo(fecha: string, n: number): string {
+  const d = new Date(`${fecha}T12:00:00`);
+  d.setDate(d.getDate() + n);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+}
+
 export function mockIslasSesionUsuario(desde: string, hasta: string, usuarios?: string[]): IslaSesion[] {
   const hoy = new Date().toISOString().slice(0, 10);
   const filas: IslaSesion[] = [];

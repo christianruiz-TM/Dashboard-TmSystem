@@ -3,6 +3,7 @@
  * y el tablero no consulten RDBv2 en caliente:
  *   agg_hora_servicio    ← demandaPorFranja     (franjas de 30 min)
  *   agg_sesion_usuario   ← islasSesionUsuario   (unión de sesiones por usuario)
+ *   agg_logado_usuario   ← islasLogadoUsuario   (unión de user_log por usuario: seguimiento)
  *   agg_cierres_campania ← cierresPorDia        (fechados por su último evento)
  * y en la misma pasada sincroniza los usuarios de agente y hace la foto de
  * las listas salientes (plan_listas_estado, con fecha de hoy).
@@ -61,17 +62,19 @@ async function main() {
 
   let maxMs = 0;
   let maxConsulta = "";
-  const totales = { demanda: 0, sesiones: 0, cierres: 0 };
+  const totales = { demanda: 0, sesiones: 0, logado: 0, cierres: 0 };
   const inicioTotal = Date.now();
   for (let inicio = desde; inicio <= hasta; ) {
     const fin = sumarDias(inicio, 6) > hasta ? hasta : sumarDias(inicio, 6);
     const [demanda, tDem] = await medir(() => q.demandaPorFranja(inicio, fin, p.maxSegHilo));
     const [islas, tIsl] = await medir(() => q.islasSesionUsuario(inicio, fin));
+    const [logado, tLog] = await medir(() => q.islasLogadoUsuario(inicio, fin));
     const [cierres, tCie] = await medir(() => q.cierresPorDia(inicio, fin));
     repo.reemplazarDemanda(inicio, fin, demanda);
     repo.reemplazarSesiones(inicio, fin, islas);
+    repo.reemplazarLogado(inicio, fin, logado);
     repo.reemplazarCierres(inicio, fin, cierres);
-    for (const [ms, nombre] of [[tDem, "demanda"], [tIsl, "sesiones"], [tCie, "cierres"]] as const) {
+    for (const [ms, nombre] of [[tDem, "demanda"], [tIsl, "sesiones"], [tLog, "logado"], [tCie, "cierres"]] as const) {
       if (ms > maxMs) {
         maxMs = ms;
         maxConsulta = `${nombre} ${inicio}`;
@@ -79,9 +82,11 @@ async function main() {
     }
     totales.demanda += demanda.length;
     totales.sesiones += islas.length;
+    totales.logado += logado.length;
     totales.cierres += cierres.length;
     console.log(
-      `  ${inicio} → ${fin}: demanda ${demanda.length} (${seg(tDem)}) · sesiones ${islas.length} (${seg(tIsl)}) · cierres ${cierres.length} (${seg(tCie)})`,
+      `  ${inicio} → ${fin}: demanda ${demanda.length} (${seg(tDem)}) · sesiones ${islas.length} (${seg(tIsl)}) · ` +
+        `logado ${logado.length} (${seg(tLog)}) · cierres ${cierres.length} (${seg(tCie)})`,
     );
     inicio = sumarDias(fin, 1);
   }
@@ -99,7 +104,8 @@ async function main() {
 
   guardarAjuste("planificacion.ultima_agregacion", new Date().toISOString());
   console.log(
-    `✔ Agregados: ${totales.demanda} franjas de demanda, ${totales.sesiones} islas de sesión, ${totales.cierres} filas de cierres`,
+    `✔ Agregados: ${totales.demanda} franjas de demanda, ${totales.sesiones} islas de sesión, ` +
+      `${totales.logado} islas de tiempo logado, ${totales.cierres} filas de cierres`,
   );
   process.exit(0); // cerrar el pool de mssql sin esperar al idle timeout
 }

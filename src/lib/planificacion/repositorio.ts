@@ -4,6 +4,7 @@ import { and, asc, desc, eq, gte, inArray, like, lt, lte, sql } from "drizzle-or
 import { db } from "@/lib/db/sqlite";
 import {
   aggCierresCampania,
+  aggLogadoUsuario,
   auditLog,
   aggHoraServicio,
   aggSesionUsuario,
@@ -19,6 +20,7 @@ import {
   planPatronTramos,
   planPatrones,
   planPrefijos,
+  planSaldoAjustes,
   planTiposAusencia,
   planVersiones,
 } from "@/lib/db/schema";
@@ -223,6 +225,33 @@ export function reemplazarSesiones(desde: string, hasta: string, filas: readonly
     tx.delete(aggSesionUsuario).where(and(gte(aggSesionUsuario.fecha, desde), lte(aggSesionUsuario.fecha, hasta))).run();
     for (const f of filas) tx.insert(aggSesionUsuario).values(f).run();
   });
+}
+
+export function reemplazarLogado(desde: string, hasta: string, filas: readonly IslaSesion[]): void {
+  fueraDeRango(filas.map((f) => f.fecha), desde, hasta);
+  db.transaction((tx) => {
+    tx.delete(aggLogadoUsuario).where(and(gte(aggLogadoUsuario.fecha, desde), lte(aggLogadoUsuario.fecha, hasta))).run();
+    for (const f of filas) tx.insert(aggLogadoUsuario).values(f).run();
+  });
+}
+
+/** Islas de tiempo logado (user_log) de todos los usuarios en el rango (días cerrados). */
+export function logadoRango(desde: string, hasta: string) {
+  return db
+    .select({
+      usrName: aggLogadoUsuario.usrName,
+      fecha: aggLogadoUsuario.fecha,
+      inicioSeg: aggLogadoUsuario.inicioSeg,
+      finSeg: aggLogadoUsuario.finSeg,
+    })
+    .from(aggLogadoUsuario)
+    .where(and(gte(aggLogadoUsuario.fecha, desde), lte(aggLogadoUsuario.fecha, hasta)))
+    .all();
+}
+
+/** Último día con tiempo logado agregado (null = nunca se ha agregado). */
+export function ultimoLogadoAgregado(): string | null {
+  return db.select({ m: sql<string | null>`MAX(${aggLogadoUsuario.fecha})` }).from(aggLogadoUsuario).get()?.m ?? null;
 }
 
 export function reemplazarCierres(desde: string, hasta: string, filas: readonly CierresDia[]): void {
@@ -626,6 +655,135 @@ export function copiarPublicada(versionId: number, autor: string): { id: number;
   });
 }
 
+// ---------- Importación de la plantilla Excel (F4) ----------
+
+export type AusenciaNueva = Omit<typeof planAusencias.$inferInsert, "id" | "creadoAt">;
+
+/**
+ * Versión importada de la plantilla Excel con la que se planificaba a mano.
+ * Entra directamente como «publicada»: es el plan que se usó. Si el mes ya
+ * tiene publicada, `reemplazar` la deja «sustituida» (si no, error); un
+ * borrador del mes no se toca. Las ausencias de la plantilla se dan de alta
+ * salvo las que ya existen iguales (re-importar no las duplica). Todo, con
+ * su línea de auditoría, en una transacción.
+ */
+export function importarVersion(opciones: {
+  mes: string;
+  entrada: EntradaMotor;
+  bloques: readonly { agenteNumero: string; fecha: string; inicioMin: number; finMin: number; clienteCodigo: string }[];
+  avisos: Aviso[];
+  resumen: ResumenMotor;
+  archivo: string;
+  autor: string;
+  ahora: Date;
+  reemplazar: boolean;
+  ausencias: readonly AusenciaNueva[];
+}): { id: number; numero: number; sustituida: number | null; ausencias: number } {
+  return db.transaction((tx) => {
+    const anterior = tx
+      .select()
+      .from(planVersiones)
+      .where(and(eq(planVersiones.mes, opciones.mes), eq(planVersiones.estado, "publicada")))
+      .get();
+    if (anterior && !opciones.reemplazar) {
+      throw new Error(`${opciones.mes} ya tiene versión publicada (v${anterior.numero}); usa --reemplazar para sustituirla`);
+    }
+    if (anterior) tx.update(planVersiones).set({ estado: "sustituida" }).where(eq(planVersiones.id, anterior.id)).run();
+    const ultimo = tx
+      .select({ n: sql<number | null>`MAX(${planVersiones.numero})` })
+      .from(planVersiones)
+      .where(eq(planVersiones.mes, opciones.mes))
+      .get();
+    const numero = (ultimo?.n ?? 0) + 1;
+    const motivo = `Importada de «${opciones.archivo}» (plan hecho en Excel)`;
+    const { id } = tx
+      .insert(planVersiones)
+      .values({
+        mes: opciones.mes,
+        numero,
+        estado: "publicada",
+        origen: "importada",
+        basadaEnId: null,
+        entradas: opciones.entrada,
+        avisos: opciones.avisos,
+        resumen: opciones.resumen,
+        creadaPor: opciones.autor,
+        publicadaPor: opciones.autor,
+        publicadaAt: opciones.ahora,
+        motivoPublicacion: motivo,
+      })
+      .returning({ id: planVersiones.id })
+      .get();
+    for (const b of opciones.bloques) {
+      tx.insert(planBloques)
+        .values({
+          versionId: id,
+          agenteNumero: b.agenteNumero,
+          fecha: b.fecha,
+          inicioMin: b.inicioMin,
+          finMin: b.finMin,
+          clienteCodigo: b.clienteCodigo,
+          origen: "manual",
+          fijado: false,
+          regla: "manual",
+          datos: { accion: "importado", archivo: opciones.archivo },
+          editadoPor: opciones.autor,
+          editadoAt: opciones.ahora,
+        })
+        .run();
+    }
+    let ausencias = 0;
+    for (const a of opciones.ausencias) {
+      const igual = tx
+        .select({ id: planAusencias.id })
+        .from(planAusencias)
+        .where(
+          and(
+            eq(planAusencias.agenteNumero, a.agenteNumero),
+            eq(planAusencias.tipoCodigo, a.tipoCodigo),
+            eq(planAusencias.desde, a.desde),
+            eq(planAusencias.hasta, a.hasta),
+            a.inicioMin == null ? sql`${planAusencias.inicioMin} IS NULL` : eq(planAusencias.inicioMin, a.inicioMin),
+            a.finMin == null ? sql`${planAusencias.finMin} IS NULL` : eq(planAusencias.finMin, a.finMin),
+          ),
+        )
+        .get();
+      if (igual) continue;
+      tx.insert(planAusencias).values(a).run();
+      ausencias++;
+    }
+    const horas = opciones.bloques.reduce((t, b) => t + (b.finMin - b.inicioMin) / 60, 0);
+    tx.insert(auditLog)
+      .values({
+        accion: "plan_importar",
+        username: opciones.autor,
+        detalle: `mes=${opciones.mes} v${numero} importada de «${opciones.archivo}»: ${opciones.bloques.length} bloques, ${horas} h, ${ausencias} ausencias nuevas${anterior ? `; sustituye a la v${anterior.numero}` : ""}`,
+      })
+      .run();
+    return { id, numero, sustituida: anterior?.numero ?? null, ausencias };
+  });
+}
+
+// ---------- Saldo: ajustes manuales (F4) ----------
+
+export function ajustesSaldo(desde: string, hasta: string) {
+  return db
+    .select()
+    .from(planSaldoAjustes)
+    .where(and(gte(planSaldoAjustes.fecha, desde), lte(planSaldoAjustes.fecha, hasta)))
+    .orderBy(asc(planSaldoAjustes.fecha), asc(planSaldoAjustes.id))
+    .all();
+}
+
+export function crearAjusteSaldo(valores: Omit<typeof planSaldoAjustes.$inferInsert, "id" | "creadoAt">): number {
+  return db.insert(planSaldoAjustes).values(valores).returning({ id: planSaldoAjustes.id }).get().id;
+}
+
+/** Borra un ajuste y lo devuelve (para la auditoría); undefined si ya no estaba. */
+export function borrarAjusteSaldo(id: number) {
+  return db.delete(planSaldoAjustes).where(eq(planSaldoAjustes.id, id)).returning().get();
+}
+
 // ---------- Ausencias (F3: /planificacion/[mes]/ausencias) ----------
 
 export function crearAusencia(valores: Omit<typeof planAusencias.$inferInsert, "id" | "creadoAt">): number {
@@ -864,7 +1022,7 @@ export function historialMes(mes: string, limite = 100) {
     .from(auditLog)
     .where(
       and(
-        inArray(auditLog.accion, ["plan_generar", "plan_editar", "plan_publicar", "plan_ausencia", "plan_bolsa"]),
+        inArray(auditLog.accion, ["plan_generar", "plan_editar", "plan_publicar", "plan_importar", "plan_ausencia", "plan_bolsa", "plan_saldo_ajuste"]),
         like(auditLog.detalle, `mes=${mes} %`),
       ),
     )

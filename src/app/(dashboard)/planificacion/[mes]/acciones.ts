@@ -33,7 +33,7 @@ async function autorizar(): Promise<User> {
 
 async function auditar(
   usuario: User,
-  accion: "plan_editar" | "plan_publicar" | "plan_ausencia" | "plan_bolsa",
+  accion: "plan_editar" | "plan_publicar" | "plan_ausencia" | "plan_bolsa" | "plan_saldo_ajuste",
   detalle: string,
 ): Promise<void> {
   registrarAuditoria({
@@ -55,7 +55,7 @@ function invalidarPlanificacion(): void {
 }
 
 /** Vuelve a una página del mes con ?msg= (y ?detalle=) como las de configuración. */
-function volver(mes: string, pagina: "ausencias" | "bolsas" | "versiones", msg: string, detalle?: string): never {
+function volver(mes: string, pagina: "ausencias" | "bolsas" | "versiones" | "saldos", msg: string, detalle?: string): never {
   invalidarPlanificacion();
   const p = new URLSearchParams({ msg });
   if (detalle) p.set("detalle", detalle);
@@ -365,4 +365,57 @@ export async function guardarObjetivosAccion(formData: FormData): Promise<void> 
   }
   if (cambios.length > 0) await auditar(usuario, "plan_bolsa", `mes=${m} objetivos ${cliente}: ${cambios.join(", ")}`);
   volver(m, "bolsas", "guardado", cambios.length > 0 ? `Objetivos de ${cliente}: ${cambios.length} semanas cambiadas.` : "Sin cambios.");
+}
+
+// ---------- Saldo: ajustes manuales (F4) ----------
+
+const esquemaAjuste = z.object({
+  agenteNumero: z.string().regex(/^\d{4}$/, "agente no válido"),
+  fecha: esquemaFechaISO,
+  horas: z
+    .number({ message: "indica las horas (p. ej. 1,5 o -2)" })
+    .refine((h) => h !== 0 && Math.abs(h) <= 200, "entre -200 y 200 horas, distinto de 0"),
+  motivo: z.string().trim().min(10, "explica el motivo (al menos 10 caracteres)").max(300),
+});
+
+/**
+ * Ajuste manual del saldo de un agente (horas que no salen de user_log:
+ * una formación fuera del sistema, una corrección acordada...). Se imputa a
+ * un día del mes y queda en la auditoría con su motivo.
+ */
+export async function guardarAjusteSaldoAccion(formData: FormData): Promise<void> {
+  const usuario = await autorizar();
+  const mes = esquemaMes.safeParse(texto(formData, "mes"));
+  if (!mes.success) redirect("/planificacion");
+  const m = mes.data;
+  const datos = esquemaAjuste.safeParse({
+    agenteNumero: texto(formData, "agenteNumero"),
+    fecha: texto(formData, "fecha"),
+    horas: numeroEs(texto(formData, "horas")) ?? undefined,
+    motivo: texto(formData, "motivo"),
+  });
+  if (!datos.success) volver(m, "saldos", "error_datos", primerError(datos.error));
+  const a = datos.data;
+  if (!a.fecha.startsWith(m)) volver(m, "saldos", "error_datos", `El ajuste tiene que ser de un día de ${m}.`);
+  if (!repo.leerAgentes().some((x) => x.numero === a.agenteNumero)) {
+    volver(m, "saldos", "error_datos", `No existe el agente ${a.agenteNumero}.`);
+  }
+  const horas = Math.round(a.horas * 100) / 100;
+  const id = repo.crearAjusteSaldo({ agenteNumero: a.agenteNumero, fecha: a.fecha, horas, motivo: a.motivo, autor: usuario.username });
+  const signo = `${horas > 0 ? "+" : ""}${horas.toLocaleString("es-ES")} h`;
+  await auditar(usuario, "plan_saldo_ajuste", `mes=${m} alta #${id} ${a.agenteNumero} ${a.fecha} ${signo} · ${a.motivo}`);
+  volver(m, "saldos", "creado", `${a.agenteNumero}: ${signo} el ${a.fecha}.`);
+}
+
+export async function borrarAjusteSaldoAccion(formData: FormData): Promise<void> {
+  const usuario = await autorizar();
+  const mes = esquemaMes.safeParse(texto(formData, "mes"));
+  if (!mes.success) redirect("/planificacion");
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) volver(mes.data, "saldos", "error_datos");
+  const fila = repo.borrarAjusteSaldo(id);
+  if (fila) {
+    await auditar(usuario, "plan_saldo_ajuste", `mes=${mes.data} baja #${id} ${fila.agenteNumero} ${fila.fecha} ${fila.horas} h · ${fila.motivo}`);
+  }
+  volver(mes.data, "saldos", "borrado");
 }

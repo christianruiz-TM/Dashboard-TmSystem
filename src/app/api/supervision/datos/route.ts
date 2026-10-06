@@ -9,6 +9,7 @@ import {
   metricasIvr,
 } from "@/lib/rdb/queries/supervision";
 import { campaniasDeServicio, campaniasEfectivas } from "@/lib/rdb/queries/servicios";
+import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
 
 /**
  * Datos de supervisión intradía (polling cada 60 s desde el panel).
@@ -26,17 +27,19 @@ export async function GET(peticion: NextRequest) {
     const incluirIvr = peticion.nextUrl.searchParams.get("ivr") === "1";
     const camp = await campaniasEfectivas(servicio, incluirIvr);
     const campServicio = await campaniasDeServicio(servicio);
-    const [agentes, kpis, top, ivr] = await Promise.all([
+    const [agentes, kpis, top, ivr, plan] = await Promise.all([
       estadoAgentes(camp),
       kpisCampaniasHoy(umbral, camp),
       agentesHoy(camp),
       metricasIvr(hoyISO(), hoyISO(), campServicio),
+      alertasPlanificacion(),
     ]);
     return NextResponse.json({
       agentes,
       kpis,
       top,
       ivr,
+      plan,
       umbral,
       actualizado: new Date().toISOString(),
     });

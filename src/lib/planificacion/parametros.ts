@@ -47,6 +47,12 @@ export const esquemaParametrosPlan = z.object({
   estacionalidadAplicar: z.boolean().default(false),
   /** F4: minutos sin conectar tras el inicio del bloque para avisar. */
   minutosAlertaConexion: z.number().int().positive().default(15),
+  /** F4: % de las horas planificadas hasta ahora por debajo del cual una campaña saliente va retrasada. */
+  pctAlertaRetraso: z.number().min(1).max(100).default(80),
+  /** F4: horas planificadas en la semana hasta ahora a partir de las cuales se vigila el retraso. */
+  horasMinAlertaRetraso: z.number().min(0).default(2),
+  /** F4: primer día del saldo acumulado de horas de los agentes. */
+  inicioSaldo: esquemaFecha.default("2026-10-01"),
   /** F5: día del mes en que se genera el borrador del mes siguiente. */
   diaGeneracion: z.number().int().min(1).max(28).default(20),
 });
@@ -71,6 +77,9 @@ export const CLAVES_PARAMETROS: Record<ClaveParametroPlan, string> = {
   diasExperiencia: "plan.diasExperiencia",
   estacionalidadAplicar: "plan.estacionalidad.aplicar",
   minutosAlertaConexion: "plan.minutosAlertaConexion",
+  pctAlertaRetraso: "plan.pctAlertaRetraso",
+  horasMinAlertaRetraso: "plan.horasMinAlertaRetraso",
+  inicioSaldo: "plan.inicioSaldo",
   diaGeneracion: "plan.diaGeneracion",
 };
 
@@ -155,6 +164,24 @@ export const DESCRIPCION_PARAMETROS: Record<
     etiqueta: "Minutos para alerta de conexión",
     ayuda: "Agente planificado sin conectar tras tantos minutos del inicio de su bloque.",
     tipo: "entero",
+  },
+  pctAlertaRetraso: {
+    grupo: "Seguimiento (F4-F5)",
+    etiqueta: "% para alerta de retraso",
+    ayuda: "Una campaña saliente va retrasada si sus horas reales de la semana no llegan a este % de lo planificado hasta ahora.",
+    tipo: "decimal",
+  },
+  horasMinAlertaRetraso: {
+    grupo: "Seguimiento (F4-F5)",
+    etiqueta: "Horas mínimas para vigilar el retraso",
+    ayuda: "No se avisa de retraso hasta que lo planificado en la semana pasa de estas horas (evita avisos el lunes a primera hora).",
+    tipo: "decimal",
+  },
+  inicioSaldo: {
+    grupo: "Seguimiento (F4-F5)",
+    etiqueta: "Inicio del saldo de horas",
+    ayuda: "Primer día que cuenta en el saldo acumulado de cada agente.",
+    tipo: "fecha",
   },
   diaGeneracion: {
     grupo: "Seguimiento (F4-F5)",

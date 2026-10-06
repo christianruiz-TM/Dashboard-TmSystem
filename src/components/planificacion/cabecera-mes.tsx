@@ -7,6 +7,9 @@ const SECCIONES = [
   { ruta: "/ausencias", texto: "Ausencias" },
   { ruta: "/bolsas", texto: "Bolsas y objetivos" },
   { ruta: "/versiones", texto: "Versiones y cambios" },
+  { ruta: "/adherencia", texto: "Adherencia" },
+  { ruta: "/saldos", texto: "Saldos" },
+  { ruta: "/cierre", texto: "Cierre" },
 ] as const;
 
 /** Migas, título y pestañas de las páginas de un mes del plan. */

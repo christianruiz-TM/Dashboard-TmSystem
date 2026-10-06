@@ -20,6 +20,7 @@ export type AccionAuditoria =
   | "plan_generar"
   | "plan_editar"
   | "plan_publicar"
+  | "plan_importar"
   | "plan_ausencia"
   | "plan_bolsa"
   | "plan_config"

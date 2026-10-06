@@ -17,6 +17,7 @@ import {
   listaServicios,
 } from "@/lib/rdb/queries/servicios";
 import { PanelHistorico } from "./panel-historico";
+import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
 import { PanelSupervision } from "./panel-supervision";
 import { TabsSupervision } from "./tabs-supervision";
 
@@ -80,11 +81,12 @@ export default async function PaginaSupervision({
   }
 
   // Tiempo real (hoy, en vivo con polling)
-  const [agentes, kpis, top, ivr] = await Promise.all([
+  const [agentes, kpis, top, ivr, plan] = await Promise.all([
     estadoAgentes(camp),
     kpisCampaniasHoy(umbral, camp),
     agentesHoy(camp),
     metricasIvr(hoyISO(), hoyISO(), campServicio),
+    alertasPlanificacion(),
   ]);
   return (
     <div className="space-y-6">
@@ -100,6 +102,7 @@ export default async function PaginaSupervision({
           kpis,
           top,
           ivr,
+          plan,
           umbral,
           actualizado: new Date().toISOString(),
         }}

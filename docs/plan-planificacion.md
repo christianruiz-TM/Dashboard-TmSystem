@@ -86,7 +86,8 @@ accesor tipado con zod y valores por defecto (`src/lib/planificacion/parametros.
 
 **Saldo** (F4, migración 0005)
 
-- `plan_saldo_dias`: `agenteNumero`, `fecha`, `horasPlan`, `horasReales` (null hasta cerrar), `horasJustificadas`, `cerrado`.
+- ~~`plan_saldo_dias`~~: no se creó; el saldo se calcula al vuelo (ver «Estado de F4»).
+- `agg_logado_usuario`: `fecha`, `usrName`, `inicioSeg`, `finSeg` (islas de `user_log` por usuario y día).
 - `plan_saldo_ajustes`: `agenteNumero`, `fecha`, `horas` (±), `motivo`, `autor`, `creadoAt`.
 
 `AccionAuditoria` (`src/lib/auth/audit.ts`) se amplía con `plan_generar`, `plan_editar`,
@@ -563,6 +564,60 @@ Pedido por Christian al cerrar F3:
   - el cierre de mes cuadra al céntimo con la suma de las filas (redondeo solo al final).
 - **Riesgos**: el ruido de las alertas (umbrales como parámetros); el coste de las islas de hoy cada 60 s (cache compartida y medir).
 - **CLAUDE.md**: definiciones de adherencia y saldo; alertas implementadas (se tacha la mejora 4).
+
+#### Estado de F4 (hecha el 06/10/2026)
+
+Verificado con `next build` + `next start` sobre una COPIA de la SQLite real (usuarios de prueba de cada
+rol) y RDBv2 real, con Chrome headless por CDP, y en modo demo (`RDB_MOCK=1`).
+
+- **Plan de septiembre importado** de «Septiembre V1.xlsx» (`npm run planificacion:importar-excel`,
+  lector en `importar-excel.ts`): 13 agentes, 22 días, 421 bloques y 1.489 h (GH 1.096, Ávolo 146,
+  UGR 114, BD 109, CR 24) y 39 tramos de ausencia (VAC 28 h, RTO 44 h, FEST 33 h). El cliente sale
+  del COLOR de la celda (`COLORES_PLANTILLA`); el único color sin significado (`th6+0.40`, 2 h de
+  0925 el 11/09) se informa y no se importa. Entra como versión **publicada** con origen
+  `importada`, ausencias incluidas (re-importar no las duplica) y su línea `plan_importar` en la
+  auditoría. Con `--reemplazar` deja la anterior «sustituida».
+- **Adherencia de septiembre** (1-28/09): **97,8 % por turno** (1.338 h planificadas sin RTO, que
+  aquí es ausencia) y 82,6 % por cliente. Con la definición del prototipo (celdas de trabajo con RTO
+  y `min(60, minutos logados)` por hora) sale 96,6 % con `ag_in_cp_log` y 96,8 % con `user_log`:
+  1.334 de 1.381 h. El «~1.411 h» del plan contaba algo más de celdas; el porcentaje cuadra.
+- **Alertas frente al panel de agentes**: en 5 instantes del 05/10 (09:30, 11:00, 12:30, 17:00 y
+  19:30), los conectados que ve el módulo (`user_log`) son exactamente los que tienen sesión de
+  campaña abierta en `ag_in_cp_log` (11, 11, 11, 9 y 5). El 06/10 a las 09:17 nadie había entrado
+  y Supervisión decía lo mismo («Ningún agente con actividad hoy»).
+- **Cierre de septiembre**, igual que la facturación por horas logadas: GH 1.027,88 h, UGR 195,42 h,
+  Ávolo 23,45 h; el grupo GH + BD + LX, 1.384,22 h, como el Excel de operaciones. En el XLSX (valores
+  exactos con 2 decimales) la suma por usuario cuadra con cada cliente a la 4.ª decimal.
+- **Tiempos**: «Hoy» 633 ms en frío y unos 27 ms con la caché de 60 s; saldos de octubre 84 ms;
+  adherencia de un mes 69-85 ms; cierre 28 ms.
+- **Seguridad**: las páginas nuevas y `/api/planificacion/{hoy,cierre}` las ven supervisión,
+  operaciones, dirección y admin; cliente y cookie inventada salen redirigidos o con 401, sin datos
+  en el cuerpo. El ajuste de saldo repetido a mano como operaciones redirige sin escribir.
+
+Diferencias con lo previsto (y por qué):
+
+- **Fuente: `user_log`** (la de facturación, regla 16) para adherencia, saldo y cierre, no
+  `ag_in_cp_log`: cuenta el tiempo logado aunque no haya campaña abierta. Agregado nuevo
+  `agg_logado_usuario` (islas por usuario y día, mismo SQL de islas), que rellena
+  `planificacion:agregados`; lo que falta por agregar (hoy, o días sin tarea nocturna) se pide en vivo.
+- **Sin `plan_saldo_dias`**: el saldo se calcula al vuelo (versión vigente + `agg_logado_usuario` +
+  ausencias + `plan_saldo_ajustes`), así que siempre está al día. Los días cerrados (hasta ayer)
+  usan lo logado de la persona (unión de todos sus usuarios); los que quedan, lo planificado. El
+  arrastre suma el saldo real de los meses anteriores desde `plan.inicioSaldo` (01/10/2026). Los
+  agentes inactivos al generar no salen salvo que hayan trabajado (Fátima acumulaba −25 h/semana).
+- **«Correcto» por cliente** incluye a un cliente que «cuenta como» el planificado (GH_nnnn_BD en
+  un bloque de GH: 259 h en septiembre) y, en un bloque de un cliente a demanda, esperar en el
+  cliente base (Ávolo: 81 de 133 h esperando en GH). Sin esto salía un 55 % por cliente.
+- **Alertas menos ruidosas**: si la franja sube el mínimo, la de «GH por debajo» espera los mismos
+  minutos que «sin conectar»; con más de 3 sin conectar, una sola alerta con la lista. La tarjeta de
+  Supervisión no depende del servicio elegido y, si falla, el resto del panel sigue.
+- **Rutas**: `/planificacion/hoy` (vista propia, no una pestaña del tablero) y las pestañas del mes
+  `adherencia`, `saldos` y `cierre`. Versión vigente para el seguimiento: la publicada; si no hay,
+  el borrador.
+- **Cierre por grupo**: BD y LX comparten la bolsa de GH, así que «Real − bolsa» va en la fila del
+  grupo. Ávolo solo cuenta el tiempo con `Av_` (la espera en GH es de GH).
+- **Arreglado**: `next build` abre la SQLite desde varios workers y, con una migración pendiente,
+  dos la aplicaban a la vez («table … already exists»); `sqlite.ts` reintenta una vez.
 
 ### F5 · Automatización programada
 
