@@ -102,7 +102,7 @@ describe("tablero", () => {
     expect(nombreMes("2026-11")).toBe("Noviembre 2026");
   });
 
-  it("saldo previsto por semana y mes: plan + justificadas − contrato prorrateado", () => {
+  it("saldo previsto por semana y mes: plan + justificadas − contrato (el festivo justifica su turno)", () => {
     // Octubre de 2026: 21 laborables (12/10 festivo). Turno 9-15 de lunes a
     // viernes y 30 h de contrato. VAC (cuenta como trabajada) el 09/10 y AUS
     // (no cuenta) el 21/10.
@@ -137,10 +137,11 @@ describe("tablero", () => {
     const semana = (lunes: string) => saldos.get(`0851|${lunes}`);
     expect(semana("2026-09-28")).toEqual({ plan: 12, justificadas: 0, contrato: 12, saldo: 0 }); // 1 y 2/10
     expect(semana("2026-10-05")).toEqual({ plan: 24, justificadas: 6, contrato: 30, saldo: 0 });
-    expect(semana("2026-10-12")).toEqual({ plan: 24, justificadas: 0, contrato: 24, saldo: 0 }); // festivo
+    // Festivo el lunes 12: justifica las 6 h de su turno y el contrato de la semana es el entero
+    expect(semana("2026-10-12")).toEqual({ plan: 24, justificadas: 6, contrato: 30, saldo: 0 });
     expect(semana("2026-10-19")).toEqual({ plan: 24, justificadas: 0, contrato: 30, saldo: -6 });
     expect(semana("2026-10-26")).toEqual({ plan: 31, justificadas: 0, contrato: 30, saldo: 1 });
-    expect(saldos.get("0851|mes")).toEqual({ plan: 115, justificadas: 6, contrato: 126, saldo: -5 });
+    expect(saldos.get("0851|mes")).toEqual({ plan: 115, justificadas: 12, contrato: 132, saldo: -5 });
     expect(saldosPrevistos(entrada, [{ ...agente, contratoSemanalH: null }], bloques, () => true).size).toBe(0);
     expect([saldoTexto(1), saldoTexto(-6), saldoTexto(0.004)]).toEqual(["+1,00 h", "−6,00 h", "0,00 h"]);
 

@@ -11,6 +11,7 @@ import {
   type Gravedad,
   type ObjetivoSemana,
 } from "./motor";
+import { horasCubiertas, saldoAgente } from "./saldo";
 
 // ============================================================
 // Modelo de vista del tablero de planificación. PURO (como el motor, y lo
@@ -303,9 +304,9 @@ export function capacidadPlan(
 export interface SaldoPrevisto {
   /** Horas planificadas. */
   plan: number;
-  /** Horas de ausencias que cuentan como trabajadas (dentro de su turno, fuera de festivos). */
+  /** Horas justificadas: ausencias que cuentan como trabajadas y el turno de los festivos. */
   justificadas: number;
-  /** Contrato semanal × laborables (del mes) ÷ 5. */
+  /** Contrato semanal ÷ 5 por cada día de lunes a viernes del mes (festivos incluidos). */
   contrato: number;
   /** plan + justificadas − contrato. */
   saldo: number;
@@ -313,11 +314,11 @@ export interface SaldoPrevisto {
 
 /**
  * Saldo PREVISTO por agente: plan + justificadas − contrato, por semana
- * (`${agente}|${lunes}`) y del mes (`${agente}|mes`). El contrato de cada
- * semana se prorratea por sus laborables dentro del mes (una semana partida
- * o con festivo cuenta menos), igual que el contrato del mes del motor. Los
- * agentes sin contrato no tienen saldo. En F4 los días cerrados pasarán a
- * usar las horas reales.
+ * (`${agente}|${lunes}`) y del mes (`${agente}|mes`), con la MISMA regla que
+ * la página de Saldos (saldo.ts, todo previsto): el contrato es el semanal ÷ 5
+ * cada día de lunes a viernes y un festivo justifica las horas de su turno de
+ * ese día (si no se planifica trabajo). Una semana partida entre dos meses
+ * lleva en cada uno la parte de sus días. Sin contrato, sin saldo.
  */
 export function saldosPrevistos(
   entrada: Pick<EntradaMotor, "dias" | "servicioCalendario">,
@@ -326,39 +327,50 @@ export function saldosPrevistos(
   computaComoTrabajada: (tipo: string) => boolean,
 ): Map<string, SaldoPrevisto> {
   const festivos = festivosEquipo(entrada);
+  const dias = entrada.dias.map((d) => ({ fecha: d.fecha, entreSemana: d.diaSemana < 5, festivo: festivos.has(d.fecha) }));
   const semanaDe = new Map(entrada.dias.map((d) => [d.fecha, d.lunes]));
-  const laborables = new Map<string, number>();
-  for (const d of entrada.dias) if (d.laborable) laborables.set(d.lunes, (laborables.get(d.lunes) ?? 0) + 1);
-  const plan = new Map<string, number>();
+  const plan = new Map<string, Record<string, number>>();
   for (const b of bloques) {
-    const k = `${b.agenteNumero}|${semanaDe.get(b.fecha) ?? b.fecha}`;
-    plan.set(k, (plan.get(k) ?? 0) + horasBloque(b));
+    const p = plan.get(b.agenteNumero) ?? {};
+    p[b.fecha] = (p[b.fecha] ?? 0) + horasBloque(b);
+    plan.set(b.agenteNumero, p);
   }
 
   const saldos = new Map<string, SaldoPrevisto>();
   for (const a of agentes) {
-    if (a.contratoSemanalH == null) continue;
+    const justificadasH: Record<string, number> = {};
+    const turnoH: Record<string, number> = {};
+    for (const d of entrada.dias) {
+      const turno = a.turnos[d.fecha] ?? [];
+      turnoH[d.fecha] = turno.reduce((h, t) => h + (t.finMin - t.inicioMin) / 60, 0);
+      const h = horasCubiertas(
+        turno,
+        a.ausencias.filter((x) => x.fecha === d.fecha && computaComoTrabajada(x.tipo)),
+      );
+      if (h > 0) justificadasH[d.fecha] = h;
+    }
+    const r = saldoAgente({
+      contratoSemanalH: a.contratoSemanalH,
+      fechaDatos: "", // todo previsto
+      dias,
+      planH: plan.get(a.numero) ?? {},
+      realH: {},
+      justificadasH,
+      turnoH,
+      ajustesH: {},
+    });
+    if (!r) continue;
     const mes: SaldoPrevisto = { plan: 0, justificadas: 0, contrato: 0, saldo: 0 };
-    for (const lunes of [...new Set(entrada.dias.map((d) => d.lunes))]) {
-      let justificadas = 0;
-      for (const x of a.ausencias) {
-        if (semanaDe.get(x.fecha) !== lunes || festivos.has(x.fecha) || !computaComoTrabajada(x.tipo)) continue;
-        for (const t of a.turnos[x.fecha] ?? []) {
-          justificadas += Math.max(0, Math.min(t.finMin, x.finMin) - Math.max(t.inicioMin, x.inicioMin)) / 60;
-        }
+    for (const d of r.dias) {
+      const k = `${a.numero}|${semanaDe.get(d.fecha)}`;
+      const s = saldos.get(k) ?? { plan: 0, justificadas: 0, contrato: 0, saldo: 0 };
+      for (const x of [s, mes]) {
+        x.plan += d.trabajadas;
+        x.justificadas += d.justificadas;
+        x.contrato += d.contrato;
+        x.saldo += d.saldo;
       }
-      const s: SaldoPrevisto = {
-        plan: plan.get(`${a.numero}|${lunes}`) ?? 0,
-        justificadas,
-        contrato: (a.contratoSemanalH * (laborables.get(lunes) ?? 0)) / 5,
-        saldo: 0,
-      };
-      s.saldo = s.plan + s.justificadas - s.contrato;
-      saldos.set(`${a.numero}|${lunes}`, s);
-      mes.plan += s.plan;
-      mes.justificadas += s.justificadas;
-      mes.contrato += s.contrato;
-      mes.saldo += s.saldo;
+      saldos.set(k, s);
     }
     saldos.set(`${a.numero}|mes`, mes);
   }

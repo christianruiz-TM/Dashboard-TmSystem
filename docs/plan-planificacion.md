@@ -619,6 +619,16 @@ Diferencias con lo previsto (y por qué):
 - **Arreglado**: `next build` abre la SQLite desde varios workers y, con una migración pendiente,
   dos la aplicaban a la vez («table … already exists»); `sqlite.ts` reintenta una vez.
 
+Cambios del 08/10/2026 (Christian):
+
+- **Adherencia por cliente**: lo que antes contaba como correcto por equivalencia (BD o LX en un
+  bloque de GH, el cliente base en un bloque de Ávolo) va aparte, como «cubierto por otro», y no
+  cuenta por cliente. La tabla por cliente lleva «Real del cliente» (las horas de Cierre).
+  Septiembre: 97,7 % por turno y 54,5 % por cliente (antes salía 79,8 %).
+- **Festivos en el saldo y en el contrato**: el contrato del día es el semanal ÷ 5 de lunes a
+  viernes, festivos incluidos, y el festivo justifica las horas del turno de ese día (antes restaba
+  1/5 del contrato). Pendiente de que RR. HH. lo confirme.
+
 ### F5 · Automatización programada
 
 - **Archivos**: `scripts/planificacion-nocturno.ts` (`npm run planificacion:nocturno`), `docs/despliegue-windows.md` (tarea a las 02:15, entre los agregados y el backup) y la frescura de los agregados de planificación en `/admin`.

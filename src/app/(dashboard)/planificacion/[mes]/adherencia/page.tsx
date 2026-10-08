@@ -27,6 +27,7 @@ function Celdas({ r }: { r: ResumenAdherencia }) {
     <>
       <TableCell className="text-right tabular-nums">{horasLegibles(r.planificadoH)}</TableCell>
       <TableCell className="text-right tabular-nums">{horasLegibles(r.correctoH)}</TableCell>
+      <TableCell className="text-right tabular-nums">{horasLegibles(r.cubiertoH)}</TableCell>
       <TableCell className="text-right tabular-nums">{horasLegibles(r.aDemandaH)}</TableCell>
       <TableCell className="text-right tabular-nums">{horasLegibles(r.otroH)}</TableCell>
       <TableCell className="text-right tabular-nums">{horasLegibles(r.sinConectarH)}</TableCell>
@@ -36,7 +37,17 @@ function Celdas({ r }: { r: ResumenAdherencia }) {
   );
 }
 
-function Cabeceras({ primera, extra, ayuda = false }: { primera: string; extra?: string; ayuda?: boolean }) {
+function Cabeceras({
+  primera,
+  extra,
+  ayudaExtra,
+  ayuda = false,
+}: {
+  primera: string;
+  extra?: string;
+  ayudaExtra?: "adh-fuera" | "adh-real";
+  ayuda?: boolean;
+}) {
   return (
     <TableRow>
       <TableHead>{primera}</TableHead>
@@ -44,6 +55,10 @@ function Cabeceras({ primera, extra, ayuda = false }: { primera: string; extra?:
       <TableHead className="text-right">
         Correcto
         {ayuda ? <PuntoAyuda id="adh-columnas" /> : null}
+      </TableHead>
+      <TableHead className="text-right">
+        Cubierto por otro
+        {ayuda ? <PuntoAyuda id="adh-cubierto" /> : null}
       </TableHead>
       <TableHead className="text-right">A demanda</TableHead>
       <TableHead className="text-right">Otro cliente</TableHead>
@@ -59,7 +74,7 @@ function Cabeceras({ primera, extra, ayuda = false }: { primera: string; extra?:
       {extra ? (
         <TableHead className="text-right">
           {extra}
-          {ayuda ? <PuntoAyuda id="adh-fuera" /> : null}
+          {ayudaExtra ? <PuntoAyuda id={ayudaExtra} /> : null}
         </TableHead>
       ) : null}
     </TableRow>
@@ -82,6 +97,13 @@ export default async function PaginaAdherencia({ params }: { params: Promise<{ m
   const color = new Map((d?.clientes ?? []).map((c) => [c.codigo, c.color]));
   const nombreCliente = new Map((d?.clientes ?? []).map((c) => [c.codigo, c.nombre]));
   const quien = (n: string) => `${n}${d?.nombres[n] ? ` ${d.nombres[n]}` : ""}`;
+  // Clientes planificados y también los que tuvieron horas sin estar planificados (planificado 0)
+  const porClientePlan = d ? resumirPor(d.filas, (f) => f.clienteCodigo) : new Map<string, ResumenAdherencia>();
+  const sinPlan = Object.keys(d?.realPorCliente ?? {}).filter((c) => !porClientePlan.has(c) && (d?.realPorCliente[c] ?? 0) >= 0.01);
+  const porCliente: [string, ResumenAdherencia][] = [
+    ...porClientePlan,
+    ...sinPlan.sort().map((c): [string, ResumenAdherencia] => [c, resumirAdherencia([])]),
+  ];
   const detalle = (d?.filas ?? [])
     .filter((f) => f.otroMin >= UMBRAL_DETALLE_MIN || f.sinConectarMin >= UMBRAL_DETALLE_MIN)
     .sort((a, b) => b.otroMin + b.sinConectarMin - (a.otroMin + a.sinConectarMin));
@@ -128,14 +150,15 @@ export default async function PaginaAdherencia({ params }: { params: Promise<{ m
             <CardHeader>
               <CardTitle className="text-base">Por agente</CardTitle>
               <CardDescription>
-                «Otro cliente»: conectado, pero con el usuario de otro cliente. «Fuera del plan»: horas extra o cambios que no se
-                pasaron al plan.
+                «Correcto»: con el usuario del cliente que tocaba. «Cubierto por otro»: con un usuario que lo cubre sin ser el suyo
+                (BD o LX en GH; en GH esperando a Ávolo); cuenta por turno, no por cliente. «Otro cliente»: con el usuario de otro.
+                «Fuera del plan»: horas extra o cambios que no se pasaron al plan.
               </CardDescription>
             </CardHeader>
             <CardContent>
               <Table>
                 <TableHeader>
-                  <Cabeceras primera="Agente" extra="Fuera del plan" ayuda />
+                  <Cabeceras primera="Agente" extra="Fuera del plan" ayudaExtra="adh-fuera" ayuda />
                 </TableHeader>
                 <TableBody>
                   {[...resumirPor(d.filas, (f) => f.agenteNumero)].map(([n, r]) => (
@@ -155,18 +178,22 @@ export default async function PaginaAdherencia({ params }: { params: Promise<{ m
             </CardContent>
           </Card>
 
-          <div className="grid gap-6 xl:grid-cols-2">
+          <div className="space-y-6">
             <Card>
               <CardHeader>
                 <CardTitle className="text-base">Por cliente planificado</CardTitle>
+                <CardDescription>
+                  Las columnas miran solo las horas planificadas de cada cliente. «Real del cliente» son todas las horas conectadas
+                  con sus usuarios en el periodo, estuvieran planificadas o no (como en Cierre).
+                </CardDescription>
               </CardHeader>
               <CardContent>
                 <Table>
                   <TableHeader>
-                    <Cabeceras primera="Cliente" />
+                    <Cabeceras primera="Cliente" extra="Real del cliente" ayudaExtra="adh-real" />
                   </TableHeader>
                   <TableBody>
-                    {[...resumirPor(d.filas, (f) => f.clienteCodigo)].map(([c, r]) => (
+                    {porCliente.map(([c, r]) => (
                       <TableRow key={c}>
                         <TableCell>
                           <span className="inline-flex items-center gap-2">
@@ -175,6 +202,7 @@ export default async function PaginaAdherencia({ params }: { params: Promise<{ m
                           </span>
                         </TableCell>
                         <Celdas r={r} />
+                        <TableCell className="text-right font-medium tabular-nums">{horasLegibles(d.realPorCliente[c] ?? 0)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>

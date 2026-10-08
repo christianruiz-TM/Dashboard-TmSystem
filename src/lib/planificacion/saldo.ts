@@ -6,15 +6,22 @@
 //     sus usuarios: la persona); en los que quedan, lo planificado (saldo
 //     previsto, como el del tablero);
 //   - justificadas: horas de su turno que cubre una ausencia que cuenta como
-//     trabajada (VAC, FEST, RTO...), fuera de festivos;
-//   - contrato del día: contrato semanal ÷ 5 cada laborable (de lunes a
-//     viernes sin festivos del equipo), igual que el prorrateo del tablero.
-// Los ajustes manuales (con motivo) se suman el día al que se imputan.
+//     trabajada (VAC, FEST, RTO...). Un FESTIVO del equipo cuenta como
+//     trabajadas las horas de su turno de ese día (no se recuperan), salvo
+//     que trabaje: entonces cuentan las trabajadas y se compensa con FEST;
+//   - contrato del día: contrato semanal ÷ 5 cada día de lunes a viernes,
+//     festivos incluidos (así una semana suma su contrato entero).
+// Regla del festivo decidida el 08/10/2026 (Christian, pendiente de RR. HH.):
+// antes el festivo restaba 1/5 del contrato y, con 38 h, salían 7,60 h y
+// saldos de −0,40 h. Los ajustes manuales (con motivo) se suman el día al que
+// se imputan.
 // ============================================================
 
 export interface DiaParaSaldo {
   fecha: string;
-  laborable: boolean;
+  /** De lunes a viernes (lleva contrato, sea o no festivo). */
+  entreSemana: boolean;
+  /** Festivo del calendario del equipo. */
   festivo: boolean;
 }
 
@@ -29,6 +36,8 @@ export interface DatosSaldoAgente {
   realH: Readonly<Record<string, number>>;
   /** fecha → horas justificadas por ausencias que cuentan como trabajadas. */
   justificadasH: Readonly<Record<string, number>>;
+  /** fecha → horas de su turno ese día (lo que justifica un festivo). */
+  turnoH: Readonly<Record<string, number>>;
   /** fecha → suma de ajustes manuales (±). */
   ajustesH: Readonly<Record<string, number>>;
 }
@@ -59,8 +68,9 @@ export function saldoAgente(d: DatosSaldoAgente): { dias: DiaSaldo[]; totales: T
   const dias = d.dias.map((dia): DiaSaldo => {
     const cerrado = dia.fecha <= d.fechaDatos;
     const trabajadas = cerrado ? (d.realH[dia.fecha] ?? 0) : (d.planH[dia.fecha] ?? 0);
-    const justificadas = dia.festivo ? 0 : (d.justificadasH[dia.fecha] ?? 0);
-    const contrato = dia.laborable ? d.contratoSemanalH! / 5 : 0;
+    // Festivo: su turno de ese día, si no trabaja (las ausencias no suman encima)
+    const justificadas = dia.festivo ? (trabajadas > 0 ? 0 : (d.turnoH[dia.fecha] ?? 0)) : (d.justificadasH[dia.fecha] ?? 0);
+    const contrato = dia.entreSemana ? d.contratoSemanalH! / 5 : 0;
     const ajustes = d.ajustesH[dia.fecha] ?? 0;
     const fila = { fecha: dia.fecha, cerrado, trabajadas, justificadas, contrato, ajustes, saldo: trabajadas + justificadas - contrato + ajustes };
     for (const t of cerrado ? [totales.real, totales.previsto] : [totales.previsto]) {

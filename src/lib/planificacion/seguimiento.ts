@@ -122,6 +122,8 @@ export interface DatosAdherencia {
   dias: DiaAdherencia[];
   nombres: Record<string, string>;
   clientes: ReturnType<typeof clientesPlan>;
+  /** Horas logadas con los usuarios de cada cliente en el periodo, estén o no planificadas (como en Cierre). */
+  realPorCliente: Record<string, number>;
   vivoDesde: string | null;
 }
 
@@ -134,7 +136,12 @@ export async function adherenciaRango(desde: string, hasta: string, ahora = new 
   const hoy = fechaLocal(ahora);
   const fin = hasta < hoy ? hasta : hoy;
   const { versiones, bloques } = bloquesVigentes(desde, fin, ahora);
-  const logado = desde <= fin ? await logadoRango(desde, fin) : { tramos: [], vivoDesde: null };
+  const logado: Pick<Logado, "tramos" | "porUsuario" | "vivoDesde"> =
+    desde <= fin ? await logadoRango(desde, fin) : { tramos: [], porUsuario: [], vivoDesde: null };
+  const realPorCliente: Record<string, number> = {};
+  for (const u of logado.porUsuario) {
+    if (u.clienteCodigo) realPorCliente[u.clienteCodigo] = (realPorCliente[u.clienteCodigo] ?? 0) + (u.finMin - u.inicioMin) / 60;
+  }
   const eq = leerEquipo(leerParametrosPlan().equipo, fin);
   const agentes = new Set([...bloques.map((b) => b.agenteNumero), ...eq.plantilla.map((a) => a.numero)]);
   const clientes = clientesPlan();
@@ -153,6 +160,7 @@ export async function adherenciaRango(desde: string, hasta: string, ahora = new 
     dias: r.dias,
     nombres: Object.fromEntries([...nombres].filter(([n]) => agentes.has(n))),
     clientes,
+    realPorCliente,
     vivoDesde: logado.vivoDesde,
   };
 }
@@ -210,9 +218,12 @@ async function saldoDelMes(mes: string, fechaDatos: string, inicioSaldo: string)
     const ajustesH: Record<string, number> = {};
     for (const x of ajustes.filter((x) => x.agenteNumero === a.numero)) ajustesH[x.fecha] = (ajustesH[x.fecha] ?? 0) + x.horas;
     const justificadasH: Record<string, number> = {};
+    const turnoH: Record<string, number> = {};
     for (const d of dias) {
+      const turno = a.turnos[d.fecha] ?? [];
+      turnoH[d.fecha] = turno.reduce((h, x) => h + (x.finMin - x.inicioMin) / 60, 0);
       const h = horasCubiertas(
-        a.turnos[d.fecha] ?? [],
+        turno,
         a.ausencias.filter((x) => x.fecha === d.fecha && cuenta(x.tipo)),
       );
       if (h > 0) justificadasH[d.fecha] = h;
@@ -222,10 +233,11 @@ async function saldoDelMes(mes: string, fechaDatos: string, inicioSaldo: string)
       saldoAgente({
         contratoSemanalH: a.contratoSemanalH,
         fechaDatos,
-        dias: dias.map((d) => ({ fecha: d.fecha, laborable: d.laborable, festivo: d.festivos.includes(t.entrada.servicioCalendario) })),
+        dias: dias.map((d) => ({ fecha: d.fecha, entreSemana: d.diaSemana < 5, festivo: d.festivos.includes(t.entrada.servicioCalendario) })),
         planH: porDia(plan),
         realH: porDia(reales),
         justificadasH,
+        turnoH,
         ajustesH,
       }),
     );

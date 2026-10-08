@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { laborablesDelMes, semanasDelMes } from "./calendario";
+import { semanasDelMes } from "./calendario";
 import { franjaDentro, generarFranjas, horasTexto, rangoCorto, redondear2, solapan } from "./franjas";
 import { calcularMinimos } from "./minimos";
 import type {
@@ -512,7 +512,10 @@ function construirResumen(
 ): ResumenMotor {
   const semanas = semanasDelMes(entrada.dias);
   const semanaDe = new Map(entrada.dias.map((d) => [d.fecha, d.lunes]));
-  const laborables = laborablesDelMes(entrada.dias);
+  const entreSemana = entrada.dias.filter((d) => d.diaSemana < 5).length;
+  const festivosEquipo = new Set(entrada.dias.filter((d) => d.festivos.includes(entrada.servicioCalendario)).map((d) => d.fecha));
+  const turnoFestivosH = (a: AgenteMotor) =>
+    [...festivosEquipo].reduce((h, f) => h + (a.turnos[f] ?? []).reduce((x, t) => x + (t.finMin - t.inicioMin) / 60, 0), 0);
   const horas = (b: BloqueMotor) => (b.finMin - b.inicioMin) / 60;
   const vacioSemanas = () => Object.fromEntries(semanas.map((s) => [s.lunes, 0])) as Record<string, number>;
 
@@ -556,7 +559,12 @@ function construirResumen(
         activo: idsActivos.has(a.numero),
         capacidadH: (capacidadAgente.get(a.numero) ?? 0) * horasFranja,
         horas: total,
-        contratoMesH: a.contratoSemanalH != null ? redondear2((a.contratoSemanalH * laborables) / 5) : null,
+        // Horas a cubrir en el mes: contrato ÷ 5 cada día de lunes a viernes menos el
+        // turno de los festivos (que cuentan como trabajados, como en el saldo)
+        contratoMesH:
+          a.contratoSemanalH != null
+            ? redondear2((a.contratoSemanalH * entreSemana) / 5 - turnoFestivosH(a))
+            : null,
         porCliente,
         porSemana,
       };

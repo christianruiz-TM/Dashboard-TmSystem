@@ -28,8 +28,8 @@ describe("adherencia", () => {
       AV,
     );
     expect(filas).toEqual([
-      { agenteNumero: "0851", fecha: F, clienteCodigo: "GH", planificadoMin: 300, correctoMin: 180, aDemandaMin: 60, otroMin: 0, sinConectarMin: 60 },
-      { agenteNumero: "0851", fecha: F, clienteCodigo: "UGR", planificadoMin: 120, correctoMin: 60, aDemandaMin: 0, otroMin: 60, sinConectarMin: 0 },
+      { agenteNumero: "0851", fecha: F, clienteCodigo: "GH", planificadoMin: 300, correctoMin: 180, cubiertoMin: 0, aDemandaMin: 60, otroMin: 0, sinConectarMin: 60 },
+      { agenteNumero: "0851", fecha: F, clienteCodigo: "UGR", planificadoMin: 120, correctoMin: 60, cubiertoMin: 0, aDemandaMin: 0, otroMin: 60, sinConectarMin: 0 },
     ]);
     expect(dias).toEqual([{ agenteNumero: "0851", fecha: F, planificadoMin: 420, logadoMin: 420, fueraPlanMin: 60 }]);
     const r = resumirAdherencia(filas);
@@ -83,24 +83,26 @@ describe("adherencia", () => {
     expect(resumirAdherencia([]).porTurno).toBeNull();
   });
 
-  it("BD cubre un bloque de GH (cuenta como GH), pero GH no cubre uno de BD", () => {
+  it("BD cubre un bloque de GH (cuenta como GH) pero no es «correcto»; GH no cubre uno de BD", () => {
     const { filas } = calcularAdherencia(
       [b("1067", "GH", 9, 11), b("1067", "BD", 11, 12)],
       [t("1067", "BD", 9, 11), t("1067", "GH", 11, 12)],
       AV,
     );
-    expect(filas.map((f) => [f.clienteCodigo, f.correctoMin, f.otroMin])).toEqual([
-      ["BD", 0, 60],
-      ["GH", 120, 0],
+    expect(filas.map((f) => [f.clienteCodigo, f.correctoMin, f.cubiertoMin, f.otroMin])).toEqual([
+      ["BD", 0, 0, 60],
+      ["GH", 0, 120, 0],
     ]);
+    // Cubierto cuenta por turno, no por cliente
+    expect(resumirAdherencia(filas)).toMatchObject({ porTurno: 1, porCliente: 0 });
   });
 
-  it("en un bloque de Ávolo (a demanda), esperar en GH o BD es lo correcto; en UGR, no", () => {
+  it("en un bloque de Ávolo (a demanda): con Av_ es correcto, esperando en GH o BD es cubierto, en UGR es otro", () => {
     const { filas } = calcularAdherencia(
       [b("0985", "AV", 9, 13)],
       [t("0985", "GH", 9, 10), t("0985", "AV", 10, 10.5), t("0985", "BD", 10.5, 11), t("0985", "UGR", 11, 12)],
       AV,
     );
-    expect(filas[0]).toMatchObject({ planificadoMin: 240, correctoMin: 120, otroMin: 60, sinConectarMin: 60 });
+    expect(filas[0]).toMatchObject({ planificadoMin: 240, correctoMin: 30, cubiertoMin: 90, otroMin: 60, sinConectarMin: 60 });
   });
 });

@@ -366,17 +366,27 @@ tiene remoto git todavía.
     `api/planificacion/hoy`) y las pestañas del mes `adherencia`, `saldos`
     (ajustes manuales: supervisión, `plan_saldo_ajuste`) y `cierre` (XLSX en
     `api/planificacion/cierre`).
-    - **Adherencia**, minuto a minuto: por turno = conectado (cualquier
-      usuario) ÷ planificado; por cliente = con el usuario del cliente
-      planificado ÷ planificado. Cuenta como correcto un cliente que «cuenta
-      como» el planificado (BD en GH) y, en un bloque de cliente a demanda,
-      estar en el cliente base (Ávolo se espera en GH); estar con `Av_`
-      durante otro bloque es «a demanda», no desvío. Septiembre: 97,8 % por
-      turno y 82,6 % por cliente (sin esa regla, 55 %).
+    - **Adherencia**, minuto a minuto: «correcto» = con el usuario del
+      cliente planificado; «cubierto por otro» = con uno que lo cubre sin
+      serlo (BD/LX en un bloque de GH; el cliente base en un bloque de
+      Ávolo); «a demanda» = con `Av_` durante otro bloque (no es desvío).
+      Por turno = todo lo logado ÷ planificado; por cliente = (correcto + a
+      demanda) ÷ planificado: lo cubierto NO cuenta (decidido 08/10/2026:
+      antes contaba y daba a Ávolo 124,56 h «correctas» de las que solo 11,05
+      fueron con `Av_`). La tabla por cliente lleva además «Real del cliente»
+      (las horas de Cierre). Septiembre: 97,7 % por turno y 54,5 % por cliente.
     - **Saldo** = trabajadas + justificadas − contrato del día + ajustes; se
       calcula al vuelo (no hay tabla de días). Trabajadas: hasta ayer, lo
       logado de la PERSONA (unión de todos sus usuarios); después, lo
       planificado. Arrastre desde `plan.inicioSaldo` (01/10/2026).
+      **Festivos** (08/10/2026, pendiente de que RR. HH. lo confirme): el
+      contrato del día es el semanal ÷ 5 de lunes a viernes, festivos
+      incluidos, y el festivo justifica las horas de su turno de ese día (si
+      se trabaja, cuentan las trabajadas y se compensa con FEST). Antes
+      restaba 1/5 del contrato y con 38 h salían saldos de −0,40 h. La misma
+      regla en `saldo.ts`, el saldo previsto del tablero y el contrato del
+      mes del motor. Quedan decimales solo en semanas partidas entre dos meses
+      (1-2/10 con 38 h: 15,20 h), que se compensan con la otra parte.
     - **Cierre**: real = `user_log` de los usuarios de cada cliente; cuadra
       con facturación (GH 1.027,88 h en septiembre) y el grupo GH+BD+LX con el
       Excel de operaciones (1.384,22 h).

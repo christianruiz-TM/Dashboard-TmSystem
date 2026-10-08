@@ -60,7 +60,7 @@ export default async function PaginaSaldos({
           <>
             Horas que le sobran (+) o le faltan (−) a cada persona para cumplir su contrato. Hasta ayer cuentan las horas que
             estuvo conectada; de hoy en adelante, las planificadas (en cursiva). Las vacaciones, libranzas y RTO cuentan como
-            horas trabajadas.
+            horas trabajadas, y un festivo, las horas de su turno de ese día.
           </>
         }
       />

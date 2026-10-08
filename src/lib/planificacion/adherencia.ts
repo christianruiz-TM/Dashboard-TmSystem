@@ -5,19 +5,22 @@
 // minuto, agente y día a agente y día.
 //
 // Dentro de lo planificado, cada minuto es:
-//   - correcto:    logado con un usuario del cliente que tocaba, o de uno que
-//                  «cuenta como» él (GH_nnnn_BD en un bloque de GH: BD cubre
-//                  GH), o, en un bloque de un cliente a demanda, con el
-//                  cliente base (en Ávolo se espera en GH y se entra con Av_
-//                  cuando llega la llamada: 81 h de 133 en septiembre);
+//   - correcto:    logado con un usuario del cliente que tocaba;
+//   - cubierto:    logado con uno que lo cubre sin serlo: el que «cuenta como»
+//                  él (GH_nnnn_BD en un bloque de GH) o, en un bloque de un
+//                  cliente a demanda, el cliente base (en Ávolo se espera en
+//                  GH y se entra con Av_ cuando llega la llamada);
 //   - a demanda:   logado con un usuario de un cliente «a demanda» (Ávolo),
 //                  que se atiende cuando entra una llamada: no es un desvío;
 //   - otro:        logado, pero con el usuario de otro cliente;
 //   - sin conectar.
-// Adherencia POR TURNO = (correcto + a demanda + otro) ÷ planificado: estaba
-// trabajando cuando le tocaba. POR CLIENTE = (correcto + a demanda) ÷
-// planificado: además, donde le tocaba. Lo logado fuera de lo planificado se
-// cuenta aparte (horas extra o cambios sin reflejar en el plan).
+// Adherencia POR TURNO = todo lo logado (correcto + cubierto + a demanda +
+// otro) ÷ planificado: estaba trabajando cuando le tocaba. POR CLIENTE =
+// (correcto + a demanda) ÷ planificado: además, con el usuario que tocaba.
+// Lo «cubierto» NO cuenta por cliente (decidido el 08/10/2026: antes contaba
+// como correcto y en septiembre daba a Ávolo 124,56 h «correctas» de las que
+// solo 11,05 fueron con Av_). Lo logado fuera de lo planificado va aparte
+// (horas extra o cambios sin reflejar en el plan).
 // ============================================================
 
 export interface BloquePlanAdh {
@@ -45,6 +48,8 @@ export interface FilaAdherencia {
   clienteCodigo: string;
   planificadoMin: number;
   correctoMin: number;
+  /** Con un usuario que lo cubre sin ser el suyo (BD en GH, GH en Ávolo). */
+  cubiertoMin: number;
   aDemandaMin: number;
   otroMin: number;
   sinConectarMin: number;
@@ -73,9 +78,10 @@ export interface ReglasAdherencia {
 
 export const SIN_REGLAS: ReglasAdherencia = { clienteBase: "", aDemanda: new Set(), cuentaComo: {} };
 
-/** ¿Logado con `logado` cumple un bloque de `planificado`? */
+/** ¿Logado con `logado` cubre un bloque de `planificado` sin ser su usuario? */
 export function cubre(reglas: ReglasAdherencia, planificado: string, logado: string): boolean {
-  if (logado === planificado || reglas.cuentaComo[logado] === planificado) return true;
+  if (logado === planificado) return false;
+  if (reglas.cuentaComo[logado] === planificado) return true;
   const base = reglas.clienteBase;
   return reglas.aDemanda.has(planificado) && base !== "" && (logado === base || reglas.cuentaComo[logado] === base);
 }
@@ -127,12 +133,14 @@ export function calcularAdherencia(
         clienteCodigo: enPlan.clienteCodigo,
         planificadoMin: 0,
         correctoMin: 0,
+        cubiertoMin: 0,
         aDemandaMin: 0,
         otroMin: 0,
         sinConectarMin: 0,
       };
       fila.planificadoMin += dur;
-      if ([...clientes].some((c) => cubre(reglas, enPlan.clienteCodigo, c))) fila.correctoMin += dur;
+      if (clientes.has(enPlan.clienteCodigo)) fila.correctoMin += dur;
+      else if ([...clientes].some((c) => cubre(reglas, enPlan.clienteCodigo, c))) fila.cubiertoMin += dur;
       else if ([...clientes].some((c) => reglas.aDemanda.has(c))) fila.aDemandaMin += dur;
       else if (logadoAqui) fila.otroMin += dur;
       else fila.sinConectarMin += dur;
@@ -151,6 +159,7 @@ export function calcularAdherencia(
 export interface ResumenAdherencia {
   planificadoH: number;
   correctoH: number;
+  cubiertoH: number;
   aDemandaH: number;
   otroH: number;
   sinConectarH: number;
@@ -161,17 +170,18 @@ export interface ResumenAdherencia {
 
 /** Suma filas de adherencia (en horas) y calcula los dos porcentajes (0..1). */
 export function resumirAdherencia(filas: readonly FilaAdherencia[]): ResumenAdherencia {
-  const s = { planificadoH: 0, correctoH: 0, aDemandaH: 0, otroH: 0, sinConectarH: 0 };
+  const s = { planificadoH: 0, correctoH: 0, cubiertoH: 0, aDemandaH: 0, otroH: 0, sinConectarH: 0 };
   for (const f of filas) {
     s.planificadoH += f.planificadoMin / 60;
     s.correctoH += f.correctoMin / 60;
+    s.cubiertoH += f.cubiertoMin / 60;
     s.aDemandaH += f.aDemandaMin / 60;
     s.otroH += f.otroMin / 60;
     s.sinConectarH += f.sinConectarMin / 60;
   }
   return {
     ...s,
-    porTurno: s.planificadoH > 0 ? (s.correctoH + s.aDemandaH + s.otroH) / s.planificadoH : null,
+    porTurno: s.planificadoH > 0 ? (s.correctoH + s.cubiertoH + s.aDemandaH + s.otroH) / s.planificadoH : null,
     porCliente: s.planificadoH > 0 ? (s.correctoH + s.aDemandaH) / s.planificadoH : null,
   };
 }

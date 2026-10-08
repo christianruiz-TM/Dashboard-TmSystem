@@ -391,8 +391,8 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     queVeo: [
       "Las cifras del mes: horas planificadas y los dos porcentajes.",
       "«Por turno»: de cada 100 horas planificadas, cuántas estuvo conectada.",
-      "«Por cliente»: además, en el cliente que le tocaba.",
-      "La tabla por persona. Más abajo, por cliente, por semana y las desviaciones más grandes.",
+      "«Por cliente»: además, con el usuario del cliente que le tocaba.",
+      "La tabla por persona. Más abajo, por cliente (con las horas reales de cada uno), por semana y las desviaciones más grandes.",
     ],
     queHacer: [
       "Mira los porcentajes del mes.",
@@ -415,6 +415,14 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       {
         caso: "Atendió Ávolo durante su turno de GH.",
         haz: "No es un fallo: sale como «A demanda».",
+      },
+      {
+        caso: "Sale tiempo en «Cubierto por otro».",
+        haz: "Estuvo conectada con un usuario que cubre ese cliente sin ser el suyo: BD o LX en un bloque de GH, o en GH esperando a Ávolo. Cuenta como trabajado (por turno), pero no como estar en su cliente.",
+      },
+      {
+        caso: "Un cliente tiene pocas horas «Correcto» pero muchas «Real del cliente».",
+        haz: "Se hicieron sus horas, pero a otras horas o con otras personas de las planificadas. Si es lo normal, conviene pasarlo al plan.",
       },
     ],
   },
@@ -439,7 +447,11 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     siPasa: [
       {
         caso: "¿Cómo se calcula?",
-        haz: "Cada día: horas trabajadas + horas de ausencias que cuentan (vacaciones, libranzas, RTO) − horas de contrato de ese día.",
+        haz: "Cada día: horas trabajadas + horas de ausencias que cuentan (vacaciones, libranzas, RTO) − horas de contrato de ese día (el semanal entre cinco, de lunes a viernes).",
+      },
+      {
+        caso: "¿Qué pasa con un festivo?",
+        haz: "Cuenta como trabajadas las horas de su turno de ese día (no se recuperan). Si se trabaja el festivo, cuentan las horas trabajadas y luego se da una libranza FEST.",
       },
       {
         caso: "Una persona no sale en la lista.",
@@ -740,6 +752,7 @@ export const GLOSARIO_AYUDA: [string, string][] = [
   ["Saldo", "Horas que le sobran (+) o le faltan (−) a una persona para su contrato."],
   ["Arrastre", "El saldo que trae de los meses anteriores."],
   ["Adherencia", "Si se cumplió el plan: conectada cuando y donde tocaba."],
+  ["Cubierto por otro", "Conectada con un usuario que cubre ese cliente sin ser el suyo (BD o LX en GH; en GH esperando a Ávolo)."],
   ["Real", "Horas conectadas de verdad, las mismas que se facturan."],
 ];
 
@@ -791,11 +804,19 @@ export const PUNTOS_AYUDA = {
   },
   "adh-cliente": {
     titulo: "Por cliente",
-    texto: "De cada 100 horas planificadas, cuántas estuvo conectada en el cliente que le tocaba.",
+    texto: "De cada 100 horas planificadas, cuántas estuvo conectada con el usuario del cliente que le tocaba (o atendiendo Ávolo). Lo «cubierto por otro» no cuenta aquí.",
   },
   "adh-columnas": {
     titulo: "Columnas de la tabla",
-    texto: "Correcto: conectada donde tocaba. A demanda: atendiendo Ávolo (no es fallo). Otro cliente: conectada, pero en otro. Sin conectar: no estaba.",
+    texto: "Correcto: con el usuario del cliente que tocaba. A demanda: atendiendo Ávolo (no es fallo). Otro cliente: conectada, pero en otro. Sin conectar: no estaba.",
+  },
+  "adh-cubierto": {
+    titulo: "Cubierto por otro",
+    texto: "Conectada con un usuario que cubre ese cliente sin ser el suyo: BD o LX en un bloque de GH, o en GH esperando a Ávolo. Cuenta por turno, no por cliente.",
+  },
+  "adh-real": {
+    titulo: "Real del cliente",
+    texto: "Todas las horas conectadas con los usuarios de ese cliente en el periodo, planificadas o no. Es la misma cifra que en Cierre.",
   },
   "adh-fuera": {
     titulo: "Fuera del plan",

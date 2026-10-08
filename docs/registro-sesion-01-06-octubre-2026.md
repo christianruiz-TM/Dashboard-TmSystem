@@ -123,3 +123,23 @@ Las pruebas se hicieron siempre sobre copias de la SQLite y en los puertos 3100 
 - **Mejora 4 de CLAUDE.md** (alertas proactivas): a medias. Están las de planificación; faltan SLA bajo, abandono alto y Not Ready largo.
 - **Seguridad**: valorar un segundo usuario admin a nombre de Christian, para no depender de una sola contraseña.
 - **De antes, sin cambios**: remoto git y despliegue en el servidor, y los «tests de oro» contra las queries SSMS.
+
+## Continuación (08/10/2026)
+
+- **Festivos**: Christian lo consultará con RR. HH.; mientras, se aplica la regla alternativa.
+  - El contrato del día es el semanal ÷ 5 cada día de lunes a viernes, festivos incluidos.
+  - El festivo justifica las horas de su turno de ese día. Si se trabaja, cuentan las trabajadas y se compensa con FEST.
+  - Antes restaba 1/5 del contrato: con 38 h eran 7,60 h, y la semana del 12/10 daba saldos de −0,40 h. Ahora da +1,00 h para 0892 (30 h planificadas + 9 del festivo − 38).
+  - La regla es la misma en el saldo real, en el saldo previsto del tablero y en el contrato del mes del motor.
+  - Quedan decimales en las semanas partidas entre dos meses (1-2/10 con 38 h: 15,20 h de contrato), que se compensan con la otra parte de la semana.
+  - La bolsa prorrateada (1.263,82 h) sigue igual: no se pidió redondearla.
+- **Adherencia «por cliente»**: Christian vio que la tabla de septiembre no era real. Ávolo salía con 124,56 h «correctas», pero solo 11,05 h fueron con Av_; el resto era espera en GH.
+  - «Correcto» ahora es solo con el usuario del propio cliente.
+  - Lo que lo cubre sin serlo (BD o LX en GH, GH esperando a Ávolo) va en la columna «Cubierto por otro». Cuenta por turno, no por cliente.
+  - La tabla por cliente lleva «Real del cliente» (las horas de Cierre), y aparecen también los clientes con horas sin planificar (CEFF y LX en septiembre).
+  - Septiembre queda en 97,7 % por turno y 54,5 % por cliente.
+- **Octubre** (adherencia del 72,8 % por turno y el 44,3 % por cliente hasta el 08/10):
+  - no hay ausencias apuntadas (0985 no se conecta desde el 29/09);
+  - hay turnos que no coinciden (1118 trabaja de tarde y está planificada de mañana);
+  - el reparto real lleva mucho más UGR del planificado (72 h planificadas en GH se hicieron con UGR).
+- Ayuda, capturas y la guía de Claude Docs (las dos pestañas) actualizadas con las dos reglas.
