@@ -49,3 +49,6 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Material de trabajo con nombres reales (Excel de supervisión, prototipo): nunca al repo
+/temp/
