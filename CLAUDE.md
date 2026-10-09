@@ -16,8 +16,11 @@ RDBv2 real; en el corte su SQLite se lleva al servidor y desde entonces la
 buena es la del servidor. Rama de trabajo: `master`. `feature/planificacion`
 (planificación F1-F5, ayuda para supervisión y la facturación por horas
 logadas de GH) se fusionó en `master` el 09/10/2026 sin conflictos (avance
-directo). Remoto previsto: GitHub privado `christianruiz-TM/Dashboard-TmSystem`
-(no hay `gh` en este PC). `temp/` (Excel y prototipo con nombres reales) está
+directo). Remoto: GitHub privado `christianruiz-TM/Dashboard-TmSystem`, alias
+SSH `github-dashboard` (deploy key con escritura en este PC y de solo lectura
+en el servidor; no hay `gh`). En el servidor ya están el clon, el `.env` y la
+imagen probada contra RDBv2 (09/10/2026); falta el corte (sección 2 de
+`docs/despliegue-linux.md`). `temp/` (Excel y prototipo con nombres reales) está
 en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 
 ## Reglas de dominio CRÍTICAS (no negociables)
