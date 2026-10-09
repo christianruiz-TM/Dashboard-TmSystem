@@ -49,8 +49,10 @@ RUN apk add --no-cache tzdata \
  && echo "${SUPERCRONIC_SHA1SUM}  /usr/local/bin/supercronic" | sha1sum -c - \
  && chmod +x /usr/local/bin/supercronic
 
+# Sin el aviso de «nueva versión de npm» en cada tarea de los logs.
 ENV NODE_ENV=production \
     NEXT_TELEMETRY_DISABLED=1 \
+    NPM_CONFIG_UPDATE_NOTIFIER=false \
     TZ=Europe/Madrid
 WORKDIR /app
 
