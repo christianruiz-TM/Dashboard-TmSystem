@@ -729,6 +729,25 @@ backups, incidencias y pendientes) en `docs/registro-sesion-01-06-octubre-2026.m
       1008 y compartir la guía de Claude Docs. ~~Siguiente fase: F5~~ hecha
       el 09/10/2026 (ver «Estado de F5» en `docs/plan-planificacion.md`).
 
+## Sesión 09/10/2026 (Opus 5.5): formulario de clientes y reparto por campaña
+
+Registro completo (decisiones, cifras medidas, despliegues con sus backups,
+incidencias y pendientes) en `docs/registro-sesion-09-octubre-2026.md`.
+
+- [x] Parámetros de cliente de planificación: formulario por apartados en
+      vez de JSON (`7fd140b`, desplegado a las 10:00).
+- [x] Operaciones: reparto estimado de las horas logadas por campaña según
+      el tiempo productivo (`6099019`, desplegado a las 13:07). Septiembre
+      GH cuadra con la factura: 1.027,88 h y 28.780,64 €.
+- [x] «No me deja entrar» (`SSL_ERROR_RX_RECORD_TOO_LONG`): era el navegador
+      pidiendo `https://`. Está en problemas frecuentes de
+      `docs/despliegue-linux.md`.
+- [x] Facturan por horas logadas GH, UGR, CEFF y CajaRural (altas de
+      Christian en `/admin/facturacion`).
+- [ ] Revisar en el navegador las dos pantallas en producción. Decidir
+      Ávolo (hoy por leads: cuidado con el doble cobro) y Socios (dos
+      prefijos, una línea por prefijo).
+
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
 Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:

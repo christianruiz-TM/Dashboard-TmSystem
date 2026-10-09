@@ -123,3 +123,66 @@ cobraría dos veces (~356 h). Si hubiera que cambiarlo, la regla vive en
 - Otro cliente que quiera facturar así: nueva línea en `/admin/facturacion`
   con unidad «Horas logadas (usuarios del cliente)», ámbito su servicio y su
   prefijo (UGR, Av…).
+- Un cliente que ya factura de otra forma (Ávolo por leads) cobraría dos
+  veces si se le añade la línea de horas logadas sin desactivar la otra. Un
+  cliente con varios prefijos (Socios: `Soc` y `Soc_Fed`) necesita una línea
+  por prefijo.
+- Desde el 09/10/2026 facturan así GrupoHuertas (28 €/h), UGR (22,50 €/h),
+  CEFF (25 €/h) y CajaRural (25 €/h, prefijo `CR`; antes, horas productivas
+  al mismo precio).
+
+## 7. Reparto estimado por campaña (09/10/2026)
+
+Operaciones pidió ver las horas logadas de cada cliente también por campaña.
+`user_log` no sabe de campañas, así que es un **reparto estimado**. Se factura
+el total del cliente.
+
+**Por qué no sirve el tiempo con campaña abierta.** Los usuarios del cliente
+tienen casi siempre todas sus campañas abiertas a la vez. Medido con los
+`GH_nnnn` en septiembre de 2026:
+
+| Medida | Valor |
+| --- | --- |
+| `ag_in_cp_log` op 0 sumado por campaña | 34.985,49 h |
+| Unión real | 1.023,37 h (×34,2) |
+| Tiempo con más de 15 campañas abiertas a la vez | 92,8 % |
+| Con una sola campaña abierta | 0,03 h |
+
+Repartir ese tiempo a partes iguales da unas 23 h (el 2,3 %) a casi todas las
+campañas: no dice dónde se trabajó. La única señal real son las llamadas.
+
+**Regla (decidida con Christian).** Por usuario y día, sus horas logadas se
+reparten en proporción a su tiempo productivo en cada campaña ese día.
+
+- Las horas logadas son las islas de `user_log`, por el día en que empieza la
+  sesión, igual que la factura.
+- El tiempo productivo es la `duration` de las atendidas, la misma medida que
+  «H. productivas».
+- Un día logado sin ninguna atendida va a la fila **«Logado sin actividad en
+  campaña»**: no se inventa a qué campaña asignarlo.
+- Las filas se redondean a centésimas por **mayor resto**, para que sumen
+  exactamente el total facturado. El importe de cada fila es informativo.
+
+**Dónde se ve.** En Operaciones → Facturación hay un desplegable bajo cada
+cliente con: campaña, h. productivas de los usuarios del cliente, % del tiempo
+productivo, horas logadas repartidas, importe repartido y total. En el export
+CSV/XLSX va en cuatro columnas propias, para no contar dos veces al sumar.
+
+**Código.**
+
+- `baseRepartoHorasLogadas` en `src/lib/rdb/queries/facturacion.ts`: dos
+  consultas en un lote, 1,3 s para un mes de GH.
+- `repartirHorasLogadas` en `src/lib/facturacion-horas-logadas.ts`: puro, con
+  tests.
+
+**Verificación.** Septiembre GH: 1.027,88 h y 28.780,64 €, igual que la
+factura, con 35,26 h sin actividad en campaña.
+
+| Campaña | % del tiempo productivo | Horas logadas repartidas |
+| --- | --- | --- |
+| gh_la_mur_toyota | 10,23 % | 98,01 h |
+| gh_gra_pre_mer | 10,34 % | 94,81 h |
+| gh_dimovil_mer | 9,14 % | 93,23 h |
+
+El % productivo del mes y el % de horas logadas de una campaña no coinciden
+exactamente: el reparto se hace día a día con lo logado de cada persona.
