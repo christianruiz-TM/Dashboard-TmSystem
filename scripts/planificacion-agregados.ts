@@ -16,22 +16,16 @@
  * Mismo patrón que aggregate-daily.ts: lotes de 7 días, cada lote REEMPLAZA
  * sus días completos, así que re-ejecutar un rango lo deja idéntico a RDBv2.
  * Solo días cerrados: `hasta` se limita a ayer (las sesiones de hoy siguen
- * abiertas).
+ * abiertas). La tarea nocturna (planificacion:nocturno) hace esto mismo cada
+ * noche, poniéndose al día si faltan días.
  */
-import { addDays, format, parseISO } from "date-fns";
+export {};
 
 function argumento(nombre: string): string | undefined {
   const i = process.argv.indexOf(`--${nombre}`);
   return i >= 0 ? process.argv[i + 1] : undefined;
 }
-const sumarDias = (f: string, n: number) => format(addDays(parseISO(f), n), "yyyy-MM-dd");
 const seg = (ms: number) => `${(ms / 1000).toFixed(1).replace(".", ",")} s`;
-
-async function medir<T>(fn: () => Promise<T>): Promise<[T, number]> {
-  const t = Date.now();
-  const r = await fn();
-  return [r, Date.now() - t];
-}
 
 async function main() {
   try {
@@ -39,10 +33,7 @@ async function main() {
   } catch {
     /* sin .env */
   }
-  const q = await import("../src/lib/rdb/queries/planificacion");
-  const repo = await import("../src/lib/planificacion/repositorio");
-  const { leerParametrosPlan } = await import("../src/lib/planificacion/parametros");
-  const { guardarAjuste } = await import("../src/lib/db/settings");
+  const { agregarPlanificacion } = await import("../src/lib/planificacion/agregados");
   const { esMock } = await import("../src/lib/rdb/pool");
   const { ayerISO, hoyISO, esquemaFechaISO } = await import("../src/lib/fechas");
 
@@ -57,55 +48,19 @@ async function main() {
     console.warn(`hasta ${hasta} → ${ayer}: solo se agregan días cerrados`);
     hasta = ayer;
   }
-  const p = leerParametrosPlan();
   console.log(`Agregados de planificación ${desde} → ${hasta}${esMock() ? " (MODO DEMO: datos ficticios)" : ""}`);
 
-  let maxMs = 0;
-  let maxConsulta = "";
-  const totales = { demanda: 0, sesiones: 0, logado: 0, cierres: 0 };
-  const inicioTotal = Date.now();
-  for (let inicio = desde; inicio <= hasta; ) {
-    const fin = sumarDias(inicio, 6) > hasta ? hasta : sumarDias(inicio, 6);
-    const [demanda, tDem] = await medir(() => q.demandaPorFranja(inicio, fin, p.maxSegHilo));
-    const [islas, tIsl] = await medir(() => q.islasSesionUsuario(inicio, fin));
-    const [logado, tLog] = await medir(() => q.islasLogadoUsuario(inicio, fin));
-    const [cierres, tCie] = await medir(() => q.cierresPorDia(inicio, fin));
-    repo.reemplazarDemanda(inicio, fin, demanda);
-    repo.reemplazarSesiones(inicio, fin, islas);
-    repo.reemplazarLogado(inicio, fin, logado);
-    repo.reemplazarCierres(inicio, fin, cierres);
-    for (const [ms, nombre] of [[tDem, "demanda"], [tIsl, "sesiones"], [tLog, "logado"], [tCie, "cierres"]] as const) {
-      if (ms > maxMs) {
-        maxMs = ms;
-        maxConsulta = `${nombre} ${inicio}`;
-      }
-    }
-    totales.demanda += demanda.length;
-    totales.sesiones += islas.length;
-    totales.logado += logado.length;
-    totales.cierres += cierres.length;
-    console.log(
-      `  ${inicio} → ${fin}: demanda ${demanda.length} (${seg(tDem)}) · sesiones ${islas.length} (${seg(tIsl)}) · ` +
-        `logado ${logado.length} (${seg(tLog)}) · cierres ${cierres.length} (${seg(tCie)})`,
-    );
-    inicio = sumarDias(fin, 1);
-  }
-  console.log(`  consulta más lenta: ${maxConsulta} (${seg(maxMs)}) · total ${seg(Date.now() - inicioTotal)}`);
-
-  if (!process.argv.includes("--sin-foto")) {
-    const [usuarios, tUsr] = await medir(() => q.usuariosAgente());
-    const sinc = repo.sincronizarUsuarios(usuarios);
-    console.log(`  usuarios de agente: ${sinc.usuarios} sincronizados, ${sinc.agentesNuevos} agentes nuevos (${seg(tUsr)})`);
-    const patrones = [...new Set(repo.leerClientes().flatMap((c) => c.campanias ?? []))];
-    const [listas, tLis] = await medir(() => q.estadoListas(patrones));
-    repo.guardarFotoListas(hoyISO(), listas);
-    console.log(`  foto de listas del ${hoyISO()}: ${listas.length} campañas (${seg(tLis)})`);
-  }
-
-  guardarAjuste("planificacion.ultima_agregacion", new Date().toISOString());
+  const r = await agregarPlanificacion({
+    desde,
+    hasta,
+    foto: !process.argv.includes("--sin-foto"),
+    hoy: hoyISO(),
+    log: (linea) => console.log(`  ${linea}`),
+  });
+  console.log(`  consulta más lenta: ${r.masLenta.consulta} (${seg(r.masLenta.ms)}) · total ${seg(r.ms)}`);
   console.log(
-    `✔ Agregados: ${totales.demanda} franjas de demanda, ${totales.sesiones} islas de sesión, ` +
-      `${totales.logado} islas de tiempo logado, ${totales.cierres} filas de cierres`,
+    `✔ Agregados: ${r.totales.demanda} franjas de demanda, ${r.totales.sesiones} islas de sesión, ` +
+      `${r.totales.logado} islas de tiempo logado, ${r.totales.cierres} filas de cierres`,
   );
   process.exit(0); // cerrar el pool de mssql sin esperar al idle timeout
 }

@@ -2,6 +2,7 @@
 import { format } from "date-fns";
 import { and, asc, desc, eq, gte, inArray, like, lt, lte, sql } from "drizzle-orm";
 import { db } from "@/lib/db/sqlite";
+import { guardarAjuste, obtenerAjuste } from "@/lib/db/settings";
 import {
   aggCierresCampania,
   aggLogadoUsuario,
@@ -24,9 +25,10 @@ import {
   planTiposAusencia,
   planVersiones,
 } from "@/lib/db/schema";
-import type { PlanBloqueRow } from "@/lib/db/schema";
+import type { PlanBloqueRow, PlanVersionRow } from "@/lib/db/schema";
 import type { CierresDia, DemandaFranja, EstadoLista, IslaSesion, UsuarioAgenteRdb } from "@/lib/rdb/types";
 import type { Aviso, EntradaMotor, ResumenMotor, SalidaMotor } from "./motor/tipos";
+import type { EjecucionNocturna } from "./nocturno";
 import type { BloqueTablero } from "./tablero";
 import { parsearUsuario, resolverCliente } from "./usuarios";
 
@@ -195,13 +197,57 @@ export function campaniasConocidas(): string[] {
   return [...new Set([...listas, ...cierres].map((x) => x.c))].sort();
 }
 
-/** Último día agregado: el MÁS ANTIGUO de los máximos de las tres tablas. */
+const CLAVE_AGREGADO_HASTA = "planificacion.agregados_hasta";
+
+/**
+ * Último día agregado: el que anotan los agregados al acabar o, si es
+ * posterior, el MÁS ANTIGUO de los máximos de las tres tablas. Lo anotado
+ * hace falta porque los fines de semana no dejan filas de sesiones ni de
+ * cierres: con solo las tablas, el domingo y el lunes parecía que faltaba
+ * el viernes o el sábado.
+ */
 export function ultimoAgregado(): string | null {
   const maximo = (tabla: typeof aggHoraServicio | typeof aggSesionUsuario | typeof aggCierresCampania) =>
     db.select({ m: sql<string | null>`MAX(${tabla.fecha})` }).from(tabla).get()?.m ?? null;
   const fechas = [maximo(aggHoraServicio), maximo(aggSesionUsuario), maximo(aggCierresCampania)];
-  if (fechas.some((f) => f == null)) return null;
-  return (fechas as string[]).sort()[0];
+  const porTablas = fechas.some((f) => f == null) ? null : (fechas as string[]).sort()[0];
+  const anotado = obtenerAjuste(CLAVE_AGREGADO_HASTA, "") || null;
+  return anotado && (porTablas == null || anotado > porTablas) ? anotado : porTablas;
+}
+
+/** Anota que los agregados llegan hasta `hasta` (si es posterior a lo anotado). */
+export function anotarAgregadoHasta(hasta: string): void {
+  const anotado = obtenerAjuste(CLAVE_AGREGADO_HASTA, "");
+  if (!anotado || hasta > anotado) guardarAjuste(CLAVE_AGREGADO_HASTA, hasta);
+}
+
+// ---------- Estado de la tarea nocturna (app_settings) ----------
+
+const CLAVE_EJECUCION_NOCTURNA = "planificacion.nocturno.ultima";
+const CLAVE_RECALCULO_NOCTURNO = "planificacion.nocturno.recalculo";
+
+export function guardarEjecucionNocturna(e: EjecucionNocturna): void {
+  guardarAjuste(CLAVE_EJECUCION_NOCTURNA, JSON.stringify(e));
+}
+
+/** Última ejecución de la tarea nocturna (null = nunca). */
+export function leerEjecucionNocturna(): EjecucionNocturna | null {
+  const texto = obtenerAjuste(CLAVE_EJECUCION_NOCTURNA, "");
+  if (!texto) return null;
+  try {
+    return JSON.parse(texto) as EjecucionNocturna;
+  } catch {
+    return null;
+  }
+}
+
+/** Lunes de la última semana recalculada (null = nunca). */
+export function ultimoRecalculoNocturno(): string | null {
+  return obtenerAjuste(CLAVE_RECALCULO_NOCTURNO, "") || null;
+}
+
+export function anotarRecalculoNocturno(lunes: string): void {
+  guardarAjuste(CLAVE_RECALCULO_NOCTURNO, lunes);
 }
 
 // ---------- Agregados: escritura ----------
@@ -325,7 +371,7 @@ export function sincronizarUsuarios(usuarios: readonly UsuarioAgenteRdb[]): { us
 export function crearBorrador(opciones: {
   mes: string;
   entrada: EntradaMotor;
-  salida: SalidaMotor;
+  salida: Pick<SalidaMotor, "bloques" | "avisos" | "resumen">;
   autor: string;
   origen?: "motor" | "copia" | "recalculo";
   basadaEnId?: number | null;
@@ -335,6 +381,12 @@ export function crearBorrador(opciones: {
    * hay otro (alguien generó mientras tanto), error en vez de descartarlo.
    */
   esperado?: number | null;
+  /**
+   * Bloques de otra versión que se copian TAL CUAL (origen, fijado, regla y
+   * quién los editó), además de los del motor: los días ya empezados en el
+   * recálculo de los lunes.
+   */
+  conservados?: readonly PlanBloqueRow[];
 }): { id: number; numero: number } {
   return db.transaction((tx) => {
     const existente = tx
@@ -372,6 +424,7 @@ export function crearBorrador(opciones: {
       })
       .returning({ id: planVersiones.id })
       .get();
+    for (const b of opciones.conservados ?? []) tx.insert(planBloques).values(copiaBloque(b, id)).run();
     for (const b of opciones.salida.bloques) {
       tx.insert(planBloques)
         .values({
@@ -389,6 +442,40 @@ export function crearBorrador(opciones: {
         .run();
     }
     return { id, numero };
+  });
+}
+
+/** Un bloque de otra versión, igual (origen, regla, quién lo editó), para la versión `versionId`. */
+function copiaBloque(b: PlanBloqueRow, versionId: number) {
+  return {
+    versionId,
+    agenteNumero: b.agenteNumero,
+    fecha: b.fecha,
+    inicioMin: b.inicioMin,
+    finMin: b.finMin,
+    clienteCodigo: b.clienteCodigo,
+    origen: b.origen,
+    fijado: b.fijado,
+    regla: b.regla,
+    datos: b.datos,
+    editadoPor: b.editadoPor,
+    editadoAt: b.editadoAt,
+  };
+}
+
+/**
+ * Descarta un borrador sin crear otro (supervisión no quiere los cambios que
+ * propone, por ejemplo los del recálculo de los lunes). Revisión optimista
+ * como al guardar.
+ */
+export function descartarBorrador(versionId: number, revision: number): PlanVersionRow {
+  return db.transaction((tx) => {
+    const v = tx.select().from(planVersiones).where(eq(planVersiones.id, versionId)).get();
+    if (!v || v.estado !== "borrador" || v.revision !== revision) {
+      throw new ConflictoVersion("El borrador ha cambiado desde que lo abriste (otra persona ha guardado, publicado o regenerado).");
+    }
+    tx.update(planVersiones).set({ estado: "descartada" }).where(eq(planVersiones.id, v.id)).run();
+    return v;
   });
 }
 
@@ -634,22 +721,7 @@ export function copiarPublicada(versionId: number, autor: string): { id: number;
       .returning({ id: planVersiones.id })
       .get();
     for (const b of tx.select().from(planBloques).where(eq(planBloques.versionId, v.id)).all()) {
-      tx.insert(planBloques)
-        .values({
-          versionId: id,
-          agenteNumero: b.agenteNumero,
-          fecha: b.fecha,
-          inicioMin: b.inicioMin,
-          finMin: b.finMin,
-          clienteCodigo: b.clienteCodigo,
-          origen: b.origen,
-          fijado: b.fijado,
-          regla: b.regla,
-          datos: b.datos,
-          editadoPor: b.editadoPor,
-          editadoAt: b.editadoAt,
-        })
-        .run();
+      tx.insert(planBloques).values(copiaBloque(b, id)).run();
     }
     return { id, numero, publicada: v.numero };
   });

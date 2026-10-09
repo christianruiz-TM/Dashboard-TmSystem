@@ -185,6 +185,34 @@ export async function crearBorradorDesdePublicadaAccion(_previo: EstadoFormulari
   redirect(`/planificacion/${v.mes}?version=${r.id}`);
 }
 
+// ---------- Descartar un borrador ----------
+
+const esquemaDescartar = z.object({
+  versionId: z.coerce.number().int().positive(),
+  revision: z.coerce.number().int().min(0),
+});
+
+/**
+ * Descarta el borrador sin crear otro (no se quieren sus cambios, p. ej. los
+ * del recálculo de los lunes). Con la revisión leída: si otra persona lo ha
+ * cambiado, se avisa en vez de descartar lo que no se ha visto.
+ */
+export async function descartarBorradorAccion(_previo: EstadoFormulario, formData: FormData): Promise<EstadoFormulario> {
+  const usuario = await autorizar();
+  const datos = esquemaDescartar.safeParse({ versionId: formData.get("versionId"), revision: formData.get("revision") });
+  if (!datos.success) return { error: "Petición no válida." };
+  let v;
+  try {
+    v = repo.descartarBorrador(datos.data.versionId, datos.data.revision);
+  } catch (e) {
+    if (e instanceof repo.ConflictoVersion) return { error: e.message };
+    throw e;
+  }
+  await auditar(usuario, "plan_editar", `mes=${v.mes} v${v.numero} borrador descartado (creado por ${v.creadaPor ?? "—"})`);
+  const hayPublicada = repo.versionesMes(v.mes).some((x) => x.estado === "publicada");
+  volver(v.mes, "versiones", "guardado", `Borrador v${v.numero} descartado${hayPublicada ? ": el plan publicado sigue igual" : ""}.`);
+}
+
 // ---------- Ausencias ----------
 
 const esquemaHora = z

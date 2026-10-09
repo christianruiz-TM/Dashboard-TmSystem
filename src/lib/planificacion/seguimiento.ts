@@ -25,7 +25,7 @@ import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
 import { horasCubiertas, saldoAgente, type DiaSaldo, type TotalesSaldo } from "./saldo";
 import type { BloqueTablero } from "./tablero";
-import { cargarTablero } from "./vistas";
+import { cargarTablero, pendientesRevision, type PendienteRevision } from "./vistas";
 
 const fechaLocal = (d: Date) => format(d, "yyyy-MM-dd");
 /** Minuto del día, con decimales (las sesiones de hoy acaban «ahora»). */
@@ -551,13 +551,24 @@ export async function datosHoy(ahora = new Date()): Promise<DatosHoy> {
 }
 
 /**
- * Solo las alertas, para la tarjeta de Supervisión: si algo falla aquí, el
- * resto del panel de Supervisión sigue funcionando.
+ * Las alertas y los planes que ha preparado la tarea de la noche, para la
+ * tarjeta de Supervisión: si algo falla aquí, el resto del panel de
+ * Supervisión sigue funcionando.
  */
-export async function alertasPlanificacion(): Promise<{ alertas: Alerta[]; error: string | null }> {
+export async function alertasPlanificacion(): Promise<{
+  alertas: Alerta[];
+  error: string | null;
+  revisar: PendienteRevision[];
+}> {
+  let revisar: PendienteRevision[] = [];
   try {
-    return { alertas: (await datosHoy()).alertas, error: null };
+    revisar = pendientesRevision();
   } catch (e) {
-    return { alertas: [], error: e instanceof Error ? e.message : "error desconocido" };
+    console.error("[planificacion] pendientes de revisión:", e);
+  }
+  try {
+    return { alertas: (await datosHoy()).alertas, error: null, revisar };
+  } catch (e) {
+    return { alertas: [], error: e instanceof Error ? e.message : "error desconocido", revisar };
   }
 }

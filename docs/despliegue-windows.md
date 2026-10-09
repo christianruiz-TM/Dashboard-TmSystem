@@ -86,6 +86,7 @@ apunta a la raíz del proyecto.)
 | Tarea | Comando | Hora sugerida |
 |---|---|---|
 | Agregados diarios | `cmd /c "cd /d C:\apps\dashboard-tmsystem && npm run agregados"` | 02:00 |
+| Planificación (nocturna) | `cmd /c "cd /d C:\apps\dashboard-tmsystem && npm run planificacion:nocturno"` | 02:15 |
 | Backup SQLite | `cmd /c "cd /d C:\apps\dashboard-tmsystem && npm run backup"` | 02:30 |
 
 Para darlas de alta de una vez (PowerShell **como administrador**, con la
@@ -95,6 +96,8 @@ PATH del sistema, que es lo que hace su instalador):
 ```powershell
 schtasks /Create /TN "Dashboard TmSystem\Agregados" /SC DAILY /ST 02:00 /RU SYSTEM `
   /TR "cmd /c cd /d C:\apps\dashboard-tmsystem && npm run agregados >> logs\agregados.log 2>&1"
+schtasks /Create /TN "Dashboard TmSystem\Planificacion" /SC DAILY /ST 02:15 /RU SYSTEM `
+  /TR "cmd /c cd /d C:\apps\dashboard-tmsystem && npm run planificacion:nocturno >> logs\planificacion.log 2>&1"
 schtasks /Create /TN "Dashboard TmSystem\Backup" /SC DAILY /ST 02:30 /RU SYSTEM `
   /TR "cmd /c cd /d C:\apps\dashboard-tmsystem && npm run backup >> logs\backup.log 2>&1"
 # Probarlas sin esperar a la noche:
@@ -103,6 +106,24 @@ schtasks /Run /TN "Dashboard TmSystem\Agregados"
 
 «Ayer» se calcula en hora local, así que la tarea puede ir a cualquier hora de
 la madrugada (antes, programada antes de las 02:00, se saltaba un día).
+
+La de **planificación** es una sola tarea, diaria e idempotente (se puede
+lanzar dos veces sin duplicar nada). Según la fecha:
+
+1. agregados de planificación hasta ayer, sincronización de usuarios y foto de
+   listas. Si alguna noche no se ejecutó, se pone al día sola (hasta 31 días);
+2. a partir del día `plan.diaGeneracion` (20), borrador del mes siguiente si no
+   tiene ni borrador ni publicada;
+3. los lunes (o la primera noche de la semana en que se ejecute), recálculo de
+   las semanas que aún no han empezado del mes actual y del siguiente. Siempre
+   como borrador: lo publicado no se toca, y supervisión lo ve en «Para
+   revisar» (/planificacion y Supervisión).
+
+Sale con código 1 si algún paso falla; el resultado de la última ejecución se
+ve en /admin («Tarea nocturna de planificación»). Para ver qué haría sin
+escribir nada: `npm run planificacion:nocturno -- --simular`. Si fallan los
+agregados (RDBv2 caída), esa noche no genera ni recalcula; la siguiente lo
+intenta otra vez.
 
 El backup deja copias en `.\backups\` (retención: 30). Incluir esa carpeta en la
 política de copias del servidor.

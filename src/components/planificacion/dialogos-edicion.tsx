@@ -2,7 +2,7 @@
 
 import { useActionState, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { CopyPlus, Send } from "lucide-react";
+import { CopyPlus, Send, Trash2 } from "lucide-react";
 import { SelectNativo } from "@/components/admin/select-nativo";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
@@ -326,7 +326,15 @@ function FormularioNuevo({
   );
 }
 
-function BotonEnviar({ children, disabled, variant = "default" }: { children: React.ReactNode; disabled?: boolean; variant?: "default" | "outline" }) {
+function BotonEnviar({
+  children,
+  disabled,
+  variant = "default",
+}: {
+  children: React.ReactNode;
+  disabled?: boolean;
+  variant?: "default" | "outline" | "destructive";
+}) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" variant={variant} disabled={disabled || pending}>
@@ -454,6 +462,56 @@ export function DialogoPublicar({
           ) : null}
           <DialogFooter>
             <BotonEnviar disabled={!listo}>{n > 0 ? `Publicar con ${n} avisos` : "Publicar"}</BotonEnviar>
+          </DialogFooter>
+        </form>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * «Descartar el borrador»: para quedarse sin sus cambios (por ejemplo, los
+ * que propone la tarea de la noche). Queda como «descartada» en Versiones;
+ * lo publicado no cambia.
+ */
+export function DialogoDescartarBorrador({
+  accion,
+  versionId,
+  numero,
+  revision,
+  hayPublicada,
+}: {
+  accion: AccionFormulario;
+  versionId: number;
+  numero: number;
+  revision: number;
+  hayPublicada: boolean;
+}) {
+  const [estado, enviar] = useActionState(accion, { error: null });
+  return (
+    <Dialog>
+      <DialogTrigger render={<Button variant="outline" />}>
+        <Trash2 /> Descartar el borrador
+      </DialogTrigger>
+      <DialogContent className="sm:max-w-md">
+        <DialogHeader>
+          <DialogTitle>¿Descartar el borrador v{numero}?</DialogTitle>
+          <DialogDescription>
+            Sus cambios no se aplican.{" "}
+            {hayPublicada ? "El plan publicado sigue igual." : "El mes se queda sin borrador: puedes generar otro cuando quieras."} El
+            borrador no se borra: queda en esta lista como «descartada».
+          </DialogDescription>
+        </DialogHeader>
+        <form action={enviar} className="grid gap-3">
+          <input type="hidden" name="versionId" value={versionId} />
+          <input type="hidden" name="revision" value={revision} />
+          {estado.error ? (
+            <Alert variant="destructive">
+              <AlertDescription>{estado.error}</AlertDescription>
+            </Alert>
+          ) : null}
+          <DialogFooter>
+            <BotonEnviar variant="destructive">Descartar</BotonEnviar>
           </DialogFooter>
         </form>
       </DialogContent>

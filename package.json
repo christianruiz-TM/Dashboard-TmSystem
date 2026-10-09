@@ -16,6 +16,7 @@
     "verificar": "tsx scripts/verificar-auditoria.ts",
     "test": "vitest run",
     "planificacion:agregados": "tsx scripts/planificacion-agregados.ts",
+    "planificacion:nocturno": "tsx scripts/planificacion-nocturno.ts",
     "planificacion:semilla": "tsx scripts/planificacion-semilla.ts",
     "planificacion:generar": "tsx scripts/planificacion-generar.ts",
     "planificacion:fixture": "tsx scripts/planificacion-fixture.ts",

@@ -9,6 +9,9 @@ import { estadoAgregados } from "@/lib/db/agregados";
 import { db } from "@/lib/db/sqlite";
 import { clients, users } from "@/lib/db/schema";
 import { saludRdb } from "@/lib/rdb/queries/salud";
+import { fechaCorta } from "@/lib/fechas";
+import { ultimoAgregado } from "@/lib/planificacion/repositorio";
+import { estadoTareaNocturna } from "@/lib/planificacion/vistas";
 
 export const metadata: Metadata = { title: "Administración" };
 export const dynamic = "force-dynamic";
@@ -26,6 +29,8 @@ export default async function PaginaAdmin() {
   await requireRol(); // solo admin; el layout no basta (ver admin/layout.tsx)
   const salud = await saludRdb();
   const agregados = estadoAgregados();
+  const tarea = estadoTareaNocturna();
+  const planHasta = ultimoAgregado();
   const totalUsuarios = db.select({ n: sql<number>`COUNT(*)` }).from(users).get()?.n ?? 0;
   const usuariosActivos =
     db.select({ n: sql<number>`COUNT(*)` }).from(users).where(sql`activo = 1`).get()?.n ?? 0;
@@ -92,6 +97,47 @@ export default async function PaginaAdmin() {
             Para validar el esquema real contra la documentación ejecuta{" "}
             <code className="rounded bg-muted px-1 py-0.5">npm run introspect</code> con las
             credenciales configuradas: genera docs/esquema-real.md.
+          </p>
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader>
+          <CardTitle className="text-base">Tarea nocturna de planificación</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3 text-sm">
+          <div className="flex flex-wrap items-center gap-2">
+            {!tarea ? (
+              <Badge variant="outline">Nunca ejecutada</Badge>
+            ) : tarea.ok ? (
+              <Badge className="bg-emerald-100 text-emerald-800">Correcta</Badge>
+            ) : (
+              <Badge variant="destructive">Con errores</Badge>
+            )}
+            {tarea ? (
+              <span className="text-muted-foreground">
+                {tarea.inicioTexto} ({hace(tarea.inicio)}) · {tarea.segundos.toLocaleString("es-ES")} s
+                {tarea.fechaSimulada ? ` · como si fuera el ${fechaCorta(tarea.hoy)}` : ""}
+              </span>
+            ) : null}
+            <span className="text-muted-foreground">
+              · Datos de planificación hasta: {planHasta ? fechaCorta(planHasta) : "—"}
+            </span>
+          </div>
+          {tarea ? (
+            <ul className="space-y-1">
+              {tarea.pasos.map((p, i) => (
+                <li key={i} className={p.ok ? "" : "text-destructive"}>
+                  {p.ok ? "✔" : "✖"} {p.texto}
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="text-xs text-muted-foreground">
+            Se programa a las 02:15 (<code className="rounded bg-muted px-1 py-0.5">npm run planificacion:nocturno</code>, ver
+            docs/despliegue-windows.md): agregados de ayer, el día 20 el borrador del mes siguiente y los lunes el recálculo de las
+            semanas que no han empezado. Con <code className="rounded bg-muted px-1 py-0.5">--simular</code> dice qué haría sin
+            escribir nada.
           </p>
         </CardContent>
       </Card>

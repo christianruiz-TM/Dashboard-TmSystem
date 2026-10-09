@@ -84,6 +84,13 @@ export interface DatosObjetivo {
   curvaAnterior: Record<string, number> | null;
   /** Horas de contrato que quedan (null = sin tope): el mes no pasa de ahí. */
   topeHoras?: number | null;
+  /**
+   * Horas del cliente ya planificadas entre el día siguiente a los datos y el
+   * primer día de este plan (el resto del mes anterior al generar el
+   * siguiente; el resto de la semana en el recálculo de los lunes). Esas
+   * horas ya trabajan la lista: salen de lo que necesita.
+   */
+  horasYaPlanificadas?: number;
 }
 
 /**
@@ -104,8 +111,14 @@ export function calcularObjetivos(
   // El tope se redondea HACIA ABAJO a la franja: no se planifica más de lo contratado
   const tope =
     datos.topeHoras != null ? Math.max(0, Math.floor(datos.topeHoras / pasoTope + 1e-9) * pasoTope) : null;
-  const horasSinTope =
+  const horasNecesarias =
     cierres != null && datos.ritmo != null ? horasParaCierres(cierres, datos.ritmo, pasoMin) : null;
+  // Lo ya planificado antes de este plan sale de lo que necesita la lista (hacia arriba a la franja)
+  const ya = Math.max(0, datos.horasYaPlanificadas ?? 0);
+  const horasSinTope =
+    horasNecesarias != null && ya > 0
+      ? Math.max(0, Math.ceil((horasNecesarias - ya) / pasoTope - 1e-9) * pasoTope)
+      : horasNecesarias;
   const horasLista = tope != null && horasSinTope != null ? Math.min(horasSinTope, tope) : horasSinTope;
 
   const comun = {
@@ -116,6 +129,7 @@ export function calcularObjetivos(
     ritmo: datos.ritmo != null ? redondear2(datos.ritmo) : null,
     ritmoOrigen: datos.ritmoOrigen,
     horasLista,
+    ...(ya > 0 ? { horasNecesarias, horasYaPlanificadas: redondear2(ya) } : {}),
     ...(tope != null ? { topeContrato: tope, horasSinTope } : {}),
   };
 

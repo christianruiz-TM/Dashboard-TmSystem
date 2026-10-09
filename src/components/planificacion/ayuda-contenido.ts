@@ -69,13 +69,22 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     ],
     queHacer: [
       "Mira que «Estado de los datos» esté en verde.",
-      "Para preparar un mes nuevo, pulsa «Generar borrador» en su fila. Tarda unos segundos.",
+      "Si sale la tarjeta «Para revisar», míralo: es un plan que se ha preparado solo por la noche.",
+      "Para preparar un mes nuevo, pulsa «Generar borrador» en su fila. Tarda unos segundos. Desde el día 20, el del mes siguiente ya está hecho.",
       "Para ver o cambiar un mes, pulsa «Ver tablero».",
     ],
     siPasa: [
       {
         caso: "Sale «Faltan los datos de los últimos días».",
-        haz: "Avisa a TI antes de generar el plan: saldría con datos viejos.",
+        haz: "Los datos se cargan solos cada noche. Si sale esto, avisa a TI antes de generar el plan: saldría con datos viejos.",
+      },
+      {
+        caso: "Sale «Para revisar».",
+        haz: "Por la noche se ha preparado un plan: el borrador del mes siguiente (el día 20) o cambios para las próximas semanas (los lunes). Pulsa el botón de al lado y míralo. Si te parece bien, publícalo; si no, descártalo en «Versiones».",
+      },
+      {
+        caso: "Sale «La actualización de la noche dio un error».",
+        haz: "Avisa a TI. El plan publicado y las alertas siguen funcionando con los datos que ya había.",
       },
       {
         caso: "Una persona sale como «inactiva».",
@@ -270,6 +279,14 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       {
         caso: "Quiero saber qué se cambió.",
         haz: "En «Versiones», el apartado «Cambios» compara dos versiones.",
+      },
+      {
+        caso: "Hay un borrador que no quiero (por ejemplo, el que se preparó por la noche).",
+        haz: "En «Versiones», pulsa «Descartar el borrador». El plan publicado sigue igual y el borrador queda en la lista como «descartada».",
+      },
+      {
+        caso: "Aparece un borrador nuevo de «tarea nocturna».",
+        haz: "Los lunes por la noche se revisan las semanas que aún no han empezado con los datos nuevos. Lo que cambiaste a mano o fijaste, y los días ya empezados, no se tocan. Mira los cambios y decide si publicarlo.",
       },
     ],
   },
@@ -539,7 +556,7 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
       "En Planificación, mira que «Estado de los datos» esté en verde.",
       "Apunta las ausencias del mes (vacaciones, libranzas, RTO…).",
       "En «Bolsas y objetivos», confirma la bolsa de GH y revisa los objetivos.",
-      "Vuelve a Planificación y pulsa «Generar borrador» en la fila del mes.",
+      "Vuelve a Planificación y pulsa «Generar borrador» en la fila del mes. (Desde el día 20, el del mes siguiente ya está hecho: si cambiaste ausencias o bolsas, vuelve a generarlo con «Respetar mis cambios».)",
       "Revisa el tablero y cambia lo que haga falta. Pulsa «Guardar cambios».",
       "Pulsa «Publicar…».",
     ],
@@ -647,6 +664,18 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
     tema: "publicar",
     palabras: "diferencias cambios historial quien",
     pasos: ["Abre el mes y entra en «Versiones y cambios».", "En «Cambios», elige las dos versiones que quieres comparar."],
+  },
+  {
+    id: "revisar-noche",
+    pregunta: "Revisar el plan que se ha preparado por la noche",
+    tema: "publicar",
+    palabras: "para revisar noche automatico lunes dia 20 propuesta borrador descartar tarea nocturna",
+    pasos: [
+      "En Planificación (o en Supervisión), mira «Para revisar».",
+      "Pulsa «Ver los cambios»: sale qué cambia, persona a persona, frente al plan publicado. Si es un mes nuevo, pulsa «Ver el borrador».",
+      "Si te parece bien, abre el borrador, revísalo y pulsa «Publicar…».",
+      "Si no lo quieres, en «Versiones» pulsa «Descartar el borrador». El plan publicado sigue igual.",
+    ],
   },
   {
     id: "bolsa",
@@ -761,6 +790,11 @@ export const PUNTOS_AYUDA = {
   "estado-datos": {
     titulo: "Estado de los datos",
     texto: "Si todo sale en verde, el plan se calculará con datos al día. Si algo sale en amarillo, léelo: dice qué hacer.",
+  },
+  "para-revisar": {
+    titulo: "Para revisar",
+    texto:
+      "Planes preparados solos por la noche: el día 20, el borrador del mes siguiente; los lunes, cambios para las semanas que no han empezado. No cambia nada hasta que alguien los publica.",
   },
   "mapa-cobertura": {
     titulo: "Mapa de GH",

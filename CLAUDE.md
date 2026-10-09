@@ -11,7 +11,7 @@ Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proye
 desarrollo de Christian (Windows 10, `npm run dev`) contra la RDBv2 real; ese
 PC no es el servidor, así que NSSM y las tareas programadas se configuran al
 desplegar (`docs/despliegue-windows.md`). Ramas: `master` (hasta la auditoría
-del 23/09) y `feature/planificacion` (todo lo posterior: planificación F1-F4,
+del 23/09) y `feature/planificacion` (todo lo posterior: planificación F1-F5,
 ayuda para supervisión y la facturación por horas logadas de GH), sin fusionar
 todavía; `master` no tiene nada que no esté en la rama, así que la fusión es
 directa. El repo no tiene remoto git todavía (ni `gh` en este PC). `temp/`
@@ -243,7 +243,7 @@ directa. El repo no tiene remoto git todavía (ni `gh` en este PC). `temp/`
   `docs/plan-planificacion.md`; F1 = datos y motor y F2 = tablero de solo
   lectura, «Generar» y configuración, hechas el 30/09/2026; F3 = edición,
   ausencias, bolsas, publicación y versiones, hecha el 01/10/2026; F4 =
-  seguimiento, hecha el 06/10/2026):
+  seguimiento, hecha el 06/10/2026; F5 = tarea nocturna, hecha el 09/10/2026):
   - **Motor PURO** en `src/lib/planificacion/motor/`: sin I/O, sin
     `Date.now()` ni azar, solo date-fns y zod (una regla de ESLint lo impide).
     **No añadirle I/O**: corre también en el navegador (tablero, F2) y en los
@@ -400,6 +400,24 @@ directa. El repo no tiene remoto git todavía (ni `gh` en este PC). `temp/`
       margen); planificado sin conectar tras `plan.minutosAlertaConexion`
       (más de 3 → una alerta con la lista); saliente por debajo de
       `plan.pctAlertaRetraso` en la semana.
+  - **Tarea nocturna (F5)**, `npm run planificacion:nocturno` a las 02:15:
+    `nocturno.ts` (PURO, misma regla de ESLint) decide por fecha y
+    `tarea-nocturna.ts` lo ejecuta. Idempotente y se pone al día sola:
+    agregados desde el último día agregado hasta ayer; desde el día
+    `plan.diaGeneracion` (20), borrador del mes siguiente si no tiene plan;
+    una vez por semana (lunes), recálculo de las semanas que no han empezado
+    (desde el lunes QUE VIENE) del mes actual y del siguiente
+    (`generar.ts::recalcularDesde`): días anteriores copiados tal cual,
+    fijados y manuales respetados, resultado SIEMPRE como borrador (autor
+    «tarea nocturna») y nada si no cambia ningún tramo. Supervisión lo ve en
+    «Para revisar» (/planificacion y tarjeta de Supervisión) y lo publica o
+    lo descarta («Descartar el borrador» en Versiones). Estado en
+    app_settings (`planificacion.nocturno.*`, `planificacion.agregados_hasta`)
+    y en /admin. Con `desde`, el cargador solo reparte objetivos desde ese
+    día y descuenta lo ya planificado antes (`horasYaPlanificadas`), también
+    al generar el mes siguiente. Probarla SIEMPRE sobre una copia
+    (`SQLITE_PATH=<copia>`; la variable de entorno manda sobre el `.env`) o
+    con `--simular`.
   - **Importar un mes hecho en Excel** (`importar-excel.ts`): el cliente sale
     del COLOR de la celda (`COLORES_PLANTILLA`); entra como versión publicada
     con origen `importada` y sus ausencias. Septiembre de 2026 está importado
@@ -441,6 +459,11 @@ directa. El repo no tiene remoto git todavía (ni `gh` en este PC). `temp/`
   sincroniza usuarios de agente y hace la foto de listas (`--sin-foto` la
   omite). Backfill completo hecho el 30/09/2026: 70 lotes en 63,5 s, consulta
   más lenta 0,7 s.
+- `npm run planificacion:nocturno [-- --simular] [--hoy D] [--forzar-recalculo]`
+  — la tarea nocturna de planificación (F5): agregados, borrador del mes
+  siguiente desde el día 20 y recálculo de los lunes. `--simular` dice qué
+  haría (con los tramos que cambiarían) sin escribir nada; `--hoy` simula otra
+  fecha (sin foto de listas). Sale con 1 si falla algún paso.
 - `npm run planificacion:generar -- --mes 2026-11 [--hasta-datos D] [--guardar [--reemplazar]]`
   — ejecuta el motor e imprime resumen y avisos; con `--guardar` crea el borrador.
 - `npm run planificacion:fixture -- --mes 2026-10 --hasta-datos 2026-09-28` —
@@ -623,7 +646,8 @@ backups, incidencias y pendientes) en `docs/registro-sesion-01-06-octubre-2026.m
       SQLite de `.env` (la 0005 entró así, sin backup): con una migración
       pendiente, `npm run backup` ANTES de compilar.
 - [ ] Pendiente de supervisión: fecha límite de publicación, contrato de
-      1008 y compartir la guía de Claude Docs. Siguiente fase: F5.
+      1008 y compartir la guía de Claude Docs. ~~Siguiente fase: F5~~ hecha
+      el 09/10/2026 (ver «Estado de F5» en `docs/plan-planificacion.md`).
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
@@ -631,10 +655,11 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 
 1. Tests de oro (F2): convertir `npm run verificar` en asserts contra las
    queries SSMS de Christian. El runner (Vitest) ya existe desde el 30/09/2026.
-2. Programar `npm run agregados` (02:00) y `npm run backup` (02:30) como
-   tareas nocturnas en el SERVIDOR (comandos `schtasks` listos en
-   `docs/despliegue-windows.md`). El histórico ya está recalculado entero
-   (29/09/2026) y el backup se ha ejecutado a mano; falta solo programarlos.
+2. Programar `npm run agregados` (02:00), `npm run planificacion:nocturno`
+   (02:15) y `npm run backup` (02:30) como tareas nocturnas en el SERVIDOR
+   (comandos `schtasks` listos en `docs/despliegue-windows.md`). El histórico
+   ya está recalculado entero (29/09/2026) y el backup se ha ejecutado a mano;
+   falta solo programarlos.
 3. Degradación elegante cuando RDBv2 no responde (hoy: `ConnectionError` de
    Next sin más). `error.tsx` por vista + banner de salud visible (ya existe
    `saludRdb()`, solo lo ve /admin).
@@ -658,10 +683,12 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 `feature/planificacion`): plan por fases F1-F6 en `docs/plan-planificacion.md`.
 F1 (datos y motor) y F2 (tablero de solo lectura, «Generar borrador» y
 configuración) hechas el 30/09/2026 y F3 (edición, ausencias, bolsas,
-publicación y versiones) el 01/10/2026 y F4 (seguimiento: Hoy, adherencia,
-saldo real, alertas y cierre de mes) el 06/10/2026; sus resultados y
-desviaciones están en las secciones «Estado de F1…F4» de ese documento.
-Siguiente: F5 (tarea nocturna única). Cubre también parte de la mejora 4
+publicación y versiones) el 01/10/2026, F4 (seguimiento: Hoy, adherencia,
+saldo real, alertas y cierre de mes) el 06/10/2026 y F5 (tarea nocturna
+única) el 09/10/2026; sus resultados y desviaciones están en las secciones
+«Estado de F1…F5» de ese documento. Queda F6 (opcionales: simulaciones,
+exportar a Excel/PDF, «Mi horario» .ics) y programar la tarea en el
+servidor al desplegar. Cubre también parte de la mejora 4
 (alertas de planificación) y la 5 (curva intradía: la tabla
 `agg_hora_servicio` de su F1). Sus fases F1-F6 son propias del
 módulo; no confundir con las F2/F4/F5 del plan general.

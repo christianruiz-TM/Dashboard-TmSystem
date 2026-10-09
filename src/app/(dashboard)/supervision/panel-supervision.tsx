@@ -20,6 +20,7 @@ import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
 import { TarjetaAlertasPlan } from "@/components/planificacion/alertas-plan";
 import type { Alerta } from "@/lib/planificacion/alertas";
+import type { PendienteRevision } from "@/lib/planificacion/vistas";
 import { horasDesdeSegundos, segundosLegibles } from "@/lib/fechas";
 import type { AgenteEstado, AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
 import { cn } from "@/lib/utils";
@@ -30,7 +31,7 @@ interface DatosSupervision {
   top: AgenteHoy[];
   ivr: MetricasIvr;
   /** Alertas de planificación (equipo multicliente), independientes del servicio elegido. */
-  plan: { alertas: Alerta[]; error: string | null };
+  plan: { alertas: Alerta[]; error: string | null; revisar?: PendienteRevision[] };
   umbral: number;
   actualizado: string;
 }
@@ -182,7 +183,7 @@ export function PanelSupervision({
         />
       </div>
 
-      <TarjetaAlertasPlan alertas={datos.plan.alertas} error={datos.plan.error} />
+      <TarjetaAlertasPlan alertas={datos.plan.alertas} error={datos.plan.error} revisar={datos.plan.revisar ?? []} />
 
       <TarjetaIvr ivr={datos.ivr} />
 

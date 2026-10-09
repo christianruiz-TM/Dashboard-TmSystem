@@ -644,6 +644,54 @@ Cambios del 08/10/2026 (Christian):
 - **Riesgos**: que el recálculo pise decisiones humanas (mitigado: nunca toca publicado ni fijado sin pasar por un borrador).
 - **CLAUDE.md**: la tarea nueva, dentro de «Programar tareas nocturnas» (mejora 2).
 
+#### Estado de F5 (hecha el 08-09/10/2026)
+
+Verificado sobre una COPIA de la SQLite real (la real no se tocó) con RDBv2 real: la tarea con
+`npm run planificacion:nocturno` y las pantallas con `next build` + `next start` en el puerto 3100,
+Chrome sin ventana (CDP) y usuarios de prueba de cada rol.
+
+- **Archivos**: `nocturno.ts` (PURO, misma regla de ESLint que el motor: qué toca cada noche,
+  componer el recálculo), `tarea-nocturna.ts` (lo ejecuta), `agregados.ts` (el bucle de
+  `planificacion:agregados`, ahora compartido), `generar.ts::recalcularDesde`, el script
+  `scripts/planificacion-nocturno.ts` y la tarea de las 02:15 en `docs/despliegue-windows.md`.
+- **Decide por fecha y se pone al día sola**: agregados desde el día siguiente al último agregado
+  (como mucho 31 días atrás) hasta ayer; borrador del mes siguiente **desde** el día 20 (si una
+  noche falla, la siguiente lo hace) si no tiene ni borrador ni publicada; recálculo una vez por
+  semana (el lunes o, si esa noche no se ejecutó, la primera de la semana; la primera vez que se
+  ejecuta, solo un lunes). La semana recalculada queda en `planificacion.nocturno.recalculo`.
+  Si fallan los agregados, esa noche no genera ni recalcula.
+- **Recálculo**: desde el lunes QUE VIENE (el lunes a las 02:15 la semana de hoy ya ha empezado),
+  del mes actual y del siguiente si tienen plan; sobre la versión vigente (borrador; si no, la
+  publicada). Los días anteriores se copian TAL CUAL (origen, fijado, quién los editó) con los
+  objetivos con que se planificaron; desde el corte, el motor respeta los bloques fijados y los
+  cambiados a mano. El resultado es siempre un borrador (`origen = recalculo`, autor «tarea
+  nocturna»); si no cambia ningún tramo, no se crea nada (por eso es idempotente).
+- **Objetivos a mitad de mes** (cambio en el cargador, opción `desde`): las semanas anteriores al
+  corte no reciben objetivo y lo planificado entre el día siguiente a los datos y el primer día que
+  se planifica sale de lo que necesita la lista (`horasYaPlanificadas` en `calcularObjetivos`;
+  antes solo se descontaba del tope de contrato). Afecta también a «Generar» del mes siguiente: el
+  resto del mes en curso ya trabaja la lista. Ejemplo real (UGR, datos del 07/10): la lista pide
+  89 h; generar el mes entero dejaba 59 h en las semanas del 12/10 en adelante; el recálculo pone
+  83 h (89 − 6 ya planificadas del 8 al 11/10).
+- **«Último día agregado»** se anota al acabar los agregados (`planificacion.agregados_hasta`):
+  los fines de semana no dejan filas de sesiones ni de cierres, y con solo las tablas el domingo
+  y el lunes parecía que faltaba el viernes o el sábado («Faltan los datos» en /planificacion).
+- **Pantallas**: tarjeta «Para revisar» en /planificacion (solo quien edita) y dentro de
+  «Alertas de planificación» de Supervisión: borradores de la tarea nocturna sin publicar ni
+  descartar, con cuántos tramos cambian frente a la publicada. «Descartar el borrador» en
+  Versiones (no existía: sin él, un borrador no querido solo se podía publicar o regenerar).
+  Aviso en «Estado de los datos» si la última ejecución falló. /admin: tarjeta «Tarea nocturna de
+  planificación» con cada paso. Ayuda: casos y tarea «Revisar el plan que se ha preparado por la
+  noche» (sin tocar «¿Qué veo aquí?», para no descuadrar las capturas numeradas).
+- **Aceptación** (sobre la copia): dos ejecuciones seguidas no duplican nada (la segunda solo
+  repite los agregados de ayer; recalcular forzado da «sin cambios»); `--hoy` un lunes recalcula
+  y deja idénticos los 148 bloques anteriores al corte; con `plan.diaGeneracion = 8` crea el
+  borrador de noviembre y la segunda vez no; con la lista de UGR sin vivos en la foto, sus 30
+  tramos futuros pasan a GH, y con datos reales las listas de BD (3 vivos entre las tres) bajan
+  BD de 28 h a 1 h desde el 12/10. Tiempos: 1-2 s por ejecución.
+- **Pendiente**: programarla en el servidor al desplegar (la tarea sola no corre en el equipo de
+  desarrollo).
+
 ### F6 · Opcionales
 
 - **Simulaciones «¿y si?»**: versiones `simulacion` que no se pueden publicar, con comparación de resúmenes.

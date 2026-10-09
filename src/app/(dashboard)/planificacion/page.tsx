@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Activity, AlertTriangle, CheckCircle2, Settings } from "lucide-react";
+import { Activity, AlertTriangle, CheckCircle2, Eye, Settings } from "lucide-react";
 import { BotonAyuda } from "@/components/planificacion/ayuda";
 import { BotonGenerar } from "@/components/planificacion/boton-generar";
 import { Badge } from "@/components/ui/badge";
@@ -10,7 +10,13 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { puedeEditarPlan, requireRol, ROLES_PLAN_LECTURA } from "@/lib/auth/rbac";
 import { fechaCorta, hoyISO, horasLegibles } from "@/lib/fechas";
 import { nombreMes } from "@/lib/planificacion/tablero";
-import { estadoEntrada, resumenMeses, type ResumenVersion } from "@/lib/planificacion/vistas";
+import {
+  estadoEntrada,
+  estadoTareaNocturna,
+  pendientesRevision,
+  resumenMeses,
+  type ResumenVersion,
+} from "@/lib/planificacion/vistas";
 import { generarBorradorAccion } from "./acciones";
 import { PuntoAyuda } from "@/components/planificacion/punto-ayuda";
 
@@ -50,6 +56,9 @@ export default async function PaginaPlanificacion() {
   const editar = puedeEditarPlan(usuario.rol);
   const meses = resumenMeses();
   const e = estadoEntrada();
+  // Lo que hay que publicar o descartar: solo para quien puede hacerlo
+  const pendientes = editar ? pendientesRevision() : [];
+  const tarea = estadoTareaNocturna();
   const quien = (numero: string, nombre: string | null) => (nombre ? `${numero} ${nombre}` : numero);
   const cuantos = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
@@ -97,9 +106,14 @@ export default async function PaginaPlanificacion() {
               }
             >
               {e.caducados
-                ? "Faltan los datos de los últimos días: avisa a TI antes de generar el plan (npm run planificacion:agregados)."
+                ? "Faltan los datos de los últimos días (se cargan solos cada noche): avisa a TI antes de generar el plan."
                 : null}
             </Aviso>
+            {tarea && !tarea.ok ? (
+              <Aviso ok={false} titulo={`La actualización de la noche (${tarea.inicioTexto}) dio un error`}>
+                Avisa a TI. Mientras tanto, el plan y las alertas siguen funcionando con los datos que ya había.
+              </Aviso>
+            ) : null}
             <Aviso
               ok={e.prefijosSinCliente.length === 0}
               titulo={
@@ -177,6 +191,30 @@ export default async function PaginaPlanificacion() {
           </ul>
         </CardContent>
       </Card>
+
+      {pendientes.length > 0 ? (
+        <Card className="border-amber-300">
+          <CardHeader>
+            <CardTitle className="text-base">
+              Para revisar
+              <PuntoAyuda id="para-revisar" />
+            </CardTitle>
+            <CardDescription>Planes que se han preparado solos por la noche. Nada cambia hasta que alguien los publica.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <ul className="space-y-3 text-sm">
+              {pendientes.map((p) => (
+                <li key={`${p.mes}-${p.numero}`} className="flex flex-wrap items-start justify-between gap-2">
+                  <span className="min-w-0 flex-1">{p.texto}</span>
+                  <Button variant="outline" size="sm" render={<Link href={p.enlace.href} />}>
+                    <Eye /> {p.enlace.etiqueta}
+                  </Button>
+                </li>
+              ))}
+            </ul>
+          </CardContent>
+        </Card>
+      ) : null}
 
       <Card>
         <CardHeader>

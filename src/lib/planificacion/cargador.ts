@@ -43,6 +43,12 @@ export interface OpcionesCarga {
   hastaDatos?: string;
   /** Bloques que el motor debe respetar tal cual (regenerar «respetando mis cambios»). */
   fijados?: BloqueEntrada[];
+  /**
+   * Primer día que se planifica (recálculo de los lunes): las semanas
+   * anteriores no reciben objetivo, porque sus bloques se conservan de la
+   * versión de partida. Por defecto, el día 1 del mes.
+   */
+  desde?: string;
 }
 
 const r4 = (x: number) => Math.round(x * 10_000) / 10_000;
@@ -56,6 +62,10 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
   const inicioMes = fechasMes[0];
   const finMes = fechasMes[fechasMes.length - 1];
   const mesAnterior = desplazarMes(mes, -1);
+  if (opciones.desde != null && (opciones.desde < inicioMes || opciones.desde > finMes)) {
+    throw new Error(`El primer día a planificar (${opciones.desde}) no es de ${mes}`);
+  }
+  const inicioPlan = opciones.desde ?? inicioMes;
 
   // Ventanas de datos: semanas COMPLETAS que acaban en el último domingo
   const finVentana = ultimoDomingo(fechaDatos);
@@ -259,15 +269,25 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
     }
 
     const semanasObjetivo = semanas.map((s) => {
-      const validas = dias.filter((d) => d.lunes === s.lunes && (pc.fechaFin == null || d.fecha <= pc.fechaFin));
+      const validas = dias.filter(
+        (d) => d.lunes === s.lunes && d.fecha >= inicioPlan && (pc.fechaFin == null || d.fecha <= pc.fechaFin),
+      );
       return {
         lunes: s.lunes,
         laborables: validas.filter((d) => d.laborable).length,
         diasEntreSemana: validas.filter((d) => d.diaSemana < 5).length,
       };
     });
+    // Lo planificado (versión vigente) entre el día siguiente a los datos y el
+    // primer día de este plan: el resto del mes anterior al generar el
+    // siguiente, o el resto de la semana en el recálculo. Ya trabaja la lista
+    // y ya gasta contrato.
+    const comprometidas = [
+      ...repo.horasPlanificadasCliente(c.codigo, sumarDias(fechaDatos, 1), sumarDias(inicioPlan, -1)).values(),
+    ].reduce((a, h) => a + h, 0);
+
     // Horas contratadas: el mes no pasa de lo que queda (contratadas − trabajadas
-    // desde el inicio del contrato − lo ya planificado en meses anteriores a este)
+    // desde el inicio del contrato − lo ya planificado antes de este plan)
     let topeHoras: number | null = null;
     let consumo: { consumidas: number; comprometidas: number } | null = null;
     if (pc.horasContratadas != null) {
@@ -281,16 +301,23 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
       } else {
         const consumidas =
           pc.inicioContrato <= fechaDatos ? (horasPorCliente(pc.inicioContrato, fechaDatos).get(c.codigo) ?? 0) : 0;
-        const comprometidas = [
-          ...repo.horasPlanificadasCliente(c.codigo, sumarDias(fechaDatos, 1), sumarDias(inicioMes, -1)).values(),
-        ].reduce((a, h) => a + h, 0);
         consumo = { consumidas, comprometidas };
         topeHoras = Math.max(0, pc.horasContratadas - consumidas - comprometidas);
       }
     }
 
     const calculados = calcularObjetivos(
-      { cliente: c.codigo, parametros: pc, total, vivos, ritmo, ritmoOrigen, curvaAnterior, topeHoras },
+      {
+        cliente: c.codigo,
+        parametros: pc,
+        total,
+        vivos,
+        ritmo,
+        ritmoOrigen,
+        curvaAnterior,
+        topeHoras,
+        horasYaPlanificadas: comprometidas,
+      },
       semanasObjetivo,
       p.pasoMin,
     );

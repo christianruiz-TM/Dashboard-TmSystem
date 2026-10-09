@@ -9,12 +9,13 @@ const eslintConfig = defineConfig([
   // date-fns y zod. Así corre igual en el servidor, en los tests y en el
   // navegador (tablero). Ver src/lib/planificacion/motor/tipos.ts. El modelo
   // de vista del tablero (tablero.ts), la edición (edicion.ts, que el
-  // servidor repite al guardar) y el seguimiento (adherencia, saldo y
-  // alertas) siguen las mismas reglas.
+  // servidor repite al guardar), el seguimiento (adherencia, saldo y
+  // alertas) y las decisiones de la tarea nocturna (nocturno.ts) siguen las
+  // mismas reglas.
   {
     files: [
       "src/lib/planificacion/motor/**/*.ts",
-      "src/lib/planificacion/{tablero,edicion,adherencia,saldo,alertas}.ts",
+      "src/lib/planificacion/{tablero,edicion,adherencia,saldo,alertas,nocturno}.ts",
     ],
     rules: {
       "no-restricted-imports": [

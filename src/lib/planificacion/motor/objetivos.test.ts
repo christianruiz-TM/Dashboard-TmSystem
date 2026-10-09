@@ -149,4 +149,28 @@ describe("objetivos", () => {
     );
     expect(ceff.map((o) => o.horas)).toEqual([2, 4, 1, 0, 0]);
   });
+
+  it("lo ya planificado antes del plan sale de la lista; las semanas sin días que planificar no reciben nada", () => {
+    const datos = {
+      cliente: "UGR",
+      parametros: { pctVivosObjetivo: 28.32, horasSemanaFijas: null, curva: "uniforme" as const },
+      total: 6177,
+      vivos: 4310,
+      ritmo: 12,
+      ritmoOrigen: "medido" as const,
+      curvaAnterior: null,
+    };
+    // Recálculo del lunes 12/10 desde el 19/10: las semanas ya empezadas no cuentan
+    const desde19 = SEMANAS_OCTUBRE.map((s) => (s.lunes < "2026-10-19" ? { ...s, laborables: 0, diasEntreSemana: 0 } : s));
+    const r = calcularObjetivos({ ...datos, horasYaPlanificadas: 30 }, desde19, 60);
+    expect(r.map((o) => o.horas)).toEqual([0, 0, 0, 92, 92]); // 214 − 30 = 184 h
+    expect(r[3].detalle).toMatchObject({ horasNecesarias: 214, horasYaPlanificadas: 30, horasLista: 184 });
+    // Media hora suelta ya planificada: lo que queda se redondea hacia arriba a la franja
+    expect(calcularObjetivos({ ...datos, horasYaPlanificadas: 29.5 }, desde19, 60).reduce((a, o) => a + o.horas, 0)).toBe(185);
+    // Con más planificado que lo que pide la lista, nada; y el tope de contrato sigue mandando
+    expect(calcularObjetivos({ ...datos, horasYaPlanificadas: 300 }, desde19, 60).every((o) => o.horas === 0)).toBe(true);
+    expect(calcularObjetivos({ ...datos, horasYaPlanificadas: 30, topeHoras: 120 }, desde19, 60).reduce((a, o) => a + o.horas, 0)).toBe(120);
+    // Sin nada planificado antes, el detalle no cambia
+    expect(calcularObjetivos(datos, SEMANAS_OCTUBRE, 60)[0].detalle).not.toHaveProperty("horasYaPlanificadas");
+  });
 });

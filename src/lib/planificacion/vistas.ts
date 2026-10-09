@@ -19,9 +19,10 @@ import {
   type Gravedad,
   type ResumenMotor,
 } from "./motor";
+import { AUTOR_NOCTURNO } from "./nocturno";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
-import { contarGravedades, type BloqueTablero, type DatosTablero, type VersionTablero } from "./tablero";
+import { contarGravedades, fechaDiaMes, nombreMes, type BloqueTablero, type DatosTablero, type VersionTablero } from "./tablero";
 
 /** Fecha y hora LOCALES (nunca toISOString: daría UTC, regla 14). */
 const fechaHora = (d: Date | null) => (d ? format(d, "dd/MM/yyyy HH:mm") : null);
@@ -101,6 +102,69 @@ export function resumenMeses(): FilaMes[] {
       generable: generables.includes(mes),
     };
   });
+}
+
+/** Borrador que ha preparado la tarea de la noche y espera que supervisión lo mire. */
+export interface PendienteRevision {
+  mes: string;
+  numero: number;
+  /** Texto para supervisión, en lenguaje sencillo. */
+  texto: string;
+  enlace: { href: string; etiqueta: string };
+}
+
+/**
+ * Borradores preparados por la tarea nocturna (el del día 20 y los del
+ * recálculo de los lunes) que nadie ha publicado ni descartado. Salen en
+ * /planificacion y en la tarjeta de Supervisión hasta que se publican, se
+ * descartan o alguien los vuelve a generar.
+ */
+export function pendientesRevision(): PendienteRevision[] {
+  const versiones = repo.listarVersiones();
+  return versiones
+    .filter((v) => v.estado === "borrador" && v.creadaPor === AUTOR_NOCTURNO)
+    .sort((a, b) => a.mes.localeCompare(b.mes))
+    .map((v) => {
+      const mes = nombreMes(v.mes);
+      const cuando = v.creadaAt ? `el ${format(v.creadaAt, "dd/MM")}` : "esta noche";
+      const publicada = versiones.find((x) => x.mes === v.mes && x.estado === "publicada");
+      const base = { mes: v.mes, numero: v.numero };
+      if (!publicada) {
+        return {
+          ...base,
+          texto:
+            v.origen === "recalculo"
+              ? `${mes}: el borrador se puso al día ${cuando} con los datos nuevos (lo que cambiaste a mano se ha respetado). Revísalo y publícalo.`
+              : `${mes}: el borrador del mes está preparado desde ${cuando}. Revísalo y publícalo.`,
+          enlace: { href: `/planificacion/${v.mes}`, etiqueta: "Ver el borrador" },
+        };
+      }
+      const cambios = diffPlanes(repo.bloquesVersion(publicada.id), repo.bloquesVersion(v.id));
+      return {
+        ...base,
+        texto:
+          cambios.length === 0
+            ? `${mes}: hay un borrador preparado ${cuando} igual que el plan publicado. Puedes descartarlo.`
+            : `${mes}: la revisión de los lunes preparó ${cuando} un borrador con ${cambios.length} ` +
+              `${cambios.length === 1 ? "cambio" : "cambios"} respecto al plan publicado, a partir del ${fechaDiaMes(cambios[0].fecha)}. ` +
+              "Míralos y, si te parecen bien, publícalos; si no, descarta el borrador.",
+        enlace: { href: `/planificacion/${v.mes}/versiones`, etiqueta: "Ver los cambios" },
+      };
+    });
+}
+
+/** Última ejecución de la tarea nocturna, con la hora en texto local. */
+export function estadoTareaNocturna() {
+  const e = repo.leerEjecucionNocturna();
+  if (!e) return null;
+  const inicio = new Date(e.inicio);
+  return {
+    ...e,
+    inicioTexto: fechaHora(inicio)!,
+    segundos: Math.round((Date.parse(e.fin) - inicio.getTime()) / 100) / 10,
+    /** Se ejecutó para otra fecha (con --hoy). Fecha LOCAL del inicio, nunca la del ISO (UTC). */
+    fechaSimulada: e.hoy !== format(inicio, "yyyy-MM-dd"),
+  };
 }
 
 export interface EstadoEntrada {

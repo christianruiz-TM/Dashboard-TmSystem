@@ -1,9 +1,10 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { SelectNativo } from "@/components/admin/select-nativo";
 import { CabeceraMes } from "@/components/planificacion/cabecera-mes";
-import { BotonBorradorDesdePublicada } from "@/components/planificacion/dialogos-edicion";
+import { BotonBorradorDesdePublicada, DialogoDescartarBorrador } from "@/components/planificacion/dialogos-edicion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -14,7 +15,7 @@ import { diaSemana, rangoCorto } from "@/lib/planificacion/motor";
 import * as repo from "@/lib/planificacion/repositorio";
 import { diaCorto, fechaDiaMes, nombreMes, saldoTexto } from "@/lib/planificacion/tablero";
 import { datosVersionesMes, type FilaVersion } from "@/lib/planificacion/vistas";
-import { crearBorradorDesdePublicadaAccion } from "../acciones";
+import { crearBorradorDesdePublicadaAccion, descartarBorradorAccion } from "../acciones";
 
 export const metadata: Metadata = { title: "Versiones del plan" };
 export const dynamic = "force-dynamic";
@@ -57,7 +58,7 @@ export default async function PaginaVersiones({
   searchParams,
 }: {
   params: Promise<{ mes: string }>;
-  searchParams: Promise<{ a?: string; b?: string }>;
+  searchParams: Promise<{ a?: string; b?: string; msg?: string; detalle?: string }>;
 }) {
   const usuario = await requireRol(...ROLES_PLAN_LECTURA);
   const { mes } = await params;
@@ -69,7 +70,8 @@ export default async function PaginaVersiones({
   const colores = new Map(repo.leerClientesTodos().map((c) => [c.codigo, c.color]));
   const numero = (versionId: number) => versiones.find((v) => v.id === versionId)?.numero;
   const publicada = versiones.find((v) => v.estado === "publicada");
-  const hayBorrador = versiones.some((v) => v.estado === "borrador");
+  const borrador = versiones.find((v) => v.estado === "borrador");
+  const hayBorrador = borrador != null;
 
   // Cambios agrupados por día
   const porDia = new Map<string, NonNullable<typeof diff>["cambios"]>();
@@ -83,12 +85,22 @@ export default async function PaginaVersiones({
         ayuda="versiones"
         seccion="/versiones"
         titulo="Versiones y cambios"
-        descripcion="Ciclo de una versión: borrador → publicada → sustituida (cuando se publica otra). Regenerar deja el borrador anterior como «descartada». Una publicada no se edita: se crea un borrador nuevo a partir de ella."
+        descripcion="Ciclo de una versión: borrador → publicada → sustituida (cuando se publica otra). Regenerar o descartar deja el borrador como «descartada». Una publicada no se edita: se crea un borrador nuevo a partir de ella. Los lunes por la noche, la tarea automática puede proponer cambios en un borrador nuevo."
       >
         {editar && publicada && !hayBorrador ? (
           <BotonBorradorDesdePublicada accion={crearBorradorDesdePublicadaAccion} versionId={publicada.id} numero={publicada.numero} />
         ) : null}
+        {editar && borrador ? (
+          <DialogoDescartarBorrador
+            accion={descartarBorradorAccion}
+            versionId={borrador.id}
+            numero={borrador.numero}
+            revision={borrador.revision}
+            hayPublicada={publicada != null}
+          />
+        ) : null}
       </CabeceraMes>
+      <AvisoMsg msg={sp.msg} detalle={sp.detalle} />
 
       <Card>
         <CardHeader>
