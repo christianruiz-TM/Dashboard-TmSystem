@@ -125,7 +125,22 @@ function valorOrden(a: RatiosAgente, clave: ClaveOrden): number | string | null 
   return clave === "agente" ? a.nombre : a[clave];
 }
 
-export function RatiosExito({ ratios, periodo }: { ratios: ResultadoRatios; periodo: string }) {
+/** Variación relativa en % (null sin base), como el resto de tarjetas de Dirección. */
+function variacion(actual: number | null, anterior: number | null | undefined): number | null {
+  if (actual == null || anterior == null || anterior === 0) return null;
+  return ((actual - anterior) / anterior) * 100;
+}
+
+export function RatiosExito({
+  ratios,
+  periodo,
+  anterior,
+}: {
+  ratios: ResultadoRatios;
+  periodo: string;
+  /** Totales del período comparable anterior (Dirección): pinta la variación. */
+  anterior?: ResultadoRatios["total"];
+}) {
   const [orden, setOrden] = useState<{ clave: ClaveOrden; desc: boolean } | null>(null);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const t = ratios.total;
@@ -188,21 +203,25 @@ export function RatiosExito({ ratios, periodo }: { ratios: ResultadoRatios; peri
           <TarjetaKpi
             titulo="Conversión (contactos)"
             valor={pct(t.convContactosPct)}
+            variacionPct={variacion(t.convContactosPct, anterior?.convContactosPct)}
             sub={`${entero(t.exitos)} éxitos de ${entero(t.contactos)} contactos`}
           />
           <TarjetaKpi
             titulo="Conversión (atendidas)"
             valor={pct(t.convAtendidasPct)}
+            variacionPct={variacion(t.convAtendidasPct, anterior?.convAtendidasPct)}
             sub={`sobre ${entero(t.atendidas)} atendidas`}
           />
           <TarjetaKpi
             titulo="Éxitos por hora logada"
             valor={num2(t.exitosHoraLogada)}
+            variacionPct={variacion(t.exitosHoraLogada, anterior?.exitosHoraLogada)}
             sub={`${horasLegibles(t.horasLogadas)} logadas`}
           />
           <TarjetaKpi
             titulo="Éxitos por hora productiva"
             valor={num2(t.exitosHoraProductiva)}
+            variacionPct={variacion(t.exitosHoraProductiva, anterior?.exitosHoraProductiva)}
             sub={`Tiempo por éxito: ${segundosLegibles(t.segPorExito)}`}
           />
         </div>

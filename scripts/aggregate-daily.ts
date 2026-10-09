@@ -30,7 +30,10 @@ async function main() {
   }
 
   const { metricasDiariasPorCampania } = await import("../src/lib/rdb/queries/facturacion");
-  const { reemplazarMetricasDiarias } = await import("../src/lib/db/agregados");
+  const { ratiosDiariosAgenteCampania } = await import("../src/lib/rdb/queries/ratios-exito");
+  const { reemplazarMetricasDiarias, reemplazarRatiosDiarios } = await import(
+    "../src/lib/db/agregados"
+  );
   const { esMock } = await import("../src/lib/rdb/pool");
   const { ayerISO, esquemaFechaISO } = await import("../src/lib/fechas");
 
@@ -57,8 +60,13 @@ async function main() {
     const fin = sumarDias(inicio, 6) > hasta ? hasta : sumarDias(inicio, 6);
     const filas = await metricasDiariasPorCampania(inicio, fin);
     reemplazarMetricasDiarias(inicio, fin, filas);
+    // Ratios de éxito por usuario y campaña (regla 17), mismos días
+    const ratios = await ratiosDiariosAgenteCampania(inicio, fin);
+    reemplazarRatiosDiarios(inicio, fin, ratios);
     totalFilas += filas.length;
-    console.log(`  ${inicio} → ${fin}: ${filas.length} filas (día×campaña)`);
+    console.log(
+      `  ${inicio} → ${fin}: ${filas.length} filas (día×campaña), ${ratios.length} de ratios (día×usuario×campaña)`,
+    );
     inicio = sumarDias(fin, 1);
   }
 

@@ -221,8 +221,16 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       más**: 6 hilos de CEFF sumaban 1.766 h de las 3.871 h productivas de
       septiembre. Ojo: la tabla de productividad de Supervisión y las horas
       productivas de facturación NO aplican aún ese corte.
-    - Pendiente: Dirección (agregado diario agente × campaña) y objetivos de
-      conversión por campaña con semáforo (más adelante).
+    - **Dirección** (09/10/2026): la misma sección, en vivo para el rango
+      elegido y con variación frente al mes anterior; «Éxitos» y «Conv.
+      contactos» en «Detalle por campaña»; y la gráfica «Conversión 12 meses»
+      desde `agg_daily_agent_campaign` (migración 0006: sumas por día, usuario
+      y campaña; la rellena `npm run agregados`). Backfill del 01/06/2025 al
+      08/10/2026 en 49 s; septiembre cuadra exacto con la consulta en vivo
+      (61.457 contactos, 88.771 atendidas, 5.430 éxitos; solo GH, también).
+    - Pendiente: objetivos de conversión por campaña con semáforo (más
+      adelante). Operaciones aún no ve los ratios (su panel no tiene la
+      sección; Supervisión y Dirección piden sus propios roles).
 
 ## Referencia del esquema RDBv2
 
@@ -510,7 +518,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 - `npm run agregados [-- --desde 2026-01-01 --hasta 2026-01-31]` — agregados diarios
   (sin argumentos: ayer, en hora local). Cada lote de 7 días REEMPLAZA sus días
   enteros, así que re-ejecutar un rango lo deja idéntico a RDBv2. Recalculado
-  entero el 29/09/2026 (01/06/2025 → 28/09/2026, 37 s).
+  entero el 29/09/2026 (01/06/2025 → 28/09/2026, 37 s). Desde el 09/10/2026
+  rellena también `agg_daily_agent_campaign` (ratios de éxito, regla 17) en
+  los mismos lotes: 16 meses en 49 s.
 - `npm run backup` — backup consistente del SQLite a `./backups/`
 - `npm test` — tests unitarios con Vitest (`vitest.config.mts`, junto al código
   como `*.test.ts`). Vitest 5, que exige Node ≥ 22.12; `@types/node` va en

@@ -17,18 +17,29 @@ export interface SerieLinea {
   color: string; // admite var(--chart-1)
 }
 
-/** Gráfica de líneas genérica (tendencias por fecha). */
+/**
+ * Gráfica de líneas genérica (tendencias por fecha). `sufijo` (p. ej. " %")
+ * muestra los valores con 2 decimales y esa unidad en el eje y en el tooltip.
+ */
 export function GraficaLineas({
   datos,
   ejeX,
   series,
   alto = 280,
+  sufijo,
 }: {
   datos: Record<string, unknown>[];
   ejeX: string;
   series: SerieLinea[];
   alto?: number;
+  sufijo?: string;
 }) {
+  const formato = sufijo
+    ? (v: unknown) =>
+        typeof v === "number"
+          ? `${v.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}${sufijo}`
+          : String(v ?? "—")
+    : undefined;
   return (
     <ResponsiveContainer width="100%" height={alto}>
       <LineChart data={datos} margin={{ top: 8, right: 12, bottom: 0, left: 0 }}>
@@ -39,8 +50,14 @@ export function GraficaLineas({
           stroke="var(--muted-foreground)"
           tickMargin={6}
         />
-        <YAxis tick={{ fontSize: 11 }} stroke="var(--muted-foreground)" width={48} />
+        <YAxis
+          tick={{ fontSize: 11 }}
+          stroke="var(--muted-foreground)"
+          width={sufijo ? 56 : 48}
+          tickFormatter={sufijo ? (v: number) => `${v.toLocaleString("es-ES")}${sufijo}` : undefined}
+        />
         <Tooltip
+          formatter={formato}
           contentStyle={{
             borderRadius: 8,
             border: "1px solid var(--border)",

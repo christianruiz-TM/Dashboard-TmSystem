@@ -1,7 +1,7 @@
 import { conCache, TTL, ttlSegunRango } from "../cache";
-import { mockBaseRatiosExito } from "../mock";
+import { mockBaseRatiosExito, mockRatiosDiarios } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
-import type { BaseRatiosExito, FilaBaseRatios } from "../types";
+import type { BaseRatiosExito, FilaDiariaRatios } from "../types";
 import { calcularRatiosExito, type ResultadoRatios } from "@/lib/ratios-exito";
 import { hoyISO } from "@/lib/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
@@ -55,11 +55,17 @@ export async function campaniasConSinExito(hastaISO: string): Promise<string[]> 
   });
 }
 
-async function baseRatiosCore(
+/**
+ * Contactos, éxitos, atendidas y gestión por usuario y campaña (y por día si
+ * `porDia`). Dos queries separadas que se mezclan aquí: los éxitos se cuentan
+ * en script_session y las atendidas en itr_thread, nunca uniendo las dos.
+ */
+async function filasAgenteCampania(
   desdeISO: string,
   hastaISO: string,
-  campanias?: string[],
-): Promise<BaseRatiosExito> {
+  campanias: string[] | undefined,
+  porDia: boolean,
+): Promise<FilaDiariaRatios[]> {
   const pool = await obtenerPool();
   const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
   const nueva = () => {
@@ -68,13 +74,18 @@ async function baseRatiosCore(
     request.input("hastaExcl", sql.DateTime, hastaExcl);
     return request;
   };
+  // Día en hora local de la centralita (regla 14), como agg_daily_campaign
+  const dia = (alias: string) => (porDia ? `CONVERT(varchar(10), ${alias}.start_time, 23)` : "''");
+  // SQL Server no admite agrupar por una constante: sin día, fuera del GROUP BY
+  const grupoDia = (alias: string) => (porDia ? `${dia(alias)}, ` : "");
 
-  // --- Q1: sesiones de script por usuario y campaña (contactos y éxitos) ---
+  // --- Q1: sesiones de script (contactos y éxitos) ---
   const reqSesiones = nueva();
   const filtroSesiones = filtroCampanias(reqSesiones, campanias, "c.shortname");
   const sesiones = reqSesiones.query(`
     -- business_status: 1=NonQualified · 2=Qualified · 3=Success · 4=Unsuccessful
-    SELECT RTRIM(u.usr_name)  AS agente,
+    SELECT ${dia("s")}        AS fecha,
+           RTRIM(u.usr_name)  AS agente,
            RTRIM(u.fullname)  AS nombre,
            RTRIM(c.shortname) AS campania,
            COUNT(*)           AS sesiones,
@@ -84,10 +95,10 @@ async function baseRatiosCore(
     INNER JOIN ph_e_user   u ON s.e_user   = u.code AND u.type = 1
     INNER JOIN ph_campaign c ON s.campaign = c.code
     WHERE s.start_time >= @desde AND s.start_time < @hastaExcl${filtroSesiones}
-    GROUP BY RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
+    GROUP BY ${grupoDia("s")}RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
   `);
 
-  // --- Q2: atendidas y gestión por usuario y campaña (itr_thread) ---
+  // --- Q2: atendidas y gestión (itr_thread) ---
   const reqHilos = nueva();
   reqHilos.input("maxDecimas", sql.Int, MAX_SEG_HILO * 10);
   const filtroHilos = filtroCampanias(reqHilos, campanias, "c.shortname");
@@ -96,7 +107,8 @@ async function baseRatiosCore(
     -- Los hilos de 2 h o más cuentan como atendidas pero NO como gestión:
     -- CEFF tiene duraciones imposibles (regla 15). Septiembre 2026: 6 hilos
     -- de CEFF sumaban 1.766 h de las 3.871 h productivas de todo el centro.
-    SELECT RTRIM(u.usr_name)  AS agente,
+    SELECT ${dia("t")}        AS fecha,
+           RTRIM(u.usr_name)  AS agente,
            RTRIM(u.fullname)  AS nombre,
            RTRIM(c.shortname) AS campania,
            COUNT(*)           AS atendidas,
@@ -107,14 +119,55 @@ async function baseRatiosCore(
     INNER JOIN ph_campaign c ON t.campaign = c.code
     WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
       AND t.termination_state = 1${filtroHilos}
-    GROUP BY RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
+    GROUP BY ${grupoDia("t")}RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
   `);
+
+  const [rSesiones, rHilos] = await Promise.all([sesiones, hilos]);
+  const filas = new Map<string, FilaDiariaRatios>();
+  const obtener = (f: { fecha: string; agente: string; nombre: string; campania: string }) => {
+    const clave = `${f.fecha}|${f.agente}|${f.campania}`;
+    let fila = filas.get(clave);
+    if (!fila) {
+      fila = {
+        fecha: f.fecha,
+        agente: f.agente,
+        nombre: f.nombre,
+        campania: f.campania,
+        sesiones: 0,
+        exitos: 0,
+        sinExito: 0,
+        atendidas: 0,
+        productivoSeg: 0,
+      };
+      filas.set(clave, fila);
+    }
+    return fila;
+  };
+  for (const f of rSesiones.recordset as FilaDiariaRatios[]) {
+    Object.assign(obtener(f), { sesiones: f.sesiones, exitos: f.exitos, sinExito: f.sinExito });
+  }
+  for (const f of rHilos.recordset as FilaDiariaRatios[]) {
+    Object.assign(obtener(f), { atendidas: f.atendidas, productivoSeg: Number(f.productivoSeg) });
+  }
+  return [...filas.values()];
+}
+
+async function baseRatiosCore(
+  desdeISO: string,
+  hastaISO: string,
+  campanias?: string[],
+): Promise<BaseRatiosExito> {
+  const pool = await obtenerPool();
+  const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+  const reqLogado = pool.request();
+  reqLogado.input("desde", sql.DateTime, desde);
+  reqLogado.input("hastaExcl", sql.DateTime, hastaExcl);
 
   // --- Q3: tiempo logado por usuario (user_log, regla 16) ---
   // user_log no sabe de campañas: es el tiempo del usuario, y como hay un
   // usuario por agente y cliente (regla 15), es su tiempo en ese cliente.
   // Misma unión de sesiones que horasLogadasUsuarios (facturación).
-  const logado = nueva().query(`
+  const logado = reqLogado.query(`
     WITH base AS (
         SELECT l.e_user AS usuario, l.start_time AS ini,
                ${sqlFinIntervalo("l")} AS fin
@@ -130,47 +183,32 @@ async function baseRatiosCore(
     GROUP BY RTRIM(u.usr_name);
   `);
 
-  const [rSesiones, rHilos, rLogado, conSinExito] = await Promise.all([
-    sesiones,
-    hilos,
+  const [filas, rLogado, conSinExito] = await Promise.all([
+    filasAgenteCampania(desdeISO, hastaISO, campanias, false),
     logado,
     campaniasConSinExito(hastaISO),
   ]);
-
-  const filas = new Map<string, FilaBaseRatios>();
-  const obtener = (f: { agente: string; nombre: string; campania: string }) => {
-    const clave = `${f.agente}|${f.campania}`;
-    let fila = filas.get(clave);
-    if (!fila) {
-      fila = {
-        agente: f.agente,
-        nombre: f.nombre,
-        campania: f.campania,
-        sesiones: 0,
-        exitos: 0,
-        sinExito: 0,
-        atendidas: 0,
-        productivoSeg: 0,
-      };
-      filas.set(clave, fila);
-    }
-    return fila;
-  };
-  for (const f of rSesiones.recordset as (FilaBaseRatios & { sesiones: number })[]) {
-    Object.assign(obtener(f), { sesiones: f.sesiones, exitos: f.exitos, sinExito: f.sinExito });
-  }
-  for (const f of rHilos.recordset as FilaBaseRatios[]) {
-    Object.assign(obtener(f), { atendidas: f.atendidas, productivoSeg: Number(f.productivoSeg) });
-  }
   // Las horas de los usuarios sin actividad en el alcance no hacen falta
-  const conActividad = new Set([...filas.values()].map((f) => f.agente));
+  const conActividad = new Set(filas.map((f) => f.agente));
   return {
-    filas: [...filas.values()],
+    filas, // FilaDiariaRatios es una FilaBaseRatios (fecha = '')
     horasLogadas: (rLogado.recordset as { agente: string; horas: number }[]).filter((h) =>
       conActividad.has(h.agente),
     ),
     campaniasConSinExito: conSinExito,
   };
+}
+
+/**
+ * Sumas DIARIAS por usuario y campaña de TODAS las campañas, para el agregado
+ * agg_daily_agent_campaign (npm run agregados). Sin caché: lo llama el job.
+ */
+export async function ratiosDiariosAgenteCampania(
+  desdeISO: string,
+  hastaISO: string,
+): Promise<FilaDiariaRatios[]> {
+  if (esMock()) return mockRatiosDiarios(desdeISO, hastaISO);
+  return filasAgenteCampania(desdeISO, hastaISO, undefined, true);
 }
 
 /** Ratios de éxito de HOY (Supervisión en vivo, cache 60 s). */

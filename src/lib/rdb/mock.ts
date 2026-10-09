@@ -11,6 +11,7 @@ import type {
   EstadoLista,
   FestivosServicio,
   FilaBaseRatios,
+  FilaDiariaRatios,
   HorarioServicio,
   HorasAgenteReales,
   HorasLogadasUsuario,
@@ -460,6 +461,15 @@ export function mockBaseRatiosExito(
     horasLogadas.push({ agente, horas: horas * (1.3 + r() * 0.5) });
   }
   return { filas, horasLogadas, campaniasConSinExito: conSinExito };
+}
+
+/** Ratios por día (para el agregado): la base de cada día por separado. */
+export function mockRatiosDiarios(desde: string, hasta: string): FilaDiariaRatios[] {
+  return listaFechas(desde, hasta).flatMap((fecha) =>
+    factorDia(fecha) < 1
+      ? []
+      : mockBaseRatiosExito(fecha, fecha).filas.map((f) => ({ ...f, fecha })),
+  );
 }
 
 export function mockUnidadesPorCampania(

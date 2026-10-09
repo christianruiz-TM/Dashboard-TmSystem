@@ -9,8 +9,9 @@ import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
+import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { requireRol } from "@/lib/auth/rbac";
-import { estadoAgregados, tendenciaMensual } from "@/lib/db/agregados";
+import { estadoAgregados, tendenciaConversionMensual, tendenciaMensual } from "@/lib/db/agregados";
 import {
   segundosLegibles,
   esquemaRango,
@@ -21,10 +22,13 @@ import {
 import { horasAgenteReales } from "@/lib/rdb/queries/agentes";
 import { unidadesPorCampania } from "@/lib/rdb/queries/facturacion";
 import { volumenPorCampania } from "@/lib/rdb/queries/interacciones";
+import { ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
 import { campaniasEfectivas, listaServicios } from "@/lib/rdb/queries/servicios";
 
 export const metadata: Metadata = { title: "Dirección" };
 export const dynamic = "force-dynamic";
+
+const DOS_DECIMALES: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
 
 /** Variación porcentual entre dos valores (null si no hay base). */
 function variacion(actual: number, anterior: number): number | null {
@@ -66,16 +70,30 @@ export default async function PaginaDireccion({
   const servicios = await listaServicios();
   const camp = await campaniasEfectivas(params.servicio, incluirIvr);
 
-  const [campanias, campaniasAnt, unidades, unidadesAnt, horasReales, horasRealesAnt] =
-    await Promise.all([
-      volumenPorCampania(desde, hasta, camp),
-      volumenPorCampania(anterior.desde, anterior.hasta, camp),
-      unidadesPorCampania(desde, hasta, camp),
-      unidadesPorCampania(anterior.desde, anterior.hasta, camp),
-      horasAgenteReales(desde, hasta, camp),
-      horasAgenteReales(anterior.desde, anterior.hasta, camp),
-    ]);
+  const [
+    campanias,
+    campaniasAnt,
+    unidades,
+    unidadesAnt,
+    horasReales,
+    horasRealesAnt,
+    ratios,
+    ratiosAnt,
+  ] = await Promise.all([
+    volumenPorCampania(desde, hasta, camp),
+    volumenPorCampania(anterior.desde, anterior.hasta, camp),
+    unidadesPorCampania(desde, hasta, camp),
+    unidadesPorCampania(anterior.desde, anterior.hasta, camp),
+    horasAgenteReales(desde, hasta, camp),
+    horasAgenteReales(anterior.desde, anterior.hasta, camp),
+    // Ratios de éxito en vivo, la MISMA consulta que Supervisión (regla 17)
+    ratiosExitoRango(desde, hasta, camp),
+    ratiosExitoRango(anterior.desde, anterior.hasta, camp),
+  ]);
   const tendencia = tendenciaMensual(12, camp);
+  // Conversión mensual desde agg_daily_agent_campaign (hasta ayer)
+  const tendenciaConversion = tendenciaConversionMensual(12, camp);
+  const ratiosPorCampania = new Map(ratios.campanias.map((r) => [r.campania, r]));
   const agregados = estadoAgregados();
 
   // Totales del período y del período comparable anterior
@@ -194,6 +212,30 @@ export default async function PaginaDireccion({
 
         <Card>
           <CardHeader>
+            <CardTitle className="text-base">Conversión 12 meses</CardTitle>
+            <CardDescription>
+              {tendenciaConversion.length === 0
+                ? "Sin agregados de éxitos todavía: se rellenan con «npm run agregados» (tarea de las 02:00)."
+                : "Éxitos ÷ contactos gestionados y ÷ llamadas atendidas, por mes"}
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <GraficaLineas
+              datos={tendenciaConversion.map((t) => ({ ...t }))}
+              ejeX="mes"
+              sufijo=" %"
+              series={[
+                { clave: "convContactosPct", nombre: "Conv. contactos", color: "var(--chart-1)" },
+                { clave: "convAtendidasPct", nombre: "Conv. atendidas", color: "var(--chart-3)" },
+              ]}
+            />
+          </CardContent>
+        </Card>
+      </div>
+
+      <div className="grid gap-6">
+        <Card>
+          <CardHeader>
             <CardTitle className="text-base">Top 10 campañas del período</CardTitle>
             <CardDescription>Volumen de interacciones por origen</CardDescription>
           </CardHeader>
@@ -212,6 +254,8 @@ export default async function PaginaDireccion({
         </Card>
       </div>
 
+      <RatiosExito ratios={ratios} periodo="en el período" anterior={ratiosAnt.total} />
+
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Detalle por campaña</CardTitle>
@@ -226,6 +270,8 @@ export default async function PaginaDireccion({
                   <th className="py-2 pr-4 text-right">Interacciones</th>
                   <th className="py-2 pr-4 text-right">Atendidas</th>
                   <th className="py-2 pr-4 text-right">Abandonadas (entrantes)</th>
+                  <th className="py-2 pr-4 text-right">Éxitos</th>
+                  <th className="py-2 pr-4 text-right">Conv. contactos</th>
                   <th className="py-2 pr-4 text-right">AHT</th>
                   <th className="py-2 text-right">Horas productivas</th>
                 </tr>
@@ -233,6 +279,7 @@ export default async function PaginaDireccion({
               <tbody>
                 {campanias.map((c) => {
                   const u = unidades.find((x) => x.campania === c.campania);
+                  const r = ratiosPorCampania.get(c.campania);
                   return (
                     <tr key={c.campania} className="border-b last:border-0">
                       <td className="py-2 pr-4 font-medium">{c.campania}</td>
@@ -245,6 +292,14 @@ export default async function PaginaDireccion({
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
                         {c.abandonadasInbound.toLocaleString("es-ES")}
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums text-emerald-700">
+                        {(r?.exitos ?? 0).toLocaleString("es-ES")}
+                      </td>
+                      <td className="py-2 pr-4 text-right tabular-nums">
+                        {r?.convContactosPct != null
+                          ? `${r.convContactosPct.toLocaleString("es-ES", DOS_DECIMALES)} %`
+                          : "—"}
                       </td>
                       <td className="py-2 pr-4 text-right tabular-nums">
                         {segundosLegibles(c.ahtSeg)}
@@ -273,6 +328,12 @@ export default async function PaginaDireccion({
           "horasLogadas",
           "horasProductivas",
           "exitos",
+          "contactosGestionados",
+          "conversion",
+          "efectividadCierre",
+          "exitosHora",
+          "tiempoPorExito",
+          "indiceExito",
           "inboundOutbound",
         ]}
       />

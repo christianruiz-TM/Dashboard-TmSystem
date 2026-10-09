@@ -174,6 +174,37 @@ export const aggDailyCampaign = sqliteTable(
   ],
 );
 
+/**
+ * Agregados diarios de los RATIOS DE ÉXITO por usuario de agente y campaña
+ * (regla 17), rellenados por scripts/aggregate-daily.ts junto a
+ * agg_daily_campaign. Alimentan la tendencia de conversión de /direccion.
+ * Los éxitos y contactos salen de script_session (nunca uniendo con hilos);
+ * las atendidas y la gestión, de los hilos de agentes humanos, sin contar
+ * como gestión los de 2 h o más. Solo SUMAS: los ratios se calculan al leer.
+ */
+export const aggDailyAgentCampaign = sqliteTable(
+  "agg_daily_agent_campaign",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    fecha: text("fecha").notNull(), // 'YYYY-MM-DD'
+    agente: text("agente").notNull(), // usr_name
+    nombre: text("nombre"),
+    campaignShortname: text("campaign_shortname").notNull(),
+    sesiones: integer("sesiones").notNull().default(0), // contactos gestionados
+    exitos: integer("exitos").notNull().default(0),
+    sinExito: integer("sin_exito").notNull().default(0),
+    atendidas: integer("atendidas").notNull().default(0),
+    productivoSeg: real("productivo_seg").notNull().default(0),
+    actualizadoAt: integer("actualizado_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [
+    uniqueIndex("uq_agg_ag_camp").on(t.fecha, t.agente, t.campaignShortname),
+    index("idx_agg_ag_camp_fecha").on(t.fecha),
+  ],
+);
+
 /** Auditoría de accesos y acciones sensibles. */
 export const auditLog = sqliteTable(
   "audit_log",

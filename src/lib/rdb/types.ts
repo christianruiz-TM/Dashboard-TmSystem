@@ -149,6 +149,11 @@ export interface FilaBaseRatios {
   productivoSeg: number;
 }
 
+/** Fila de ratios de un día (agg_daily_agent_campaign). `fecha` = '' si no es diaria. */
+export interface FilaDiariaRatios extends FilaBaseRatios {
+  fecha: string;
+}
+
 export interface BaseRatiosExito {
   filas: FilaBaseRatios[];
   /** Tiempo logado (user_log, unión de sesiones) por usuario, sin redondear. */

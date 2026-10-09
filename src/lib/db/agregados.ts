@@ -1,7 +1,7 @@
 import { and, gte, inArray, lte, sql } from "drizzle-orm";
 import { db } from "./sqlite";
-import { aggDailyCampaign } from "./schema";
-import type { MetricaDiariaCampania } from "@/lib/rdb/types";
+import { aggDailyAgentCampaign, aggDailyCampaign } from "./schema";
+import type { FilaDiariaRatios, MetricaDiariaCampania } from "@/lib/rdb/types";
 import { guardarAjuste, obtenerAjuste } from "./settings";
 
 // ============================================================
@@ -109,4 +109,78 @@ export function estadoAgregados(): { ultimaFecha: string | null; ultimaEjecucion
     ultimaFecha: fila?.ultimaFecha ?? null,
     ultimaEjecucion: obtenerAjuste("ultima_agregacion", "") || null,
   };
+}
+
+// ------------------------------------------------------------
+// Ratios de éxito por usuario y campaña (regla 17)
+// ------------------------------------------------------------
+
+/**
+ * REEMPLAZA los días [desde, hasta] de agg_daily_agent_campaign por `filas`,
+ * igual que reemplazarMetricasDiarias: re-ejecutar un rango lo deja idéntico
+ * a RDBv2. `filas` debe traer TODOS los usuarios y campañas del rango.
+ */
+export function reemplazarRatiosDiarios(desde: string, hasta: string, filas: FilaDiariaRatios[]): void {
+  const fuera = filas.find((f) => f.fecha < desde || f.fecha > hasta);
+  if (fuera) throw new Error(`Fila de ratios fuera del rango ${desde}..${hasta}: ${fuera.fecha}`);
+  const ahora = new Date();
+  db.transaction((tx) => {
+    tx.delete(aggDailyAgentCampaign)
+      .where(and(gte(aggDailyAgentCampaign.fecha, desde), lte(aggDailyAgentCampaign.fecha, hasta)))
+      .run();
+    for (const f of filas) {
+      tx.insert(aggDailyAgentCampaign)
+        .values({
+          fecha: f.fecha,
+          agente: f.agente,
+          nombre: f.nombre,
+          campaignShortname: f.campania,
+          sesiones: f.sesiones,
+          exitos: f.exitos,
+          sinExito: f.sinExito,
+          atendidas: f.atendidas,
+          productivoSeg: f.productivoSeg,
+          actualizadoAt: ahora,
+        })
+        .run();
+    }
+  });
+}
+
+export interface TendenciaConversionMes {
+  mes: string; // YYYY-MM
+  contactos: number;
+  atendidas: number;
+  exitos: number;
+  /** Éxitos ÷ contactos y ÷ atendidas, en %, a 2 decimales (null sin base). */
+  convContactosPct: number | null;
+  convAtendidasPct: number | null;
+}
+
+/** Tendencia mensual de la conversión (últimos `meses` meses con agregados). */
+export function tendenciaConversionMensual(meses = 12, campanias?: string[]): TendenciaConversionMes[] {
+  const filtro =
+    campanias && campanias.length > 0
+      ? inArray(aggDailyAgentCampaign.campaignShortname, campanias)
+      : undefined;
+  const mes = sql<string>`substr(${aggDailyAgentCampaign.fecha}, 1, 7)`;
+  const filas = db
+    .select({
+      mes,
+      contactos: sql<number>`SUM(${aggDailyAgentCampaign.sesiones})`,
+      atendidas: sql<number>`SUM(${aggDailyAgentCampaign.atendidas})`,
+      exitos: sql<number>`SUM(${aggDailyAgentCampaign.exitos})`,
+    })
+    .from(aggDailyAgentCampaign)
+    .where(filtro)
+    .groupBy(mes)
+    .orderBy(sql`${mes} DESC`)
+    .limit(meses)
+    .all();
+  const pct = (n: number, d: number) => (d > 0 ? Math.round((n / d) * 10000) / 100 : null);
+  return filas.reverse().map((f) => ({
+    ...f,
+    convContactosPct: pct(f.exitos, f.contactos),
+    convAtendidasPct: pct(f.exitos, f.atendidas),
+  }));
 }
