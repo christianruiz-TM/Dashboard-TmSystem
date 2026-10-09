@@ -2,6 +2,7 @@ import { coincideLike } from "@/lib/planificacion/motor/campanias";
 import type {
   AgenteEstado,
   AgenteHoy,
+  BaseRatiosExito,
   BaseRepartoHorasLogadas,
   CampaniaInfo,
   CierresDia,
@@ -9,6 +10,7 @@ import type {
   EntrantesNoAtendidas,
   EstadoLista,
   FestivosServicio,
+  FilaBaseRatios,
   HorarioServicio,
   HorasAgenteReales,
   HorasLogadasUsuario,
@@ -400,6 +402,64 @@ export function mockAgentesRango(desde: string, hasta: string, campanias?: strin
       };
     })
     .sort((a, b) => b.atendidas - a.atendidas);
+}
+
+/**
+ * Base de ratios de éxito: cada agente trabaja 1-3 campañas, con
+ * conversiones distintas por campaña (para que el índice tenga sentido) y
+ * más atendidas que contactos en algunas (como Bolsas en la real).
+ */
+export function mockBaseRatiosExito(
+  desde: string,
+  hasta: string,
+  campanias?: string[],
+): BaseRatiosExito {
+  const d1 = new Date(`${desde}T00:00:00`).getTime();
+  const d2 = new Date(`${hasta}T00:00:00`).getTime();
+  const dias = Math.max(1, Math.round((d2 - d1) / 86_400_000) + 1);
+  const esHoy = desde === hasta && desde === new Date().toISOString().slice(0, 10);
+  const avance = esHoy ? Math.min(1, Math.max(0.05, (new Date().getHours() - 8) / 12)) : 1;
+  const camps = campaniasFiltradas(campanias);
+  const plantilla =
+    campanias && campanias.length > 0 ? AGENTES_DEMO.slice(0, 4) : AGENTES_DEMO;
+  // La mitad de las campañas «no marcan sin éxito» (como Bolsas)
+  const conSinExito = CAMPANIAS_DEMO.filter((_, i) => i % 2 === 0).map((c) => c.shortname);
+  const filas: FilaBaseRatios[] = [];
+  const horasLogadas: { agente: string; horas: number }[] = [];
+  if (camps.length === 0) return { filas, horasLogadas, campaniasConSinExito: conSinExito };
+
+  for (const agente of plantilla) {
+    const r = rng(`${desde}|${hasta}|ratios|${agente}`);
+    const n = entre(r, 1, Math.min(3, camps.length));
+    let horas = 0;
+    for (let i = 0; i < n; i++) {
+      const c = camps[(entre(r, 0, camps.length - 1) + i) % camps.length];
+      if (filas.some((f) => f.agente === agente && f.campania === c.shortname)) continue;
+      const rc = rng(`conv|${c.shortname}`);
+      const convCampania = 0.02 + rc() * 0.3;
+      const llamadasPorSesion = rc() < 0.4 ? 1.9 : 1;
+      const sesiones = Math.round(entre(r, 8, 45) * dias * avance);
+      const exitos = Math.round(sesiones * convCampania * (0.6 + r() * 0.8));
+      const marca = conSinExito.includes(c.shortname);
+      const sinExito = marca ? Math.round((sesiones - exitos) * (0.2 + r() * 0.3)) : 0;
+      const atendidas = Math.round(sesiones * llamadasPorSesion);
+      const productivoSeg = Math.round(atendidas * (90 + r() * 150));
+      horas += productivoSeg / 3600;
+      filas.push({
+        agente,
+        nombre: `Agente ${agente.charAt(0).toUpperCase()}${agente.slice(1)}`,
+        campania: c.shortname,
+        sesiones,
+        exitos,
+        sinExito,
+        atendidas,
+        productivoSeg,
+      });
+    }
+    // Logado ≈ productivo + pausas y espera en Ready
+    horasLogadas.push({ agente, horas: horas * (1.3 + r() * 0.5) });
+  }
+  return { filas, horasLogadas, campaniasConSinExito: conSinExito };
 }
 
 export function mockUnidadesPorCampania(

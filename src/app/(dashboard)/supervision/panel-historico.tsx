@@ -13,6 +13,8 @@ import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
+import { RatiosExito } from "@/components/kpi/ratios-exito";
+import type { ResultadoRatios } from "@/lib/ratios-exito";
 import { horasDesdeSegundos, segundosLegibles } from "@/lib/fechas";
 import { cn } from "@/lib/utils";
 import type { AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
@@ -34,6 +36,7 @@ export function PanelHistorico({
   kpis,
   agentes,
   ivr,
+  ratios,
   umbral,
   desde,
   hasta,
@@ -45,6 +48,7 @@ export function PanelHistorico({
   kpis: KpiCampaniaHoy[];
   agentes: AgenteHoy[];
   ivr: MetricasIvr;
+  ratios: ResultadoRatios;
   umbral: number;
   desde: string;
   hasta: string;
@@ -244,6 +248,8 @@ export function PanelHistorico({
         </CardContent>
       </Card>
 
+      <RatiosExito ratios={ratios} periodo="en el período" />
+
       <Glosario
         titulo="Supervisión · histórico"
         claves={[
@@ -251,6 +257,12 @@ export function PanelHistorico({
           "recibidas",
           "atendidas",
           "exitos",
+          "contactosGestionados",
+          "conversion",
+          "efectividadCierre",
+          "exitosHora",
+          "tiempoPorExito",
+          "indiceExito",
           "abandono",
           "cola",
           "esperaAbandonadas",

@@ -194,6 +194,36 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         cada cliente y en el export, en columnas propias. Se factura el
         total; el reparto es informativo.
 
+17. **Ratios de éxito (decidido 09/10/2026 con Christian)**: éxito =
+    `script_session.business_status = 3` en todas las campañas; se ven en
+    Supervisión (Tiempo real e Histórico, `components/kpi/ratios-exito.tsx`).
+    SQL en `queries/ratios-exito.ts`; cálculo PURO con tests en
+    `lib/ratios-exito.ts`. Verificado en septiembre 2026:
+    - **Los éxitos se cuentan en `script_session`, NUNCA uniendo con
+      `itr_thread`** (`itr_thread.script_session` liga los dos). En Bolsas,
+      Socios y UGR una sesión agrupa 2-3 llamadas atendidas del mismo
+      agente al mismo contacto (otro teléfono, otro `itr_global`): 46.176
+      atendidas para 24.619 sesiones en Bolsas, y 1.180 sesiones de éxito con
+      2 o más hilos.
+    - Conversión con DOS denominadores: **contactos** (sesiones de script, la
+      que vale para todas las campañas y la del índice) y **atendidas** (la de
+      siempre en GH, donde sale igual). Con atendidas, Bol_0365 daba 1,17 % en
+      vez de 2,03 %.
+    - **Efectividad de cierre** = éxitos ÷ (éxitos + sin éxito), solo en las
+      campañas que han usado el estado 4 en los 90 días anteriores
+      (`campaniasConSinExito`): las 19 de Bolsas, Soc_Avisos y Soc_Incidencias
+      no lo usan y daría siempre el 100 %.
+    - **Índice** = éxitos reales ÷ esperados × 100, siendo esperados = Σ
+      contactos del agente por campaña × conversión de la campaña en el mismo
+      rango y alcance. Con menos de 30 contactos, «muestra pequeña».
+    - Éxitos por hora LOGADA solo por agente (`user_log` de su usuario, regla
+      16); por campaña, por hora PRODUCTIVA, que **descarta los hilos de 2 h o
+      más**: 6 hilos de CEFF sumaban 1.766 h de las 3.871 h productivas de
+      septiembre. Ojo: la tabla de productividad de Supervisión y las horas
+      productivas de facturación NO aplican aún ese corte.
+    - Pendiente: Dirección (agregado diario agente × campaña) y objetivos de
+      conversión por campaña con semáforo (más adelante).
+
 ## Referencia del esquema RDBv2
 
 - `docs/referencia_bbdd_altitude_v85.md` — esquema completo, enumerados, relaciones

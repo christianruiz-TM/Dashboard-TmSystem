@@ -18,6 +18,8 @@ import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
+import { RatiosExito } from "@/components/kpi/ratios-exito";
+import type { ResultadoRatios } from "@/lib/ratios-exito";
 import { TarjetaAlertasPlan } from "@/components/planificacion/alertas-plan";
 import type { Alerta } from "@/lib/planificacion/alertas";
 import type { PendienteRevision } from "@/lib/planificacion/vistas";
@@ -32,6 +34,7 @@ interface DatosSupervision {
   ivr: MetricasIvr;
   /** Alertas de planificación (equipo multicliente), independientes del servicio elegido. */
   plan: { alertas: Alerta[]; error: string | null; revisar?: PendienteRevision[] };
+  ratios: ResultadoRatios;
   umbral: number;
   actualizado: string;
 }
@@ -362,6 +365,8 @@ export function PanelSupervision({
         </CardContent>
       </Card>
 
+      <RatiosExito ratios={datos.ratios} periodo="hoy" />
+
       <Glosario
         titulo="Supervisión · tiempo real"
         claves={[
@@ -371,6 +376,12 @@ export function PanelSupervision({
           "recibidas",
           "atendidas",
           "exitos",
+          "contactosGestionados",
+          "conversion",
+          "efectividadCierre",
+          "exitosHora",
+          "tiempoPorExito",
+          "indiceExito",
           "abandonadas",
           "abandono",
           "cola",

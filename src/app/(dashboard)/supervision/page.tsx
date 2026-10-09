@@ -11,6 +11,7 @@ import {
   kpisCampaniasRango,
   metricasIvr,
 } from "@/lib/rdb/queries/supervision";
+import { ratiosExitoHoy, ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
 import {
   campaniasDeServicio,
   campaniasEfectivas,
@@ -55,10 +56,11 @@ export default async function PaginaSupervision({
       hasta: params.hasta ?? ayer.hasta,
     });
     const { desde, hasta } = rango.success ? rango.data : ayer;
-    const [kpis, agentes, ivr] = await Promise.all([
+    const [kpis, agentes, ivr, ratios] = await Promise.all([
       kpisCampaniasRango(desde, hasta, umbral, camp),
       agentesProductividadRango(desde, hasta, camp),
       metricasIvr(desde, hasta, campServicio),
+      ratiosExitoRango(desde, hasta, camp),
     ]);
     return (
       <div className="space-y-6">
@@ -68,6 +70,7 @@ export default async function PaginaSupervision({
           kpis={kpis}
           agentes={agentes}
           ivr={ivr}
+          ratios={ratios}
           umbral={umbral}
           desde={desde}
           hasta={hasta}
@@ -81,12 +84,13 @@ export default async function PaginaSupervision({
   }
 
   // Tiempo real (hoy, en vivo con polling)
-  const [agentes, kpis, top, ivr, plan] = await Promise.all([
+  const [agentes, kpis, top, ivr, plan, ratios] = await Promise.all([
     estadoAgentes(camp),
     kpisCampaniasHoy(umbral, camp),
     agentesHoy(camp),
     metricasIvr(hoyISO(), hoyISO(), campServicio),
     alertasPlanificacion(),
+    ratiosExitoHoy(camp),
   ]);
   return (
     <div className="space-y-6">
@@ -103,6 +107,7 @@ export default async function PaginaSupervision({
           top,
           ivr,
           plan,
+          ratios,
           umbral,
           actualizado: new Date().toISOString(),
         }}

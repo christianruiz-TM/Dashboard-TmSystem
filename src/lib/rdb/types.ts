@@ -127,6 +127,40 @@ export interface AgenteHoy {
   productivoSeg: number;
 }
 
+/**
+ * Base de los ratios de éxito: una fila por usuario de agente y campaña.
+ * Los éxitos salen SIEMPRE de script_session, nunca contando hilos: en
+ * Bolsas, Socios y UGR una sesión agrupa 2-3 llamadas atendidas del mismo
+ * agente al mismo contacto (otro teléfono, otro itr_global) y contar por
+ * hilo duplicaba éxitos (septiembre 2026: 1.180 sesiones de éxito con 2+
+ * hilos).
+ */
+export interface FilaBaseRatios {
+  agente: string; // usr_name (un usuario por agente y cliente, regla 15)
+  nombre: string;
+  campania: string;
+  /** Sesiones de script = contactos gestionados (cualquier calificación). */
+  sesiones: number;
+  exitos: number; // business_status = 3 (Success)
+  sinExito: number; // business_status = 4 (Unsuccessful)
+  /** Hilos atendidos (termination_state = 1) del agente en la campaña. */
+  atendidas: number;
+  /** Gestión de esas atendidas, en segundos (sin redondear). */
+  productivoSeg: number;
+}
+
+export interface BaseRatiosExito {
+  filas: FilaBaseRatios[];
+  /** Tiempo logado (user_log, unión de sesiones) por usuario, sin redondear. */
+  horasLogadas: { agente: string; horas: number }[];
+  /**
+   * Campañas que usan la calificación «sin éxito» (estado 4). Bolsas y
+   * Soc_Avisos/Soc_Incidencias no la usan: cierran como «no cualificada», y
+   * la efectividad de cierre saldría siempre al 100 %.
+   */
+  campaniasConSinExito: string[];
+}
+
 /** Unidades facturables de una campaña en un rango. */
 export interface UnidadesCampania {
   campania: string;

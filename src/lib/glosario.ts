@@ -92,7 +92,38 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   },
   exitos: {
     termino: "Éxitos / ventas",
-    definicion: "Interacciones marcadas con resultado de venta u objetivo conseguido.",
+    definicion:
+      "Contactos que el agente cerró en el guion con resultado de éxito (venta, cita u objetivo conseguido). Se cuentan por contacto, no por llamada: si un contacto llevó dos llamadas, es un solo éxito.",
+  },
+  contactosGestionados: {
+    termino: "Contactos (gestionados)",
+    definicion:
+      "Contactos que un agente ha trabajado con el guion (cada sesión de script es un contacto, se califique como se califique). Un contacto puede llevar varias llamadas atendidas: en Bolsas, por ejemplo, el agente suele llamar a un teléfono y después a otro del mismo contacto, así que hay casi el doble de atendidas que de contactos.",
+  },
+  conversion: {
+    termino: "Conversión (contactos / atendidas)",
+    definicion:
+      "Qué parte acaba en éxito. «Conv. contactos» = éxitos ÷ contactos gestionados: es la que sirve para comparar todas las campañas. «Conv. atendidas» = éxitos ÷ llamadas atendidas: en campañas con una llamada por contacto, como las de GrupoHuertas, sale prácticamente igual.",
+  },
+  efectividadCierre: {
+    termino: "Efectividad de cierre",
+    definicion:
+      "De los contactos que se han cerrado con un resultado (éxito o sin éxito), qué parte es éxito. Solo se calcula en las campañas que usan la calificación «sin éxito» (en los últimos 90 días): Bolsas y algunas de Socios no la usan y saldrían siempre al 100 %, así que ahí aparece «—».",
+  },
+  exitosHora: {
+    termino: "Éxitos por hora (logada / productiva)",
+    definicion:
+      "Éxitos ÷ horas. «Logada»: todo el tiempo conectado del usuario del agente (de login a logout), por eso solo existe por agente y no por campaña. «Productiva»: el tiempo de gestión de sus llamadas atendidas; las llamadas de 2 horas o más no cuentan como tiempo, porque son errores de registro.",
+  },
+  tiempoPorExito: {
+    termino: "Tiempo por éxito",
+    definicion:
+      "Tiempo de gestión de las llamadas atendidas dividido entre los éxitos: cuántos segundos de trabajo cuesta, de media, cada éxito.",
+  },
+  indiceExito: {
+    termino: "Índice (frente a la campaña)",
+    definicion:
+      "Compara a cada agente con la media de las campañas en las que ha trabajado. Se calculan los éxitos que habría conseguido un agente medio con sus mismos contactos y se dividen sus éxitos reales entre esos: 100 = como la media, 120 = un 20 % mejor, 80 = un 20 % peor. Así no sale mejor quien trabaja en una campaña fácil. En verde a partir de 110 y en rojo desde 90 para abajo. Con menos de 30 contactos la muestra es pequeña y la cifra sale en gris.",
   },
   leads: {
     termino: "Leads finalizados",

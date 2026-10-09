@@ -9,6 +9,7 @@ import {
   metricasIvr,
 } from "@/lib/rdb/queries/supervision";
 import { campaniasDeServicio, campaniasEfectivas } from "@/lib/rdb/queries/servicios";
+import { ratiosExitoHoy } from "@/lib/rdb/queries/ratios-exito";
 import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
 
 /**
@@ -27,12 +28,13 @@ export async function GET(peticion: NextRequest) {
     const incluirIvr = peticion.nextUrl.searchParams.get("ivr") === "1";
     const camp = await campaniasEfectivas(servicio, incluirIvr);
     const campServicio = await campaniasDeServicio(servicio);
-    const [agentes, kpis, top, ivr, plan] = await Promise.all([
+    const [agentes, kpis, top, ivr, plan, ratios] = await Promise.all([
       estadoAgentes(camp),
       kpisCampaniasHoy(umbral, camp),
       agentesHoy(camp),
       metricasIvr(hoyISO(), hoyISO(), campServicio),
       alertasPlanificacion(),
+      ratiosExitoHoy(camp),
     ]);
     return NextResponse.json({
       agentes,
@@ -40,6 +42,7 @@ export async function GET(peticion: NextRequest) {
       top,
       ivr,
       plan,
+      ratios,
       umbral,
       actualizado: new Date().toISOString(),
     });
