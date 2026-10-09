@@ -8,8 +8,14 @@ import { requireRol, ROLES_PLAN_EDICION } from "@/lib/auth/rbac";
 import type { User } from "@/lib/db/schema";
 import { esquemaFechaISO } from "@/lib/fechas";
 import {
+  CAMPOS_TEXTO,
+  desdeFormulario,
+  diferenciasParametros,
+  nombreCampo,
+  type FormularioCliente,
+} from "@/lib/planificacion/formulario-cliente";
+import {
   diaSemana,
-  esquemaParametrosCliente,
   MODOS_CLIENTE,
   normalizarTramos,
   parsearTramos,
@@ -120,20 +126,21 @@ export async function guardarClientePlan(formData: FormData): Promise<void> {
   if (!datos.success) volverAqui(primerError(datos.error));
   const c = datos.data;
 
-  // Parámetros: JSON validado con el esquema del motor, sin claves desconocidas
-  // (una errata como «maxHorasDia» se ignoraría en silencio)
-  let parametros: Record<string, unknown>;
-  try {
-    const bruto = texto(formData, "parametros").trim();
-    parametros = bruto === "" ? {} : JSON.parse(bruto);
-  } catch {
-    volverAqui("Parámetros: no es un JSON válido.");
+  // Parámetros del motor: campos en lenguaje sencillo (formulario-cliente.ts),
+  // que se convierten al mismo objeto de siempre y se validan con el esquema
+  // del motor. Sin el campo del reparto (un <select>, siempre se envía), el
+  // formulario es el antiguo, el del JSON: guardar dejaría los parámetros
+  // vacíos.
+  if (!formData.has(nombreCampo("curva"))) {
+    volverAqui("El formulario es de una versión anterior: recarga la página y vuelve a guardar.");
   }
-  if (typeof parametros !== "object" || parametros == null || Array.isArray(parametros)) {
-    volverAqui("Parámetros: tiene que ser un objeto JSON ({...}).");
-  }
-  const validos = esquemaParametrosCliente.strict().safeParse(parametros);
-  if (!validos.success) volverAqui(`Parámetros → ${primerError(validos.error)}`);
+  const campos = Object.fromEntries(CAMPOS_TEXTO.map((k) => [k, texto(formData, nombreCampo(k))])) as Omit<
+    FormularioCliente,
+    "erlang"
+  >;
+  const leidos = desdeFormulario({ ...campos, erlang: casilla(formData, nombreCampo("erlang")) });
+  if (!leidos.ok) volverAqui(leidos.error);
+  const parametros = leidos.parametros;
 
   if (!actual && todos.some((x) => x.codigo === c.codigo)) volverAqui(`Ya existe un cliente ${c.codigo}.`);
   if (c.cuentaComo) {
@@ -156,12 +163,17 @@ export async function guardarClientePlan(formData: FormData): Promise<void> {
 
   // El código no cambia al editar (lo usan bloques, prefijos y bolsas)
   const { codigo, ...resto } = { ...c, parametros };
+  // Los parámetros, en lenguaje de pantalla («Horas contratadas: — → 1200 h»)
+  const detalle = (antes: Record<string, unknown> | undefined) =>
+    [cambios(antes, { ...resto, parametros: antes?.parametros }), ...diferenciasParametros(antes?.parametros ?? {}, parametros)]
+      .filter(Boolean)
+      .join(" · ");
   if (actual) {
     repo.actualizarCliente(actual.id, resto);
-    await auditar(usuario, `cliente ${codigo}: ${cambios(actual, resto) || "sin cambios"}`);
+    await auditar(usuario, `cliente ${codigo}: ${detalle(actual) || "sin cambios"}`);
   } else {
     repo.crearCliente({ codigo, ...resto });
-    await auditar(usuario, `cliente nuevo ${codigo}: ${cambios(undefined, resto)}`);
+    await auditar(usuario, `cliente nuevo ${codigo}: ${detalle(undefined)}`);
   }
   volver("clientes", actual ? "guardado" : "creado");
 }

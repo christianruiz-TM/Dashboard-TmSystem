@@ -295,6 +295,20 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     agentes, contratos, patrones ni parámetros; se editan en
     `/planificacion/configuracion` y cada cambio queda en `audit_log`
     (`plan_config`; generar, `plan_generar`).
+  - **Parámetros de cada cliente** (`plan_clientes.parametros`): formulario
+    por apartados en lenguaje sencillo, sin JSON (09/10/2026).
+    `formulario-cliente.ts` (puro, misma regla de ESLint, con tests sobre
+    los clientes de la semilla) convierte los campos al mismo objeto de
+    siempre, lo valida con `esquemaParametrosCliente` y lo guarda sin las
+    claves que valen lo de por defecto. El motor no cambió.
+    - Los bloques NO se funden: «11-13, 13-15» son dos bloques y cada uno
+      se coloca entero. «Preferidos» = `bonus` > 0.
+    - El horario de atención es `horarios_servicio` de RDBv2: aquí solo se
+      elige el calendario y se enseña.
+    - Cada apartado se oculta según el modo con CSS `:has()`
+      (`.form-cliente-plan` en `globals.css`, sin JS).
+    - Una clave nueva del esquema necesita su campo, o se perdería al
+      guardar: `perdidasAlEditar` lo avisa en pantalla.
   - **Auditoría del plan de un mes**: `plan_generar`, `plan_editar` (guardar,
     copiar la publicada, recortes por ausencia y también los guardados
     RECHAZADOS), `plan_publicar` (avisos aceptados por código y motivo),

@@ -1,46 +1,145 @@
 import type { Metadata } from "next";
+import { AlertTriangle } from "lucide-react";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { SelectNativo } from "@/components/admin/select-nativo";
 import { AreaTexto, Campo, Casilla, Muestra } from "@/components/planificacion/campos";
+import { PuntoAyuda } from "@/components/planificacion/punto-ayuda";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { requireRol, ROLES_PLAN_EDICION } from "@/lib/auth/rbac";
-import { ayerISO, fechaCorta } from "@/lib/fechas";
+import { ayerISO, fechaCorta, hoyISO } from "@/lib/fechas";
 import { leerEquipo } from "@/lib/planificacion/equipo";
-import { MODOS_CLIENTE } from "@/lib/planificacion/motor";
+import {
+  aFormulario,
+  nombreCampo,
+  perdidasAlEditar,
+  resumenParametros,
+  TEXTO_CURVA,
+  textoHorario,
+  type FormularioCliente,
+} from "@/lib/planificacion/formulario-cliente";
+import { MODOS_CLIENTE, sumarDias, type ModoCliente } from "@/lib/planificacion/motor";
 import { leerParametrosPlan } from "@/lib/planificacion/parametros";
 import * as repo from "@/lib/planificacion/repositorio";
+import { festivosServicio, horariosServicio } from "@/lib/rdb/queries/planificacion";
 import { borrarPrefijoPlan, guardarClientePlan, guardarPrefijoPlan } from "../acciones";
 
 export const metadata: Metadata = { title: "Clientes de planificación" };
 export const dynamic = "force-dynamic";
 
-const MODOS: Record<(typeof MODOS_CLIENTE)[number], string> = {
+const MODOS: Record<ModoCliente, string> = {
   resto: "Resto (base: se queda las horas sobrantes)",
   erlang: "Erlang (entrante: cubre su mínimo)",
   objetivo: "Objetivo (saliente: horas por lista y ritmo)",
   a_demanda: "A demanda (sin bloques)",
 };
 
-// Claves de plan_clientes.parametros (esquemaParametrosCliente en motor/tipos.ts)
-const AYUDA_PARAMETROS: [string, string][] = [
-  ["calendario", "ServicioDirectorio en festivos/horarios del servicio (null = sin horario propio)"],
-  ["erlang", "{ ahtSeg, slaPct, umbralSeg, margen }: calcula su mínimo por franja con Erlang C"],
-  ["bloques", "[{ inicioMin, finMin, bonus }]: franjas candidatas (minutos desde las 00:00: 660 = 11:00)"],
-  ["evitar", "[{ inicioMin, finMin }]: franjas donde nunca se coloca"],
-  ["maxHorasDiaAgente / maxHorasSeguidas / maxBloquesDiaAgente", "topes por agente y día"],
-  ["pctVivosObjetivo", "% de la lista que se acepta dejar viva al acabar (UGR: 28,32)"],
-  ["ritmoManual", "cierres por hora fijados a mano (null = medido)"],
-  ["horasSemanaFijas", "tope semanal de horas (CEFF: 4)"],
-  ["fechaFin", "último día que se planifica (YYYY-MM-DD)"],
-  ["horasContratadas / inicioContrato", "horas contratadas de la campaña y desde cuándo cuentan: el objetivo no pasa de lo que queda y se estima cuándo se agota"],
-  ["campaniasSimilares", "[patrones LIKE] de campañas parecidas ya terminadas para estimar el fin (vacío = las del cliente sin el año: UGR[_]EGRE%)"],
-  ["curva", "reparto entre semanas: anio_anterior · uniforme · inicio"],
-  ["pesoContacto / kDia", "peso de la tasa de contacto y penalización por horas ya puestas ese día"],
-];
+interface Calendario {
+  nombre: string;
+  horario: { texto: string; hasta: string } | null;
+  festivosHasta: string | null;
+  proximoFestivo: string | null;
+}
+
+/**
+ * Calendarios de atención de RDBv2 (horarios_servicio y festivos_servicio,
+ * cacheados 24 h). Si RDBv2 no responde, la página se ve igual, sin la lista.
+ */
+async function leerCalendarios(hoy: string): Promise<{ calendarios: Calendario[]; error: string | null }> {
+  try {
+    const [horarios, festivos] = await Promise.all([horariosServicio(), festivosServicio(hoy, sumarDias(hoy, 365))]);
+    const nombres = [...new Set([...horarios.map((h) => h.servicio), ...Object.keys(festivos.ultimaFechaPorServicio)])].sort();
+    return {
+      calendarios: nombres.map((nombre) => ({
+        nombre,
+        horario: textoHorario(horarios, nombre, hoy),
+        festivosHasta: festivos.ultimaFechaPorServicio[nombre] ?? null,
+        proximoFestivo: festivos.festivos.find((f) => f.servicio === nombre)?.fecha ?? null,
+      })),
+      error: null,
+    };
+  } catch (e) {
+    console.error("[planificacion] calendarios de RDBv2:", e);
+    return { calendarios: [], error: "No se han podido leer los horarios de Altitude (RDBv2). Prueba a recargar en un rato." };
+  }
+}
+
+/**
+ * Un apartado del formulario. `modos` = los modos de cliente que lo usan: con
+ * otro modo elegido se oculta (CSS de .form-cliente-plan en globals.css, sin
+ * JS). Oculto se sigue enviando: no se pierde nada al cambiar de modo.
+ */
+function Apartado({
+  titulo,
+  ayuda,
+  descripcion,
+  modos,
+  children,
+}: {
+  titulo: string;
+  ayuda?: React.ReactNode;
+  descripcion: React.ReactNode;
+  modos?: ModoCliente[];
+  children: React.ReactNode;
+}) {
+  return (
+    <fieldset data-modos={modos?.join(" ")} className="min-w-0 space-y-3 rounded-lg border p-4">
+      <legend className="px-1 text-sm font-medium">
+        {titulo}
+        {ayuda}
+      </legend>
+      <p className="-mt-1 text-xs text-muted-foreground">{descripcion}</p>
+      {children}
+    </fieldset>
+  );
+}
+
+/** Campo de texto de los parámetros, con el nombre que lee la acción. */
+function Texto({
+  campo,
+  f,
+  etiqueta,
+  ayuda,
+  numero,
+  placeholder,
+  modos,
+}: {
+  campo: Exclude<keyof FormularioCliente, "erlang" | "inicioContrato" | "fechaFin" | "curva" | "calendario">;
+  f: FormularioCliente;
+  etiqueta: string;
+  ayuda?: React.ReactNode;
+  numero?: "decimal" | "entero";
+  placeholder?: string;
+  modos?: ModoCliente[];
+}) {
+  const id = nombreCampo(campo);
+  return (
+    <div data-modos={modos?.join(" ")}>
+      <Campo etiqueta={etiqueta} htmlFor={id} ayuda={ayuda}>
+        <Input
+          id={id}
+          name={id}
+          defaultValue={f[campo]}
+          inputMode={numero === "entero" ? "numeric" : numero}
+          placeholder={placeholder}
+          autoComplete="off"
+        />
+      </Campo>
+    </div>
+  );
+}
+
+function Fecha({ campo, f, etiqueta, ayuda }: { campo: "inicioContrato" | "fechaFin"; f: FormularioCliente; etiqueta: string; ayuda: string }) {
+  const id = nombreCampo(campo);
+  return (
+    <Campo etiqueta={etiqueta} htmlFor={id} ayuda={ayuda}>
+      <Input id={id} name={id} type="date" defaultValue={f[campo]} />
+    </Campo>
+  );
+}
 
 export default async function PaginaClientesPlan({
   searchParams,
@@ -54,6 +153,11 @@ export default async function PaginaClientesPlan({
   const eq = leerEquipo(p.equipo, ayerISO());
   const enEdicion = editar ? clientes.find((c) => c.codigo === editar) : undefined;
   const colorDe = new Map(clientes.map((c) => [c.codigo, c.color]));
+  const hoy = hoyISO();
+  const { calendarios, error: errorCalendarios } = await leerCalendarios(hoy);
+  const f = aFormulario(enEdicion?.parametros ?? {});
+  // Lo guardado que el formulario no puede enseñar tal cual (se avisa antes de guardar)
+  const perdidas = enEdicion ? perdidasAlEditar(enEdicion.parametros) : [];
 
   const usuariosDe = (prefijo: string, sufijo: string) =>
     eq.usuarios.filter((u) => u.prefijo.toLowerCase() === prefijo.toLowerCase() && u.sufijo.toLowerCase() === sufijo.toLowerCase());
@@ -99,6 +203,7 @@ export default async function PaginaClientesPlan({
                 <TableHead>Cuenta como</TableHead>
                 <TableHead>Servicio · equipo</TableHead>
                 <TableHead>Campañas</TableHead>
+                <TableHead>Cómo se planifica</TableHead>
                 <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
@@ -120,6 +225,11 @@ export default async function PaginaClientesPlan({
                     <div className="text-xs text-muted-foreground">{c.equipo}</div>
                   </TableCell>
                   <TableCell className="max-w-56 font-mono text-xs whitespace-normal">{c.campanias.join(", ") || "—"}</TableCell>
+                  <TableCell className="max-w-72 text-xs whitespace-normal">
+                    {resumenParametros(c.parametros).map((r) => (
+                      <div key={r}>{r}</div>
+                    ))}
+                  </TableCell>
                   <TableCell className="text-right">
                     <Button variant="outline" size="xs" render={<a href={`?editar=${c.codigo}`} />}>
                       Editar
@@ -142,7 +252,7 @@ export default async function PaginaClientesPlan({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <form action={guardarClientePlan} key={enEdicion?.codigo ?? "nuevo"} className="space-y-4">
+          <form action={guardarClientePlan} key={enEdicion?.codigo ?? "nuevo"} className="form-cliente-plan space-y-4">
             {enEdicion ? <input type="hidden" name="id" value={enEdicion.id} /> : null}
             <div className="grid gap-3 md:grid-cols-4">
               <Campo etiqueta="Código" htmlFor="codigo">
@@ -189,34 +299,277 @@ export default async function PaginaClientesPlan({
                 <Casilla etiqueta="Activo" name="activo" defaultChecked={enEdicion?.activo ?? true} />
               </div>
             </div>
-            <div className="grid gap-3 md:grid-cols-2">
-              <Campo
-                etiqueta="Campañas (patrones LIKE, uno por línea)"
-                htmlFor="campanias"
-                ayuda="Solo la lista EN CURSO (p. ej. UGR[_]EGRE26): las antiguas conservan vivos que nadie llama e inflan el objetivo."
-              >
-                <AreaTexto id="campanias" name="campanias" rows={6} defaultValue={(enEdicion?.campanias ?? []).join("\n")} />
-              </Campo>
-              <Campo etiqueta="Parámetros del motor (JSON)" htmlFor="parametros">
-                <AreaTexto
-                  id="parametros"
-                  name="parametros"
-                  rows={6}
-                  defaultValue={JSON.stringify(enEdicion?.parametros ?? {}, null, 2)}
-                  spellCheck={false}
-                />
-              </Campo>
+            <Campo
+              etiqueta="Campañas (patrones LIKE, uno por línea)"
+              htmlFor="campanias"
+              className="md:w-1/2"
+              ayuda="Solo la lista EN CURSO (p. ej. UGR[_]EGRE26): las antiguas conservan vivos que nadie llama e inflan el objetivo."
+            >
+              <AreaTexto id="campanias" name="campanias" rows={4} defaultValue={(enEdicion?.campanias ?? []).join("\n")} />
+            </Campo>
+
+            <div className="space-y-1 pt-2">
+              <h3 className="text-sm font-medium">Cómo se planifica este cliente</h3>
+              <p className="text-xs text-muted-foreground">
+                Solo salen los apartados que usa el modo elegido arriba. Lo que se deja vacío usa el valor normal. Los
+                cambios se notan al volver a generar el borrador.
+              </p>
             </div>
-            <details className="text-xs text-muted-foreground">
-              <summary className="cursor-pointer">Claves de los parámetros (todas opcionales)</summary>
-              <ul className="mt-1 space-y-0.5">
-                {AYUDA_PARAMETROS.map(([k, t]) => (
-                  <li key={k}>
-                    <code className="text-foreground">{k}</code>: {t}
-                  </li>
-                ))}
-              </ul>
+
+            {perdidas.length > 0 ? (
+              <div className="flex gap-2 rounded-lg border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-700 dark:bg-amber-950 dark:text-amber-100">
+                <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                <div className="space-y-1">
+                  <div className="font-medium">Al guardar, esto cambiará (el formulario no puede enseñarlo tal cual):</div>
+                  <ul className="list-disc space-y-0.5 pl-5 text-xs">
+                    {perdidas.map((x) => (
+                      <li key={x}>{x}</li>
+                    ))}
+                  </ul>
+                </div>
+              </div>
+            ) : null}
+
+            <div className="grid items-start gap-4 lg:grid-cols-2">
+              <Apartado
+                titulo="Horario de atención"
+                ayuda={<PuntoAyuda id="cliente-horario" />}
+                descripcion="Las horas en que la línea del cliente está abierta y sus festivos. No se cambian aquí: salen de las tablas de horarios y festivos de los servicios en Altitude. Aquí solo se elige cuál es la de este cliente."
+              >
+                <Campo
+                  etiqueta="Calendario"
+                  htmlFor={nombreCampo("calendario")}
+                  ayuda="Sin horario propio: el plan le puede poner horas a cualquier hora del día."
+                >
+                  <SelectNativo id={nombreCampo("calendario")} name={nombreCampo("calendario")} defaultValue={f.calendario}>
+                    <option value="">— Sin horario propio</option>
+                    {calendarios.map((c) => (
+                      <option key={c.nombre} value={c.nombre}>
+                        {c.nombre}
+                      </option>
+                    ))}
+                    {f.calendario && !calendarios.some((c) => c.nombre === f.calendario) ? (
+                      <option value={f.calendario}>
+                        {f.calendario}
+                        {errorCalendarios ? "" : " (no está en Altitude)"}
+                      </option>
+                    ) : null}
+                  </SelectNativo>
+                </Campo>
+                {errorCalendarios ? <p className="text-xs text-amber-700">{errorCalendarios}</p> : null}
+                {calendarios.length > 0 ? (
+                  <ul className="space-y-1 rounded-md bg-muted/50 p-2 text-xs">
+                    {calendarios.map((c) => (
+                      <li key={c.nombre} className={c.nombre === f.calendario ? "font-medium" : "text-muted-foreground"}>
+                        {c.nombre}: {c.horario ? c.horario.texto : "sin horario cargado"}
+                        {c.festivosHasta ? ` · festivos cargados hasta el ${fechaCorta(c.festivosHasta)}` : " · sin festivos"}
+                        {c.proximoFestivo ? ` · próximo: ${fechaCorta(c.proximoFestivo)}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                ) : null}
+              </Apartado>
+
+              <Apartado
+                titulo="Cuándo se le puede planificar"
+                ayuda={<PuntoAyuda id="cliente-bloques" />}
+                modos={["objetivo"]}
+                descripcion="Las horas en que el plan puede poner a alguien con este cliente. Escríbelas como en Patrones: «11-14, 16-18». Cada bloque se da de una vez a una sola persona: «11-14» son 3 horas seguidas; para tramos de 2 horas, escribe «11-13, 13-15»."
+              >
+                <Texto campo="bloquesPreferidos" f={f} etiqueta="Bloques preferidos" placeholder="p. ej. 11-14" ayuda="El plan los elige antes que los otros." />
+                <Texto
+                  campo="bloquesOtros"
+                  f={f}
+                  etiqueta="Otros bloques posibles"
+                  placeholder="p. ej. 16-18"
+                  ayuda="También se usan, pero el plan prefiere los de arriba."
+                />
+                <Texto
+                  campo="evitar"
+                  f={f}
+                  etiqueta="Nunca en"
+                  placeholder="p. ej. 18-19"
+                  ayuda="Horas en que nunca se le pone a nadie: un bloque que las pise no se usa."
+                />
+              </Apartado>
+
+              <Apartado
+                titulo="Contrato y fin de campaña"
+                ayuda={<PuntoAyuda id="cliente-contrato" />}
+                modos={["objetivo"]}
+                descripcion="Para que el plan no ponga más horas de las contratadas y para estimar cuándo se acaban (se ve en «Bolsas y objetivos»)."
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Texto
+                    campo="horasContratadas"
+                    f={f}
+                    etiqueta="Horas contratadas"
+                    numero="decimal"
+                    placeholder="p. ej. 1200"
+                    ayuda="Las de toda la campaña, no las del mes. Sin puntos: 1200."
+                  />
+                  <Fecha campo="inicioContrato" f={f} etiqueta="Contrato desde" ayuda="Desde este día cuentan las horas ya hechas." />
+                  <Fecha
+                    campo="fechaFin"
+                    f={f}
+                    etiqueta="Último día de la campaña"
+                    ayuda="Después no se planifica. Vacío: hasta que se acabe la lista o las horas."
+                  />
+                  <Texto
+                    campo="horasSemanaFijas"
+                    f={f}
+                    etiqueta="Horas fijas por semana"
+                    numero="decimal"
+                    ayuda="Siempre las mismas cada semana (CEFF: 4), menos si la lista ya no lo necesita. En semanas con festivo, la parte que toca. Vacío: las que pida la lista."
+                  />
+                </div>
+              </Apartado>
+
+              <Apartado
+                titulo="Límites por persona"
+                descripcion="Lo máximo para una misma persona con este cliente. Vacío: sin máximo."
+              >
+                <div className="grid gap-3 sm:grid-cols-3">
+                  <Texto
+                    campo="maxHorasDiaAgente"
+                    f={f}
+                    etiqueta="Horas al día"
+                    numero="decimal"
+                    modos={["objetivo"]}
+                  />
+                  <Texto
+                    campo="maxBloquesDiaAgente"
+                    f={f}
+                    etiqueta="Bloques al día"
+                    numero="entero"
+                    modos={["objetivo"]}
+                  />
+                  <Texto
+                    campo="maxHorasSeguidas"
+                    f={f}
+                    etiqueta="Horas seguidas"
+                    numero="decimal"
+                    ayuda="Si se pasa en el tablero, sale un aviso."
+                  />
+                </div>
+              </Apartado>
+
+              <Apartado
+                titulo="Llamadas entrantes"
+                ayuda={<PuntoAyuda id="cliente-entrantes" />}
+                modos={["resto", "erlang"]}
+                descripcion="Para clientes que reciben llamadas: el plan calcula cuántas personas hacen falta en cada hora (con las llamadas de las últimas semanas) y avisa si una hora se queda por debajo."
+              >
+                <Casilla
+                  etiqueta="Calcular cuántas personas hacen falta para las llamadas"
+                  name={nombreCampo("erlang")}
+                  defaultChecked={f.erlang}
+                />
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Texto campo="slaPct" f={f} etiqueta="Atender el … % de las llamadas" numero="decimal" ayuda="Normal: 80." />
+                  <Texto campo="umbralSeg" f={f} etiqueta="… antes de (segundos)" numero="decimal" ayuda="Normal: 20." />
+                  <Texto
+                    campo="margen"
+                    f={f}
+                    etiqueta="Personas de margen"
+                    numero="entero"
+                    ayuda="Se suman a lo calculado (también hacen salientes). Normal: 1."
+                  />
+                  <Texto
+                    campo="ahtSeg"
+                    f={f}
+                    etiqueta="Duración media (s)"
+                    numero="decimal"
+                    ayuda="De una llamada. Vacío: la que se mide en las llamadas reales."
+                  />
+                </div>
+              </Apartado>
+
+              <Apartado
+                titulo="Lista de llamadas"
+                modos={["objetivo"]}
+                descripcion="Cuántas horas pide la lista: los contactos que quedan por cerrar entre los cierres por hora."
+              >
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <Texto
+                    campo="pctVivosObjetivo"
+                    f={f}
+                    etiqueta="Puede quedar sin terminar (%)"
+                    numero="decimal"
+                    ayuda="La lista se da por acabada al llegar a este % de contactos sin cerrar (UGR: 28,32, lo que quedó en 2025). 0: hasta el último."
+                  />
+                  <Texto
+                    campo="ritmoManual"
+                    f={f}
+                    etiqueta="Ritmo fijo (cierres por hora)"
+                    numero="decimal"
+                    ayuda="Vacío: se mide con las últimas semanas. Ponlo en una lista nueva, sin historia (LX: 6,9)."
+                  />
+                  <Campo
+                    etiqueta="Reparto entre semanas"
+                    htmlFor={nombreCampo("curva")}
+                    ayuda="No cuenta si hay horas fijas por semana."
+                  >
+                    <SelectNativo id={nombreCampo("curva")} name={nombreCampo("curva")} defaultValue={f.curva}>
+                      {Object.entries(TEXTO_CURVA).map(([v, t]) => (
+                        <option key={v} value={v}>
+                          {t}
+                        </option>
+                      ))}
+                    </SelectNativo>
+                  </Campo>
+                  <Campo
+                    etiqueta="Campañas parecidas (una por línea)"
+                    htmlFor={nombreCampo("campaniasSimilares")}
+                    ayuda="Ya terminadas, para estimar cuándo acabará esta. Vacío: las del cliente sin el año (UGR[_]EGRE26 → UGR[_]EGRE%)."
+                  >
+                    <AreaTexto
+                      id={nombreCampo("campaniasSimilares")}
+                      name={nombreCampo("campaniasSimilares")}
+                      rows={2}
+                      defaultValue={f.campaniasSimilares}
+                    />
+                  </Campo>
+                </div>
+              </Apartado>
+            </div>
+
+            <details data-modos="objetivo" className="rounded-lg border p-4 text-sm">
+              <summary className="cursor-pointer font-medium">Opciones avanzadas (normalmente no hace falta tocarlas)</summary>
+              <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                <Texto
+                  campo="pesoPreferidos"
+                  f={f}
+                  etiqueta="Ventaja de los bloques preferidos"
+                  numero="decimal"
+                  ayuda="0,3 es lo normal. Más alto: más se insiste en ellos."
+                />
+                <Texto
+                  campo="pesoContacto"
+                  f={f}
+                  etiqueta="Peso de las horas con más contacto"
+                  numero="decimal"
+                  ayuda="1: busca las horas en que más gente contesta. 0: da igual la hora."
+                />
+                <Texto
+                  campo="kDia"
+                  f={f}
+                  etiqueta="Reparto entre días"
+                  numero="decimal"
+                  ayuda="6 es lo normal. Más bajo: reparte más las horas entre días distintos en vez de juntarlas."
+                />
+              </div>
             </details>
+
+            {enEdicion ? (
+              <details className="text-xs text-muted-foreground">
+                <summary className="cursor-pointer">Ver la configuración guardada en JSON (solo lectura, para TI)</summary>
+                <pre className="mt-1 overflow-x-auto rounded-md bg-muted/50 p-2 font-mono text-foreground">
+                  {JSON.stringify(enEdicion.parametros, null, 2)}
+                </pre>
+              </details>
+            ) : null}
+
             <div className="flex gap-2">
               <Button type="submit">{enEdicion ? "Guardar" : "Crear cliente"}</Button>
               {enEdicion ? (

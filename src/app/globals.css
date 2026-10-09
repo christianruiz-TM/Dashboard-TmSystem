@@ -136,3 +136,16 @@
     @apply font-sans;
   }
 }
+/*
+ * Planificación → Configuración → Clientes: cada apartado de los parámetros
+ * lleva data-modos con los modos de cliente que lo usan y se oculta con otro
+ * modo elegido en el <select name="modo">. Sin JS: si el navegador no
+ * entiende :has(), la regla entera se ignora y se ven todos. Ocultos se
+ * siguen enviando (display: none no quita un campo del formulario).
+ */
+.form-cliente-plan:has(select[name="modo"] option[value="resto"]:checked) [data-modos]:not([data-modos~="resto"]),
+.form-cliente-plan:has(select[name="modo"] option[value="erlang"]:checked) [data-modos]:not([data-modos~="erlang"]),
+.form-cliente-plan:has(select[name="modo"] option[value="objetivo"]:checked) [data-modos]:not([data-modos~="objetivo"]),
+.form-cliente-plan:has(select[name="modo"] option[value="a_demanda"]:checked) [data-modos]:not([data-modos~="a_demanda"]) {
+  display: none;
+}

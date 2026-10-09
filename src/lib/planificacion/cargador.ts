@@ -252,7 +252,7 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
           codigo: "ritmo_desconocido",
           gravedad: "info",
           cliente: c.codigo,
-          mensaje: `${c.codigo}: sin horas o sin cierres en las últimas ${p.semanasRitmoMax} semanas; fijar el ritmo a mano (ritmoManual)`,
+          mensaje: `${c.codigo}: sin horas o sin cierres en las últimas ${p.semanasRitmoMax} semanas; pon un «Ritmo fijo» en Configuración → Clientes`,
         });
       }
     }
@@ -296,7 +296,7 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
           codigo: "contrato_sin_inicio",
           gravedad: "info",
           cliente: c.codigo,
-          mensaje: `${c.codigo}: tiene horasContratadas pero no inicioContrato; no se aplica el tope de contrato`,
+          mensaje: `${c.codigo}: tiene horas contratadas pero no «Contrato desde» (Configuración → Clientes); no se aplica el tope de contrato`,
         });
       } else {
         const consumidas =

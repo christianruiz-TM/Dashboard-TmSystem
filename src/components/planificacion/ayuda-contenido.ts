@@ -541,6 +541,14 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
         caso: "Las alertas avisan demasiado (o muy tarde).",
         haz: "En Parámetros, grupo «Seguimiento», cambia los minutos o el porcentaje.",
       },
+      {
+        caso: "Cambian las horas contratadas o el último día de una campaña.",
+        haz: "En Clientes, pulsa «Editar» en su fila: apartado «Contrato y fin de campaña». Después, vuelve a generar el borrador.",
+      },
+      {
+        caso: "Cambia el horario de atención de un cliente.",
+        haz: "Se cambia donde siempre, en la tabla de horarios de los servicios de Altitude. En Clientes solo se elige qué calendario usa cada cliente.",
+      },
     ],
   },
 ];
@@ -756,6 +764,18 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
     palabras: "contrato horas semanales jornada",
     pasos: ["En Configuración, entra en «Agentes».", "Cambia sus horas semanales y guarda."],
   },
+  {
+    id: "config-cliente",
+    pregunta: "Cambiar las horas contratadas o las horas de un cliente",
+    tema: "configuracion",
+    palabras: "cliente contrato contratadas bloques franjas horario fin campaña lista ritmo",
+    pasos: [
+      "En Configuración, entra en «Clientes» y pulsa «Editar» en la fila del cliente.",
+      "Más abajo salen sus apartados: «Cuándo se le puede planificar» (horas como «11-14, 16-18»), «Contrato y fin de campaña», «Límites por persona»…",
+      "Cambia lo que necesites y pulsa «Guardar». Si algo está mal escrito, sale arriba qué campo es.",
+      "Vuelve a generar el borrador para que el plan lo tenga en cuenta.",
+    ],
+  },
 ];
 
 /** Palabras del módulo, explicadas. */
@@ -875,6 +895,26 @@ export const PUNTOS_AYUDA = {
   "cierre-grupo": {
     titulo: "Grupo GH + BD + LX",
     texto: "Los tres comparten la bolsa de GH: mira en esta fila si sobran o faltan horas.",
+  },
+  "cliente-horario": {
+    titulo: "Horario de atención",
+    texto:
+      "Cuándo está abierta la línea del cliente. El plan no le pone entrantes fuera de ese horario ni en sus festivos. Se cambia en las tablas de horarios de Altitude, no aquí.",
+  },
+  "cliente-bloques": {
+    titulo: "Cuándo se le puede planificar",
+    texto:
+      "Escribe las horas como en Patrones: «11-14, 16-18». Cada bloque va entero a una sola persona. El plan elige primero los preferidos.",
+  },
+  "cliente-contrato": {
+    titulo: "Contrato",
+    texto:
+      "Con las horas contratadas y la fecha de inicio, el plan no pone más horas de las que quedan y en «Bolsas y objetivos» se ve cuándo se acaban.",
+  },
+  "cliente-entrantes": {
+    titulo: "Llamadas entrantes",
+    texto:
+      "El plan mira las llamadas de las últimas semanas y calcula cuántas personas hacen falta cada hora para atender a tiempo el porcentaje que pongas.",
   },
 } satisfies Record<string, { titulo: string; texto: string }>;
 

@@ -10,12 +10,13 @@ const eslintConfig = defineConfig([
   // navegador (tablero). Ver src/lib/planificacion/motor/tipos.ts. El modelo
   // de vista del tablero (tablero.ts), la edición (edicion.ts, que el
   // servidor repite al guardar), el seguimiento (adherencia, saldo y
-  // alertas) y las decisiones de la tarea nocturna (nocturno.ts) siguen las
+  // alertas), las decisiones de la tarea nocturna (nocturno.ts) y el
+  // formulario de parámetros de cliente (formulario-cliente.ts) siguen las
   // mismas reglas.
   {
     files: [
       "src/lib/planificacion/motor/**/*.ts",
-      "src/lib/planificacion/{tablero,edicion,adherencia,saldo,alertas,nocturno}.ts",
+      "src/lib/planificacion/{tablero,edicion,adherencia,saldo,alertas,nocturno,formulario-cliente}.ts",
     ],
     rules: {
       "no-restricted-imports": [
