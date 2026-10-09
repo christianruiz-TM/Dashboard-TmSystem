@@ -18,12 +18,15 @@ anterior era manual: queries generadas en Claude chat y ejecutadas en SSMS contr
 - **Clientes**: portal con SOLO sus campañas.
 - **Admin** (Christian, Responsable TI): acceso total + gestión.
 
-**Despliegue**: v0 en red local (servidor Windows); fase posterior como subdominio
-público (`dashboard.tmsystem.es`) sin VPN.
+**Despliegue**: en red local, solo por la VPN. Se planeó en un servidor Windows,
+pero desde el 09/10/2026 está en el servidor **Ubuntu** 192.168.151.38 (el de
+tickets) con Docker Compose, en el puerto 8081: ver `docs/despliegue-linux.md`.
+Fase posterior, si se decide: subdominio público (`dashboard.tmsystem.es`).
 
 **Decisiones confirmadas**:
 - Stack: Next.js + TypeScript (una sola app full-stack).
-- Despliegue v0: servidor Windows como servicio (NSSM).
+- ~~Despliegue v0: servidor Windows como servicio (NSSM).~~ Sustituido el
+  09/10/2026 por Docker en Ubuntu, igual que tickets.
 - Datos propios de la app: SQLite (RDBv2 permanece solo-lectura).
 - Facturación mixta configurable por campaña: horas de agente, por interacción,
   por éxito/venta y por lead gestionado (finalizado).
@@ -32,11 +35,13 @@ público (`dashboard.tmsystem.es`) sin VPN.
 ## Arquitectura
 
 ```
-[Navegadores LAN] ──HTTP──> [Servidor Windows]
-                              Next.js (servicio NSSM, puerto 3000)
+[Navegadores por VPN] ──HTTP :8081──> [Ubuntu 192.168.151.38 · Docker Compose «dashboard»]
+                              web: nginx (único puerto publicado)
+                              app: Next.js (next start, :3000 interno)
                               ├── SQLite (usuarios, roles, config, agregados)  ← escritura
                               └── pool mssql ──TCP 1433──> [SQL Server · RDBv2] ← SOLO LECTURA
-Fase 2 internet: [Caddy reverse-proxy + HTTPS] delante, subdominio dashboard.tmsystem.es
+                              tareas: supercronic (02:00 agregados, 02:15 planificación, 02:30 backup)
+Fase internet (si se decide): HTTPS en el mismo nginx (bloque comentado en docker/nginx.conf) + 2FA
 ```
 
 Detalles de arquitectura, esquema SQLite, roles/vistas y convenciones: ver
@@ -79,14 +84,14 @@ Detalles de arquitectura, esquema SQLite, roles/vistas y convenciones: ver
       contra las queries SSMS de Christian y convertir `npm run verificar` en
       asserts (recomendado junto con una capa única de definiciones de KPI)
 
-### F3 — Dirección + Portal de clientes ✅ HECHO (tarea programada al desplegar)
+### F3 — Dirección + Portal de clientes ✅ HECHO
 - [x] `scripts/aggregate-daily.ts` (lotes de 7 días) + tabla agg_daily_campaign
 - [x] `/direccion`: KPIs vs período anterior, tendencia 12 meses, top campañas
 - [x] `/clientes`: scoping estricto por campañas del cliente, export CSV
 - [x] Backfill con datos reales 01/06/2025 → 28/09/2026 (recalculado entero el
       29/09/2026, tras corregir el UTC del driver; cuadra con RDBv2 en vivo)
-- [ ] **PENDIENTE al desplegar**: tareas programadas 02:00 (agregados) y 02:30
-      (backup) en el servidor (comandos en docs/despliegue-windows.md)
+- [x] Tareas programadas en el servidor desde el 09/10/2026: 02:00 agregados,
+      02:15 planificación y 02:30 backup (servicio `tareas`, `docker/crontab`)
 
 ### F4 — Auditorías de coherencia + pulido (PENDIENTE → Sonnet/Opus)
 - Módulo "Calidad de datos" en /operaciones: logins solapados, duraciones
@@ -94,10 +99,13 @@ Detalles de arquitectura, esquema SQLite, roles/vistas y convenciones: ver
   huecos de replicación, flats desfasadas
 - Wallboard para supervisión (pantalla grande), pulido responsive, dark mode
 
-### F5 — Exposición a internet (PENDIENTE → Opus)
-- Caddy reverse proxy + HTTPS en dashboard.tmsystem.es (ver docs/despliegue-windows.md)
-- 2FA TOTP obligatorio para roles internos; `COOKIE_SECURE=1`
-- Security headers (CSP/HSTS), npm audit, backups programados verificados
+### F5 — Exposición a internet (PENDIENTE → Opus; solo si se decide)
+- [x] Proxy inverso: el nginx del compose (09/10/2026), con `TRUST_PROXY=1`
+- [ ] HTTPS en ese nginx (bloque TLS comentado en `docker/nginx.conf`) y
+      `COOKIE_SECURE=1`; subdominio dashboard.tmsystem.es
+- [ ] 2FA TOTP obligatorio para roles internos
+- [ ] CSP/HSTS. npm audit (revisado el 09/10/2026: 0 críticos en producción) y
+      backups programados (hechos el 09/10/2026; falta una prueba de restauración)
 
 ## Verificación realizada (12/06/2026, modo demo RDB_MOCK=1)
 
@@ -110,23 +118,23 @@ Detalles de arquitectura, esquema SQLite, roles/vistas y convenciones: ver
 Desde el 23/09/2026 las verificaciones se hacen contra RDBv2 REAL (no demo) y
 en build de producción; ver las secciones de auditoría de CLAUDE.md.
 
-## Estado a 29/09/2026
+## Estado a 09/10/2026
 
-- **Aún no desplegado en servidor.** Corre en el equipo de desarrollo de
-  Christian (Windows 10, `npm run dev`) contra la RDBv2 real.
-- Next 16.3.6 (16.2.9 tenía una RCE sin autenticación en Windows).
-- Rama de la auditoría del 23/09 fusionada en `master`. El repo git no tiene
-  remoto todavía.
+- **En producción** desde el 09/10/2026 en http://192.168.151.38:8081 (Docker
+  en el servidor Ubuntu de tickets; `docs/despliegue-linux.md`). La SQLite buena
+  es la del servidor.
+- Next 16.3.8 (16.3.6 tenía, entre otros, un SSRF en la optimización de imágenes).
+- Repo en GitHub privado (`christianruiz-TM/Dashboard-TmSystem`), rama `master`.
+- Módulo de planificación de turnos F1-F5 hecho (`docs/plan-planificacion.md`).
 
-## Primeros pasos de la próxima sesión
+## Primeros pasos de la próxima sesión (escrito el 29/09/2026)
 
 1. **Tests de oro contra SSMS** (ver F2): validar con Christian 4-5 cifras de un
    día/campaña y convertir `npm run verificar` en asserts. (La duda de las
    horas por campaña ya está resuelta: se factura por horas PRODUCTIVAS.)
 2. Crear clientes reales + mapeo campañas (prefijos: Soc_, Bol_, gh_, Avo_,
    CajaR_, Wit_...; NO mapear Test_*) + usuarios por rol en /admin.
-3. **Desplegar en el servidor definitivo** (docs/despliegue-windows.md): NSSM +
-   tareas programadas de agregados (02:00) y backup (02:30). La SQLite del
-   equipo de desarrollo ya tiene el histórico recalculado: se puede llevar
-   copiando un backup o volver a calcular (37 s).
+3. ~~Desplegar en el servidor definitivo~~ Hecho el 09/10/2026 con Docker en
+   Ubuntu (`docs/despliegue-linux.md`), llevando la SQLite del equipo de
+   desarrollo.
 4. F4 (calidad de datos, wallboard) y F5 (internet) según plan.

@@ -748,6 +748,6 @@ módulo; no confundir con las F2/F4/F5 del plan general.
 
 La base (auth, motor de KPIs, queries) la construyó Fable 5 (junio 2026). Las tareas
 restantes están pensadas para Opus/Sonnet: pulido visual, módulo de calidad de datos
-(F4) y exposición a internet con 2FA + Caddy (F5). Todo el conocimiento de dominio
+(F4) y exposición a internet con 2FA + HTTPS en el nginx del compose (F5). Todo el conocimiento de dominio
 necesario está en este archivo y en `docs/`. Ante cualquier duda sobre el esquema
 Altitude, consultar `docs/referencia_bbdd_altitude_v85.md` — no inventar.

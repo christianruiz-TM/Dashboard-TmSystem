@@ -13,9 +13,12 @@ BBDD propia SQLite.
 | `/clientes` | Cliente | Portal del cliente: SOLO sus campañas, evolución diaria, listas, export |
 | `/admin` | Admin | Usuarios, clientes y mapeo de campañas, facturación, SLA, auditoría, salud (frescura de la réplica) |
 
-**Estado (29/09/2026):** en desarrollo en el equipo de Christian, conectado a la
-RDBv2 real; **aún no desplegado en servidor**. Para desplegar, ver
-`docs/despliegue-windows.md`.
+**Estado (09/10/2026):** **en producción** en **http://192.168.151.38:8081**
+(servidor Ubuntu de la LAN, junto a la herramienta de tickets; solo por la VPN),
+con Docker Compose. Código en GitHub (privado),
+`christianruiz-TM/Dashboard-TmSystem`. Instalar, actualizar, volver atrás y
+restaurar backups: `docs/despliegue-linux.md`. La SQLite buena es la del
+servidor; el equipo de desarrollo es solo para desarrollar.
 
 ## Arranque rápido (desarrollo / demo)
 
@@ -39,8 +42,12 @@ Con credenciales reales de RDBv2: edita `.env` (`RDB_MOCK=0`) y ejecuta
 - **`docs/plan-implementacion.md`** — plan por fases y estado actual.
 - **`docs/referencia_bbdd_altitude_v85.md`** — esquema de RDBv2, enumerados y
   queries validadas.
-- **`docs/despliegue-windows.md`** — despliegue como servicio Windows (NSSM),
-  tareas programadas y fase de exposición a internet.
+- **`docs/despliegue-linux.md`** — producción: Docker Compose en el servidor
+  Ubuntu (nginx + app + tareas nocturnas), corte, actualizaciones, vuelta
+  atrás, backups, operación diaria e histórico de despliegues.
+- `docs/despliegue-windows.md` — alternativa NO usada (servicio Windows con
+  NSSM), por si algún día hubiera que montarlo en un Windows.
+- **`docs/plan-planificacion.md`** — módulo de planificación de turnos (F1-F6).
 
 ## Scripts
 
@@ -53,6 +60,14 @@ Con credenciales reales de RDBv2: edita `.env` (`RDB_MOCK=0`) y ejecuta
 | `npm run backup` | Backup consistente del SQLite a ./backups/ (guarda los 30 últimos) |
 | `npm run verificar` | Imprime los KPIs clave contra la RDBv2 real, para contrastar con SSMS |
 | `npm run db:generate` | Genera migración tras cambiar src/lib/db/schema.ts |
+| `npm run planificacion:nocturno` | Tarea nocturna de planificación (agregados, borrador del día 20, recálculo de los lunes) |
+| `npm test` | Tests unitarios (Vitest) |
+
+En producción los scripts se lanzan dentro del contenedor:
+`docker compose exec tareas npm run <script>` (en `/opt/tmsystem/dashboard`).
+Los agregados (02:00), la planificación (02:15) y el backup (02:30) ya corren
+solos cada noche, en hora de Madrid.
 
 Stack: Next.js 16.3 (App Router) · TypeScript · Tailwind v4 + shadcn/ui · Recharts ·
-mssql · better-sqlite3 + Drizzle · bcryptjs.
+mssql · better-sqlite3 + Drizzle · bcryptjs. Producción: Docker (Node 24 Alpine),
+nginx y supercronic.

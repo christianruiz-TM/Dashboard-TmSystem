@@ -3,7 +3,8 @@
  * better-sqlite3: segura aunque la app esté escribiendo).
  * Genera ./backups/dashboard_YYYYMMDD_HHmm.db y conserva los 30 últimos.
  *
- * Programar en el servidor junto al job de agregados (Task Scheduler).
+ * En el servidor corre cada noche a las 02:30 (docker/crontab, servicio
+ * `tareas`); a mano: `docker compose exec tareas npm run backup`.
  */
 import fs from "node:fs";
 import path from "node:path";

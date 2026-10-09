@@ -1,7 +1,8 @@
 /**
- * Tarea nocturna de planificación (F5): una sola, diaria e idempotente. Se
- * programa a las 02:15, entre los agregados generales (02:00) y el backup
- * (02:30); ver docs/despliegue-windows.md. Según la fecha:
+ * Tarea nocturna de planificación (F5): una sola, diaria e idempotente. Corre
+ * a las 02:15 (hora de Madrid), entre los agregados generales (02:00) y el
+ * backup (02:30): docker/crontab, servicio `tareas` del docker-compose.yml
+ * (docs/despliegue-linux.md). Según la fecha:
  *   1. agregados de planificación hasta ayer (poniéndose al día si faltan
  *      días), sincronización de usuarios y foto de listas;
  *   2. a partir del día plan.diaGeneracion (20), borrador del mes siguiente

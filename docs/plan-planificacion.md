@@ -631,7 +631,7 @@ Cambios del 08/10/2026 (Christian):
 
 ### F5 · Automatización programada
 
-- **Archivos**: `scripts/planificacion-nocturno.ts` (`npm run planificacion:nocturno`), `docs/despliegue-windows.md` (tarea a las 02:15, entre los agregados y el backup) y la frescura de los agregados de planificación en `/admin`.
+- **Archivos**: `scripts/planificacion-nocturno.ts` (`npm run planificacion:nocturno`), la tarea a las 02:15, entre los agregados y el backup (hoy en `docker/crontab`, ver `docs/despliegue-linux.md`), y la frescura de los agregados de planificación en `/admin`.
 - **La tarea nocturna es una sola, diaria e idempotente**, y decide por fecha:
   1. agregados de ayer, sincronización y foto de listas;
   2. el día `plan.diaGeneracion` (20), borrador del mes siguiente si no existe;
@@ -640,7 +640,7 @@ Cambios del 08/10/2026 (Christian):
   - ejecutarla dos veces seguidas no duplica nada;
   - simulando «hoy = día 20» (`--hoy`) crea el borrador;
   - si una lista se queda sin contactos en la foto, sus horas futuras vuelven a GH en el recálculo;
-  - el comando `schtasks` queda documentado.
+  - la programación queda documentada (se previó con `schtasks`; al final es `docker/crontab` en el servidor Ubuntu).
 - **Riesgos**: que el recálculo pise decisiones humanas (mitigado: nunca toca publicado ni fijado sin pasar por un borrador).
 - **CLAUDE.md**: la tarea nueva, dentro de «Programar tareas nocturnas» (mejora 2).
 
@@ -653,7 +653,8 @@ Chrome sin ventana (CDP) y usuarios de prueba de cada rol.
 - **Archivos**: `nocturno.ts` (PURO, misma regla de ESLint que el motor: qué toca cada noche,
   componer el recálculo), `tarea-nocturna.ts` (lo ejecuta), `agregados.ts` (el bucle de
   `planificacion:agregados`, ahora compartido), `generar.ts::recalcularDesde`, el script
-  `scripts/planificacion-nocturno.ts` y la tarea de las 02:15 en `docs/despliegue-windows.md`.
+  `scripts/planificacion-nocturno.ts` y la tarea de las 02:15 (`docker/crontab`; antes se
+  documentó para Windows en `docs/despliegue-windows.md`).
 - **Decide por fecha y se pone al día sola**: agregados desde el día siguiente al último agregado
   (como mucho 31 días atrás) hasta ayer; borrador del mes siguiente **desde** el día 20 (si una
   noche falla, la siguiente lo hace) si no tiene ni borrador ni publicada; recálculo una vez por
@@ -689,14 +690,16 @@ Chrome sin ventana (CDP) y usuarios de prueba de cada rol.
   borrador de noviembre y la segunda vez no; con la lista de UGR sin vivos en la foto, sus 30
   tramos futuros pasan a GH, y con datos reales las listas de BD (3 vivos entre las tres) bajan
   BD de 28 h a 1 h desde el 12/10. Tiempos: 1-2 s por ejecución.
-- **Pendiente**: programarla en el servidor al desplegar (la tarea sola no corre en el equipo de
-  desarrollo).
+- **Programada en el servidor desde el 09/10/2026**: servicio `tareas` del `docker-compose.yml`
+  (supercronic con `docker/crontab`), a las 02:15 en hora de Madrid aunque el servidor esté en
+  UTC. La primera ejecución a mano en el servidor (09/10, tras el corte) puso al día el 08/10.
+  Ver `docs/despliegue-linux.md`.
 
 ### F6 · Opcionales
 
 - **Simulaciones «¿y si?»**: versiones `simulacion` que no se pueden publicar, con comparación de resúmenes.
 - **Exportación**: Excel con el formato de la plantilla (colores, bloques semanales, totales), con `exceljs` y la estructura de `build_xlsx.py`; y PDF de la semana con CSS de impresión, sin librería.
-- **«Mi horario» (.ics)**: un token aleatorio de 32 bytes por agente (en la BBDD solo su hash SHA-256, como las sesiones), revocable, en `/api/ics/[token]` (se añade a `RUTAS_PUBLICAS` del proxy). Solo muestra los bloques de ese agente (cliente y horas), nunca otros nombres. Límite de peticiones. Hoy los agentes no son usuarios del dashboard: con la exposición a internet (Caddy + 2FA, mejora 10 de CLAUDE.md, que no es la F5 de este plan) un token filtrado es el riesgo, así que se revisa antes de abrir.
+- **«Mi horario» (.ics)**: un token aleatorio de 32 bytes por agente (en la BBDD solo su hash SHA-256, como las sesiones), revocable, en `/api/ics/[token]` (se añade a `RUTAS_PUBLICAS` del proxy). Solo muestra los bloques de ese agente (cliente y horas), nunca otros nombres. Límite de peticiones. Hoy los agentes no son usuarios del dashboard: con la exposición a internet (HTTPS + 2FA, mejora 10 de CLAUDE.md, que no es la F5 de este plan) un token filtrado es el riesgo, así que se revisa antes de abrir.
 
 ## Pasos inmediatos al aprobar
 

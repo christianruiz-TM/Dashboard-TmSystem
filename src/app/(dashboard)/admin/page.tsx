@@ -134,8 +134,8 @@ export default async function PaginaAdmin() {
             </ul>
           ) : null}
           <p className="text-xs text-muted-foreground">
-            Se programa a las 02:15 (<code className="rounded bg-muted px-1 py-0.5">npm run planificacion:nocturno</code>, ver
-            docs/despliegue-windows.md): agregados de ayer, el día 20 el borrador del mes siguiente y los lunes el recálculo de las
+            Corre a las 02:15, hora de Madrid (<code className="rounded bg-muted px-1 py-0.5">npm run planificacion:nocturno</code>,
+            servicio «tareas» del servidor; ver docs/despliegue-linux.md): agregados de ayer, el día 20 el borrador del mes siguiente y los lunes el recálculo de las
             semanas que no han empezado. Con <code className="rounded bg-muted px-1 py-0.5">--simular</code> dice qué haría sin
             escribir nada.
           </p>
