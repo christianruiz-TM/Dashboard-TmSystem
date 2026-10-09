@@ -2,6 +2,7 @@ import { coincideLike } from "@/lib/planificacion/motor/campanias";
 import type {
   AgenteEstado,
   AgenteHoy,
+  BaseRepartoHorasLogadas,
   CampaniaInfo,
   CierresDia,
   DemandaFranja,
@@ -497,6 +498,39 @@ export function mockHorasAgenteReales(
     horasLogadas: Math.round(logadas * 10) / 10,
     horasReady: Math.round(logadas * (0.55 + r() * 0.1) * 10) / 10,
   };
+}
+
+/**
+ * Base del reparto por campaña coherente con mockHorasLogadasUsuarios: las
+ * horas de cada usuario repartidas en días laborables del rango y, cada día,
+ * algo de gestión en 2-4 campañas «<prefijo>_camp_n» (algún día sin llamadas).
+ */
+export function mockBaseRepartoHorasLogadas(
+  desde: string,
+  hasta: string,
+  prefijos: string[],
+): BaseRepartoHorasLogadas {
+  const fechas: string[] = [];
+  for (let d = new Date(`${desde}T12:00:00`); d <= new Date(`${hasta}T12:00:00`); d.setDate(d.getDate() + 1)) {
+    if (d.getDay() !== 0 && d.getDay() !== 6) {
+      fechas.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
+    }
+  }
+  if (fechas.length === 0) fechas.push(desde);
+  const base: BaseRepartoHorasLogadas = { logado: [], productivo: [] };
+  for (const u of mockHorasLogadasUsuarios(desde, hasta, prefijos)) {
+    const r = rng(`reparto|${desde}|${hasta}|${u.usuario}`);
+    const camps = Array.from({ length: 6 }, (_, i) => `${u.prefijo.toLowerCase()}_camp_${i + 1}`);
+    for (const fecha of fechas) {
+      base.logado.push({ usuario: u.usuario, fecha, horas: u.horas / fechas.length });
+      if (r() < 0.08) continue; // día logado sin llamadas
+      const n = entre(r, 2, 4);
+      for (let i = 0; i < n; i++) {
+        base.productivo.push({ usuario: u.usuario, fecha, campania: camps[(i * 2 + entre(r, 0, 5)) % 6], horas: 0.3 + r() * 2.5 });
+      }
+    }
+  }
+  return base;
 }
 
 export function mockHorasLogadasUsuarios(

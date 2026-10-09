@@ -6,7 +6,7 @@ import {
   type FacturacionHorasLogadas,
   type LineaHorasLogadas,
 } from "@/lib/facturacion-horas-logadas";
-import { horasLogadasUsuarios } from "@/lib/rdb/queries/facturacion";
+import { baseRepartoHorasLogadas, horasLogadasUsuarios } from "@/lib/rdb/queries/facturacion";
 import type { UnidadesCampania } from "@/lib/rdb/types";
 
 // ============================================================
@@ -183,10 +183,12 @@ export async function facturacionHorasLogadas(
 ): Promise<FacturacionHorasLogadas[]> {
   const lineas = lineasHorasLogadas(servicio);
   if (lineas.length === 0) return [];
-  const horas = await horasLogadasUsuarios(
-    desdeISO,
-    hastaISO,
-    lineas.map((l) => l.prefijo),
-  );
-  return facturarHorasLogadas(lineas, horas);
+  const prefijos = lineas.map((l) => l.prefijo);
+  // El total facturado sale de horasLogadasUsuarios; la base del reparto
+  // estimado por campaña, de la misma user_log día a día más la gestión
+  const [horas, base] = await Promise.all([
+    horasLogadasUsuarios(desdeISO, hastaISO, prefijos),
+    baseRepartoHorasLogadas(desdeISO, hastaISO, prefijos),
+  ]);
+  return facturarHorasLogadas(lineas, horas, base);
 }

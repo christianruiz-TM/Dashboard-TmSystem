@@ -1,9 +1,14 @@
 import { esUsuarioDelCliente, patronLikeUsuarios } from "@/lib/facturacion-horas-logadas";
 import { conCache, ttlSegunRango } from "../cache";
 import { obtenerEnums } from "../enums";
-import { mockHorasLogadasUsuarios, mockMetricasDiarias } from "../mock";
+import { mockBaseRepartoHorasLogadas, mockHorasLogadasUsuarios, mockMetricasDiarias } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
-import type { HorasLogadasUsuario, MetricaDiariaCampania, UnidadesCampania } from "../types";
+import type {
+  BaseRepartoHorasLogadas,
+  HorasLogadasUsuario,
+  MetricaDiariaCampania,
+  UnidadesCampania,
+} from "../types";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
 import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./util";
 
@@ -308,5 +313,85 @@ export async function horasLogadasUsuarios(
       }))
       .filter((f) => f.prefijo !== "")
       .sort((a, b) => a.usuario.localeCompare(b.usuario));
+  });
+}
+
+/**
+ * Base del REPARTO estimado de las horas logadas de un cliente por campaña
+ * (decidido 09/10/2026 con Christian). user_log no sabe de campañas y
+ * ag_in_cp_log no sirve: los usuarios de GH tienen más de 15 campañas
+ * abiertas a la vez el 92,8 % del tiempo (septiembre 2026, ×34 sumando por
+ * campaña), así que repartir el tiempo «abierto» da lo mismo a todas. La
+ * única señal de dónde se trabajó es la gestión de las llamadas: por usuario
+ * y día, lo logado se reparte en proporción a lo productivo de cada campaña
+ * (repartirHorasLogadas, en lib/facturacion-horas-logadas.ts).
+ *
+ * - Logado: las mismas islas de user_log que horasLogadasUsuarios, agrupadas
+ *   por el día en que empiezan (la suma de los días = el total facturado).
+ * - Productivo: la misma medida que «H. productivas» (duration de las
+ *   atendidas, en DÉCIMAS de segundo → / 36000.0 = horas), solo de esos
+ *   usuarios.
+ */
+export async function baseRepartoHorasLogadas(
+  desdeISO: string,
+  hastaISO: string,
+  prefijos: string[],
+): Promise<BaseRepartoHorasLogadas> {
+  const unicos = [...new Set(prefijos)].sort();
+  if (unicos.length === 0) return { logado: [], productivo: [] };
+  if (esMock()) return mockBaseRepartoHorasLogadas(desdeISO, hastaISO, unicos);
+  const claveCache = `rdb:repartoLogadas:${desdeISO}:${hastaISO}:${unicos.join(",")}`;
+  return conCache(claveCache, ttlSegunRango(hastaISO), async () => {
+    const pool = await obtenerPool();
+    const request = pool.request();
+    const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+    request.input("desde", sql.DateTime, desde);
+    request.input("hastaExcl", sql.DateTime, hastaExcl);
+    const condiciones = unicos.map((prefijo, i) => {
+      request.input(`usr${i}`, sql.VarChar(80), patronLikeUsuarios(prefijo));
+      return `RTRIM(u.usr_name) LIKE @usr${i}`;
+    });
+    const filtroUsuarios = condiciones.join(" OR ");
+
+    const r = await request.query(`
+      -- 1) Tiempo logado por usuario y día: unión de sus sesiones de user_log
+      WITH base AS (
+          SELECT l.e_user AS usuario, l.start_time AS ini,
+                 ${sqlFinIntervalo("l")} AS fin
+          FROM user_log l
+          INNER JOIN ph_e_user u ON u.code = l.e_user AND u.type = 1
+          WHERE l.start_time >= @desde AND l.start_time < @hastaExcl
+            AND (${filtroUsuarios})
+      ),
+      ${sqlCtesIslas("usuario")}
+      SELECT RTRIM(u.usr_name)                                            AS usuario,
+             CONVERT(varchar(10), i.ini, 23)                              AS fecha,
+             SUM(CAST(DATEDIFF(SECOND, i.ini, i.fin) AS BIGINT)) / 3600.0 AS horas
+      FROM islas i
+      INNER JOIN ph_e_user u ON u.code = i.usuario
+      GROUP BY RTRIM(u.usr_name), CONVERT(varchar(10), i.ini, 23);
+
+      -- 2) Gestión de las atendidas por usuario, día y campaña
+      SELECT RTRIM(u.usr_name)                                AS usuario,
+             CONVERT(varchar(10), t.start_time, 23)           AS fecha,
+             RTRIM(c.shortname)                               AS campania,
+             SUM(CAST(t.duration AS BIGINT)) / 36000.0        AS horas
+      FROM itr_thread t
+      INNER JOIN ph_e_user   u ON u.code = t.e_user AND u.type = 1
+      INNER JOIN ph_campaign c ON c.code = t.campaign
+      WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+        AND t.termination_state = 1
+        AND (${filtroUsuarios})
+      GROUP BY RTRIM(u.usr_name), CONVERT(varchar(10), t.start_time, 23), RTRIM(c.shortname);
+    `);
+    const [logado, productivo] = r.recordsets as unknown as [
+      BaseRepartoHorasLogadas["logado"],
+      BaseRepartoHorasLogadas["productivo"],
+    ];
+    const delCliente = (usuario: string) => unicos.some((p) => esUsuarioDelCliente(usuario, p));
+    return {
+      logado: logado.filter((f) => delCliente(f.usuario)),
+      productivo: productivo.filter((f) => delCliente(f.usuario)),
+    };
   });
 }

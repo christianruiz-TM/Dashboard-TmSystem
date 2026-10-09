@@ -158,6 +158,18 @@ export interface HorasLogadasUsuario {
   sesiones: number;
 }
 
+/**
+ * Base del reparto ESTIMADO de las horas logadas de un cliente entre sus
+ * campañas: lo logado y lo productivo de cada usuario, día a día. Horas SIN
+ * redondear.
+ */
+export interface BaseRepartoHorasLogadas {
+  /** Tiempo logado (user_log) por usuario y día en que empieza cada sesión. */
+  logado: { usuario: string; fecha: string; horas: number }[];
+  /** Gestión de las atendidas (como «H. productivas») por usuario, día y campaña. */
+  productivo: { usuario: string; fecha: string; campania: string; horas: number }[];
+}
+
 /** Métricas de un día y campaña (para agregados nocturnos). */
 export interface MetricaDiariaCampania {
   fecha: string;

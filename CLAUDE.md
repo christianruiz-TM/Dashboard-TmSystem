@@ -178,6 +178,21 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       1.027,88 h, UGR 195,42 h, Av 23,45 h). El dashboard antes facturaba
       GH por productivas: 848,28 h. Análisis completo:
       `docs/facturacion-horas-logadas.md`.
+    - **Reparto ESTIMADO por campaña** (decidido 09/10/2026 con Christian):
+      por usuario y día, sus horas logadas se reparten en proporción a su
+      tiempo productivo (gestión de las atendidas) en cada campaña. Los días
+      logados sin ninguna atendida van a la fila «Logado sin actividad en
+      campaña».
+      - Las filas se redondean por mayor resto: suman EXACTAMENTE el total
+        facturado. Septiembre GH: 1.027,88 h y 28.780,64 €, con 35,26 h sin
+        actividad.
+      - No se usa `ag_in_cp_log`: los usuarios GH tienen más de 15 campañas
+        abiertas a la vez el 92,8 % del tiempo (×34 sumando por campaña) y
+        repartirlo da casi lo mismo a todas.
+      - Código: `baseRepartoHorasLogadas` (queries/facturacion.ts) y
+        `repartirHorasLogadas` (puro, con tests). Se ve en Operaciones bajo
+        cada cliente y en el export, en columnas propias. Se factura el
+        total; el reparto es informativo.
 
 ## Referencia del esquema RDBv2
 

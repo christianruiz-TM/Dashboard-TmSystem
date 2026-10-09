@@ -80,6 +80,11 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     definicion:
       "Tiempo que los usuarios del cliente estuvieron logados en Altitude, de login a logout, haya o no campaña abierta. Solo cuentan los usuarios con el prefijo del cliente seguido del número de agente (GH_0851 para GrupoHuertas): no cuentan los que no llevan el prefijo ni los de bbdd (GH_0851_BD), que se facturan por sus campañas. Si un usuario tiene dos sesiones a la vez, el tiempo cuenta una sola vez.",
   },
+  repartoHorasLogadas: {
+    termino: "Reparto de horas logadas por campaña (estimado)",
+    definicion:
+      "Cómo se reparten las horas logadas de un cliente entre sus campañas. Altitude no registra en qué campaña está un usuario mientras espera (los tiene casi siempre todas abiertas), así que cada día las horas logadas de cada usuario se reparten en proporción a su tiempo productivo (gestión de las atendidas) en cada campaña. Los días logados sin ninguna llamada atendida van aparte. Suma exactamente las horas del cliente; lo que se factura es el total.",
+  },
   pausas: {
     termino: "Pausas (Not Ready)",
     definicion:

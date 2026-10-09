@@ -56,7 +56,8 @@ export async function GET(peticion: NextRequest) {
   const nombreArchivo = `facturacion_${desde}_${hasta}.${formato}`;
   // Horas logadas NO se exportan por campaña: ag_in_cp_log las duplica (~×13)
   // y user_log no sabe de campañas. Si el cliente factura por ellas, van en
-  // una fila propia del cliente (usuarios PREFIJO_nnnn); por campaña, las
+  // una fila propia del cliente (usuarios PREFIJO_nnnn), seguida de su
+  // reparto ESTIMADO por campaña en columnas aparte; por campaña, las
   // productivas (gestión real, sin duplicar).
   const columnas = [
     { cabecera: "Campaña / cliente", clave: "campania", ancho: 30 },
@@ -68,18 +69,43 @@ export async function GET(peticion: NextRequest) {
     { cabecera: "Leads finalizados", clave: "leadsFinalizados" },
     { cabecera: "Unidades facturables", clave: "unidades", ancho: 34 },
     { cabecera: "Importe (EUR)", clave: "importe" },
+    // Reparto ESTIMADO de las horas logadas del cliente por campaña (según el
+    // tiempo productivo de sus usuarios): columnas propias para que las de
+    // arriba sigan sumando sin contar dos veces
+    { cabecera: "Reparto: h. productivas usuarios del cliente", clave: "repartoProductivas", formato: FORMATO_2_DECIMALES },
+    { cabecera: "Reparto: % tiempo productivo", clave: "repartoPct", formato: FORMATO_2_DECIMALES },
+    { cabecera: "Reparto: horas logadas", clave: "repartoHoras", formato: FORMATO_2_DECIMALES },
+    { cabecera: "Reparto: importe (EUR)", clave: "repartoImporte" },
   ];
-  const filasCliente = porCliente.map((c) => ({
-    campania: `${c.servicio} · usuarios ${c.prefijo}_nnnn`,
-    horasLogadas: c.horas,
+  const sinReparto = { repartoProductivas: null, repartoPct: null, repartoHoras: null, repartoImporte: null };
+  const vacias = {
+    horasLogadas: null,
     horasProductivas: null,
     interacciones: null,
     atendidas: null,
     exitos: null,
     leadsFinalizados: null,
-    unidades: NOMBRE_UNIDAD.horas_logadas,
-    importe: c.importe,
-  }));
+    importe: null,
+  };
+  const filasCliente = porCliente.flatMap((c) => [
+    {
+      ...vacias,
+      ...sinReparto,
+      campania: `${c.servicio} · usuarios ${c.prefijo}_nnnn`,
+      horasLogadas: c.horas,
+      unidades: NOMBRE_UNIDAD.horas_logadas,
+      importe: c.importe,
+    },
+    ...c.campanias.map((r) => ({
+      ...vacias,
+      campania: `   ${c.servicio} → ${r.campania ?? "logado sin actividad en campaña"}`,
+      unidades: "Reparto estimado (tiempo productivo)",
+      repartoProductivas: r.horasProductivas,
+      repartoPct: r.pctProductivo,
+      repartoHoras: r.horasLogadas,
+      repartoImporte: r.importe,
+    })),
+  ]);
   const filasCampania = facturacion.map((f) => ({
     campania: f.campania,
     horasLogadas: null,
@@ -92,6 +118,7 @@ export async function GET(peticion: NextRequest) {
       f.lineas.map((l) => NOMBRE_UNIDAD[l.unidad]).join(" + ") ||
       (f.porHorasLogadas ? "Horas logadas (cliente)" : "Sin configurar"),
     importe: f.importeTotal,
+    ...sinReparto,
   }));
   const filas = [...filasCliente, ...filasCampania];
 

@@ -3,6 +3,7 @@ import {
   esUsuarioDelCliente,
   facturarHorasLogadas,
   patronLikeUsuarios,
+  repartirHorasLogadas,
 } from "./facturacion-horas-logadas";
 
 describe("usuarios del cliente para horas logadas", () => {
@@ -52,5 +53,62 @@ describe("facturarHorasLogadas", () => {
   it("sin precio no hay importe y sin usuarios son 0 h", () => {
     const [r] = facturarHorasLogadas([{ ...linea, precioUnitario: null }], []);
     expect(r).toMatchObject({ horas: 0, importe: null, usuarios: [] });
+  });
+});
+
+describe("reparto estimado de las horas logadas por campaña", () => {
+  const base = {
+    logado: [
+      { usuario: "GH_0851", fecha: "2026-09-01", horas: 7 },
+      { usuario: "GH_0851", fecha: "2026-09-02", horas: 6 },
+      { usuario: "GH_0900", fecha: "2026-09-01", horas: 5 },
+      // Día logado sin ninguna atendida
+      { usuario: "GH_0900", fecha: "2026-09-02", horas: 2 },
+      // De otro cliente o de bbdd: no cuentan
+      { usuario: "GH_0851_BD", fecha: "2026-09-01", horas: 3 },
+      { usuario: "UGR_0851", fecha: "2026-09-01", horas: 4 },
+    ],
+    productivo: [
+      { usuario: "GH_0851", fecha: "2026-09-01", campania: "gh_toyota", horas: 3 },
+      { usuario: "GH_0851", fecha: "2026-09-01", campania: "gh_seat", horas: 1 },
+      { usuario: "GH_0851", fecha: "2026-09-02", campania: "gh_seat", horas: 2 },
+      { usuario: "GH_0900", fecha: "2026-09-01", campania: "gh_toyota", horas: 2 },
+      { usuario: "GH_0851_BD", fecha: "2026-09-01", campania: "gh_bbdd_x", horas: 2 },
+    ],
+  };
+
+  it("reparte por usuario y día según lo productivo y deja aparte los días sin llamadas", () => {
+    const r = repartirHorasLogadas(base, "GH", 20, 28);
+    expect(r).toEqual([
+      // 7 × 3/4 + 5 = 10,25 h · productivas 3 + 2 = 5 de 8
+      { campania: "gh_toyota", horasProductivas: 5, pctProductivo: 62.5, horasLogadas: 10.25, importe: 287 },
+      // 7 × 1/4 + 6 = 7,75 h
+      { campania: "gh_seat", horasProductivas: 3, pctProductivo: 37.5, horasLogadas: 7.75, importe: 217 },
+      { campania: null, horasProductivas: 0, pctProductivo: null, horasLogadas: 2, importe: 56 },
+    ]);
+  });
+
+  it("las filas suman exactamente el total facturado", () => {
+    const tercios = {
+      logado: [{ usuario: "GH_0851", fecha: "2026-09-01", horas: 1 }],
+      productivo: ["a", "b", "c"].map((campania) => ({ usuario: "GH_0851", fecha: "2026-09-01", campania, horas: 1 })),
+    };
+    const r = repartirHorasLogadas(tercios, "GH", 1, null);
+    expect(r.map((x) => x.horasLogadas).sort()).toEqual([0.33, 0.33, 0.34]);
+    expect(r.reduce((a, x) => a + Math.round(x.horasLogadas * 100), 0)).toBe(100);
+    expect(r.every((x) => x.importe === null)).toBe(true);
+  });
+
+  it("facturarHorasLogadas añade el reparto a cada cliente", () => {
+    const [gh] = facturarHorasLogadas(
+      [{ servicio: "GrupoHuertas", prefijo: "GH", precioUnitario: 28, notas: null }],
+      [
+        { prefijo: "GH", usuario: "GH_0851", horas: 13, sesiones: 2 },
+        { prefijo: "GH", usuario: "GH_0900", horas: 7, sesiones: 2 },
+      ],
+      base,
+    );
+    expect(gh.horas).toBe(20);
+    expect(gh.campanias.reduce((a, c) => a + c.horasLogadas, 0)).toBeCloseTo(gh.horas, 10);
   });
 });

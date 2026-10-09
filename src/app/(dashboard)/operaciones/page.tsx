@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { Fragment } from "react";
 import { Download } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -19,6 +20,7 @@ import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { requireRol } from "@/lib/auth/rbac";
+import type { FacturacionHorasLogadas } from "@/lib/facturacion-horas-logadas";
 import {
   NOMBRE_UNIDAD,
   calcularFacturacion,
@@ -46,6 +48,66 @@ export const dynamic = "force-dynamic";
 function euros(importe: number | null): string {
   if (importe == null) return "—";
   return importe.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
+}
+
+/**
+ * Reparto ESTIMADO de las horas logadas de un cliente por campaña: por
+ * usuario y día, según su tiempo productivo en cada una
+ * (repartirHorasLogadas). Suma exactamente el total del cliente; se factura
+ * el total, el reparto es para ver dónde se trabajó.
+ */
+function RepartoCampanias({ cliente }: { cliente: FacturacionHorasLogadas }) {
+  const filas = cliente.campanias;
+  const totalProd = filas.reduce((a, f) => a + f.horasProductivas, 0);
+  return (
+    <details className="rounded-md border bg-muted/30 px-3 py-2">
+      <summary className="cursor-pointer text-sm font-medium">
+        Reparto por campaña ({filas.filter((f) => f.campania != null).length} campañas) · estimado según el
+        tiempo productivo
+      </summary>
+      <p className="mt-1 text-xs text-muted-foreground">
+        Altitude no registra en qué campaña está un usuario mientras espera: los de este cliente tienen casi
+        siempre todas abiertas a la vez. Por eso, cada día, las horas logadas de cada usuario se reparten en
+        proporción a su tiempo productivo (gestión de las atendidas) en cada campaña. Los días logados sin
+        ninguna llamada atendida van aparte. Suma exactamente las horas del cliente; se factura el total.
+      </p>
+      <Table className="mt-2">
+        <TableHeader>
+          <TableRow>
+            <TableHead>Campaña</TableHead>
+            <TableHead className="text-right">H. productivas ({cliente.prefijo}_nnnn)</TableHead>
+            <TableHead className="text-right">% tiempo productivo</TableHead>
+            <TableHead className="text-right">Horas logadas repartidas</TableHead>
+            <TableHead className="text-right">Importe repartido</TableHead>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {filas.map((f) => (
+            <TableRow key={f.campania ?? "(sin actividad)"}>
+              <TableCell className={f.campania == null ? "text-muted-foreground italic" : "font-medium"}>
+                {f.campania ?? "Logado sin actividad en campaña"}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{horasLegibles(f.horasProductivas)}</TableCell>
+              <TableCell className="text-right tabular-nums">
+                {f.pctProductivo == null
+                  ? "—"
+                  : `${f.pctProductivo.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`}
+              </TableCell>
+              <TableCell className="text-right tabular-nums">{horasLegibles(f.horasLogadas)}</TableCell>
+              <TableCell className="text-right tabular-nums">{euros(f.importe)}</TableCell>
+            </TableRow>
+          ))}
+          <TableRow className="font-medium">
+            <TableCell>Total</TableCell>
+            <TableCell className="text-right tabular-nums">{horasLegibles(Math.round(totalProd * 100) / 100)}</TableCell>
+            <TableCell className="text-right tabular-nums">100,00 %</TableCell>
+            <TableCell className="text-right tabular-nums">{horasLegibles(cliente.horas)}</TableCell>
+            <TableCell className="text-right tabular-nums">{euros(cliente.importe)}</TableCell>
+          </TableRow>
+        </TableBody>
+      </Table>
+    </details>
+  );
 }
 
 export default async function PaginaOperaciones({
@@ -170,7 +232,8 @@ export default async function PaginaOperaciones({
                   usuarios del cliente, <code>PREFIJO_nnnn</code>. No cuentan los usuarios
                   sin el prefijo ni los de bbdd (<code>_BD</code>, <code>_BD_LX</code>), que se
                   facturan por sus campañas. Las sesiones se asignan al día en que
-                  empiezan. Período: {desde} a {hasta}.
+                  empiezan. Debajo de cada cliente, el reparto estimado por campaña según
+                  el tiempo productivo. Período: {desde} a {hasta}.
                 </CardDescription>
               </CardHeader>
               <CardContent>
@@ -186,7 +249,8 @@ export default async function PaginaOperaciones({
                   </TableHeader>
                   <TableBody>
                     {porCliente.map((c) => (
-                      <TableRow key={`${c.servicio}|${c.prefijo}`}>
+                      <Fragment key={`${c.servicio}|${c.prefijo}`}>
+                      <TableRow>
                         <TableCell className="font-medium">{c.servicio}</TableCell>
                         <TableCell>
                           <details>
@@ -213,6 +277,14 @@ export default async function PaginaOperaciones({
                           {euros(c.importe)}
                         </TableCell>
                       </TableRow>
+                      {c.campanias.length > 0 && (
+                        <TableRow className="hover:bg-transparent">
+                          <TableCell colSpan={5} className="pt-0 pb-3 whitespace-normal">
+                            <RepartoCampanias cliente={c} />
+                          </TableCell>
+                        </TableRow>
+                      )}
+                      </Fragment>
                     ))}
                   </TableBody>
                 </Table>
@@ -225,9 +297,9 @@ export default async function PaginaOperaciones({
               <CardDescription>
                 La columna «Facturable» marca las unidades configuradas en Administración →
                 Facturación. Las horas por campaña son las <strong>productivas</strong>{" "}
-                (en llamada); las logadas no se pueden repartir por campaña y, si el cliente
-                factura por ellas, van en «Horas logadas por cliente». Período: {desde} a{" "}
-                {hasta}.
+                (en llamada). Las logadas no salen aquí: si el cliente factura por ellas, van en
+                «Horas logadas por cliente», con su reparto estimado por campaña. Período:{" "}
+                {desde} a {hasta}.
               </CardDescription>
             </CardHeader>
             <CardContent>
@@ -405,6 +477,7 @@ export default async function PaginaOperaciones({
           "servicio",
           "horasLogadas",
           "horasLogadasCliente",
+          "repartoHorasLogadas",
           "horasProductivas",
           "interacciones",
           "atendidas",
