@@ -285,4 +285,4 @@ servicio docker habilitado, igual que tickets).
 
 | Fecha | Commit | Contenido | Migración | Backup previo | Vuelta atrás a |
 | ----- | ------ | --------- | --------- | ------------- | -------------- |
-| | | Puesta en producción inicial (SQLite del PC de desarrollo) | — | `dashboard-AAAAMMDD-pre-produccion.db` | PC de desarrollo (`npm run dev`) |
+| 2026-10-09 09:19 | `3861c06` (imagen `8c9c197921d4`, 745 MB) | Puesta en producción inicial con la SQLite del PC de desarrollo (backup 0918, integrity_check ok, SHA-256 comprobado). Agregados del 29/09 al 08/10 (577 filas) y nocturno de planificación (08/10). `verificar` desde el contenedor = PC al decimal | — | `/opt/tmsystem/backups/dashboard-20261009-0918-pre-produccion.db` | PC de desarrollo (`npm run dev` con su SQLite del 09/10 09:18) |

@@ -7,20 +7,19 @@ datos (usuarios, config, agregados) en **SQLite**.
 Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proyecto:
 **español** (UI, comentarios, commits).
 
-**Estado (09/10/2026): despliegue preparado, corte pendiente.** Producción es
-el servidor **Ubuntu 192.168.151.38** (el de tickets) con Docker Compose, en
-http://192.168.151.38:8081 — guía `docs/despliegue-linux.md` y sección
-«Producción» más abajo (la guía de Windows ya no aplica). Hasta el corte corre
-en el equipo de desarrollo de Christian (Windows 10, `npm run dev`) contra la
-RDBv2 real; en el corte su SQLite se lleva al servidor y desde entonces la
-buena es la del servidor. Rama de trabajo: `master`. `feature/planificacion`
+**Estado (09/10/2026): EN PRODUCCIÓN desde el 09/10/2026 a las 09:19.**
+Servidor **Ubuntu 192.168.151.38** (el de tickets) con Docker Compose, en
+http://192.168.151.38:8081: guía `docs/despliegue-linux.md` y sección
+«Producción» más abajo (la guía de Windows ya no aplica). **La SQLite buena es
+la del servidor** (`/opt/tmsystem/dashboard/data/`). La del equipo de
+desarrollo de Christian (Windows 10) quedó congelada en el corte: solo sirve
+para desarrollar, nunca para guardar nada que importe. Rama de trabajo: `master`. `feature/planificacion`
 (planificación F1-F5, ayuda para supervisión y la facturación por horas
 logadas de GH) se fusionó en `master` el 09/10/2026 sin conflictos (avance
 directo). Remoto: GitHub privado `christianruiz-TM/Dashboard-TmSystem`, alias
 SSH `github-dashboard` (deploy key con escritura en este PC y de solo lectura
-en el servidor; no hay `gh`). En el servidor ya están el clon, el `.env` y la
-imagen probada contra RDBv2 (09/10/2026); falta el corte (sección 2 de
-`docs/despliegue-linux.md`). `temp/` (Excel y prototipo con nombres reales) está
+en el servidor; no hay `gh`). Desplegar = commit y push aquí, y en el
+servidor la sección 3 de `docs/despliegue-linux.md`. `temp/` (Excel y prototipo con nombres reales) está
 en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 
 ## Reglas de dominio CRÍTICAS (no negociables)
@@ -485,7 +484,7 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   facturables, Not Ready). Es el arranque de los «tests de oro» de F2: sirve
   para comparar contra las queries SSMS antes de dar por buenos los KPIs.
 
-## Producción (Docker en Ubuntu, preparado el 09/10/2026)
+## Producción (Docker en Ubuntu, desde el 09/10/2026)
 
 Guía completa, con instalación, corte, actualización, vuelta atrás e
 histórico: `docs/despliegue-linux.md`. Reglas que no se ven en el código:
@@ -739,8 +738,8 @@ publicación y versiones) el 01/10/2026, F4 (seguimiento: Hoy, adherencia,
 saldo real, alertas y cierre de mes) el 06/10/2026 y F5 (tarea nocturna
 única) el 09/10/2026; sus resultados y desviaciones están en las secciones
 «Estado de F1…F5» de ese documento. Queda F6 (opcionales: simulaciones,
-exportar a Excel/PDF, «Mi horario» .ics) y programar la tarea en el
-servidor al desplegar. Cubre también parte de la mejora 4
+exportar a Excel/PDF, «Mi horario» .ics); la tarea nocturna ya está
+programada en el servidor (servicio `tareas`, 09/10/2026). Cubre también parte de la mejora 4
 (alertas de planificación) y la 5 (curva intradía: la tabla
 `agg_hora_servicio` de su F1). Sus fases F1-F6 son propias del
 módulo; no confundir con las F2/F4/F5 del plan general.
