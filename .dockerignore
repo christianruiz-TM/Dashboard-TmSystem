@@ -1,0 +1,17 @@
+# Contexto de build de docker/app.Dockerfile. Nada de datos reales en la imagen:
+# ni la SQLite, ni los backups, ni el material con nombres de temp/, ni el .env.
+node_modules
+.next
+data
+backups
+temp
+logs
+coverage
+.env*
+!.env.example
+*.db
+*.db-shm
+*.db-wal
+*.tsbuildinfo
+next-env.d.ts
+.git

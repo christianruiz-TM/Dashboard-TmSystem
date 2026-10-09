@@ -1,0 +1,19 @@
+# Tareas nocturnas del dashboard, para supercronic (servicio `tareas` del
+# docker-compose.yml). Las horas son de MADRID: el contenedor lleva
+# TZ=Europe/Madrid, así que no se mueven con el cambio de hora aunque el
+# servidor esté en UTC.
+#
+# Las tres son idempotentes y se ponen al día solas si alguna noche no corren.
+# supercronic no lanza una tarea si la anterior ejecución sigue en marcha.
+# Salida: `docker compose logs tareas`. Para lanzar una a mano:
+#   docker compose exec tareas npm run backup
+
+# Agregados diarios (ayer, en hora local).
+0 2 * * * npm run agregados
+
+# Planificación: agregados propios, borrador del mes siguiente desde el día 20 y
+# recálculo de los lunes. Su resultado se ve también en /admin.
+15 2 * * * npm run planificacion:nocturno
+
+# Backup de la SQLite a ./backups (conserva los 30 últimos).
+30 2 * * * npm run backup

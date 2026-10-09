@@ -2,7 +2,12 @@
  * Comprobación de las correcciones de la auditoría contra la BBDD real.
  * Uso: npx tsx scripts/verificar-auditoria.ts
  */
-process.loadEnvFile();
+// En el contenedor no hay .env: las variables llegan por env_file del compose.
+try {
+  process.loadEnvFile();
+} catch {
+  /* sin .env */
+}
 
 async function main() {
   const { kpisCampaniasRango } = await import("../src/lib/rdb/queries/supervision");

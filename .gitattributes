@@ -1,0 +1,4 @@
+# Ficheros que se leen dentro de contenedores Linux: siempre LF, también al
+# sacarlos en Windows (con CRLF, supercronic ejecutaría «npm run backup\r»).
+docker/** text eol=lf
+docker-compose.yml text eol=lf

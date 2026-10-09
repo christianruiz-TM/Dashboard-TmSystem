@@ -7,16 +7,18 @@ datos (usuarios, config, agregados) en **SQLite**.
 Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proyecto:
 **español** (UI, comentarios, commits).
 
-**Estado (09/10/2026): aún NO desplegado en servidor; es lo siguiente.** Corre
+**Estado (09/10/2026): despliegue preparado, corte pendiente.** Producción es
+el servidor **Ubuntu 192.168.151.38** (el de tickets) con Docker Compose, en
+http://192.168.151.38:8081 — guía `docs/despliegue-linux.md` y sección
+«Producción» más abajo (la guía de Windows ya no aplica). Hasta el corte corre
 en el equipo de desarrollo de Christian (Windows 10, `npm run dev`) contra la
-RDBv2 real; ese PC no es el servidor, así que NSSM y las tareas programadas se
-configuran al desplegar (`docs/despliegue-windows.md`, que recomienda llevarse
-la SQLite de este equipo: tiene toda la configuración y los planes de
-supervisión). Rama de trabajo: `master`. `feature/planificacion` (planificación
-F1-F5, ayuda para supervisión y la facturación por horas logadas de GH) se
-fusionó en `master` el 09/10/2026 sin conflictos (avance directo). El repo no
-tiene remoto git todavía (ni `gh` en este PC). `temp/` (Excel y prototipo con
-nombres reales) está en `.gitignore`: nunca al repo.
+RDBv2 real; en el corte su SQLite se lleva al servidor y desde entonces la
+buena es la del servidor. Rama de trabajo: `master`. `feature/planificacion`
+(planificación F1-F5, ayuda para supervisión y la facturación por horas
+logadas de GH) se fusionó en `master` el 09/10/2026 sin conflictos (avance
+directo). Remoto previsto: GitHub privado `christianruiz-TM/Dashboard-TmSystem`
+(no hay `gh` en este PC). `temp/` (Excel y prototipo con nombres reales) está
+en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 
 ## Reglas de dominio CRÍTICAS (no negociables)
 
@@ -206,7 +208,9 @@ nombres reales) está en `.gitignore`: nunca al repo.
   `x-forwarded-for`/`x-real-ip` si `TRUST_PROXY=1`: esas cabeceras las pone
   quien llama y la clave del rate-limit es usuario+IP, así que sin proxy real
   delante se podía rotar la cabecera y saltarse el bloqueo de 5 intentos.
-  Ponerlo a 1 SOLO al montar Caddy en F5.
+  En producción lo pone a 1 el `docker-compose.yml`: el nginx del servicio
+  `web` las REESCRIBE con `$remote_addr` y `app` no publica puerto. Fuera de
+  Docker (`npm run dev`/`start`), 0.
 - **Modo mock**: con `RDB_MOCK=1` (ver `.env.example`) la capa RDB devuelve datos
   ficticios realistas (`src/lib/rdb/mock.ts`). Permite desarrollar UI sin
   credenciales. Las páginas no distinguen mock de real.
@@ -478,6 +482,48 @@ nombres reales) está en `.gitignore`: nunca al repo.
   facturables, Not Ready). Es el arranque de los «tests de oro» de F2: sirve
   para comparar contra las queries SSMS antes de dar por buenos los KPIs.
 
+## Producción (Docker en Ubuntu, preparado el 09/10/2026)
+
+Guía completa, con instalación, corte, actualización, vuelta atrás e
+histórico: `docs/despliegue-linux.md`. Reglas que no se ven en el código:
+
+- **Servidor 192.168.151.38** (`ssh tickets-prod`, usuario `tmsystem`, sin
+  sudo). Es el de tickets (`/opt/tmsystem/app`, puerto 8080), así que no hay
+  que romperle nada. El dashboard vive en `/opt/tmsystem/dashboard` y se
+  publica en el **8081**.
+- Tres servicios con una sola imagen (`docker/app.Dockerfile`):
+  - `web`: nginx, el único puerto publicado.
+  - `app`: `next start`.
+  - `tareas`: supercronic con `docker/crontab`, a las 02:00, 02:15 y 02:30.
+- **El servidor está en UTC.** Los contenedores llevan `TZ=Europe/Madrid`
+  (regla 14) y la crontab va en hora de Madrid. Nunca programar tareas del
+  dashboard en el cron del host: correrían en UTC (y no admite `CRON_TZ`).
+- `name: dashboard` en el compose es obligatorio. Sin él, una carpeta llamada
+  `app` pisaría el stack de tickets.
+- nginx: `Host`/`X-Forwarded-Host` = `$http_host` (con el puerto). Con
+  `$host`, Next rechaza las Server Actions porque el `Origin` lleva el `:8081`.
+  Además, `X-Forwarded-For` se REESCRIBE (no se añade) y `proxy_read_timeout`
+  es de 180 s (mssql corta a los 120 s).
+- El compose fuerza `RDB_MOCK=0`, `TRUST_PROXY=1`, `TZ`, `NODE_ENV` y
+  `SQLITE_PATH`. `data/` y `backups/` se montan desde el host. El usuario
+  `node` del contenedor tiene el uid 1000, el mismo que `tmsystem`.
+- **Migraciones**: en Docker, `next build` usa una SQLite desechable; las
+  migraciones entran al arrancar `app`. Por eso, en cada actualización, el
+  backup se hace ANTES de `up -d`.
+- Para lanzar scripts en producción: `docker compose exec tareas npm run <script>`.
+  `tsx` está en `dependencies` (lo necesitan las tareas) y `shadcn` en
+  `devDependencies` (solo aporta CSS al compilar; como dependencia de
+  producción metía en la imagen 18 avisos de `npm audit`, uno crítico).
+- **Next 16.3.6 → 16.3.8** antes de subir a producción (09/10/2026): corrige
+  un SSRF en la optimización de imágenes y dos envenenamientos de caché, entre
+  otros avisos. `npm audit --omit=dev` dejó de dar avisos críticos: quedan 3
+  altos (`sharp`, `brace-expansion` y `source-map-js`, que vienen con Next) y 6
+  moderados (`mssql`/`tedious`/`uuid`/`exceljs`, sin arreglo compatible).
+- **Disco justo** (unos 5 GB libres). Para limpiar imágenes viejas:
+  `docker image prune --filter label=org.opencontainers.image.title=dashboard-tmsystem`.
+  NUNCA un `prune` sin filtro: las imágenes `<none>` son la vuelta atrás de
+  tickets.
+
 ## Convenciones de código
 
 - Queries SQL: constantes template en `src/lib/rdb/queries/`, comentadas en español,
@@ -615,9 +661,11 @@ Verificado contra RDBv2 real y, lo de seguridad, en build de producción:
       (`atendidasFueraSla`, diferencia < 0,01 p.p.); tarjeta IVR de hoy a 60 s
       (94-125 ms); export de cliente comprueba `activo`; `Content-Disposition`
       con `filename*` UTF-8 (un «€» en el nombre del cliente daba error 500).
-- [ ] Decidido NO cambiar: el bloqueo de login va por usuario (sin
+- [x] ~~Decidido NO cambiar: el bloqueo de login va por usuario (sin
       `TRUST_PROXY` no hay IP fiable), así que 5 fallos desde cualquier PC
-      bloquean esa cuenta 15 min. Se resuelve en F5 con Caddy.
+      bloquean esa cuenta 15 min. Se resuelve en F5 con Caddy.~~ Resuelto en
+      producción (09/10/2026): el nginx del compose da la IP real y
+      `TRUST_PROXY=1`.
 
 ## Facturación GrupoHuertas 01/10/2026 (Opus 5.5)
 
@@ -656,11 +704,10 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 
 1. Tests de oro (F2): convertir `npm run verificar` en asserts contra las
    queries SSMS de Christian. El runner (Vitest) ya existe desde el 30/09/2026.
-2. Programar `npm run agregados` (02:00), `npm run planificacion:nocturno`
-   (02:15) y `npm run backup` (02:30) como tareas nocturnas en el SERVIDOR
-   (comandos `schtasks` listos en `docs/despliegue-windows.md`). El histórico
-   ya está recalculado entero (29/09/2026) y el backup se ha ejecutado a mano;
-   falta solo programarlos.
+2. ~~Programar las tareas nocturnas en el servidor~~ Resuelto con el
+   despliegue Docker (09/10/2026): servicio `tareas` (supercronic,
+   `docker/crontab`, hora de Madrid). Queda confirmar la primera noche tras el
+   corte.
 3. Degradación elegante cuando RDBv2 no responde (hoy: `ConnectionError` de
    Next sin más). `error.tsx` por vista + banner de salud visible (ya existe
    `saludRdb()`, solo lo ve /admin).
@@ -677,8 +724,9 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
    nota "PENDIENTE de definir el mecanismo real" en la sección de Campañas IVR.
 9. Módulo de calidad de datos (F4): campañas sin servicio, `Test_*` mapeadas a
    clientes, duraciones imposibles, huecos de replicación.
-10. F5 (2FA + Caddy + `TRUST_PROXY=1` + `COOKIE_SECURE=1`). Solo urgente si
-    se decide exponer a internet.
+10. F5: 2FA, HTTPS en el nginx del compose (el bloque TLS ya está comentado en
+    `docker/nginx.conf`) y `COOKIE_SECURE=1`. `TRUST_PROXY=1` ya está puesto.
+    Solo es urgente si se decide exponer a internet.
 
 **Módulo «Planificación de turnos»** (aprobado 30/09/2026, rama
 `feature/planificacion`): plan por fases F1-F6 en `docs/plan-planificacion.md`.

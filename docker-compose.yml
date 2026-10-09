@@ -1,0 +1,91 @@
+# Despliegue del dashboard en el servidor Ubuntu de la LAN (192.168.151.38),
+# junto a la herramienta de tickets. Guía completa: docs/despliegue-linux.md
+#
+#   docker compose build      # compila la imagen dashboard-app
+#   docker compose up -d      # arranca web (nginx, :8081), app y tareas
+#
+# Ningún servicio publica puertos salvo `web`. La SQLite y los backups viven
+# en el host (./data y ./backups, fuera de git) y se montan en los contenedores.
+
+# Nombre fijo: si no, Compose lo toma de la carpeta, y el stack de tickets se
+# llama `app` por la suya. Dos stacks con el mismo nombre se pisan (Compose
+# borraría los contenedores del otro como huérfanos).
+name: dashboard
+
+# Rotación de logs común: sin esto el driver json-file crece sin límite y acaba
+# llenando el disco del servidor (5 GB libres en octubre de 2026).
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: '10m'
+    max-file: '3'
+
+# Lo común de `app` y `tareas`: la misma imagen, el mismo .env y la misma SQLite.
+x-dashboard: &dashboard
+  image: dashboard-app:latest
+  restart: unless-stopped
+  init: true
+  logging: *default-logging
+  env_file: .env
+  # Lo de aquí gana sobre env_file. Forzado a propósito, porque un .env copiado
+  # de .env.example traería valores de desarrollo.
+  environment:
+    NODE_ENV: production
+    # Regla 14 de CLAUDE.md: hora de España. El servidor está en UTC.
+    TZ: Europe/Madrid
+    # Con RDB_MOCK=1 (el valor de .env.example) se verían datos ficticios.
+    RDB_MOCK: '0'
+    SQLITE_PATH: ./data/dashboard.db
+    # Hay un proxy de verdad delante (`web`), que reescribe las cabeceras de IP,
+    # y `app` no es accesible por otro camino. Ver docker/nginx.conf.
+    TRUST_PROXY: '1'
+  volumes:
+    - ./data:/app/data
+    - ./backups:/app/backups
+
+services:
+  app:
+    <<: *dashboard
+    build:
+      context: .
+      dockerfile: docker/app.Dockerfile
+    expose:
+      - '3000'
+    healthcheck:
+      # /login sin cookie no consulta RDBv2, pero carga el módulo de la SQLite
+      # (y con él las migraciones): si responde 200, la app está lista.
+      test:
+        [
+          'CMD',
+          'node',
+          '-e',
+          "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1),()=>process.exit(1))",
+        ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 30s
+
+  tareas:
+    <<: *dashboard
+    # La imagen la compila `app`; nunca bajarla de un registro.
+    pull_policy: never
+    command: ['supercronic', '/app/docker/crontab']
+    depends_on:
+      # Que las migraciones de la SQLite las aplique `app` al arrancar, no una
+      # tarea a medias.
+      app:
+        condition: service_healthy
+
+  web:
+    image: nginx:1.27-alpine
+    restart: unless-stopped
+    logging: *default-logging
+    volumes:
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - '${WEB_PORT:-8081}:80'
+    depends_on:
+      # Si no, nginx respondería 502 mientras la app arranca.
+      app:
+        condition: service_healthy

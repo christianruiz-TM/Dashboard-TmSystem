@@ -48,7 +48,9 @@ export function registrarAuditoria(entrada: {
 /**
  * IP del cliente. Solo se hacen caso a x-forwarded-for / x-real-ip cuando
  * TRUST_PROXY=1, es decir, cuando de verdad hay un proxy inverso delante que
- * las reescribe (fase internet con Caddy).
+ * las reescribe: el nginx del docker-compose.yml (docker/nginx.conf), que es
+ * el único puerto publicado y pone las dos con la IP real. El compose fuerza
+ * TRUST_PROXY=1; fuera de él (npm run dev/start) vale 0.
  *
  * Por qué: esas cabeceras las pone quien llama, y la clave del rate-limit de
  * login es usuario+IP. Sin proxy delante, cualquiera podía mandar un

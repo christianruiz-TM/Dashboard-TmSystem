@@ -1,5 +1,10 @@
 # Despliegue en servidor Windows (v0 — red local)
 
+> **No es el despliegue real.** El dashboard se despliega en el servidor Ubuntu
+> 192.168.151.38 con Docker, junto a tickets: ver
+> [despliegue-linux.md](despliegue-linux.md). Esta guía queda como alternativa
+> por si algún día hubiera que montarlo en un Windows.
+
 Guía para dejar el dashboard funcionando como servicio en un servidor Windows de
 la LAN de TmSystem con acceso al SQL Server de RDBv2.
 
