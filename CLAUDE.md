@@ -7,15 +7,16 @@ datos (usuarios, config, agregados) en **SQLite**.
 Convenciones generales de Next.js del scaffold: ver @AGENTS.md. Idioma del proyecto:
 **español** (UI, comentarios, commits).
 
-**Estado (08/10/2026): aún NO desplegado en servidor.** Corre en el equipo de
-desarrollo de Christian (Windows 10, `npm run dev`) contra la RDBv2 real; ese
-PC no es el servidor, así que NSSM y las tareas programadas se configuran al
-desplegar (`docs/despliegue-windows.md`). Ramas: `master` (hasta la auditoría
-del 23/09) y `feature/planificacion` (todo lo posterior: planificación F1-F5,
-ayuda para supervisión y la facturación por horas logadas de GH), sin fusionar
-todavía; `master` no tiene nada que no esté en la rama, así que la fusión es
-directa. El repo no tiene remoto git todavía (ni `gh` en este PC). `temp/`
-(Excel y prototipo con nombres reales) está en `.gitignore`: nunca al repo.
+**Estado (09/10/2026): aún NO desplegado en servidor; es lo siguiente.** Corre
+en el equipo de desarrollo de Christian (Windows 10, `npm run dev`) contra la
+RDBv2 real; ese PC no es el servidor, así que NSSM y las tareas programadas se
+configuran al desplegar (`docs/despliegue-windows.md`, que recomienda llevarse
+la SQLite de este equipo: tiene toda la configuración y los planes de
+supervisión). Rama de trabajo: `master`. `feature/planificacion` (planificación
+F1-F5, ayuda para supervisión y la facturación por horas logadas de GH) se
+fusionó en `master` el 09/10/2026 sin conflictos (avance directo). El repo no
+tiene remoto git todavía (ni `gh` en este PC). `temp/` (Excel y prototipo con
+nombres reales) está en `.gitignore`: nunca al repo.
 
 ## Reglas de dominio CRÍTICAS (no negociables)
 

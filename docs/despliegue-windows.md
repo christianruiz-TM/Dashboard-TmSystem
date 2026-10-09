@@ -49,17 +49,37 @@ npm start    # → http://localhost:3000  y desde otro PC http://<servidor>:3000
 > Si el firewall de Windows bloquea el puerto: `New-NetFirewallRule -DisplayName
 > "Dashboard TmSystem" -Direction Inbound -LocalPort 3000 -Protocol TCP -Action Allow`
 
-### Alternativa a los pasos 4 y 6: llevarse la BBDD del equipo de desarrollo
+### Alternativa a los pasos 4 y 6 (RECOMENDADA): llevarse la BBDD del equipo de desarrollo
 
 La SQLite del equipo de desarrollo ya tiene el usuario admin, la configuración
-de facturación y el histórico de agregados recalculado (29/09/2026). Para
-llevarla en vez de empezar de cero:
+de facturación, el histórico de agregados recalculado (29/09/2026) y **todo el
+módulo de planificación**: clientes, prefijos, agentes con sus contratos,
+patrones y parámetros; las versiones del plan (septiembre importado del Excel,
+octubre publicado, noviembre en borrador), ausencias, bolsas, ajustes de saldo
+y los agregados de planificación desde el 01/06/2025. Empezar de cero en el
+servidor obligaría a repetir toda esa configuración a mano, así que conviene
+llevarla:
 
-1. En el equipo de desarrollo: `npm run backup` → `backups\dashboard_AAAAMMDD_HHmm.db`.
+1. En el equipo de desarrollo, **con `npm run dev` parado**: `npm run backup`
+   → `backups\dashboard_AAAAMMDD_HHmm.db`.
 2. En el servidor, **con la app parada**: copiar ese fichero como
-   `data\dashboard.db` (sin ficheros `-wal`/`-shm` de otra copia al lado).
+   `data\dashboard.db` (sin ficheros `-wal`/`-shm` de otra copia al lado: el
+   `npm run build` del paso 2 deja una base vacía con los suyos; borrar los
+   tres antes de copiar).
 3. Arrancar: las migraciones que falten se aplican solas. Después, completar
-   los días que falten con `npm run agregados -- --desde <día siguiente al último> --hasta <ayer>`.
+   los días que falten de los agregados generales con
+   `npm run agregados -- --desde <día siguiente al último> --hasta <ayer>`. Los
+   de planificación se ponen al día solos con `npm run planificacion:nocturno`
+   (hasta 31 días atrás; si faltan más, `npm run planificacion:agregados --
+   --desde <día> --hasta <ayer>` antes).
+4. Desde ese momento, la SQLite buena es la del servidor: no volver a usar la
+   del equipo de desarrollo para nada que se vaya a guardar.
+
+Si aun así se empieza de cero: después del paso 6, `npm run planificacion:semilla`
+(clientes, prefijos, patrones y parámetros por defecto) y
+`npm run planificacion:agregados -- --desde 2025-06-01 --hasta <ayer>`, y
+supervisión tendrá que revisar agentes, contratos y patrones en
+/planificacion/configuracion.
 
 Las sesiones abiertas en el equipo de desarrollo viajan en la copia, pero su
 cookie es de otro servidor: en la práctica todos tendrán que volver a entrar.
@@ -132,12 +152,16 @@ política de copias del servidor.
 
 ```powershell
 git pull          # o copiar la nueva versión
+npm run backup    # ANTES de compilar (ver abajo)
 npm ci
 npm run build
 nssm restart DashboardTmSystem
 ```
 
-Las migraciones de SQLite se aplican solas al arrancar.
+Las migraciones de SQLite se aplican solas al arrancar, **y también al
+compilar**: `npm run build` abre la SQLite del `.env` y aplica las que falten
+(así entró la 0005 en el equipo de desarrollo, sin backup previo). Por eso el
+backup va antes del build.
 
 ## Problemas frecuentes
 
