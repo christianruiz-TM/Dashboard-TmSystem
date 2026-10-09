@@ -272,6 +272,7 @@ servicio docker habilitado, igual que tickets).
 | Síntoma | Qué mirar |
 |---|---|
 | La página no carga (8081) | `docker compose ps`. Si `app` no está `healthy`: `docker compose logs app`. Si desde el servidor responde (`curl -I localhost:8081/login`) pero no desde la VPN, es el cortafuegos de la VPN. |
+| `SSL_ERROR_RX_RECORD_TOO_LONG` / «Conexión segura fallida» | El navegador está pidiendo `https://` y el 8081 solo sirve HTTP. Escribir la dirección entera, `http://192.168.151.38:8081`, y borrar del historial la entrada con `https` (en Firefox, flecha en la sugerencia → «Eliminar»). Si sigue: Firefox, `Ajustes → Privacidad → Modo solo HTTPS` desactivado o con excepción para la IP. Se acaba del todo al activar TLS (bloque comentado de `nginx.conf`). |
 | 502 Bad Gateway | `app` caída o arrancando: `docker compose logs app`. |
 | Login en bucle (vuelve a la pantalla de acceso) | `COOKIE_SECURE=1` sirviendo por HTTP: ponerlo a 0 en el `.env` y `docker compose up -d`. |
 | Los formularios (Server Actions) fallan | Revisar que `nginx.conf` mande `Host $http_host` y `X-Forwarded-Host $http_host` (con el puerto). |
