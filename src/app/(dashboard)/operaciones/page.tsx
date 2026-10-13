@@ -19,7 +19,7 @@ import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
-import { requireRol } from "@/lib/auth/rbac";
+import { ROLES_OPERACIONES, requireRol } from "@/lib/auth/rbac";
 import type { FacturacionHorasLogadas } from "@/lib/facturacion-horas-logadas";
 import {
   NOMBRE_UNIDAD,
@@ -120,7 +120,7 @@ export default async function PaginaOperaciones({
     ivr?: string;
   }>;
 }) {
-  await requireRol("operaciones");
+  await requireRol(...ROLES_OPERACIONES);
   const presets = presetsRango();
   const mesActual = presets.find((p) => p.etiqueta === "Mes actual")!;
   const params = await searchParams;

@@ -252,7 +252,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 - **RDBv2** (mssql) en `src/lib/rdb/` — pool singleton (`pool.ts`), enums cacheados
   (`enums.ts`), cache TTL (`cache.ts`), queries por dominio en `queries/*.ts`.
 - **Auth propia**: sesiones en BBDD + cookie httpOnly (`src/lib/auth/`). Roles:
-  `admin | direccion | operaciones | supervision | cliente`. El proxy
+  `admin | direccion | operaciones | supervision | cliente`. Dirección ve
+  también Operaciones y Supervisión (`ROLES_OPERACIONES`/`ROLES_SUPERVISION`
+  en `rbac.ts`, 13/10/2026). El proxy
   (`src/proxy.ts`, el "middleware" renombrado en Next 16) solo comprueba presencia
   de cookie; la validación real la hace **cada `page.tsx`** llamando a
   `requireRol()` (`src/lib/auth/rbac.ts`), igual que cada Server Action y route

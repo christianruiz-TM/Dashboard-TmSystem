@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { ROLES_SUPERVISION } from "@/lib/auth/rbac";
 import { obtenerSesion } from "@/lib/auth/session";
 import { umbralSlaSeg } from "@/lib/db/settings";
 import { hoyISO } from "@/lib/fechas";
@@ -19,7 +20,7 @@ import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
  */
 export async function GET(peticion: NextRequest) {
   const usuario = await obtenerSesion();
-  if (!usuario || (usuario.rol !== "admin" && usuario.rol !== "supervision")) {
+  if (!usuario || (usuario.rol !== "admin" && !ROLES_SUPERVISION.includes(usuario.rol))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   try {

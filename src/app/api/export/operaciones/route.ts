@@ -1,4 +1,5 @@
 import { NextResponse, type NextRequest } from "next/server";
+import { ROLES_OPERACIONES } from "@/lib/auth/rbac";
 import { obtenerSesion } from "@/lib/auth/session";
 import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import {
@@ -19,7 +20,7 @@ import { FORMATO_2_DECIMALES, generarXlsx, respuestaXlsx } from "@/lib/export/xl
 /** Export del módulo de facturación (CSV para Excel ES o XLSX). */
 export async function GET(peticion: NextRequest) {
   const usuario = await obtenerSesion();
-  if (!usuario || (usuario.rol !== "admin" && usuario.rol !== "operaciones")) {
+  if (!usuario || (usuario.rol !== "admin" && !ROLES_OPERACIONES.includes(usuario.rol))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
 

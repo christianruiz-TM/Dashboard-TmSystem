@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { AvisoRango } from "@/components/filtros/aviso-rango";
-import { requireRol } from "@/lib/auth/rbac";
+import { ROLES_SUPERVISION, requireRol } from "@/lib/auth/rbac";
 import { umbralSlaSeg } from "@/lib/db/settings";
 import { esquemaRango, hoyISO, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
 import {
@@ -36,7 +36,7 @@ export default async function PaginaSupervision({
     ivr?: string;
   }>;
 }) {
-  await requireRol("supervision");
+  await requireRol(...ROLES_SUPERVISION);
   const params = await searchParams;
   const vista = params.vista === "historico" ? "historico" : "tiempo-real";
   const umbral = umbralSlaSeg();

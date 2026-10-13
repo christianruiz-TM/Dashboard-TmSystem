@@ -21,6 +21,13 @@ export const RUTA_POR_ROL: Record<Rol, string> = {
 };
 
 /**
+ * Paneles de Operaciones y Supervisión: su rol y, además, dirección (decidido
+ * 13/10/2026 con Christian: dirección ve también esos dos paneles).
+ */
+export const ROLES_OPERACIONES: Rol[] = ["operaciones", "direccion"];
+export const ROLES_SUPERVISION: Rol[] = ["supervision", "direccion"];
+
+/**
  * Planificación de turnos: supervisión (y admin) generan, editan, publican y
  * configuran; operaciones y dirección solo leen (con nombres de agentes: son
  * roles internos). El rol cliente nunca entra.
@@ -37,8 +44,8 @@ export function puedeEditarPlan(rol: Rol): boolean {
 export function rutasVisibles(rol: Rol): { ruta: string; etiqueta: string }[] {
   const todas = [
     { ruta: "/direccion", etiqueta: "Dirección", roles: ["admin", "direccion"] },
-    { ruta: "/operaciones", etiqueta: "Operaciones", roles: ["admin", "operaciones"] },
-    { ruta: "/supervision", etiqueta: "Supervisión", roles: ["admin", "supervision"] },
+    { ruta: "/operaciones", etiqueta: "Operaciones", roles: ["admin", ...ROLES_OPERACIONES] },
+    { ruta: "/supervision", etiqueta: "Supervisión", roles: ["admin", ...ROLES_SUPERVISION] },
     { ruta: "/planificacion", etiqueta: "Planificación", roles: ["admin", ...ROLES_PLAN_LECTURA] },
     { ruta: "/clientes", etiqueta: "Mi servicio", roles: ["admin", "cliente"] },
     { ruta: "/admin", etiqueta: "Administración", roles: ["admin"] },
