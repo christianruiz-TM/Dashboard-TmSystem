@@ -21,6 +21,11 @@ const MENSAJES: Record<string, { texto: string; error: boolean }> = {
       "Esa tabla o columna ya no existe en la centralita, o falta elegir al menos el primer nivel.",
     error: true,
   },
+  error_tipos: {
+    texto:
+      "Revisa los tipos de campaña: una línea por tipo, «Nombre: patrón, patrón» (p. ej. «BBDD: gh_bbdd_%»), sin nombres repetidos.",
+    error: true,
+  },
   error_objetivo: {
     texto: "El objetivo necesita al menos un umbral (bruto, neto o % no válidos) y fechas válidas.",
     error: true,

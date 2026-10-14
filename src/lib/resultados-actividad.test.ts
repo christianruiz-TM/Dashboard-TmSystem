@@ -6,7 +6,13 @@ import {
   calcularResultados,
   colorMaximo,
   colorMinimo,
+  escribirTiposCampania,
+  filtrarPorTipo,
+  leerTiposCampania,
   objetivoDe,
+  opcionesTipo,
+  seleccionTipo,
+  tipoDeCampania,
   type ObjetivoResultados,
 } from "./resultados-actividad";
 
@@ -299,5 +305,48 @@ describe("objetivos y semáforo", () => {
     const y = r.campanias.find((c) => c.campania === "gh_y")!;
     expect(y.semaforo).toEqual({ bruto: null, neto: null, noValidos: null });
     expect(r.total.objetivo).toBe(o);
+  });
+});
+
+describe("tipos de campaña (GH: BBDD)", () => {
+  const campanias = ["gh_bbdd_dimovil", "gh_bbdd_granada", "gh_la_mur_toyota", "gh_skoda_mur"];
+
+  it("lee el texto del admin y lo vuelve a escribir igual", () => {
+    const tipos = leerTiposCampania("BBDD: gh_bbdd_%\n\nOcasión: gh_huertas_ocasion, gh_%ocasion%");
+    expect(tipos).toEqual([
+      { nombre: "BBDD", patrones: ["gh_bbdd_%"] },
+      { nombre: "Ocasión", patrones: ["gh_huertas_ocasion", "gh_%ocasion%"] },
+    ]);
+    expect(escribirTiposCampania(tipos!)).toBe("BBDD: gh_bbdd_%\nOcasión: gh_huertas_ocasion, gh_%ocasion%");
+    expect(leerTiposCampania("")).toEqual([]);
+  });
+
+  it("rechaza líneas sin «nombre:», sin patrones o con nombres repetidos", () => {
+    expect(leerTiposCampania("gh_bbdd_%")).toBeNull();
+    expect(leerTiposCampania("BBDD:")).toBeNull();
+    expect(leerTiposCampania("BBDD: gh_bbdd_%\nbbdd: otro%")).toBeNull();
+  });
+
+  it("separa todas, sin BBDD y solo BBDD", () => {
+    const tipos = leerTiposCampania("BBDD: gh_bbdd_%")!;
+    expect(opcionesTipo(tipos).map((o) => o.etiqueta)).toEqual(["Todas", "Sin BBDD", "Solo BBDD"]);
+    expect(filtrarPorTipo(campanias, tipos, "todas")).toEqual(campanias);
+    expect(filtrarPorTipo(campanias, tipos, "resto")).toEqual(["gh_la_mur_toyota", "gh_skoda_mur"]);
+    expect(filtrarPorTipo(campanias, tipos, "solo:BBDD")).toEqual(["gh_bbdd_dimovil", "gh_bbdd_granada"]);
+  });
+
+  it("un valor de la URL que no es de este cliente vuelve a «todas»; sin tipos no hay selector", () => {
+    const tipos = leerTiposCampania("BBDD: gh_bbdd_%")!;
+    expect(seleccionTipo("solo:Ocasión", tipos)).toBe("todas");
+    expect(seleccionTipo(undefined, tipos)).toBe("todas");
+    expect(seleccionTipo("resto", tipos)).toBe("resto");
+    expect(opcionesTipo([])).toEqual([]);
+    expect(filtrarPorTipo(campanias, [], "resto")).toEqual(campanias);
+  });
+
+  it("con varios tipos, una campaña cuenta en el primero que casa y el resto es «Resto»", () => {
+    const tipos = leerTiposCampania("BBDD: gh_bbdd_%\nGranada: %granada%")!;
+    expect(tipoDeCampania("gh_bbdd_granada", tipos)).toBe("BBDD");
+    expect(opcionesTipo(tipos).map((o) => o.etiqueta)).toEqual(["Todas", "Resto", "Solo BBDD", "Solo Granada"]);
   });
 });

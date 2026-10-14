@@ -13,7 +13,8 @@ import {
 } from "@/lib/rdb/queries/supervision";
 import { ratiosExitoHoy, ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
 import { resultadosActividadRango } from "@/lib/rdb/queries/resultados-actividad";
-import { configsResultados, objetivosDeResultados } from "@/lib/db/resultados";
+import { configsResultados, objetivosDeResultados, tiposCampaniaDe } from "@/lib/db/resultados";
+import { filtrarPorTipo, opcionesTipo, seleccionTipo } from "@/lib/resultados-actividad";
 import {
   campaniasDeServicio,
   campaniasEfectivas,
@@ -37,6 +38,7 @@ export default async function PaginaSupervision({
     desde?: string;
     hasta?: string;
     ivr?: string;
+    tipo?: string;
   }>;
 }) {
   const usuario = await requireRol(...ROLES_SUPERVISION);
@@ -65,11 +67,14 @@ export default async function PaginaSupervision({
     // servicios a la vez tardaba demasiado en abrir la pestaña)
     const servicioElegido =
       params.servicio && nombresServicios.includes(params.servicio) ? params.servicio : undefined;
+    // Tipos de campaña del cliente (GH: BBDD): se filtra la lista antes de consultar
+    const tipos = servicioElegido ? tiposCampaniaDe(servicioElegido) : [];
+    const tipo = seleccionTipo(params.tipo, tipos);
     const resultado = servicioElegido
       ? await resultadosActividadRango(
           desde,
           hasta,
-          camp,
+          filtrarPorTipo(camp ?? [], tipos, tipo),
           configsResultados(),
           objetivosDeResultados(),
         )
@@ -93,6 +98,8 @@ export default async function PaginaSupervision({
           servicio={servicioElegido}
           incluirIvr={incluirIvr}
           esAdmin={usuario.rol === "admin"}
+          tipos={opcionesTipo(tipos)}
+          tipo={tipo}
         />
       </div>
     );

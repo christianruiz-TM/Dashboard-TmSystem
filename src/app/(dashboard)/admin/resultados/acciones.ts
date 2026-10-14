@@ -9,7 +9,8 @@ import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { db } from "@/lib/db/sqlite";
 import { objetivosResultados, resultadosConfig } from "@/lib/db/schema";
 import { esquemaFechaISO } from "@/lib/fechas";
-import { MAX_NIVELES } from "@/lib/resultados-actividad";
+import { guardarTiposCampania } from "@/lib/db/resultados";
+import { MAX_NIVELES, escribirTiposCampania, leerTiposCampania } from "@/lib/resultados-actividad";
 import { tablasResultados } from "@/lib/rdb/queries/resultados-actividad";
 
 // ============================================================
@@ -87,6 +88,20 @@ export async function guardarNoValidos(formData: FormData): Promise<void> {
     .where(eq(resultadosConfig.id, actual!.id))
     .run();
   await auditar(admin, `${servicio}: no válidos [${unicos.join(", ")}]`);
+  volver(servicio, "guardado");
+}
+
+/**
+ * Tipos de campaña de un servicio («BBDD: gh[_]bbdd[_]%», uno por línea), para
+ * separar los resultados en Supervisión. Vacío = sin tipos.
+ */
+export async function guardarTiposCampaniaAccion(formData: FormData): Promise<void> {
+  const admin = await requireRol();
+  const servicio = String(formData.get("servicio") ?? "");
+  const tipos = leerTiposCampania(String(formData.get("tipos") ?? ""));
+  if (!servicio || !tipos) volver(servicio || null, "error_tipos");
+  guardarTiposCampania(servicio, tipos!);
+  await auditar(admin, `${servicio}: tipos de campaña [${escribirTiposCampania(tipos!).replace(/\n/g, " | ")}]`);
   volver(servicio, "guardado");
 }
 

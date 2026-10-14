@@ -16,9 +16,9 @@ import {
 import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { SelectNativo } from "@/components/admin/select-nativo";
 import { requireRol } from "@/lib/auth/rbac";
-import { configsResultados, objetivosDeResultados } from "@/lib/db/resultados";
+import { configsResultados, objetivosDeResultados, tiposCampaniaDe } from "@/lib/db/resultados";
 import { presetsRango } from "@/lib/fechas";
-import { MAX_NIVELES } from "@/lib/resultados-actividad";
+import { MAX_NIVELES, escribirTiposCampania, tipoDeCampania } from "@/lib/resultados-actividad";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import {
   configValida,
@@ -27,13 +27,14 @@ import {
   tablasResultados,
   valoresColumnaResultados,
 } from "@/lib/rdb/queries/resultados-actividad";
-import { campaniasEfectivas } from "@/lib/rdb/queries/servicios";
+import { campaniasEfectivas, listaServicios } from "@/lib/rdb/queries/servicios";
 import {
   borrarConfigResultados,
   borrarObjetivoResultados,
   crearObjetivoResultados,
   guardarColumnasResultados,
   guardarNoValidos,
+  guardarTiposCampaniaAccion,
 } from "./acciones";
 
 export const metadata: Metadata = { title: "Resultados de actividad" };
@@ -63,6 +64,17 @@ export default async function PaginaResultadosAdmin({
     tablasServicio.find((t) => t.tabla === config?.tablaAo) ??
     tablasServicio[0];
   const columnasConfig = config && tabla && config.tablaAo === tabla.tabla ? config.columnas : [];
+
+  // Tipos de campaña del servicio y en qué tipo cae cada campaña suya
+  const tipos = servicio ? tiposCampaniaDe(servicio) : [];
+  const campaniasServicio = servicio
+    ? ((await listaServicios()).find((s) => s.servicio === servicio)?.campanias ?? [])
+    : [];
+  const porTipo = new Map<string, string[]>();
+  for (const c of campaniasServicio) {
+    const t = tipoDeCampania(c, tipos) ?? "";
+    porTipo.set(t, [...(porTipo.get(t) ?? []), c]);
+  }
 
   // Valores de cada columna configurada (para marcar los «no válidos»)
   const valores = tabla
@@ -243,6 +255,47 @@ export default async function PaginaResultadosAdmin({
                 <Button type="submit">Guardar no válidos</Button>
               </form>
             ) : null}
+
+            <form action={guardarTiposCampaniaAccion} className="space-y-3 rounded-lg border p-4">
+              <input type="hidden" name="servicio" value={servicio} />
+              <div className="space-y-1.5">
+                <Label htmlFor="tipos" className="text-sm font-medium">
+                  Tipos de campaña (opcional)
+                </Label>
+                <p className="text-xs text-muted-foreground">
+                  Para separar los resultados en Supervisión con un selector («Todas · Sin BBDD · Solo
+                  BBDD»). Una línea por tipo: <code>Nombre: patrón, patrón</code>. En el patrón,{" "}
+                  <code>%</code> es cualquier texto; por ejemplo <code>BBDD: gh_bbdd_%</code>. Si una
+                  campaña casa con dos tipos, cuenta en el primero. Vacío = sin tipos.
+                </p>
+                <textarea
+                  id="tipos"
+                  name="tipos"
+                  rows={3}
+                  defaultValue={escribirTiposCampania(tipos)}
+                  placeholder="BBDD: gh_bbdd_%"
+                  className="w-full rounded-md border border-input bg-background px-2.5 py-1.5 font-mono text-sm"
+                />
+              </div>
+              {tipos.length > 0 ? (
+                <ul className="space-y-1 text-xs">
+                  {[...tipos.map((t) => t.nombre), ""].map((t) => {
+                    const lista = porTipo.get(t) ?? [];
+                    return (
+                      <li key={t || "resto"}>
+                        <span className="font-medium">{t || (tipos.length === 1 ? `Sin ${tipos[0].nombre}` : "Resto")}</span>{" "}
+                        <span className="text-muted-foreground">
+                          ({lista.length}): {lista.length > 0 ? lista.join(", ") : "ninguna campaña"}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+              <Button type="submit" size="sm">
+                Guardar tipos
+              </Button>
+            </form>
 
             {previa ? (
               <div className="rounded-lg border p-4">

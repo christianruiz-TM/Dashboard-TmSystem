@@ -1,4 +1,6 @@
 import { addDays, differenceInCalendarDays, format, parseISO, startOfISOWeek } from "date-fns";
+import { z } from "zod";
+import { coincideLike } from "@/lib/planificacion/motor/campanias";
 import type { BaseResultados, FilaBaseResultados } from "@/lib/rdb/types";
 
 // ============================================================
@@ -148,6 +150,89 @@ export interface ResultadoResultados {
   serie: { granularidad: "dia" | "semana"; puntos: PuntoSerie[] };
   /** Servicios del alcance con contactos cerrados y sin resultados configurados. */
   serviciosSinConfigurar: string[];
+}
+
+// ------------------------------------------------------------
+// Tipos de campaña (14/10/2026): cada cliente puede agrupar sus campañas
+// por tipo con patrones LIKE (GH: «BBDD» = gh_bbdd_%) y el panel deja ver
+// todas, solo un tipo o el resto. Se filtra la lista de campañas ANTES de
+// consultar, así que no cambia ningún cálculo.
+// ------------------------------------------------------------
+
+export interface TipoCampania {
+  nombre: string;
+  /** Patrones LIKE de shortname (% cualquier texto, _ un carácter). */
+  patrones: string[];
+}
+
+export const esquemaTiposCampania = z
+  .array(
+    z.object({
+      nombre: z.string().trim().min(1).max(30),
+      patrones: z.array(z.string().trim().min(1).max(40)).min(1).max(20),
+    }),
+  )
+  .max(10)
+  .refine((l) => new Set(l.map((t) => t.nombre.toLowerCase())).size === l.length, {
+    message: "Dos tipos con el mismo nombre",
+  });
+
+/**
+ * Texto del admin («BBDD: gh[_]bbdd[_]%, otro%», uno por línea) → tipos.
+ * null si alguna línea no tiene la forma «nombre: patrones».
+ */
+export function leerTiposCampania(texto: string): TipoCampania[] | null {
+  const tipos: TipoCampania[] = [];
+  for (const linea of texto.split(/\r?\n/).map((l) => l.trim()).filter(Boolean)) {
+    const i = linea.indexOf(":");
+    if (i <= 0) return null;
+    const patrones = linea
+      .slice(i + 1)
+      .split(",")
+      .map((p) => p.trim())
+      .filter(Boolean);
+    tipos.push({ nombre: linea.slice(0, i).trim(), patrones });
+  }
+  const r = esquemaTiposCampania.safeParse(tipos);
+  return r.success ? r.data : null;
+}
+
+export function escribirTiposCampania(tipos: TipoCampania[]): string {
+  return tipos.map((t) => `${t.nombre}: ${t.patrones.join(", ")}`).join("\n");
+}
+
+/** Tipo de una campaña (el primero que casa) o null si no es de ninguno. */
+export function tipoDeCampania(campania: string, tipos: TipoCampania[]): string | null {
+  return tipos.find((t) => t.patrones.some((p) => coincideLike(campania, p)))?.nombre ?? null;
+}
+
+/** Opciones del selector: «todas», «solo:<tipo>» o «resto» (de ningún tipo). */
+export type SeleccionTipo = "todas" | "resto" | `solo:${string}`;
+
+export function opcionesTipo(tipos: TipoCampania[]): { valor: SeleccionTipo; etiqueta: string }[] {
+  if (tipos.length === 0) return [];
+  return [
+    { valor: "todas", etiqueta: "Todas" },
+    // Con un solo tipo se lee mejor «Sin BBDD» que «Resto»
+    { valor: "resto", etiqueta: tipos.length === 1 ? `Sin ${tipos[0].nombre}` : "Resto" },
+    ...tipos.map((t) => ({ valor: `solo:${t.nombre}` as SeleccionTipo, etiqueta: `Solo ${t.nombre}` })),
+  ];
+}
+
+/** Valor de la URL → selección válida para estos tipos («todas» si no lo es). */
+export function seleccionTipo(valor: string | undefined, tipos: TipoCampania[]): SeleccionTipo {
+  return opcionesTipo(tipos).find((o) => o.valor === valor)?.valor ?? "todas";
+}
+
+export function filtrarPorTipo(
+  campanias: string[],
+  tipos: TipoCampania[],
+  seleccion: SeleccionTipo,
+): string[] {
+  if (seleccion === "todas" || tipos.length === 0) return campanias;
+  if (seleccion === "resto") return campanias.filter((c) => tipoDeCampania(c, tipos) == null);
+  const nombre = seleccion.slice("solo:".length);
+  return campanias.filter((c) => tipoDeCampania(c, tipos) === nombre);
 }
 
 // ------------------------------------------------------------

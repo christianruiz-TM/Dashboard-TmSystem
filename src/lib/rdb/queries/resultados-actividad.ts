@@ -389,7 +389,11 @@ export async function resultadosActividadRango(
   objetivos: ObjetivoResultados[],
 ): Promise<ResultadoResultados> {
   let base: BaseResultados;
-  if (esMock()) {
+  if (campanias && campanias.length === 0) {
+    // Lista vacía (p. ej. un tipo de campaña sin campañas en el cliente): en
+    // filtroCampanias vacío significa «todas», así que no se consulta nada
+    base = { filas: [], textos: {}, servicioDeCampania: {}, niveles: {}, serviciosConfigurados: [] };
+  } else if (esMock()) {
     const tablas = await tablasResultados();
     const validas = configs.filter((c) => configValida(c, tablas));
     const mapa = mapaCampaniaServicio(await listaServicios());

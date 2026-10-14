@@ -274,6 +274,17 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     - **Siempre de UN cliente** (pedido por Christian el 13/10/2026): la
       pestaña no tiene «Todos» y sin `?servicio=` no consulta nada, solo
       pide elegir cliente (`SelectorServicio obligatorio`).
+    - **Tipos de campaña** (pedido el 14/10/2026 para separar las BBDD de
+      GH): cada cliente puede definir tipos con patrones LIKE en
+      `/admin/resultados` (GH: `BBDD: gh_bbdd_%`). Se guardan en
+      `app_settings` (`resultados.tipos.<servicio>`, sin migración). El panel
+      enseña «Todas · Sin BBDD · Solo BBDD» (`?tipo=resto|solo:<tipo>`); con
+      varios tipos, «Resto» = de ninguno. Se filtra la LISTA de campañas
+      antes de consultar (`filtrarPorTipo`), así que no cambia ningún
+      cálculo; una lista vacía devuelve resultado vacío (en `filtroCampanias`
+      vacío significaría «todas»). GH septiembre: sin BBDD 5.950
+      finalizados, bruto 35,45 %, neto 59,97 %; solo BBDD (4 campañas)
+      2.467, 16,90 % y 21,64 %; suman el total.
     - Los nombres de tabla y columna `ao_*` van en el SQL como identificadores
       (no admiten parámetros): solo los de `tablasResultados()` (lista blanca
       desde `table_schema` + `INFORMATION_SCHEMA`, columnas enteras), con

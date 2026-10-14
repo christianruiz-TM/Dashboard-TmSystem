@@ -8,7 +8,8 @@ import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { ResultadosActividad } from "@/components/kpi/resultados-actividad";
-import type { ResultadoResultados } from "@/lib/resultados-actividad";
+import type { ResultadoResultados, SeleccionTipo } from "@/lib/resultados-actividad";
+import { cn } from "@/lib/utils";
 
 /**
  * Supervisión → Resultados: análisis de los resultados de actividad
@@ -25,8 +26,13 @@ export function PanelResultados({
   servicio,
   incluirIvr,
   esAdmin,
+  tipos,
+  tipo,
 }: {
   resultado: ResultadoResultados | null;
+  /** Opciones del selector de tipo de campaña (vacío si el cliente no tiene tipos). */
+  tipos: { valor: SeleccionTipo; etiqueta: string }[];
+  tipo: SeleccionTipo;
   desde: string;
   hasta: string;
   presets: { etiqueta: string; desde: string; hasta: string }[];
@@ -40,6 +46,13 @@ export function PanelResultados({
   const hrefCliente = (s: string) => {
     const p = new URLSearchParams({ vista: "resultados", servicio: s, desde, hasta });
     if (incluirIvr) p.set("ivr", "1");
+    return `/supervision?${p.toString()}`;
+  };
+  // Enlace a un tipo de campaña del cliente elegido
+  const hrefTipo = (t: SeleccionTipo) => {
+    const p = new URLSearchParams({ vista: "resultados", servicio: servicio ?? "", desde, hasta });
+    if (incluirIvr) p.set("ivr", "1");
+    if (t !== "todas") p.set("tipo", t);
     return `/supervision?${p.toString()}`;
   };
   return (
@@ -59,6 +72,29 @@ export function PanelResultados({
           <SelectorIvr incluir={incluirIvr} />
         </div>
       </div>
+
+      {servicio && tipos.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-2 text-sm">
+          <span className="text-muted-foreground">Tipo de campaña:</span>
+          <div className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1">
+            {tipos.map((o) => (
+              <Link
+                key={o.valor}
+                href={hrefTipo(o.valor)}
+                aria-current={o.valor === tipo ? "page" : undefined}
+                className={cn(
+                  "rounded-md px-3 py-1 font-medium transition-colors",
+                  o.valor === tipo
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground",
+                )}
+              >
+                {o.etiqueta}
+              </Link>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {sinConfigurar.length > 0 ? (
         <Alert>
