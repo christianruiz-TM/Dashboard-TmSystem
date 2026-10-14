@@ -358,3 +358,69 @@ export interface EntrantesNoAtendidas {
   /** HH:MM de la última entrante atendida de hoy (null si ninguna). */
   ultimaAtendida: string | null;
 }
+
+// ------------------------------------------------------------
+// Resultados de actividad (regla 18): tipificación del script de cada
+// contacto cerrado, desde las tablas ao_<servicio>.
+// ------------------------------------------------------------
+
+/**
+ * Qué pasó con un contacto cerrado (activity.status = 3) en el rango:
+ *  - tipificado: lo cerró un agente; su última sesión de script (con
+ *    resultado si lo hay) cae en los 90 días anteriores al cierre.
+ *  - sinTocar: se cerró sin que ningún agente hablara con él (familias
+ *    NotTouched*, AutomaticallyRescheduled, *BeforeConnection y Overflowed
+ *    de ContactBusinessStatus).
+ *  - administrativo: tiene calificación de agente, pero ninguna sesión
+ *    en los 90 días anteriores al cierre: alguien cerró la lista en bloque
+ *    (08/09/2026: 278 contactos de GH tipificados en marzo de 2025).
+ * Solo los tipificados entran en los ratios.
+ */
+export type CategoriaCierre = "tipificado" | "sinTocar" | "administrativo";
+
+export interface FilaBaseResultados {
+  /** Día del cierre (último event_moment del contacto), YYYY-MM-DD. */
+  fecha: string;
+  campania: string;
+  /** usr_name de la última sesión de agente; null si no es «tipificado». */
+  agente: string | null;
+  nombre: string | null;
+  categoria: CategoriaCierre;
+  /**
+   * Códigos (ph_table_schema_enum_value.code) de las columnas configuradas
+   * para el servicio, en su orden (nivel 1, 2, 3). null = sin valor.
+   */
+  codigos: (number | null)[];
+  contactos: number;
+  /** Contactos cerrados como éxito (familia Success de ContactBusinessStatus). */
+  exitos: number;
+  /** Contactos con algún código marcado como «no válido» en su servicio. */
+  noValidos: number;
+}
+
+export interface BaseResultados {
+  filas: FilaBaseResultados[];
+  /** Texto de cada código que aparece en las filas. */
+  textos: Record<number, string>;
+  /** Servicio (cliente) de cada campaña del alcance. */
+  servicioDeCampania: Record<string, string>;
+  /** Etiquetas de los niveles (columnas) configurados de cada servicio. */
+  niveles: Record<string, string[]>;
+  /** Servicios con resultados configurados: solo en ellos hay ratio neto. */
+  serviciosConfigurados: string[];
+}
+
+/** Tabla ao_<servicio> de RDBv2 con sus columnas candidatas (int). */
+export interface TablaResultados {
+  /** ph_service.name */
+  servicio: string;
+  tabla: string;
+  columnas: string[];
+}
+
+/** Valor de una columna de resultados con su frecuencia (admin). */
+export interface ValorColumnaResultado {
+  codigo: number;
+  nombre: string;
+  contactos: number;
+}

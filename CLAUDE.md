@@ -232,6 +232,62 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       adelante). Operaciones aún no ve los ratios (su panel no tiene la
       sección; Supervisión y Dirección piden sus propios roles).
 
+18. **Resultados de actividad (decidido 13/10/2026 con Christian)**: pestaña
+    «Resultados» de Supervisión (`?vista=resultados`). SQL en
+    `queries/resultados-actividad.ts`; cálculo PURO con tests en
+    `lib/resultados-actividad.ts`; configuración en `/admin/resultados`
+    (SQLite `resultados_config` y `objetivos_resultados`, migración 0007).
+    - **Fuente**: la tipificación del script está en `ao_<servicio>`
+      (`table_schema.ts_type = 3`), ligada por
+      `script_session.code = ph_activity_outcome.script_session` y
+      `ph_activity_outcome.code = ao.easycode`. Sus columnas guardan
+      `ph_table_schema_enum_value.code` (único en la instalación) y de ahí
+      sale el texto. Columnas distintas por servicio: GH `resultado`/
+      `subresultado`, UGR (EGRE26) `resultado_egr`/`motivo_egr`, Bolsas y
+      Socios `call_type`, Ávolo `motllamada`.
+    - **Finalizado** = contacto CERRADO (`activity.status = 3`, fechado por su
+      último `event_moment`, como «leads finalizados») que tipificó un agente,
+      asignado al agente de su última sesión de agente en los 90 días
+      anteriores al cierre (la que tiene fila en `ao` manda). Aparte, fuera
+      de los ratios: **sin tocar** (familias NotTouched*,
+      AutomaticallyRescheduled, *BeforeConnection, Overflowed de
+      `ContactBusinessStatus`, resueltas con `rdb_enums`; casi todos son
+      `IVR_*`) y **cierres administrativos** (tipificados sin sesión en esos
+      90 días: el 08/09/2026 se cerraron en bloque 278 contactos de GH
+      tipificados en marzo de 2025). Éxito = familia Success* del contacto.
+    - **Bruto** = éxitos ÷ finalizados. **Neto** = éxitos ÷ (finalizados − no
+      válidos). «No válido» = algún valor de las columnas configuradas
+      marcado en el admin; sin configurar no hay neto, y en totales mixtos el
+      neto se calcula solo con los servicios configurados.
+    - Verificado en septiembre 2026: GH 8.417 finalizados, 2.526 éxitos,
+      2.973 «No valido» → **bruto 30,01 %** (el objetivo de `RATIOS_RF` es
+      30) y **neto 46,40 %** (`RATIOS_RF` dice 70: allí se calculaba de otra
+      forma). UGR con `resultado_egr` y «No valido»: 91,22 % / 97,69 %.
+    - **Tablas temporales** (`#cerr`, `#ses` en tempdb): con CTEs en una sola
+      sentencia el optimizador no estima los cerrados y pasaba de 5 minutos
+      para un mes; materializados, 1-2 s al mes y 7,9 s los dos primeros pasos a 12 meses (en
+      vivo, sin agregado). Se borran al empezar por si una consulta anterior
+      de la misma conexión del pool falló a medias. **`OPTION (HASH JOIN)`
+      en el paso de la última sesión es obligatorio**: según cuántos cerrados
+      haya, el optimizador elegía bucles anidados y el mes en curso
+      (01-13/10/2026) pasaba de 200 s; con hash, 0,2 s. No quitarlo.
+    - **Siempre de UN cliente** (pedido por Christian el 13/10/2026): la
+      pestaña no tiene «Todos» y sin `?servicio=` no consulta nada, solo
+      pide elegir cliente (`SelectorServicio obligatorio`).
+    - Los nombres de tabla y columna `ao_*` van en el SQL como identificadores
+      (no admiten parámetros): solo los de `tablasResultados()` (lista blanca
+      desde `table_schema` + `INFORMATION_SCHEMA`, columnas enteras), con
+      `^[A-Za-z0-9_]+$` y entre corchetes, comprobados en cada consulta
+      (`configValida`). Los códigos sí van como parámetros. Una sola consulta
+      para todos los servicios: un `LEFT JOIN` por tabla `ao_*` configurada y
+      `COALESCE` por nivel (`easycode` casa con una sola tabla).
+    - Vistas: por agente (desplegable por campaña), por campaña, desglose
+      resultado → subresultado (servicio o campaña), agente frente al RESTO
+      de su campaña (marca si el % de no válidos o de un resultado se separa
+      ≥ 10 p.p., con ≥ 30 finalizados) y evolución (por día; por semana ISO
+      a partir de 62 días). Semáforo con objetivos de SQLite (campaña >
+      servicio, vigencia por fechas): verde, ámbar a menos del 10 % y rojo.
+
 ## Referencia del esquema RDBv2
 
 - `docs/referencia_bbdd_altitude_v85.md` — esquema completo, enumerados, relaciones
@@ -239,6 +295,8 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 - `docs/esquema-real.md` — generado por `npm run introspect` contra la BBDD real
   (si no existe, aún no se ha ejecutado con credenciales).
 - `docs/instrucciones.md` — contexto original del flujo manual con Claude chat.
+- `docs/registro-sesiones.md` — índice de TODAS las sesiones de trabajo (qué se
+  hizo, commits y dónde está el detalle). Al cerrar una sesión, añadir su fila.
 - `docs/facturacion-horas-logadas.md` — Excel de horas de operaciones
   (`v_TM_TiempoAgentLogado` = `user_log`) frente al dashboard y la unidad
   `horas_logadas` (regla 16).
@@ -273,9 +331,11 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   credenciales. Las páginas no distinguen mock de real.
 - Vistas por rol: `/direccion`, `/operaciones`, `/supervision`, `/clientes`, `/admin`
   y `/planificacion` (ver «Planificación de turnos» más abajo).
-- **Supervisión** tiene dos pestañas (`?vista=`): «Tiempo real» (hoy, polling 60 s,
-  incluye estado de agentes ahora) e «Histórico» (rango de fechas: ayer, últimos 7
-  días, mes anterior o intervalo) con las mismas métricas de cola/SLA/productividad.
+- **Supervisión** tiene tres pestañas (`?vista=`): «Tiempo real» (hoy, polling 60 s,
+  incluye estado de agentes ahora), «Histórico» (rango de fechas: ayer, últimos 7
+  días, mes anterior o intervalo) con las mismas métricas de cola/SLA/productividad,
+  y «Resultados» (resultados de actividad, regla 18; por defecto el mes en curso y
+  siempre de un cliente).
   Las queries comparten un `*Core(desde, hasta)`; las variantes `*Hoy` cachean 60 s
   y las `*Rango` con `ttlSegunRango`.
 - **Agrupación por Cliente/Servicio**: en esta instalación **cada cliente = un
@@ -789,6 +849,20 @@ incidencias y pendientes) en `docs/registro-sesion-09-octubre-2026.md`.
 - [ ] Revisar en el navegador las dos pantallas en producción. Decidir
       Ávolo (hoy por leads: cuidado con el doble cobro) y Socios (dos
       prefijos, una línea por prefijo).
+
+## Sesión 13-14/10/2026 (Opus 5.5): resultados de actividad
+
+Registro completo (decisiones, cifras, incidencias y pendientes) en
+`docs/registro-sesion-13-octubre-2026.md`; índice de todas las sesiones en
+`docs/registro-sesiones.md`.
+
+- [x] Pestaña «Resultados» de Supervisión y `/admin/resultados` (regla 18,
+      migración 0007). GH septiembre: bruto 30,01 %, neto 46,40 %.
+- [x] Siempre de un cliente y `OPTION (HASH JOIN)`: el mes en curso pasaba
+      de 120 s; ahora 1,2 s.
+- [ ] Commit, push y despliegue (backup antes de `up -d`: lleva la 0007).
+- [ ] Configurar los servicios y los objetivos en `/admin/resultados` de
+      producción. Bolsas y Socios (`call_type`): decidir qué es «no válido».
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 

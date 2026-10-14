@@ -5,6 +5,7 @@ import {
   Legend,
   Line,
   LineChart,
+  ReferenceLine,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,6 +16,15 @@ export interface SerieLinea {
   clave: string;
   nombre: string;
   color: string; // admite var(--chart-1)
+  /** Línea discontinua: segunda codificación además del color. */
+  discontinua?: boolean;
+}
+
+/** Línea horizontal fija (un objetivo), en el mismo eje. */
+export interface ReferenciaLinea {
+  valor: number;
+  etiqueta: string;
+  color: string;
 }
 
 /**
@@ -27,12 +37,14 @@ export function GraficaLineas({
   series,
   alto = 280,
   sufijo,
+  referencias = [],
 }: {
   datos: Record<string, unknown>[];
   ejeX: string;
   series: SerieLinea[];
   alto?: number;
   sufijo?: string;
+  referencias?: ReferenciaLinea[];
 }) {
   const formato = sufijo
     ? (v: unknown) =>
@@ -65,6 +77,15 @@ export function GraficaLineas({
           }}
         />
         <Legend wrapperStyle={{ fontSize: 12 }} />
+        {referencias.map((r) => (
+          <ReferenceLine
+            key={r.etiqueta}
+            y={r.valor}
+            stroke={r.color}
+            strokeDasharray="2 4"
+            label={{ value: r.etiqueta, position: "insideTopRight", fontSize: 11, fill: "var(--muted-foreground)" }}
+          />
+        ))}
         {series.map((s) => (
           <Line
             key={s.clave}
@@ -73,6 +94,7 @@ export function GraficaLineas({
             name={s.nombre}
             stroke={s.color}
             strokeWidth={2}
+            strokeDasharray={s.discontinua ? "6 4" : undefined}
             dot={false}
             activeDot={{ r: 4 }}
           />

@@ -133,6 +133,54 @@ export const slaConfig = sqliteTable("sla_config", {
 });
 
 /**
+ * Resultados de actividad (regla 18): de la tabla ao_<servicio> de RDBv2,
+ * qué columnas se analizan (niveles del desglose, en orden: resultado,
+ * subresultado...) y qué valores cuentan como «no válido» para el ratio
+ * neto. Una fila por servicio. Los nombres de tabla y columna se vuelven a
+ * comprobar contra RDBv2 en cada consulta (lista blanca): van en el SQL
+ * como identificadores, no como parámetros.
+ */
+export const resultadosConfig = sqliteTable("resultados_config", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  serviceName: text("service_name").notNull().unique(),
+  tablaAo: text("tabla_ao").notNull(),
+  columnas: text("columnas", { mode: "json" }).$type<string[]>().notNull().default(sql`'[]'`),
+  // ph_table_schema_enum_value.code: únicos en toda la instalación
+  codigosNoValidos: text("codigos_no_validos", { mode: "json" })
+    .$type<number[]>()
+    .notNull()
+    .default(sql`'[]'`),
+  actualizadoAt: integer("actualizado_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/**
+ * Objetivos de los resultados de actividad (semáforo de Supervisión →
+ * Resultados). Mismo ámbito que billing_config: servicio (lo normal) o
+ * campaña (excepción que prevalece). Los tres umbrales son opcionales;
+ * vigencia de `desde` a `hasta` (sin `hasta`, indefinida).
+ */
+export const objetivosResultados = sqliteTable(
+  "objetivos_resultados",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    campaignShortname: text("campaign_shortname"),
+    serviceName: text("service_name"),
+    brutoMin: real("bruto_min"),
+    netoMin: real("neto_min"),
+    maxPctNoValidos: real("max_pct_no_validos"),
+    desde: text("desde").notNull(), // 'YYYY-MM-DD'
+    hasta: text("hasta"),
+    notas: text("notas"),
+  },
+  (t) => [
+    index("idx_obj_res_campaign").on(t.campaignShortname),
+    index("idx_obj_res_service").on(t.serviceName),
+  ],
+);
+
+/**
  * Agregados diarios por campaña, rellenados por scripts/aggregate-daily.ts.
  * Alimentan las tendencias de /direccion sin castigar itr_thread.
  * Todas las duraciones YA convertidas a segundos u horas (no décimas).
@@ -618,3 +666,5 @@ export type PlanAgenteUsuarioRow = typeof planAgenteUsuarios.$inferSelect;
 export type PlanVersionRow = typeof planVersiones.$inferSelect;
 export type PlanBloqueRow = typeof planBloques.$inferSelect;
 export type PlanAusenciaRow = typeof planAusencias.$inferSelect;
+export type ResultadosConfigRow = typeof resultadosConfig.$inferSelect;
+export type ObjetivoResultadosRow = typeof objetivosResultados.$inferSelect;

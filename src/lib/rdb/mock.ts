@@ -11,6 +11,7 @@ import type {
   EstadoLista,
   FestivosServicio,
   FilaBaseRatios,
+  FilaBaseResultados,
   FilaDiariaRatios,
   HorarioServicio,
   HorasAgenteReales,
@@ -23,8 +24,10 @@ import type {
   RazonNotReady,
   SaludRdb,
   ServicioConCampanias,
+  TablaResultados,
   UnidadesCampania,
   UsuarioAgenteRdb,
+  ValorColumnaResultado,
   VolumenCampania,
   VolumenDia,
 } from "./types";
@@ -920,4 +923,157 @@ export function mockEntrantesNoAtendidasHoy(campanias: string[]): EntrantesNoAte
   return n === 0
     ? { noAtendidas: 0, primera: null, ultima: null, ultimaAtendida: "10:05" }
     : { noAtendidas: n, primera: "09:12", ultima: "11:40", ultimaAtendida: "10:05" };
+}
+
+// ---------- Resultados de actividad (regla 18) ----------
+
+/** Árbol demo de resultado → subresultado con códigos inventados (no los reales). */
+const RESULTADOS_DEMO: { codigo: number; nombre: string; peso: number; hijos: { codigo: number; nombre: string; peso: number }[] }[] = [
+  { codigo: 9001, nombre: "Exito", peso: 28, hijos: [] },
+  {
+    codigo: 9002,
+    nombre: "No interesa",
+    peso: 24,
+    hijos: [
+      { codigo: 9101, nombre: "No necesita", peso: 3 },
+      { codigo: 9102, nombre: "Precio", peso: 1 },
+    ],
+  },
+  {
+    codigo: 9003,
+    nombre: "No valido",
+    peso: 30,
+    hijos: [
+      { codigo: 9201, nombre: "Erroneo - No existe", peso: 3 },
+      { codigo: 9202, nombre: "Duplicado", peso: 1 },
+      { codigo: 9203, nombre: "Ya es cliente", peso: 2 },
+    ],
+  },
+  { codigo: 9004, nombre: "No contesta - Ilocalizable", peso: 12, hijos: [] },
+  { codigo: 9005, nombre: "Pospone", peso: 6, hijos: [] },
+];
+
+/** En demo cada campaña es un servicio con su tabla ao_<nombre>. */
+export function mockTablasResultados(): TablaResultados[] {
+  return CAMPANIAS_DEMO.filter((c) => c.tipo !== "Inbound").map((c) => ({
+    servicio: c.shortname,
+    tabla: `ao_${c.shortname}`,
+    columnas: ["resultado", "subresultado", "motivo"],
+  }));
+}
+
+export function mockTextosResultados(): Record<number, string> {
+  const textos: Record<number, string> = {};
+  for (const r of RESULTADOS_DEMO) {
+    textos[r.codigo] = r.nombre;
+    for (const h of r.hijos) textos[h.codigo] = h.nombre;
+  }
+  return textos;
+}
+
+export function mockValoresColumnaResultados(tabla: string, columna: string): ValorColumnaResultado[] {
+  const r = rng(`valores|${tabla}|${columna}`);
+  const lista =
+    columna === "resultado"
+      ? RESULTADOS_DEMO.map((x) => ({ codigo: x.codigo, nombre: x.nombre, peso: x.peso }))
+      : columna === "subresultado"
+        ? RESULTADOS_DEMO.flatMap((x) => x.hijos)
+        : [];
+  return lista
+    .map((x) => ({ codigo: x.codigo, nombre: x.nombre, contactos: Math.round(x.peso * (200 + r() * 400)) }))
+    .sort((a, b) => b.contactos - a.contactos);
+}
+
+function elegir<T extends { peso: number }>(r: () => number, lista: T[]): T {
+  const total = lista.reduce((s, x) => s + x.peso, 0);
+  let x = r() * total;
+  for (const e of lista) {
+    x -= e.peso;
+    if (x <= 0) return e;
+  }
+  return lista[lista.length - 1];
+}
+
+/**
+ * Contactos cerrados por día, campaña y agente, con su resultado. Solo
+ * campañas de salida (en la real, las entrantes no tienen contactos). Los
+ * «no válidos» dependen de la configuración que se pase, como en la real.
+ */
+export function mockBaseResultados(
+  desde: string,
+  hasta: string,
+  campanias: string[] | undefined,
+  configs: { serviceName: string; columnas: string[]; codigosNoValidos: number[] }[],
+): FilaBaseResultados[] {
+  const filas: FilaBaseResultados[] = [];
+  const camps = campaniasFiltradas(campanias).filter((c) => c.tipo !== "Inbound");
+  for (const fecha of listaFechas(desde, hasta)) {
+    const factor = factorDia(fecha);
+    for (const [ic, c] of camps.entries()) {
+      const cfg = configs.find((x) => x.serviceName === c.shortname);
+      const nv = new Set(cfg?.codigosNoValidos ?? []);
+      const r = rng(`resultados|${fecha}|${c.shortname}`);
+      // Cada campaña la trabajan 3 agentes fijos (uno de ellos tipifica más «No valido»)
+      const agentes = [0, 1, 2].map((k) => AGENTES_DEMO[(ic * 3 + k) % AGENTES_DEMO.length]);
+      for (const [k, agente] of agentes.entries()) {
+        const porCodigo = new Map<string, FilaBaseResultados>();
+        const n = Math.round(entre(r, 6, 18) * factor);
+        for (let i = 0; i < n; i++) {
+          const pesos = RESULTADOS_DEMO.map((x) => ({ ...x, peso: k === 0 && x.codigo === 9003 ? x.peso * 2 : x.peso }));
+          const res = elegir(r, pesos);
+          const sub = res.hijos.length > 0 ? elegir(r, res.hijos) : null;
+          const valor = (col: string | undefined) =>
+            col === "resultado" ? res.codigo : col === "subresultado" ? (sub?.codigo ?? null) : null;
+          const codigos = cfg ? [0, 1, 2].map((j) => valor(cfg.columnas[j])) : [null, null, null];
+          const clave = codigos.join("|");
+          const f =
+            porCodigo.get(clave) ??
+            ({
+              fecha,
+              campania: c.shortname,
+              agente,
+              nombre: `Agente ${agente.charAt(0).toUpperCase()}${agente.slice(1)}`,
+              categoria: "tipificado",
+              codigos,
+              contactos: 0,
+              exitos: 0,
+              noValidos: 0,
+            } satisfies FilaBaseResultados);
+          f.contactos += 1;
+          if (res.codigo === 9001) f.exitos += 1;
+          if (codigos.some((x) => x != null && nv.has(x))) f.noValidos += 1;
+          porCodigo.set(clave, f);
+        }
+        filas.push(...porCodigo.values());
+      }
+      const sinTocar = Math.round(entre(r, 4, 20) * factor);
+      if (sinTocar > 0) {
+        filas.push({
+          fecha,
+          campania: c.shortname,
+          agente: null,
+          nombre: null,
+          categoria: "sinTocar",
+          codigos: [null, null, null],
+          contactos: sinTocar,
+          exitos: 0,
+          noValidos: 0,
+        });
+      }
+      if (r() < 0.05) {
+        filas.push({
+          fecha,
+          campania: c.shortname,
+          agente: null,
+          nombre: null,
+          categoria: "administrativo",
+          codigos: [null, null, null],
+          contactos: entre(r, 5, 40),
+          exitos: 0,
+          noValidos: 0,
+        });
+      }
+    }
+  }
+  return filas;
 }

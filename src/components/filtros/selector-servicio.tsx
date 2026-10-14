@@ -8,13 +8,17 @@ import { Users } from "lucide-react";
  * (vacío = todos). En esta instalación cada cliente tiene un servicio, así
  * que filtrar por servicio equivale a filtrar por cliente. El server component
  * resuelve el servicio a sus campañas y re-consulta con ese ámbito.
+ * `obligatorio`: sin la opción «Todos» (vistas que solo se consultan por
+ * cliente, como Supervisión → Resultados).
  */
 export function SelectorServicio({
   servicios,
   valor,
+  obligatorio = false,
 }: {
   servicios: string[];
   valor?: string;
+  obligatorio?: boolean;
 }) {
   const router = useRouter();
   const ruta = usePathname();
@@ -36,7 +40,13 @@ export function SelectorServicio({
         value={valor ?? ""}
         onChange={(e) => aplicar(e.target.value)}
       >
-        <option value="">Todos</option>
+        {obligatorio ? (
+          <option value="" disabled>
+            Elige un cliente…
+          </option>
+        ) : (
+          <option value="">Todos</option>
+        )}
         {servicios.map((s) => (
           <option key={s} value={s}>
             {s}

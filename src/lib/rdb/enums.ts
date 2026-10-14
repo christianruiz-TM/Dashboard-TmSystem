@@ -29,6 +29,32 @@ const ENUMS_RESPALDO: MapaEnums = {
   InteractionOrigin: { 1: "Inbound", 2: "Outbound", 3: "Workflow", 4: "SoloData" },
   AgentInCampaignOperationLogType: { 0: "Logado", 1: "Ready", 2: "NotReady" },
   CampaignType: { 0: "Inbound", 1: "Outbound", 2: "Blended", 3: "Repository" },
+  // activity.business_status (docs/esquema-real.md)
+  ContactBusinessStatus: {
+    [-1]: "NoValue",
+    1: "NotTouchedScheduled",
+    2: "NotTouchedDone",
+    3: "AutomaticallyRescheduled",
+    4: "AbortedBeforeConnection",
+    5: "NonQualifiedScheduled",
+    6: "NonQualifiedDone",
+    7: "QualifiedScheduled",
+    8: "QualifiedDone",
+    9: "SuccessScheduled",
+    10: "SuccessDone",
+    11: "UnsuccessfulScheduled",
+    12: "UnsuccessfulDone",
+    13: "CanceledBeforeConnection",
+    14: "NonQualifiedAborted",
+    15: "NonQualifiedCanceled",
+    16: "QualifiedAborted",
+    17: "QualifiedCanceled",
+    18: "SuccessAborted",
+    19: "SuccessCanceled",
+    20: "UnsuccessfulAborted",
+    21: "UnsuccessfulCanceled",
+    22: "Overflowed",
+  },
 };
 
 /** Carga (cacheada 24 h) de todos los enumerados de la instalación. */

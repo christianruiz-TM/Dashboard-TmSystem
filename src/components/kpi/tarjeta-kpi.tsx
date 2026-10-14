@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { ArrowDownRight, ArrowUpRight } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { cn } from "@/lib/utils";
@@ -6,6 +7,7 @@ import { cn } from "@/lib/utils";
  * Tarjeta de KPI estándar del dashboard.
  * `variacionPct`: cambio respecto al período anterior (positivo = sube).
  * `invertirColor`: para métricas donde subir es malo (abandono, AHT).
+ * `extra`: algo más bajo la cifra (p. ej. el semáforo contra el objetivo).
  */
 export function TarjetaKpi({
   titulo,
@@ -13,12 +15,14 @@ export function TarjetaKpi({
   sub,
   variacionPct,
   invertirColor = false,
+  extra,
 }: {
   titulo: string;
   valor: string;
   sub?: string;
   variacionPct?: number | null;
   invertirColor?: boolean;
+  extra?: ReactNode;
 }) {
   const tieneVariacion = variacionPct != null && Number.isFinite(variacionPct);
   const positiva = (variacionPct ?? 0) >= 0;
@@ -49,6 +53,7 @@ export function TarjetaKpi({
           ) : null}
         </div>
         {sub ? <div className="mt-1 text-xs text-muted-foreground">{sub}</div> : null}
+        {extra ? <div className="mt-1">{extra}</div> : null}
       </CardContent>
     </Card>
   );

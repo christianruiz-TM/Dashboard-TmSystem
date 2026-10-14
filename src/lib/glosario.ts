@@ -125,6 +125,50 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     definicion:
       "Compara a cada agente con la media de las campañas en las que ha trabajado. Se calculan los éxitos que habría conseguido un agente medio con sus mismos contactos y se dividen sus éxitos reales entre esos: 100 = como la media, 120 = un 20 % mejor, 80 = un 20 % peor. Así no sale mejor quien trabaja en una campaña fácil. En verde a partir de 110 y en rojo desde 90 para abajo. Con menos de 30 contactos la muestra es pequeña y la cifra sale en gris.",
   },
+  finalizadosTipificados: {
+    termino: "Finalizados (resultados)",
+    definicion:
+      "Contactos que se cerraron en el período y que cerró un agente poniéndoles un resultado en el script. Cada contacto cuenta una vez, el día en que se cerró y para el agente de su última llamada. No cuentan los cerrados sin que nadie hablara con ellos ni los cierres administrativos.",
+  },
+  ratioBruto: {
+    termino: "Ratio bruto",
+    definicion: "Éxitos ÷ finalizados. De cada 100 contactos que se cierran, cuántos acaban en éxito.",
+  },
+  ratioNeto: {
+    termino: "Ratio neto",
+    definicion:
+      "Éxitos ÷ (finalizados − no válidos). Lo mismo que el bruto, pero sin contar los contactos que no servían (teléfono erróneo, duplicado, ya tenía cita…): mide el trabajo del agente con los contactos aprovechables. Solo existe en los servicios que tienen configurado qué resultados son «no válidos».",
+  },
+  noValidos: {
+    termino: "No válidos",
+    definicion:
+      "Finalizados con un resultado que su servicio considera «no válido» (en GrupoHuertas, el resultado «No valido»: erróneo, duplicado, taller, ya tiene cita…). Qué resultados lo son se elige por servicio en Administración → Resultados. El % de no válidos mide sobre todo la calidad de la base de datos.",
+  },
+  sinTocar: {
+    termino: "Sin tocar",
+    definicion:
+      "Contactos que se cerraron sin que ningún agente llegara a hablar con ellos (se agotaron los intentos, se cancelaron, entraron por IVR…). Se enseñan aparte y no cuentan en los ratios.",
+  },
+  cierresAdministrativos: {
+    termino: "Cierres administrativos",
+    definicion:
+      "Contactos con resultado de agente cuya última llamada es de hace más de 90 días: alguien cerró la lista en bloque. Se enseñan aparte para que no inflen los ratios del día del cierre (el 08/09/2026 se cerraron así 278 contactos de GrupoHuertas tipificados en marzo de 2025).",
+  },
+  desgloseResultados: {
+    termino: "Desglose de resultados",
+    definicion:
+      "Cómo se reparten los finalizados entre los resultados del script (resultado → subresultado), con su número y su % sobre el total. Se puede ver el servicio entero o una campaña.",
+  },
+  agenteFrenteCampania: {
+    termino: "Agente frente a campaña",
+    definicion:
+      "Compara a cada agente con el resto de agentes de la misma campaña: % de no válidos, ratio bruto y el resultado en el que más se separa. Se marca con una bandera si la diferencia llega a 10 puntos: puede ser que tipifique distinto que los demás. Solo con 30 finalizados o más.",
+  },
+  semaforoResultados: {
+    termino: "Semáforo de objetivos",
+    definicion:
+      "Compara el ratio bruto, el neto y el % de no válidos con el objetivo de la campaña o de su servicio (Administración → Resultados). Verde: cumple; ámbar: se queda a menos de un 10 % del objetivo; rojo: no llega. Sin objetivo, o con menos de 30 finalizados, no hay color.",
+  },
   leads: {
     termino: "Leads finalizados",
     definicion:

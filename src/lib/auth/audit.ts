@@ -15,6 +15,8 @@ export type AccionAuditoria =
   | "crear_cliente"
   | "editar_cliente"
   | "config_facturacion"
+  // Resultados de actividad: columnas, no válidos y objetivos
+  | "config_resultados"
   | "export"
   // Planificación de turnos
   | "plan_generar"

@@ -12,12 +12,15 @@ import {
   metricasIvr,
 } from "@/lib/rdb/queries/supervision";
 import { ratiosExitoHoy, ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
+import { resultadosActividadRango } from "@/lib/rdb/queries/resultados-actividad";
+import { configsResultados, objetivosDeResultados } from "@/lib/db/resultados";
 import {
   campaniasDeServicio,
   campaniasEfectivas,
   listaServicios,
 } from "@/lib/rdb/queries/servicios";
 import { PanelHistorico } from "./panel-historico";
+import { PanelResultados } from "./panel-resultados";
 import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
 import { PanelSupervision } from "./panel-supervision";
 import { TabsSupervision } from "./tabs-supervision";
@@ -36,9 +39,10 @@ export default async function PaginaSupervision({
     ivr?: string;
   }>;
 }) {
-  await requireRol(...ROLES_SUPERVISION);
+  const usuario = await requireRol(...ROLES_SUPERVISION);
   const params = await searchParams;
-  const vista = params.vista === "historico" ? "historico" : "tiempo-real";
+  const vista =
+    params.vista === "historico" || params.vista === "resultados" ? params.vista : "tiempo-real";
   const umbral = umbralSlaSeg();
   const servicios = await listaServicios();
   const nombresServicios = servicios.map((s) => s.servicio);
@@ -47,6 +51,52 @@ export default async function PaginaSupervision({
   const incluirIvr = params.ivr === "1";
   const camp = await campaniasEfectivas(params.servicio, incluirIvr);
   const campServicio = await campaniasDeServicio(params.servicio);
+
+  if (vista === "resultados") {
+    // Por defecto el mes en curso: con un solo día la muestra por agente es pequeña
+    const presets = presetsRango();
+    const mes = presets.find((p) => p.etiqueta === "Mes actual")!;
+    const rango = esquemaRango.safeParse({
+      desde: params.desde ?? mes.desde,
+      hasta: params.hasta ?? mes.hasta,
+    });
+    const { desde, hasta } = rango.success ? rango.data : mes;
+    // Siempre por cliente: sin uno elegido no se consulta nada (todos los
+    // servicios a la vez tardaba demasiado en abrir la pestaña)
+    const servicioElegido =
+      params.servicio && nombresServicios.includes(params.servicio) ? params.servicio : undefined;
+    const resultado = servicioElegido
+      ? await resultadosActividadRango(
+          desde,
+          hasta,
+          camp,
+          configsResultados(),
+          objetivosDeResultados(),
+        )
+      : null;
+    return (
+      <div className="space-y-6">
+        <TabsSupervision
+          vista="resultados"
+          servicio={params.servicio}
+          incluirIvr={incluirIvr}
+          desde={params.desde}
+          hasta={params.hasta}
+        />
+        <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes en curso" />
+        <PanelResultados
+          resultado={resultado}
+          desde={desde}
+          hasta={hasta}
+          presets={presets}
+          servicios={nombresServicios}
+          servicio={servicioElegido}
+          incluirIvr={incluirIvr}
+          esAdmin={usuario.rol === "admin"}
+        />
+      </div>
+    );
+  }
 
   if (vista === "historico") {
     const presets = presetsRango();
@@ -64,7 +114,13 @@ export default async function PaginaSupervision({
     ]);
     return (
       <div className="space-y-6">
-        <TabsSupervision vista="historico" servicio={params.servicio} incluirIvr={incluirIvr} />
+        <TabsSupervision
+          vista="historico"
+          servicio={params.servicio}
+          incluirIvr={incluirIvr}
+          desde={params.desde}
+          hasta={params.hasta}
+        />
         <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el día de ayer" />
         <PanelHistorico
           kpis={kpis}

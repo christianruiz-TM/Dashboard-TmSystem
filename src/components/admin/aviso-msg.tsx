@@ -16,6 +16,15 @@ const MENSAJES: Record<string, { texto: string; error: boolean }> = {
   error_existe: { texto: "Ya existe un registro con ese nombre.", error: true },
   error_cliente: { texto: "Los usuarios con rol cliente necesitan un cliente asignado.", error: true },
   error_propio: { texto: "No puedes desactivar tu propio usuario.", error: true },
+  error_resultados: {
+    texto:
+      "Esa tabla o columna ya no existe en la centralita, o falta elegir al menos el primer nivel.",
+    error: true,
+  },
+  error_objetivo: {
+    texto: "El objetivo necesita al menos un umbral (bruto, neto o % no válidos) y fechas válidas.",
+    error: true,
+  },
   error_horas_logadas: {
     texto:
       "Las horas logadas van por servicio (cliente) y necesitan el prefijo de sus usuarios (p. ej. GH).",

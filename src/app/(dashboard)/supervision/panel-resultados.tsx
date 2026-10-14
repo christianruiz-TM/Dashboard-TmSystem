@@ -1,0 +1,125 @@
+import Link from "next/link";
+import { Settings2, Users } from "lucide-react";
+import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { SelectorRango } from "@/components/filtros/selector-rango";
+import { SelectorServicio } from "@/components/filtros/selector-servicio";
+import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { Glosario } from "@/components/glosario";
+import { ResultadosActividad } from "@/components/kpi/resultados-actividad";
+import type { ResultadoResultados } from "@/lib/resultados-actividad";
+
+/**
+ * Supervisión → Resultados: análisis de los resultados de actividad
+ * (tipificación del script) de los contactos cerrados en un rango, por
+ * agente, campaña y fecha (regla 18). Siempre de UN cliente: sin cliente
+ * elegido (`resultado` null) no se consulta nada y se pide que se elija.
+ */
+export function PanelResultados({
+  resultado,
+  desde,
+  hasta,
+  presets,
+  servicios,
+  servicio,
+  incluirIvr,
+  esAdmin,
+}: {
+  resultado: ResultadoResultados | null;
+  desde: string;
+  hasta: string;
+  presets: { etiqueta: string; desde: string; hasta: string }[];
+  servicios: string[];
+  servicio?: string;
+  incluirIvr: boolean;
+  esAdmin: boolean;
+}) {
+  const sinConfigurar = resultado?.serviciosSinConfigurar ?? [];
+  // Enlace a un cliente conservando rango e IVR
+  const hrefCliente = (s: string) => {
+    const p = new URLSearchParams({ vista: "resultados", servicio: s, desde, hasta });
+    if (incluirIvr) p.set("ivr", "1");
+    return `/supervision?${p.toString()}`;
+  };
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">Supervisión · resultados de actividad</h1>
+        <p className="text-sm text-muted-foreground">
+          Ratios bruto y neto de los contactos cerrados del {desde} al {hasta}, por agente, campaña
+          y fecha
+        </p>
+      </div>
+
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+        <div className="flex flex-wrap items-center gap-4">
+          <SelectorServicio servicios={servicios} valor={servicio} obligatorio />
+          <SelectorIvr incluir={incluirIvr} />
+        </div>
+      </div>
+
+      {sinConfigurar.length > 0 ? (
+        <Alert>
+          <Settings2 className="h-4 w-4" />
+          <AlertDescription>
+            <span>
+              {sinConfigurar.length === 1 ? "El servicio " : "Los servicios "}
+              <strong>{sinConfigurar.join(", ")}</strong>{" "}
+              {sinConfigurar.length === 1 ? "no tiene" : "no tienen"} configurado qué resultados son
+              «no válidos»: sale su ratio bruto, pero no el neto ni el desglose.{" "}
+              {esAdmin ? (
+                <Link href="/admin/resultados" className="font-medium underline underline-offset-2">
+                  Configurarlo en Administración
+                </Link>
+              ) : (
+                "Lo configura un administrador."
+              )}
+            </span>
+          </AlertDescription>
+        </Alert>
+      ) : null}
+
+      {resultado ? (
+        <ResultadosActividad r={resultado} periodo="en el período" />
+      ) : (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4 text-muted-foreground" /> Elige un cliente
+            </CardTitle>
+            <CardDescription>
+              Los resultados se ven siempre de un cliente. Elige uno aquí o en el selector de
+              arriba.
+            </CardDescription>
+          </CardHeader>
+          <CardContent className="flex flex-wrap gap-2">
+            {servicios.map((s) => (
+              <Button key={s} variant="outline" size="sm" render={<Link href={hrefCliente(s)} />}>
+                {s}
+              </Button>
+            ))}
+          </CardContent>
+        </Card>
+      )}
+
+      <Glosario
+        titulo="Supervisión · resultados"
+        claves={[
+          "servicio",
+          "finalizadosTipificados",
+          "ratioBruto",
+          "ratioNeto",
+          "noValidos",
+          "sinTocar",
+          "cierresAdministrativos",
+          "desgloseResultados",
+          "agenteFrenteCampania",
+          "semaforoResultados",
+          "ivr",
+        ]}
+      />
+    </div>
+  );
+}
