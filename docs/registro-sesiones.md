@@ -36,7 +36,7 @@ histórico de git.
 | 11 | 09/10/2026 (10:00-13:31) | Opus 5.5 | Formulario de clientes y reparto de horas por campaña | `7fd140b` `bc32931` `4d053e7` `6099019` `6016013` `3e7af0a` | `registro-sesion-09-octubre-2026.md` |
 | 12 | 09/10/2026 (14:25-14:46) | no consta | Ratios de éxito en Supervisión y Dirección | `12e303f` `595ca57` `e55d757` `d1a56bc` | CLAUDE.md regla 17 |
 | 13 | 13/10/2026 (11:40) | no consta | Dirección ve Operaciones y Supervisión | `31f638a` `ecae120` | CLAUDE.md «Arquitectura → Auth propia»; `despliegue-linux.md` |
-| 14 | 13-14/10/2026 | Opus 5.5 | Resultados de actividad (ratio bruto y neto) | `d9d70fb` `9b9e080` | `registro-sesion-13-octubre-2026.md`; CLAUDE.md regla 18 |
+| 14 | 13-14/10/2026 | Opus 5.5 | Resultados de actividad (ratio bruto y neto) y tipos de campaña | `d9d70fb` `9b9e080` `708da22` `a49c856` | `registro-sesion-13-octubre-2026.md`; CLAUDE.md regla 18 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -145,5 +145,7 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Pestaña «Resultados» en Supervisión (siempre de un cliente) y `/admin/resultados` (migración 0007).
 - **Ratio bruto** = éxitos ÷ finalizados; **neto** = éxitos ÷ (finalizados − no válidos), con los «no válidos» configurables por servicio.
 - GH, septiembre: 30,01 % y 46,40 %.
-- Desplegado el 14/10/2026 a las 13:11 (migración 0007); falta configurar los servicios en producción.
+- Desplegado el 14/10/2026 a las 13:11 (migración 0007).
+- Tipos de campaña por cliente para separar las BBDD de GH: sin BBDD, el neto de GH en septiembre sube al 59,97 %. Desplegado a las 14:13.
+- Falta configurar los servicios y los tipos en producción.
 - Registro completo en `registro-sesion-13-octubre-2026.md`.

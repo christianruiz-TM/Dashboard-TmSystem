@@ -20,7 +20,9 @@ regla 18 de CLAUDE.md; aquí van el hilo, las decisiones, las cifras y las incid
 | --- | --- | --- |
 | 14/10 | `d9d70fb` | Supervisión: resultados de actividad (código, migración 0007 y regla 18) |
 | 14/10 | `9b9e080` | Registro de sesiones: índice de todas y la del 13-14/10/2026 |
-| 14/10 | (este) | Histórico de despliegues y estado de los registros |
+| 14/10 | `708da22` | Histórico de despliegues y estado de los registros |
+| 14/10 | `a49c856` | Tipos de campaña por cliente (GH: con o sin BBDD) |
+| 14/10 | (este) | Histórico de despliegues: tipos de campaña |
 
 Ficheros principales: `src/lib/resultados-actividad.ts` (+ test),
 `src/lib/rdb/queries/resultados-actividad.ts`, `src/lib/db/resultados.ts`,
@@ -129,6 +131,48 @@ Christian lo probó en local y la pestaña tardaba mucho.
 - **La causa real.** No era ver todos los clientes: el paso 2 se pasaba de 120 s con el mes en
   curso, incluso solo con GH. Detalle en «Incidencias».
 
+### 6. Tipos de campaña: GH con o sin BBDD (14/10, `a49c856`)
+
+Christian pidió poder quitar de la medición de GH las campañas de BBDD y, en general, separar
+los resultados por tipo de campaña en cualquier cliente. Aclaró que no se refería a campañas
+«hijas»: en RDBv2 no existe ninguna relación padre/hijo entre campañas (`ph_campaign` solo
+tiene código, nombres y tipo).
+
+Se hizo lo que se le recomendó:
+
+- **Tipos por cliente con patrones LIKE**, en Administración → Resultados. Por ejemplo,
+  «BBDD: gh_bbdd_%». Se ve qué campañas caen en cada tipo.
+  - Se guardan en `app_settings` (`resultados.tipos.<servicio>`), sin migración, para no chocar
+    con la 0008 que preparaba otra sesión a la vez.
+- **Selector «Todas · Sin BBDD · Solo BBDD»** en el panel (`?tipo=`).
+  - Filtra la lista de campañas antes de consultar: los cálculos no cambian.
+  - Una lista vacía devuelve un resultado vacío. En `filtroCampanias`, una lista vacía
+    significa «todas».
+
+GH, septiembre (las cuatro de BBDD son autoclasse, dimovil, granada y lexus):
+
+| Selección | Finalizados | Bruto | Neto |
+| --- | --- | --- | --- |
+| Todas | 8.417 | 30,01 % | 46,40 % |
+| Sin BBDD | 5.950 | 35,45 % | 59,97 % |
+| Solo BBDD | 2.467 | 16,90 % | 21,64 % |
+
+«Sin BBDD» y «Solo BBDD» suman exactamente el total.
+
+**Otra sesión trabajando a la vez.** Una sesión de tarificación de Operaciones tocaba el mismo
+árbol (`master`) con cambios sin commit y su migración 0008.
+
+- Se coordinó por mensajes: qué ficheros toca cada una y sin migración por esta parte.
+- El commit lleva solo los ficheros de esta sesión. Antes se compiló y se probó en un worktree
+  aparte, solo con ellos: `tsc`, lint y 174 tests.
+- Un script de Python (en Windows traduce `\n` a CRLF al escribir) había pasado a CRLF
+  `resultados-actividad.ts` y había convertido en saltos de línea literales la expresión regular
+  `/\r?\n/` y la cadena `"\n"`. Lo avisó la otra sesión y se corrigió. Lección: editar con las
+  herramientas de edición o con Node, no con Python.
+
+Desplegado a las 14:13 (`0bfbd62204fe`, backup `dashboard_20261014_1412.db`). Desde la imagen
+nueva, las mismas cifras de la tabla.
+
 ## Cifras de verificación (RDBv2 real)
 
 | Alcance | Finalizados | Éxitos | No válidos | Bruto | Neto | Tiempo |
@@ -198,7 +242,7 @@ Lo que se comprobó en esas cifras:
 
 - **Configurar los servicios en `/admin/resultados` de producción.** Lo de desarrollo no se
   copia:
-  - GH: `resultado` → `subresultado`, con «No valido».
+  - GH: `resultado` → `subresultado`, con «No valido». Tipos de campaña: `BBDD: gh_bbdd_%`.
   - UGR: `resultado_egr` → `motivo_egr`, con «No valido».
   - Bolsas y Socios (`call_type`): no usan «Invalido». Christian tiene que decidir si cuentan
     «Llamada Equivocada», «No utiliza» u otros.
