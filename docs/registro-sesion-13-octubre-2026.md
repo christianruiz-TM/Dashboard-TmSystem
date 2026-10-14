@@ -11,28 +11,22 @@ Las demás vistas las dejó a recomendación. Pidió que se le preguntara cualqu
 diera nada por hecho.
 
 Resultado: pestaña «Resultados» en Supervisión y página `/admin/resultados`, verificadas contra
-RDBv2 real. **Sin commit ni despliegue** al cerrar la sesión. El detalle técnico está en la
+RDBv2 real y **en producción desde el 14/10/2026 a las 13:11**. El detalle técnico está en la
 regla 18 de CLAUDE.md; aquí van el hilo, las decisiones, las cifras y las incidencias.
 
 ## Commits
 
-Ninguno. Todo está en la copia de trabajo de `master`:
+| Fecha | Commit | Qué |
+| --- | --- | --- |
+| 14/10 | `d9d70fb` | Supervisión: resultados de actividad (código, migración 0007 y regla 18) |
+| 14/10 | `9b9e080` | Registro de sesiones: índice de todas y la del 13-14/10/2026 |
+| 14/10 | (este) | Histórico de despliegues y estado de los registros |
 
-- **Ficheros nuevos**:
-  - `src/lib/resultados-actividad.ts` y `src/lib/resultados-actividad.test.ts`
-  - `src/lib/rdb/queries/resultados-actividad.ts`
-  - `src/lib/db/resultados.ts`
-  - `src/components/kpi/resultados-actividad.tsx`
-  - `src/app/(dashboard)/supervision/panel-resultados.tsx`
-  - `src/app/(dashboard)/admin/resultados/{page.tsx,acciones.ts}`
-  - `drizzle/0007_ambiguous_black_panther.sql` y su snapshot
-- **Ficheros modificados**:
-  - Supervisión: `page.tsx` y `tabs-supervision.tsx`.
-  - Esquema SQLite, tipos de RDBv2, enumerados de respaldo y mock.
-  - `GraficaLineas` (línea discontinua y líneas de objetivo) y `TarjetaKpi` (`extra`).
-  - `SelectorServicio` (`obligatorio`).
-  - Glosario, auditoría (`config_resultados`), mensajes del admin y menú del admin.
-  - CLAUDE.md.
+Ficheros principales: `src/lib/resultados-actividad.ts` (+ test),
+`src/lib/rdb/queries/resultados-actividad.ts`, `src/lib/db/resultados.ts`,
+`src/components/kpi/resultados-actividad.tsx`,
+`src/app/(dashboard)/supervision/panel-resultados.tsx` y
+`src/app/(dashboard)/admin/resultados/`.
 
 (`31f638a` y `ecae120`, de la mañana del 13/10, son de otra sesión: Dirección ve también
 Operaciones y Supervisión.)
@@ -160,6 +154,13 @@ Lo que se comprobó en esas cifras:
 
 ## Operaciones fuera del código
 
+- **Despliegue (14/10/2026)**, según el §3 de `docs/despliegue-linux.md`:
+  - Backup `dashboard_20261014_1309.db`.
+  - Imagen anterior `48d4b130d77c` guardada como `dashboard-app:anterior`.
+  - Imagen nueva `6526f51028f9`. En la prueba de humo, `verificar` dio sin errores y GH de
+    septiembre salió igual que en el PC (1,4 s).
+  - `up -d` a las 13:11. La 0007 se aplicó en la SQLite real, que pasa a tener 8 migraciones.
+
 - Backup de la SQLite de desarrollo antes de generar la migración:
   `backups/dashboard_20261013_1251.db`.
 - La migración **0007** (`resultados_config`, `objetivos_resultados`) se aplicó a
@@ -195,7 +196,6 @@ Lo que se comprobó en esas cifras:
 
 ## Pendiente
 
-- **Commit, push y despliegue**, con backup antes de `up -d` porque lleva la migración 0007.
 - **Configurar los servicios en `/admin/resultados` de producción.** Lo de desarrollo no se
   copia:
   - GH: `resultado` → `subresultado`, con «No valido».

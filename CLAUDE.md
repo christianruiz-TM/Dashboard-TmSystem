@@ -860,9 +860,11 @@ Registro completo (decisiones, cifras, incidencias y pendientes) en
       migración 0007). GH septiembre: bruto 30,01 %, neto 46,40 %.
 - [x] Siempre de un cliente y `OPTION (HASH JOIN)`: el mes en curso pasaba
       de 120 s; ahora 1,2 s.
-- [ ] Commit, push y despliegue (backup antes de `up -d`: lleva la 0007).
+- [x] Desplegado el 14/10/2026 a las 13:11 (`d9d70fb`, migración 0007;
+      backup `dashboard_20261014_1309.db`).
 - [ ] Configurar los servicios y los objetivos en `/admin/resultados` de
-      producción. Bolsas y Socios (`call_type`): decidir qué es «no válido».
+      producción (aún ninguno). Bolsas y Socios (`call_type`): decidir qué
+      es «no válido».
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
