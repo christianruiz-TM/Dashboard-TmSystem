@@ -22,6 +22,9 @@ export type Rol = (typeof ROLES)[number];
  * Unidades de facturación configurables. `horas` son las PRODUCTIVAS (en
  * llamada, por campaña); `horas_logadas` es el tiempo logado (user_log) de
  * los usuarios del cliente y solo existe con ámbito servicio y prefijo.
+ * `minutos_fijo`/`minutos_movil`: minutos de línea con el cliente según el
+ * número marcado (tarificación, lib/tarificacion.ts); `ddi`: cuota mensual
+ * por DDI en producción (tabla `ddis`). Añadidas el 14/10/2026.
  */
 export const UNIDADES_FACTURACION = [
   "horas",
@@ -29,6 +32,9 @@ export const UNIDADES_FACTURACION = [
   "interacciones",
   "exitos",
   "leads",
+  "minutos_fijo",
+  "minutos_movil",
+  "ddi",
 ] as const;
 export type UnidadFacturacion = (typeof UNIDADES_FACTURACION)[number];
 
@@ -117,6 +123,10 @@ export const billingConfig = sqliteTable(
     precioUnitario: real("precio_unitario"),
     notas: text("notas"),
     activo: integer("activo", { mode: "boolean" }).notNull().default(true),
+    // Solo con unidad `ddi`: cobrar la cuota solo los meses en que la campaña
+    // tuvo llamadas. Depende del presupuesto del cliente: las bbdd de GH no
+    // pagaron sus DDIs en julio y agosto de 2026, sin tanda (15/10/2026).
+    soloConActividad: integer("solo_con_actividad", { mode: "boolean" }).notNull().default(false),
   },
   (t) => [
     index("idx_billing_campaign").on(t.campaignShortname),
@@ -275,6 +285,161 @@ export const appSettings = sqliteTable("app_settings", {
   clave: text("clave").primaryKey(),
   valor: text("valor").notNull(),
 });
+
+// ============================================================
+// Maestros y cierres de facturación (14/10/2026): sustituyen a las hojas
+// «LISTADO DDI DETALLE», «CAMP GS» y «facturacion cerrada» del Excel de
+// facturación de operaciones. Los mantiene el rol operaciones.
+// ============================================================
+
+export const ESTADOS_DDI = ["en_produccion", "baja", "deshabilitado"] as const;
+export type EstadoDdi = (typeof ESTADOS_DDI)[number];
+
+/**
+ * Inventario de DDIs (números de TmSystem). Cada fila es una ASIGNACIÓN de un
+ * número a una campaña durante un período: el mismo número se reasigna (en
+ * el Excel de operaciones, 354 de 482 números tienen 2 o 3 filas, p. ej. la
+ * campaña de Altitude v7 y luego la de v8), así que `numero` no es único; lo
+ * que no puede haber es el mismo número activo dos veces a la vez.
+ * Se factura la cuota del MES ENTERO por cada asignación activa algún día del
+ * mes: `fecha_alta` ≤ fin de mes y sin `fecha_baja` o con ella ≥ inicio de mes
+ * (lib/ddis.ts). El estado es descriptivo; mandan las fechas. Nunca se borra:
+ * se da de baja.
+ */
+export const ddis = sqliteTable(
+  "ddis",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    numero: text("numero").notNull(),
+    // ph_campaign.shortname; null = sin campaña (no se factura)
+    campaignShortname: text("campaign_shortname"),
+    estado: text("estado", { enum: ESTADOS_DDI }).notNull(),
+    fechaAlta: text("fecha_alta"), // YYYY-MM-DD, puesta en producción
+    fechaBaja: text("fecha_baja"), // YYYY-MM-DD; null = sigue activo
+    fechaSolicitud: text("fecha_solicitud"),
+    versionAltitude: text("version_altitude"), // «Alt V8»
+    huntGroup: text("hunt_group"),
+    accountCode: text("account_code"),
+    lineaIntermedia: text("linea_intermedia"),
+    departamento: text("departamento"),
+    tipoUso: text("tipo_uso"),
+    uso: text("uso"),
+    clienteGs: text("cliente_gs"),
+    empresa: text("empresa"),
+    nombreCampania: text("nombre_campania"),
+    centro: text("centro"),
+    campaniaGs: text("campania_gs"),
+    sentido: text("sentido"),
+    unidadNegocio: text("unidad_negocio"),
+    marca: text("marca"),
+    notas: text("notas"),
+    actualizadoPor: text("actualizado_por"),
+    actualizadoAt: integer("actualizado_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index("idx_ddis_campania").on(t.campaignShortname), index("idx_ddis_numero").on(t.numero)],
+);
+
+/** Código de cada campaña de Altitude en GS (albaranes). */
+export const campaniasGs = sqliteTable("campanias_gs", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  campaignShortname: text("campaign_shortname").notNull().unique(),
+  // Texto: lleva ceros a la izquierda (0002330)
+  codigoGs: text("codigo_gs").notNull(),
+  denominacion: text("denominacion"),
+  clienteGs: text("cliente_gs"),
+  presupuestoGs: text("presupuesto_gs"),
+  fechaInicio: text("fecha_inicio"), // YYYY-MM-DD
+  fechaFin: text("fecha_fin"),
+  notas: text("notas"),
+  actualizadoPor: text("actualizado_por"),
+  actualizadoAt: integer("actualizado_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+export const ESTADOS_CIERRE = ["cerrado", "reabierto"] as const;
+export const ORIGENES_CIERRE = ["dashboard", "importado"] as const;
+
+/**
+ * Cierre de la facturación de un mes y servicio: foto fija de lo que se
+ * facturó, con los precios de entonces. Como mucho uno «cerrado» por mes y
+ * servicio; reabrirlo (solo admin) lo deja «reabierto» como histórico.
+ */
+export const facturacionCierres = sqliteTable(
+  "facturacion_cierres",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    mes: text("mes").notNull(), // YYYY-MM
+    servicio: text("servicio").notNull(),
+    estado: text("estado", { enum: ESTADOS_CIERRE }).notNull(),
+    origen: text("origen", { enum: ORIGENES_CIERRE }).notNull(),
+    importeTotal: real("importe_total"),
+    cerradoPor: text("cerrado_por"),
+    cerradoAt: integer("cerrado_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+    reabiertoPor: text("reabierto_por"),
+    reabiertoAt: integer("reabierto_at", { mode: "timestamp" }),
+    notas: text("notas"),
+  },
+  (t) => [
+    index("idx_fact_cierres_mes").on(t.mes),
+    uniqueIndex("uq_fact_cierre_cerrado").on(t.mes, t.servicio).where(sql`estado = 'cerrado'`),
+  ],
+);
+
+export const TIPOS_AJUSTE_CIERRE = ["quitar", "precio"] as const;
+export type TipoAjusteCierre = (typeof TIPOS_AJUSTE_CIERRE)[number];
+
+/**
+ * Ajuste manual de una línea de un mes cerrado (15/10/2026): decisiones
+ * puntuales de dirección que ninguna regla deduce (julio de 2026: las bbdd a
+ * precios distintos; agosto: no facturarlas). La línea original no se toca:
+ * el ajuste la quita o le cambia el precio, siempre con motivo, y se puede
+ * deshacer. Como mucho uno por línea.
+ */
+export const facturacionCierreAjustes = sqliteTable(
+  "facturacion_cierre_ajustes",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    cierreId: integer("cierre_id")
+      .notNull()
+      .references(() => facturacionCierres.id, { onDelete: "cascade" }),
+    lineaId: integer("linea_id")
+      .notNull()
+      .references(() => facturacionCierreLineas.id, { onDelete: "cascade" }),
+    tipo: text("tipo", { enum: TIPOS_AJUSTE_CIERRE }).notNull(),
+    // Solo con tipo «precio»
+    precioNuevo: real("precio_nuevo"),
+    motivo: text("motivo").notNull(),
+    autor: text("autor").notNull(),
+    creadoAt: integer("creado_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index("idx_fact_ajustes_cierre").on(t.cierreId), uniqueIndex("uq_fact_ajuste_linea").on(t.lineaId)],
+);
+
+/** Líneas de un cierre: una por campaña y unidad. */
+export const facturacionCierreLineas = sqliteTable(
+  "facturacion_cierre_lineas",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    cierreId: integer("cierre_id")
+      .notNull()
+      .references(() => facturacionCierres.id, { onDelete: "cascade" }),
+    // shortname; en el histórico importado, el nombre que traía el Excel
+    campania: text("campania").notNull(),
+    codigoGs: text("codigo_gs"),
+    unidad: text("unidad", { enum: UNIDADES_FACTURACION }).notNull(),
+    cantidad: real("cantidad").notNull(),
+    precioUnitario: real("precio_unitario"),
+    importe: real("importe"),
+  },
+  (t) => [index("idx_fact_cierre_lineas").on(t.cierreId)],
+);
 
 // ============================================================
 // Módulo «Planificación de turnos» (docs/plan-planificacion.md).

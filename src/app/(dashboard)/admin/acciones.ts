@@ -226,6 +226,8 @@ const esquemaLineaFacturacion = z.object({
   prefijo: z.string().trim().max(30).regex(PATRON_PREFIJO_USUARIO).nullable(),
   precio: z.coerce.number().nonnegative().nullable().catch(null),
   notas: z.string().trim().max(300).nullable().catch(null),
+  // Solo para DDIs: cobrarlos solo los meses en que la campaña tuvo llamadas
+  soloConActividad: z.boolean(),
 });
 
 export async function crearLineaFacturacion(formData: FormData): Promise<void> {
@@ -236,6 +238,7 @@ export async function crearLineaFacturacion(formData: FormData): Promise<void> {
     prefijo: String(formData.get("prefijo") ?? "").trim() || null,
     precio: formData.get("precio") || null,
     notas: formData.get("notas") || null,
+    soloConActividad: formData.get("soloConActividad") === "on",
   });
   if (!datos.success) volverCon("/admin/facturacion", "error_datos");
 
@@ -248,6 +251,7 @@ export async function crearLineaFacturacion(formData: FormData): Promise<void> {
     volverCon("/admin/facturacion", "error_horas_logadas");
   }
   const prefijo = horasLogadas ? datos.data.prefijo : null;
+  const soloConActividad = datos.data.unidad === "ddi" && datos.data.soloConActividad;
 
   db.insert(billingConfig)
     .values({
@@ -257,6 +261,7 @@ export async function crearLineaFacturacion(formData: FormData): Promise<void> {
       prefijoUsuario: prefijo,
       precioUnitario: datos.data.precio,
       notas: datos.data.notas,
+      soloConActividad,
     })
     .run();
   registrarAuditoria({
@@ -265,7 +270,8 @@ export async function crearLineaFacturacion(formData: FormData): Promise<void> {
     username: admin.username,
     detalle:
       `+${esServicio ? "servicio" : "campaña"} ${nombre} ${datos.data.unidad}` +
-      `${prefijo ? ` usuarios ${prefijo}_nnnn` : ""} @${datos.data.precio ?? "s/p"}`,
+      `${prefijo ? ` usuarios ${prefijo}_nnnn` : ""}${soloConActividad ? " solo meses con llamadas" : ""}` +
+      ` @${datos.data.precio ?? "s/p"}`,
     ip: await ipPeticion(),
   });
   volverCon("/admin/facturacion", "creado");

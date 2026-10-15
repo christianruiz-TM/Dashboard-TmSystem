@@ -25,6 +25,16 @@ export const RUTA_POR_ROL: Record<Rol, string> = {
  * 13/10/2026 con Christian: dirección ve también esos dos paneles).
  */
 export const ROLES_OPERACIONES: Rol[] = ["operaciones", "direccion"];
+/**
+ * Maestros de facturación (DDIs, códigos de GS) y cierre de mes: solo
+ * operaciones (y admin). Dirección los ve pero no los toca (14/10/2026).
+ */
+export const ROLES_OPERACIONES_EDICION: Rol[] = ["operaciones"];
+
+/** ¿Puede este rol editar los maestros de facturación y cerrar meses? (admin siempre). */
+export function puedeEditarFacturacion(rol: Rol): boolean {
+  return rol === "admin" || ROLES_OPERACIONES_EDICION.includes(rol);
+}
 export const ROLES_SUPERVISION: Rol[] = ["supervision", "direccion"];
 
 /**

@@ -1,64 +1,61 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/sqlite";
-import { billingConfig, type BillingConfigRow, type UnidadFacturacion } from "@/lib/db/schema";
+import { billingConfig, type BillingConfigRow } from "@/lib/db/schema";
+import { ddisParaFacturar, mapaCodigosGs, prefijosExcluidosReparto } from "@/lib/db/facturacion";
+import { ddisPorMes } from "@/lib/ddis";
+import {
+  consolidarFactura,
+  facturarCampanias,
+  type ConfigFacturacion,
+  type ExtrasFacturacion,
+  type FacturacionCampania,
+  type FilaFactura,
+} from "@/lib/facturacion-campania";
 import {
   facturarHorasLogadas,
   type FacturacionHorasLogadas,
   type LineaHorasLogadas,
 } from "@/lib/facturacion-horas-logadas";
-import { baseRepartoHorasLogadas, horasLogadasUsuarios } from "@/lib/rdb/queries/facturacion";
-import type { UnidadesCampania } from "@/lib/rdb/types";
+import { tarificacionPorCampania, type TarificacionCampania } from "@/lib/tarificacion";
+import {
+  baseRepartoHorasLogadas,
+  horasLogadasUsuarios,
+  metricasDiariasPorCampania,
+  unidadesPorCampania,
+} from "@/lib/rdb/queries/facturacion";
+import {
+  campaniasEfectivas,
+  listaServicios,
+  mapaCampaniaServicio,
+} from "@/lib/rdb/queries/servicios";
+import { minutosLineaPorCampania } from "@/lib/rdb/queries/tarificacion";
+import type { ServicioConCampanias, UnidadesCampania } from "@/lib/rdb/types";
 
 // ============================================================
 // Lógica de facturación: cruza las unidades medidas en RDBv2
 // con la configuración por campaña (billing_config de SQLite).
+// Lo puro (líneas por campaña y factura consolidada) está en
+// lib/facturacion-campania.ts; aquí, la lectura de la config y las consultas.
 //
 // Dos niveles:
-//  - Por CAMPAÑA: horas productivas, atendidas, éxitos y leads.
+//  - Por CAMPAÑA: horas productivas, atendidas, éxitos, leads, minutos de
+//    línea a fijo y a móvil y DDIs.
 //  - Por CLIENTE (servicio): horas logadas de sus usuarios. user_log no sabe
-//    de campañas, así que esa línea no se reparte entre ellas.
+//    de campañas: el total se reparte por campaña con el método del Excel de
+//    operaciones (tiempo de agente).
 // ============================================================
 
-export const NOMBRE_UNIDAD: Record<UnidadFacturacion, string> = {
-  horas: "Horas productivas (en llamada)",
-  horas_logadas: "Horas logadas (usuarios del cliente)",
-  interacciones: "Interacciones gestionadas (atendidas)",
-  exitos: "Éxitos / ventas",
-  leads: "Leads finalizados",
-};
-
-/** Unidades que se miden por campaña (todas menos las horas logadas). */
-type UnidadPorCampania = Exclude<UnidadFacturacion, "horas_logadas">;
-
-export interface LineaFacturable {
-  unidad: UnidadFacturacion;
-  cantidad: number;
-  precioUnitario: number | null;
-  importe: number | null; // null si no hay precio configurado
-  notas: string | null;
-}
-
-export interface FacturacionCampania {
-  campania: string;
-  medidas: UnidadesCampania;
-  /** Líneas según billing_config (vacío si la campaña no está configurada). */
-  lineas: LineaFacturable[];
-  /** Origen de la configuración aplicada: del servicio, de la campaña o ninguna. */
-  ambito: "servicio" | "campania" | null;
-  /**
-   * La config aplicada (la del servicio) factura por horas logadas: esas
-   * horas van en la línea del cliente, no en la campaña.
-   */
-  porHorasLogadas: boolean;
-  importeTotal: number | null;
-}
-
-export interface ConfigFacturacion {
-  /** Líneas de ámbito campaña (excepción), por shortname. */
-  porCampania: Map<string, BillingConfigRow[]>;
-  /** Líneas de ámbito servicio (lo normal), por nombre de servicio. */
-  porServicio: Map<string, BillingConfigRow[]>;
-}
+export {
+  NOMBRE_CORTO_UNIDAD,
+  NOMBRE_UNIDAD,
+  ORDEN_UNIDADES,
+  etiquetaCampania,
+  totalesFactura,
+  type ConfigFacturacion,
+  type FacturacionCampania,
+  type FilaFactura,
+  type LineaFacturable,
+} from "@/lib/facturacion-campania";
 
 /** Configuración de facturación activa, separada por ámbito. */
 export function configuracionFacturacion(): ConfigFacturacion {
@@ -79,73 +76,16 @@ export function configuracionFacturacion(): ConfigFacturacion {
   return { porCampania, porServicio };
 }
 
-function cantidadPara(unidad: UnidadPorCampania, medidas: UnidadesCampania): number {
-  switch (unidad) {
-    case "horas":
-      // Horas PRODUCTIVAS por campaña (gestión real). Las logadas no se
-      // pueden repartir por campaña (ag_in_cp_log las duplica ~×13 y
-      // user_log no sabe de campañas): van por cliente, unidad horas_logadas.
-      return medidas.horasProductivas;
-    case "interacciones":
-      // Gestionadas = ATENDIDAS (termination_state = 1), decidido 29/09/2026.
-      // `medidas.interacciones` es COUNT(*) de hilos: incluye ocupado, no
-      // contesta, número inválido... (+33 % el 22/09: 6.609 frente a 4.954).
-      return medidas.atendidas;
-    case "exitos":
-      return medidas.exitos;
-    case "leads":
-      return medidas.leadsFinalizados;
-  }
-}
-
 /**
- * Combina medidas del rango con la configuración. Para cada campaña aplica,
- * por este orden: su config de campaña (excepción) → la de su servicio
- * (lo normal) → nada. `campaniaServicio` mapea campaña→servicio (cliente).
+ * Combina medidas del rango con la configuración activa (facturarCampanias).
+ * `campaniaServicio` mapea campaña→servicio (cliente).
  */
 export function calcularFacturacion(
   unidades: UnidadesCampania[],
   campaniaServicio: Map<string, string>,
+  extras: ExtrasFacturacion = {},
 ): FacturacionCampania[] {
-  const { porCampania, porServicio } = configuracionFacturacion();
-  return unidades.map((medidas) => {
-    const servicio = campaniaServicio.get(medidas.campania);
-    const propias = porCampania.get(medidas.campania);
-    const delServicio = servicio ? porServicio.get(servicio) : undefined;
-    const config = propias ?? delServicio ?? [];
-    const ambito: FacturacionCampania["ambito"] = propias
-      ? "campania"
-      : delServicio
-        ? "servicio"
-        : null;
-
-    const lineas: LineaFacturable[] = config.flatMap((c) => {
-      // Las horas logadas se facturan por cliente (facturacionHorasLogadas)
-      if (c.unidad === "horas_logadas") return [];
-      const cantidad = cantidadPara(c.unidad, medidas);
-      const importe =
-        c.precioUnitario == null ? null : Math.round(cantidad * c.precioUnitario * 100) / 100;
-      return {
-        unidad: c.unidad,
-        cantidad,
-        precioUnitario: c.precioUnitario,
-        importe,
-        notas: c.notas,
-      };
-    });
-    const conImporte = lineas.filter((l) => l.importe != null);
-    return {
-      campania: medidas.campania,
-      medidas,
-      lineas,
-      ambito,
-      porHorasLogadas: config.some((c) => c.unidad === "horas_logadas"),
-      importeTotal:
-        conImporte.length > 0
-          ? Math.round(conImporte.reduce((acc, l) => acc + (l.importe ?? 0), 0) * 100) / 100
-          : null,
-    };
-  });
+  return facturarCampanias(configuracionFacturacion(), unidades, campaniaServicio, extras);
 }
 
 /**
@@ -184,11 +124,78 @@ export async function facturacionHorasLogadas(
   const lineas = lineasHorasLogadas(servicio);
   if (lineas.length === 0) return [];
   const prefijos = lineas.map((l) => l.prefijo);
-  // El total facturado sale de horasLogadasUsuarios; la base del reparto
-  // estimado por campaña, de la misma user_log día a día más la gestión
-  const [horas, base] = await Promise.all([
+  // El total facturado sale de horasLogadasUsuarios; el reparto por campaña,
+  // del tiempo de agente de esos usuarios (método del Excel de operaciones)
+  const [horas, base, servicios] = await Promise.all([
     horasLogadasUsuarios(desdeISO, hastaISO, prefijos),
     baseRepartoHorasLogadas(desdeISO, hastaISO, prefijos),
+    listaServicios(),
   ]);
-  return facturarHorasLogadas(lineas, horas, base);
+  const excluidos = new Map(lineas.map((l) => [l.servicio, new Set(prefijosExcluidosReparto(l.servicio))]));
+  return facturarHorasLogadas(lineas, horas, base, campaniasRepartoPorServicio(servicios), excluidos);
+}
+
+/**
+ * Campañas que reciben el reparto de horas logadas de cada cliente: las de su
+ * servicio, menos las que tienen config de campaña propia (las bbdd de GH se
+ * facturan por contactos: es el «Tipo_Camp = VENTA» del Excel de operaciones).
+ */
+function campaniasRepartoPorServicio(
+  servicios: ServicioConCampanias[],
+): Map<string, Set<string>> {
+  const { porCampania } = configuracionFacturacion();
+  return new Map(
+    servicios.map((s) => [s.servicio, new Set(s.campanias.filter((c) => !porCampania.has(c)))]),
+  );
+}
+
+export interface FacturacionCompleta {
+  unidades: UnidadesCampania[];
+  /** Tarificación por campaña (minutos SIN redondear, incluidos los que no se cobran). */
+  tarificacion: Map<string, TarificacionCampania>;
+  /** Líneas por campaña según billing_config. */
+  facturacion: FacturacionCampania[];
+  /** Horas logadas por cliente con su reparto por campaña. */
+  porCliente: FacturacionHorasLogadas[];
+  /** La factura: una fila por campaña con todo lo que se le cobra. */
+  factura: FilaFactura[];
+}
+
+/**
+ * Toda la facturación de un rango y alcance: lo que enseña Operaciones, lo
+ * que exporta y lo que se guarda al cerrar el mes (la misma función para los
+ * tres, así no pueden discrepar).
+ */
+export async function facturacionCompleta(
+  desdeISO: string,
+  hastaISO: string,
+  servicio: string | undefined,
+  incluirIvr: boolean,
+): Promise<FacturacionCompleta> {
+  const [servicios, camp] = await Promise.all([listaServicios(), campaniasEfectivas(servicio, incluirIvr)]);
+  const [unidades, diarias, minutos, porCliente] = await Promise.all([
+    unidadesPorCampania(desdeISO, hastaISO, camp),
+    // La misma consulta que la anterior (caché compartida): de aquí salen los
+    // meses con llamadas de cada campaña, para los DDIs que solo se cobran así
+    metricasDiariasPorCampania(desdeISO, hastaISO, camp),
+    minutosLineaPorCampania(desdeISO, hastaISO, camp),
+    // Horas logadas de los usuarios del cliente: no dependen de campañas ni del check IVR
+    facturacionHorasLogadas(desdeISO, hastaISO, servicio),
+  ]);
+  const mesesConLlamadas = new Map<string, Set<string>>();
+  for (const d of diarias) {
+    if (d.interacciones <= 0) continue;
+    const meses = mesesConLlamadas.get(d.campania) ?? new Set<string>();
+    meses.add(d.fecha.slice(0, 7));
+    mesesConLlamadas.set(d.campania, meses);
+  }
+  const mapa = mapaCampaniaServicio(servicios);
+  const tarificacion = tarificacionPorCampania(minutos);
+  const facturacion = calcularFacturacion(unidades, mapa, {
+    tarificacion,
+    ddisPorMes: ddisPorMes(ddisParaFacturar(camp), desdeISO, hastaISO),
+    mesesConLlamadas,
+  });
+  const factura = consolidarFactura(facturacion, porCliente, mapa, mapaCodigosGs());
+  return { unidades, tarificacion, facturacion, porCliente, factura };
 }

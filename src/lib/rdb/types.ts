@@ -198,15 +198,35 @@ export interface HorasLogadasUsuario {
 }
 
 /**
- * Base del reparto ESTIMADO de las horas logadas de un cliente entre sus
- * campañas: lo logado y lo productivo de cada usuario, día a día. Horas SIN
- * redondear.
+ * Base del reparto de las horas logadas de un cliente entre sus campañas
+ * (método del Excel de operaciones, decidido 14/10/2026): el tiempo de agente
+ * de cada usuario en cada campaña del rango. Horas SIN redondear.
  */
 export interface BaseRepartoHorasLogadas {
-  /** Tiempo logado (user_log) por usuario y día en que empieza cada sesión. */
-  logado: { usuario: string; fecha: string; horas: number }[];
-  /** Gestión de las atendidas (como «H. productivas») por usuario, día y campaña. */
-  productivo: { usuario: string; fecha: string; campania: string; horas: number }[];
+  /**
+   * Segmentos del agente fuera de cola (`state NOT IN (2,3)`) de sus hilos
+   * entrantes y salientes, atendidos o no, con número marcado. `prefijo` son
+   * los 4 primeros caracteres del número (account code en las salientes, hunt
+   * group en las entrantes): el Excel de operaciones excluye algunos a mano.
+   */
+  tiempoAgente: { usuario: string; campania: string; prefijo: string; horas: number }[];
+}
+
+/**
+ * Minutos de línea con el cliente (tarificación) de una campaña, por fuente
+ * y prefijo del número marcado. Ver queries/tarificacion.ts.
+ */
+export interface MinutosLineaFila {
+  campania: string;
+  /** saliente = agente con origin 2; ivr = IVR tras un agente (encuesta NFS). */
+  fuente: "saliente" | "ivr";
+  /** nacional = 9-13 caracteres; corto = hunt group o extensión; largo = internacional o raro. */
+  formato: "nacional" | "corto" | "largo";
+  /** 3 primeras cifras de los 9 últimos dígitos; null si no es nacional. */
+  prefijo: string | null;
+  llamadas: number;
+  /** SIN redondear (se suma por campaña). */
+  minutos: number;
 }
 
 /** Métricas de un día y campaña (para agregados nocturnos). */

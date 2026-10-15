@@ -81,9 +81,29 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "Tiempo que los usuarios del cliente estuvieron logados en Altitude, de login a logout, haya o no campaña abierta. Solo cuentan los usuarios con el prefijo del cliente seguido del número de agente (GH_0851 para GrupoHuertas): no cuentan los que no llevan el prefijo ni los de bbdd (GH_0851_BD), que se facturan por sus campañas. Si un usuario tiene dos sesiones a la vez, el tiempo cuenta una sola vez.",
   },
   repartoHorasLogadas: {
-    termino: "Reparto de horas logadas por campaña (estimado)",
+    termino: "Reparto de horas logadas por campaña",
     definicion:
-      "Cómo se reparten las horas logadas de un cliente entre sus campañas. Altitude no registra en qué campaña está un usuario mientras espera (los tiene casi siempre todas abiertas), así que cada día las horas logadas de cada usuario se reparten en proporción a su tiempo productivo (gestión de las atendidas) en cada campaña. Los días logados sin ninguna llamada atendida van aparte. Suma exactamente las horas del cliente; lo que se factura es el total.",
+      "Cómo se reparten las horas logadas de un cliente entre sus campañas, con el método del Excel de facturación de operaciones. Altitude no registra en qué campaña está un usuario mientras espera (los tiene casi siempre todas abiertas), así que las horas logadas del período se reparten en proporción al tiempo de agente en cada campaña: marcar, hablar, retener y cerrar la llamada, sin la cola, en entrantes y salientes aunque no contesten. No cuentan las salientes sin número marcado ni las campañas que se facturan a su manera (bbdd). Suma exactamente las horas del cliente y es lo que va al albarán de cada campaña.",
+  },
+  minutosLinea: {
+    termino: "Minutos de línea (fijo y móvil)",
+    definicion:
+      "Minutos de conversación con el cliente que cuestan línea: llamadas salientes atendidas por un agente y la encuesta que suena después de la gestión (el cliente sigue al teléfono). Se separan por el número marcado: móviles (6xx, 71x-74x) y fijos (8xx, 9xx). Los especiales (901, 902, 80x, 70x) se presupuestan aparte y no se cobran aquí; los gratuitos (800, 900) y las llamadas entrantes, tampoco.",
+  },
+  ddis: {
+    termino: "DDIs (cuota mensual)",
+    definicion:
+      "Números de teléfono de TmSystem asignados a cada campaña. Se cobra el mes entero por cada DDI activo algún día del mes (puesto en producción antes de que acabe y sin baja o con la baja después de que empiece), sin prorratear. El inventario está en Operaciones → DDIs.",
+  },
+  facturaCampania: {
+    termino: "Factura por campaña",
+    definicion:
+      "Todo lo que se cobra a cada campaña en el período, con el código de la campaña en GS: su parte de las horas logadas del cliente, los minutos de línea, los contactos finalizados, la cuota de DDIs y lo que tenga configurado. Es lo que se guarda al cerrar el mes.",
+  },
+  cierreMes: {
+    termino: "Mes cerrado",
+    definicion:
+      "Foto fija de la factura de un mes completo de un cliente, con las cantidades y los precios de ese momento. Si después cambian los datos o las tarifas, el mes cerrado no cambia (la pantalla avisa de la diferencia). Lo cierra Operaciones, que puede ajustarlo a mano con motivo (quitar algo o cambiar un precio) para las decisiones puntuales de dirección; reabrirlo, solo el administrador.",
   },
   pausas: {
     termino: "Pausas (Not Ready)",

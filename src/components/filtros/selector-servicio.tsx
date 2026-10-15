@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Users } from "lucide-react";
+import { TODOS_SERVICIOS } from "@/lib/servicio-todos";
 
 /**
  * Selector de Cliente/Servicio. Sincroniza `?servicio=<nombre>` en la URL
@@ -10,15 +11,20 @@ import { Users } from "lucide-react";
  * resuelve el servicio a sus campañas y re-consulta con ese ámbito.
  * `obligatorio`: sin la opción «Todos» (vistas que solo se consultan por
  * cliente, como Supervisión → Resultados).
+ * `todosExplicito`: empieza en blanco («Elige un cliente…») y «Todos los
+ * clientes» es una opción más, con `?servicio=todos` (Operaciones: cargar
+ * todos los clientes de entrada era lo más lento).
  */
 export function SelectorServicio({
   servicios,
   valor,
   obligatorio = false,
+  todosExplicito = false,
 }: {
   servicios: string[];
   valor?: string;
   obligatorio?: boolean;
+  todosExplicito?: boolean;
 }) {
   const router = useRouter();
   const ruta = usePathname();
@@ -40,13 +46,14 @@ export function SelectorServicio({
         value={valor ?? ""}
         onChange={(e) => aplicar(e.target.value)}
       >
-        {obligatorio ? (
+        {obligatorio || todosExplicito ? (
           <option value="" disabled>
             Elige un cliente…
           </option>
         ) : (
           <option value="">Todos</option>
         )}
+        {todosExplicito && <option value={TODOS_SERVICIOS}>Todos los clientes</option>}
         {servicios.map((s) => (
           <option key={s} value={s}>
             {s}

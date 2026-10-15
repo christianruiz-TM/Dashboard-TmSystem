@@ -20,6 +20,7 @@ import type {
   KpiCampaniaHoy,
   MetricaDiariaCampania,
   MetricasIvr,
+  MinutosLineaFila,
   PenetracionLista,
   RazonNotReady,
   SaludRdb,
@@ -504,6 +505,34 @@ export function mockUnidadesPorCampania(
     .sort((a, b) => b.interacciones - a.interacciones);
 }
 
+/**
+ * Minutos de línea coherentes con mockMetricasDiarias: ~1,1 min conectado por
+ * saliente, casi todo a móviles (6xx), algo a fijos (9xx), algún 902 y algún
+ * 900, y una encuesta tras la gestión en ~1 de cada 4.
+ */
+export function mockMinutosLinea(desde: string, hasta: string, campanias?: string[]): MinutosLineaFila[] {
+  const filas: MinutosLineaFila[] = [];
+  const porCampania = new Map<string, number>();
+  for (const m of mockMetricasDiarias(desde, hasta, campanias)) {
+    porCampania.set(m.campania, (porCampania.get(m.campania) ?? 0) + m.outbound);
+  }
+  for (const [campania, salientes] of porCampania) {
+    if (salientes === 0) continue;
+    const r = rng(`linea|${desde}|${hasta}|${campania}`);
+    const reparto: [string, number][] = [["600", 0.5], ["677", 0.33], ["958", 0.12], ["902", 0.01], ["900", 0.04]];
+    for (const [prefijo, cuota] of reparto) {
+      const llamadas = Math.round(salientes * cuota * (0.8 + r() * 0.4));
+      if (llamadas === 0) continue;
+      filas.push({ campania, fuente: "saliente", formato: "nacional", prefijo, llamadas, minutos: llamadas * (0.8 + r() * 0.6) });
+      const encuestas = Math.round(llamadas * 0.25);
+      if (encuestas > 0 && prefijo.startsWith("6")) {
+        filas.push({ campania, fuente: "ivr", formato: "nacional", prefijo, llamadas: encuestas, minutos: encuestas * (0.4 + r() * 0.2) });
+      }
+    }
+  }
+  return filas;
+}
+
 export function mockPenetracionListas(
   desde: string,
   hasta: string,
@@ -574,34 +603,33 @@ export function mockHorasAgenteReales(
 }
 
 /**
- * Base del reparto por campaña coherente con mockHorasLogadasUsuarios: las
- * horas de cada usuario repartidas en días laborables del rango y, cada día,
- * algo de gestión en 2-4 campañas «<prefijo>_camp_n» (algún día sin llamadas).
+ * Base del reparto por campaña coherente con mockHorasLogadasUsuarios: cada
+ * usuario reparte entre el 55 y el 75 % de sus horas logadas como tiempo de
+ * agente en 2-5 campañas demo (en demo cada servicio es una sola campaña, así
+ * que el reparto de un cliente se queda con la suya).
  */
 export function mockBaseRepartoHorasLogadas(
   desde: string,
   hasta: string,
   prefijos: string[],
 ): BaseRepartoHorasLogadas {
-  const fechas: string[] = [];
-  for (let d = new Date(`${desde}T12:00:00`); d <= new Date(`${hasta}T12:00:00`); d.setDate(d.getDate() + 1)) {
-    if (d.getDay() !== 0 && d.getDay() !== 6) {
-      fechas.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-    }
-  }
-  if (fechas.length === 0) fechas.push(desde);
-  const base: BaseRepartoHorasLogadas = { logado: [], productivo: [] };
+  const camps = CAMPANIAS_DEMO.map((c) => c.shortname).filter((c) => !/^IVR_/i.test(c));
+  const base: BaseRepartoHorasLogadas = { tiempoAgente: [] };
   for (const u of mockHorasLogadasUsuarios(desde, hasta, prefijos)) {
     const r = rng(`reparto|${desde}|${hasta}|${u.usuario}`);
-    const camps = Array.from({ length: 6 }, (_, i) => `${u.prefijo.toLowerCase()}_camp_${i + 1}`);
-    for (const fecha of fechas) {
-      base.logado.push({ usuario: u.usuario, fecha, horas: u.horas / fechas.length });
-      if (r() < 0.08) continue; // día logado sin llamadas
-      const n = entre(r, 2, 4);
-      for (let i = 0; i < n; i++) {
-        base.productivo.push({ usuario: u.usuario, fecha, campania: camps[(i * 2 + entre(r, 0, 5)) % 6], horas: 0.3 + r() * 2.5 });
-      }
-    }
+    const n = Math.min(camps.length, entre(r, 2, 5));
+    const pesos = Array.from({ length: n }, () => 0.2 + r());
+    const sumaPesos = pesos.reduce((a, b) => a + b, 0);
+    const agente = u.horas * (0.55 + r() * 0.2);
+    const inicio = entre(r, 0, camps.length - 1);
+    pesos.forEach((p, i) => {
+      base.tiempoAgente.push({
+        usuario: u.usuario,
+        campania: camps[(inicio + i) % camps.length],
+        prefijo: i % 3 === 0 ? "8240" : "7101",
+        horas: (agente * p) / sumaPesos,
+      });
+    });
   }
   return base;
 }

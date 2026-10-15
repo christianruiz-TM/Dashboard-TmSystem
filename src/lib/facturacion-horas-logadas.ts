@@ -51,94 +51,100 @@ export interface FacturacionHorasLogadas extends LineaHorasLogadas {
   importe: number | null;
   /** Detalle por usuario (horas a 2 decimales, solo para mostrar). */
   usuarios: { usuario: string; horas: number; sesiones: number }[];
-  /** Reparto ESTIMADO por campaña (repartirHorasLogadas); vacío sin base. */
+  /** Reparto por campaña (repartirHorasLogadas); vacío sin base. */
   campanias: RepartoCampania[];
 }
 
 /**
- * Una fila del reparto estimado de las horas logadas de un cliente.
- * `campania` null = tiempo logado en días sin ninguna llamada atendida.
+ * Una fila del reparto de las horas logadas de un cliente. `campania` null
+ * solo si hubo horas logadas y ningún tiempo de agente en sus campañas.
  */
 export interface RepartoCampania {
   campania: string | null;
-  /** Gestión de las atendidas de los usuarios del cliente en la campaña. */
-  horasProductivas: number;
-  /** % sobre lo productivo de esos usuarios (null en la fila sin actividad). */
-  pctProductivo: number | null;
+  /** Tiempo de agente de los usuarios del cliente en la campaña (el peso). */
+  horasAgente: number;
+  /** % sobre el tiempo de agente de esos usuarios (null en la fila sin campaña). */
+  pctAgente: number | null;
   /** Horas logadas que le tocan. Suman exactamente el total del cliente. */
   horasLogadas: number;
-  /** Su parte del importe (informativa: se factura el total del cliente). */
+  /** Su parte del importe: lo que va al albarán de la campaña. */
   importe: number | null;
 }
 
 /**
- * Reparte las horas logadas de un cliente entre sus campañas (decidido
- * 09/10/2026): por USUARIO y DÍA, lo logado se reparte en proporción a su
- * tiempo productivo en cada campaña ese día. Un día logado sin ninguna
- * atendida va a la fila «sin actividad» (campania null): no se inventa a qué
- * campaña asignarlo.
+ * Reparte las horas logadas de un cliente entre sus campañas con el método
+ * del Excel de facturación de operaciones (decidido 14/10/2026): el TOTAL del
+ * rango, de una vez, en proporción al tiempo de agente de sus usuarios en
+ * cada campaña (baseRepartoHorasLogadas). Todo va a alguna campaña, así que
+ * cada hora tiene su albarán.
+ *
+ * `campaniasCliente`: las campañas que pueden recibir horas (las del servicio
+ * de la línea que no tienen config propia, como las bbdd, que se facturan a
+ * su manera). Sin ella, todas las del tiempo de agente.
+ * `prefijosExcluidos`: números (4 primeros caracteres) cuyo tiempo no cuenta
+ * para el reparto, como el segmentador del Excel (lista del cliente).
  *
  * Se suma sin redondear y al final se redondea a centésimas por el método
  * del mayor resto, para que las filas sumen EXACTAMENTE `totalHoras` (el
- * total que se factura, ya redondeado).
+ * total que se factura, ya redondeado). El Excel redondeaba cada campaña y
+ * corregía la diferencia a mano.
  */
 export function repartirHorasLogadas(
   base: BaseRepartoHorasLogadas,
   prefijo: string,
   totalHoras: number,
   precioUnitario: number | null,
+  campaniasCliente?: ReadonlySet<string>,
+  prefijosExcluidos?: ReadonlySet<string>,
 ): RepartoCampania[] {
-  const delCliente = (u: string) => esUsuarioDelCliente(u, prefijo);
-  const prodDia = new Map<string, Map<string, number>>();
-  const productivas = new Map<string, number>();
-  for (const p of base.productivo) {
-    if (!delCliente(p.usuario) || p.horas <= 0) continue;
-    const k = `${p.usuario.toUpperCase()}|${p.fecha}`;
-    const dia = prodDia.get(k) ?? new Map<string, number>();
-    dia.set(p.campania, (dia.get(p.campania) ?? 0) + p.horas);
-    prodDia.set(k, dia);
-    productivas.set(p.campania, (productivas.get(p.campania) ?? 0) + p.horas);
+  const peso = new Map<string, number>();
+  for (const f of base.tiempoAgente) {
+    if (!esUsuarioDelCliente(f.usuario, prefijo) || f.horas <= 0) continue;
+    if (campaniasCliente && !campaniasCliente.has(f.campania)) continue;
+    if (prefijosExcluidos?.has(f.prefijo)) continue;
+    peso.set(f.campania, (peso.get(f.campania) ?? 0) + f.horas);
+  }
+  const totalPeso = [...peso.values()].reduce((a, b) => a + b, 0);
+  const objetivo = Math.round(totalHoras * 100);
+
+  if (totalPeso <= 0) {
+    // Horas logadas sin ninguna llamada en sus campañas: no se inventa el reparto
+    if (objetivo <= 0) return [];
+    return [{ campania: null, horasAgente: 0, pctAgente: null, horasLogadas: objetivo / 100, importe: importeDe(objetivo / 100, precioUnitario) }];
   }
 
-  // Clave de la fila sin actividad: con espacios y paréntesis, no puede ser un shortname
-  const SIN = "(sin actividad en campaña)";
-  const logadas = new Map<string, number>();
-  for (const l of base.logado) {
-    if (!delCliente(l.usuario) || l.horas <= 0) continue;
-    const dia = prodDia.get(`${l.usuario.toUpperCase()}|${l.fecha}`);
-    const totalDia = dia ? [...dia.values()].reduce((a, b) => a + b, 0) : 0;
-    if (!dia || totalDia <= 0) {
-      logadas.set(SIN, (logadas.get(SIN) ?? 0) + l.horas);
-      continue;
-    }
-    for (const [camp, h] of dia) logadas.set(camp, (logadas.get(camp) ?? 0) + (l.horas * h) / totalDia);
-  }
-
-  const claves = [...new Set([...productivas.keys(), ...logadas.keys()])];
-  if (claves.length === 0) return [];
+  const claves = [...peso.keys()];
   const centesimas = mayorResto(
-    claves.map((k) => (logadas.get(k) ?? 0) * 100),
-    Math.round(totalHoras * 100),
+    claves.map((k) => ((peso.get(k) ?? 0) / totalPeso) * objetivo),
+    objetivo,
   );
-  const totalProd = [...productivas.values()].reduce((a, b) => a + b, 0);
   return claves
     .map((k, i) => {
       const horasLogadas = centesimas[i] / 100;
-      const esSin = k === SIN;
       return {
-        campania: esSin ? null : k,
-        horasProductivas: redondear2(productivas.get(k) ?? 0),
-        pctProductivo: esSin || totalProd <= 0 ? null : redondear2((100 * (productivas.get(k) ?? 0)) / totalProd),
+        campania: k,
+        horasAgente: redondear2(peso.get(k) ?? 0),
+        pctAgente: redondear2((100 * (peso.get(k) ?? 0)) / totalPeso),
         horasLogadas,
-        importe: precioUnitario == null ? null : redondear2(horasLogadas * precioUnitario),
+        importe: importeDe(horasLogadas, precioUnitario),
       };
     })
-    .sort(
-      (a, b) =>
-        Number(a.campania == null) - Number(b.campania == null) ||
-        b.horasLogadas - a.horasLogadas ||
-        (a.campania ?? "").localeCompare(b.campania ?? ""),
-    );
+    .sort((a, b) => b.horasLogadas - a.horasLogadas || a.campania.localeCompare(b.campania));
+}
+
+/**
+ * Lista de prefijos excluidos escrita a mano («0673, 0716 8259…»): números de
+ * 1 a 4 cifras separados por comas, espacios o saltos de línea. Sin
+ * repetidos y ordenada; null si algo no es un número así.
+ */
+export function leerPrefijosExcluidos(texto: string): string[] | null {
+  const trozos = texto.split(/[\s,;]+/).filter(Boolean);
+  if (trozos.some((t) => !/^\d{1,4}$/.test(t))) return null;
+  return [...new Set(trozos)].sort();
+}
+
+function importeDe(horas: number, precioUnitario: number | null): number | null {
+  return precioUnitario == null ? null : redondear2(horas * precioUnitario);
 }
 
 /**
@@ -169,11 +175,16 @@ const redondear2 = (v: number) => Math.round(v * 100) / 100;
  * Cruza las líneas de configuración con las horas por usuario. Suma SIN
  * redondear y redondea solo el total; el importe sale de la cantidad que se
  * muestra (horas a 2 decimales × precio), como el resto de líneas.
+ * `campaniasPorServicio` y `excluidosPorServicio`: las campañas que pueden
+ * recibir el reparto de cada cliente y los prefijos que no cuentan (ver
+ * repartirHorasLogadas).
  */
 export function facturarHorasLogadas(
   lineas: LineaHorasLogadas[],
   horas: HorasLogadasUsuario[],
   base?: BaseRepartoHorasLogadas,
+  campaniasPorServicio?: ReadonlyMap<string, ReadonlySet<string>>,
+  excluidosPorServicio?: ReadonlyMap<string, ReadonlySet<string>>,
 ): FacturacionHorasLogadas[] {
   return lineas.map((linea) => {
     const propias = horas
@@ -189,7 +200,16 @@ export function facturarHorasLogadas(
         horas: redondear2(h.horas),
         sesiones: h.sesiones,
       })),
-      campanias: base ? repartirHorasLogadas(base, linea.prefijo, total, linea.precioUnitario) : [],
+      campanias: base
+        ? repartirHorasLogadas(
+            base,
+            linea.prefijo,
+            total,
+            linea.precioUnitario,
+            campaniasPorServicio?.get(linea.servicio),
+            excluidosPorServicio?.get(linea.servicio),
+          )
+        : [],
     };
   });
 }

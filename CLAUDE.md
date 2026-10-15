@@ -163,8 +163,10 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       prefijo en `billing_config.prefijo_usuario` (GH). Fuera: los que no
       llevan el prefijo (Angeles: 14 h en campañas GH en septiembre), los de
       bbdd con sufijo (`GH_0851_BD`, `_BD_LX`), que se facturan a propósito
-      de otra forma por sus campañas (`gh_bbdd_*`: horas productivas a 2 € y
-      leads a 3 €, **es correcto así**), y `GH_Cargador2`.
+      de otra forma por sus campañas (`gh_bbdd_*`: contactos finalizados a
+      2 €, Lexus a 3 €, y su DDI; corregido en producción antes del
+      14/10/2026, cuando aquí ponía «horas productivas a 2 €»), y
+      `GH_Cargador2`.
     - Es una línea por CLIENTE (ámbito servicio), nunca por campaña: `user_log`
       no sabe de campañas. Las campañas que heredan esa config salen como
       «Horas logadas (cliente)» y no llevan importe propio.
@@ -178,21 +180,34 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       1.027,88 h, UGR 195,42 h, Av 23,45 h). El dashboard antes facturaba
       GH por productivas: 848,28 h. Análisis completo:
       `docs/facturacion-horas-logadas.md`.
-    - **Reparto ESTIMADO por campaña** (decidido 09/10/2026 con Christian):
-      por usuario y día, sus horas logadas se reparten en proporción a su
-      tiempo productivo (gestión de las atendidas) en cada campaña. Los días
-      logados sin ninguna atendida van a la fila «Logado sin actividad en
-      campaña».
-      - Las filas se redondean por mayor resto: suman EXACTAMENTE el total
-        facturado. Septiembre GH: 1.027,88 h y 28.780,64 €, con 35,26 h sin
-        actividad.
+    - **Reparto por campaña = método del Excel de operaciones** (decidido
+      14/10/2026 con Christian; sustituye al de usuario y día del 09/10, que
+      dejaba 35,26 h «sin actividad» sin código de GS y movía 70,6 h entre
+      campañas). El TOTAL del mes se reparte de una vez en proporción al
+      tiempo de agente de los usuarios del cliente en cada campaña: Σ
+      `itr_segment.duration` con `state NOT IN (2,3)` de sus hilos con
+      `origin IN (1,2)`, atendidos o no, sin los de `itr_global.to_address`
+      vacío (salientes sin número). Solo campañas del servicio sin config de
+      campaña propia (las bbdd llevan la suya).
+      - **Prefijos excluidos** (decidido 15/10/2026: «no sé el motivo, pero
+        se quitan»): tampoco cuentan los hilos cuyo número marcado (o hunt
+        group) empieza por uno de la lista del cliente, como el segmentador
+        «Pref_To_Entrat» del Excel. La mantiene Operaciones en
+        `/operaciones/reparto` (`app_settings`
+        `facturacion.prefijosExcluidosReparto.<servicio>`). GH: 0673, 0716,
+        1157, 1161, 6735, 7013, 7014, 7017, 7190, 8259, 8367, 8374, 8384,
+        8394, 8430, 8537, 8554, 8761, 8800.
+      - Las filas se redondean por mayor resto: suman EXACTAMENTE el total.
+        Septiembre GH con la lista: 1.027,88 h; 19 de 38 campañas al céntimo
+        frente a «facturacion cerrada» y todas a ±0,3 h (sin ella, 14; el
+        resto son arreglos de redondeo a mano del Excel). Ver
+        `docs/facturacion-tarificacion.md`.
       - No se usa `ag_in_cp_log`: los usuarios GH tienen más de 15 campañas
         abiertas a la vez el 92,8 % del tiempo (×34 sumando por campaña) y
         repartirlo da casi lo mismo a todas.
       - Código: `baseRepartoHorasLogadas` (queries/facturacion.ts) y
-        `repartirHorasLogadas` (puro, con tests). Se ve en Operaciones bajo
-        cada cliente y en el export, en columnas propias. Se factura el
-        total; el reparto es informativo.
+        `repartirHorasLogadas` (puro, con tests). Es lo que va a la fila de
+        cada campaña en la «Factura por campaña» de Operaciones (regla 19).
 
 17. **Ratios de éxito (decidido 09/10/2026 con Christian)**: éxito =
     `script_session.business_status = 3` en todas las campañas; se ven en
@@ -299,6 +314,90 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       a partir de 62 días). Semáforo con objetivos de SQLite (campaña >
       servicio, vigencia por fechas): verde, ámbar a menos del 10 % y rojo.
 
+19. **Tarificación desde Operaciones (decidido 14/10/2026 con Christian)**:
+    sustituye al Excel de facturación de operaciones («Interacciones GH_cs
+    v4…»). Ingeniería inversa, decisiones y cifras en
+    `docs/facturacion-tarificacion.md`.
+    - **Minutos de línea** (unidades `minutos_fijo`/`minutos_movil`):
+      segmentos `state = 6` de hilos atendidos. Fuentes:
+      - Salientes de agente humano (`origin = 2`).
+      - Encuesta NFS: un hilo IVR (`type = 3`) que empieza DESPUÉS de un hilo
+        de agente en la misma `itr_global` va a la campaña de ese agente.
+        Vale para cualquier cliente, sin tablas de hunt groups.
+      - Número = 9 últimos dígitos de `itr_global.to_address`: lleva delante
+        el account code, 4 dígitos en GH y 2 en otros.
+      - Menos de 9 caracteres es entrante (hunt group) o extensión, y no se
+        cobra; más de 13 tampoco.
+      - Clasificación pura en `lib/tarificacion.ts`: móvil 6xx y 71x-74x;
+        fijo 8xx y 9xx; especial 901-909, 803-807 y 70x (se presupuestan
+        desde comercial: se enseñan, no se cobran); sin coste 800 y 900 (ni
+        se cobran ni cuentan).
+      - Septiembre 2026: móvil 8.843,50 min frente a 8.842,38 del Excel;
+        fijo 39,06, exacto.
+    - **DDIs** (unidad `ddi`, tabla `ddis`): cada fila es una ASIGNACIÓN
+      número → campaña con fechas (el mismo número se reasigna; `numero` no
+      es único).
+      - Cuota del MES ENTERO, sin prorrata, por número activo algún día del
+        mes, una vez por número: a la asignación de alta más reciente.
+      - El relevo el mismo día no es solape. Septiembre: 365, igual campaña a
+        campaña.
+      - Opción de la línea `ddi` (`billing_config.solo_con_actividad`,
+        migración 0009, 15/10/2026): «solo los meses con llamadas». Depende
+        del presupuesto del cliente (comercial/dirección); para las bbdd de
+        GH entre tandas. Mes con llamadas = algún hilo de la campaña ese mes.
+    - **Códigos de GS** (`campanias_gs`): uno vigente por campaña; las bbdd
+      cambian de código en cada tanda. Los mantiene el rol `operaciones`
+      (`ROLES_OPERACIONES_EDICION`, + admin), igual que los DDIs y el cierre
+      de mes. Dirección solo ve.
+    - **Factura por campaña** (`lib/facturacion-campania.ts`, puro):
+      - Junta en una fila por campaña su parte de las horas logadas (regla
+        16), las líneas de `billing_config` y el código de GS.
+      - Una campaña con config propia (bbdd) no hereda la del servicio:
+        necesita su propia línea de DDIs.
+      - `facturacionCompleta()` (`lib/facturacion.ts`) es la ÚNICA cadena
+        para la pantalla, el export y el cierre.
+    - **Cierre de mes** (`facturacion_cierres` + `_lineas`): foto fija de un
+      mes PASADO y completo de un servicio, con los precios de entonces.
+      - Como mucho uno «cerrado» por mes y servicio (índice único parcial).
+      - Reabrir: solo admin.
+      - Mes cerrado: la pantalla y el export enseñan lo guardado y avisan si
+        lo calculado ahora difiere (`?vivo=1` lo recalcula).
+      - Histórico ene-2025 → sep-2026 importable del Excel (origen
+        `importado`, sin código GS).
+      - **Ajustes manuales** (decidido 15/10/2026, migración 0010,
+        `facturacion_cierre_ajustes`): con el mes cerrado, Operaciones quita
+        una línea, una campaña entera o le cambia el precio, siempre con
+        motivo.
+        - La línea original no se toca: el ajuste se puede deshacer.
+        - El total del cierre se recalcula (`aplicarAjustes`, puro).
+        - Pantalla, histórico, Excel y fichero de GS salen ajustados
+          (`lineasAjustadas`).
+        - Es para las decisiones puntuales de dirección que ninguna regla
+          deduce: julio de 2026, bbdd a precios distintos; agosto, sin
+          facturarlas.
+    - Comprobación: `npm run facturacion:comparar -- --archivo … --mes
+      YYYY-MM` (sin SQLite: DDIs y precios del propio Excel).
+      - Septiembre: 35.120,10 € en los dos.
+      - Mayo-agosto: entre −0,11 € y −3,79 € al mes.
+    - **Fichero de albaranes de GS** (`lib/albaranes-gs.ts`, puro, y
+      `api/export/albaranes-gs`; 15/10/2026, con los ejemplos de septiembre
+      de operaciones):
+      - Solo de un mes CERRADO. Dos ficheros:
+        - «ventas»: Cod Camp, Horas Logadas, Tarif Fija, Tarif Movil, Ddis.
+        - «promociones», para las bbdd: igual con Contactos Finalizados en
+          vez de horas.
+      - Formato: texto tabulado, coma decimal con 2 decimales en horas y
+        minutos, enteros en contactos y DDIs, sin separador de miles, CRLF y
+        sin BOM. Son cantidades: los precios los pone GS.
+      - Se niega si alguna campaña del cierre no tiene código de GS.
+      - No incluye las campañas a cero (el Excel sí listaba las acabadas).
+    - Las bbdd entre tandas no siguen una regla:
+      - Julio de 2026: el Excel las facturó con precios a mano (contactos a
+        ~1,63 € y DDI a 31,32 €).
+      - Agosto: no se facturaron por decisión de dirección, aunque hubo 3
+        llamadas sueltas el 03/08.
+      - Se resuelven con los ajustes manuales del cierre (arriba).
+
 ## Referencia del esquema RDBv2
 
 - `docs/referencia_bbdd_altitude_v85.md` — esquema completo, enumerados, relaciones
@@ -311,6 +410,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 - `docs/facturacion-horas-logadas.md` — Excel de horas de operaciones
   (`v_TM_TiempoAgentLogado` = `user_log`) frente al dashboard y la unidad
   `horas_logadas` (regla 16).
+- `docs/facturacion-tarificacion.md` — el Excel de facturación de
+  operaciones (horas repartidas, minutos fijo/móvil con la encuesta, DDIs,
+  GS) y cómo lo reproduce el dashboard, con la comparación mes a mes (regla 19).
 
 ## Arquitectura
 
@@ -349,9 +451,25 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   siempre de un cliente).
   Las queries comparten un `*Core(desde, hasta)`; las variantes `*Hoy` cachean 60 s
   y las `*Rango` con `ttlSegunRango`.
+- **Operaciones** (rehecha el 15/10/2026 para que abra rápido):
+  - Empieza SIN cliente y sin consultar nada. «Todos los clientes» es una
+    opción explícita del selector (`?servicio=todos`, `TODOS_SERVICIOS` en
+    `lib/servicio-todos.ts`; `SelectorServicio todosExplicito`).
+  - Pestañas como enlaces (`?vista=facturacion|cerrados|listas|pausas`, como
+    Supervisión): cada una consulta solo lo suyo.
+  - Cada sección (`operaciones/secciones.tsx`) va en `<Suspense>` y recibe la
+    promesa de sus datos sin que la página la espere: cabecera, filtros y
+    pestañas salen al momento.
+  - Medido en build de producción contra RDBv2:
+    - Primer contenido en < 0,1 s.
+    - Página completa: 1,3-2,2 s con un cliente (y con «todos» en un mes
+      entero); 0,1-0,2 s «Meses cerrados» y «Listas».
+    - El primer acceso tras arrancar el servidor tarda unos 5 s más (arranque
+      de Next, sea cual sea la página).
 - **Agrupación por Cliente/Servicio**: en esta instalación **cada cliente = un
   servicio** (`ph_service`). `/direccion`, `/operaciones` y `/supervision` llevan
-  un `SelectorServicio` (dropdown `?servicio=<nombre>`, vacío = todos). El server
+  un `SelectorServicio` (dropdown `?servicio=<nombre>`, vacío = todos; en
+  Operaciones, vacío = ninguno y `todos` = todos). El server
   resuelve el servicio a sus campañas con `campaniasDeServicio()`
   (`queries/servicios.ts`, cacheado 24 h, excluye `Test_*`) y las pasa como el
   parámetro `campanias?` que ya filtra las queries EN EL SQL (`filtroCampanias`).
@@ -581,6 +699,11 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   cliente (lógica pura en `lib/facturacion-horas-logadas.ts`, con tests) y
   Operaciones la muestra en «Horas logadas por cliente», con el detalle por
   usuario para cuadrar con el Excel de operaciones.
+  Desde el 14/10/2026 (regla 19) hay además minutos de línea a fijo y a móvil
+  y cuota de DDIs, y todo se junta en la «Factura por campaña» con el código
+  de GS (`facturacionCompleta()`). Los maestros (DDIs y códigos de GS) y el
+  cierre de mes los lleva Operaciones (`/operaciones/ddis`,
+  `/operaciones/campanias-gs`, `operaciones/acciones.ts`); las tarifas, admin.
 
 ## Comandos
 
@@ -621,6 +744,15 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   — importa la plantilla Excel de supervisión como versión publicada (sin
   `--guardar`, solo enseña lo que saldría: horas por cliente, colores
   desconocidos y validaciones).
+- `npm run facturacion:importar-excel -- --archivo "ruta.xlsx" [--ddis] [--gs] [--historico] [--guardar [--reemplazar]] [--servicio GrupoHuertas]`
+  — carga del Excel de facturación de operaciones el inventario de DDIs, los
+  códigos de GS y los meses de «facturacion cerrada» (regla 19). Sin
+  `--guardar` no abre la SQLite; con él, `npm run backup` antes. Nunca toca
+  un mes cerrado desde el dashboard.
+- `npm run facturacion:comparar -- --archivo "ruta.xlsx" --mes 2026-09` —
+  test de oro de la tarificación: recalcula el mes contra RDBv2 y lo compara
+  campaña a campaña con «facturacion cerrada» (sale con 1 si algo se pasa de
+  la tolerancia).
 - `npm run verificar` — ejecuta los KPIs clave contra RDBv2 real y muestra
   cifras y tiempos (SLA por origen, horas reales de hoy y de ayer, unidades
   facturables, Not Ready). Es el arranque de los «tests de oro» de F2: sirve
@@ -877,12 +1009,46 @@ Registro completo (decisiones, cifras, incidencias y pendientes) en
       producción (aún ninguno). Bolsas y Socios (`call_type`): decidir qué
       es «no válido».
 
+## Sesión 14/10/2026 (Opus 5.5): tarificación desde Operaciones
+
+Registro completo en `docs/registro-sesion-14-octubre-2026.md`; el detalle
+técnico y las cifras, en `docs/facturacion-tarificacion.md` (regla 19).
+
+- [x] Ingeniería inversa del Excel de facturación de operaciones,
+      verificada contra RDBv2: horas repartidas, minutos fijo/móvil con la
+      encuesta NFS, DDIs y contactos de bbdd.
+- [x] Reparto de horas logadas por campaña con el método del Excel (regla
+      16), «Factura por campaña», minutos y DDIs, maestros de Operaciones,
+      cierre de mes con histórico, export y migración 0008.
+- [x] Septiembre 2026 en pantalla (copia de la SQLite + RDBv2 real):
+      35.120,11 € frente a los 35.120,10 € del Excel.
+- [ ] Commit y despliegue (backup antes de `up -d`: lleva la 0008, la 0009
+      y la 0010). En producción:
+      - Importar maestros e histórico.
+      - Dar de alta las tarifas de minutos y DDIs en `/admin/facturacion`.
+      - Escribir la lista de prefijos de GH en `/operaciones/reparto`.
+- [x] Fichero de albaranes de GS (15/10, con los ejemplos de operaciones):
+      formato idéntico; las líneas solo difieren en las horas por campaña.
+- [x] SQLite de desarrollo migrada a la 0008 y con los datos del Excel
+      (backup `dashboard_20261014_1456.db`): el `next dev` de otra sesión
+      fallaba en /operaciones con «no such table: ddis».
+- [x] 15/10: prefijos excluidos replicados (lista por cliente en
+      `/operaciones/reparto`) y opción «solo los meses con llamadas» en la
+      línea de DDIs (migración 0009). La SQLite de desarrollo ya tiene la 0009
+      (backup `dashboard_20261015_1222.db`) y la lista de GH.
+- [x] 15/10: ajustes manuales de un mes cerrado (quitar o cambiar precio,
+      con motivo; migración 0010, aplicada en desarrollo con backup
+      `dashboard_20261015_1250.db`) para las decisiones puntuales de dirección.
+- [ ] Quitar del Excel la contraseña guardada del usuario `tms` y cambiarla.
+
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
 Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:
 
 1. Tests de oro (F2): convertir `npm run verificar` en asserts contra las
    queries SSMS de Christian. El runner (Vitest) ya existe desde el 30/09/2026.
+   La facturación ya tiene el suyo contra el Excel de operaciones
+   (`npm run facturacion:comparar`, 14/10/2026).
 2. ~~Programar las tareas nocturnas en el servidor~~ Resuelto con el
    despliegue Docker (09/10/2026): servicio `tareas` (supercronic,
    `docker/crontab`, hora de Madrid). Queda confirmar la primera noche tras el

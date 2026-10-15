@@ -1,0 +1,1 @@
+ALTER TABLE `billing_config` ADD `solo_con_actividad` integer DEFAULT false NOT NULL;

@@ -15,6 +15,9 @@ export type AccionAuditoria =
   | "crear_cliente"
   | "editar_cliente"
   | "config_facturacion"
+  // Maestros de facturación (DDIs, códigos GS) y cierres de mes
+  | "facturacion_maestros"
+  | "facturacion_cierre"
   // Resultados de actividad: columnas, no válidos y objetivos
   | "config_resultados"
   | "export"

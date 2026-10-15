@@ -62,6 +62,14 @@ export default async function PaginaFacturacionAdmin({
             GH_0851…, pero no GH_0851_BD (las bbdd se facturan por sus campañas) ni
             usuarios sin el prefijo como Angeles.
           </CardDescription>
+          <CardDescription>
+            <strong>Minutos a fijos / a móviles</strong>: minutos de línea de las llamadas
+            atendidas, más la encuesta tras la gestión, según el número marcado. Los números
+            especiales (901, 902…) y los gratuitos (800, 900) no se cobran por aquí.{" "}
+            <strong>DDIs</strong>: cuota del mes entero por cada DDI activo algún día del mes
+            (inventario en Operaciones → DDIs). Una campaña con línea propia (excepción) deja de
+            heredar las del servicio: a una bbdd hay que darle también su línea de DDIs.
+          </CardDescription>
         </CardHeader>
         <CardContent>
           <form
@@ -117,6 +125,11 @@ export default async function PaginaFacturacionAdmin({
               <Input id="notas" name="notas" placeholder="ej. tarifa 2026" />
             </div>
             <Button type="submit">Añadir</Button>
+            <label className="flex items-center gap-2 text-sm md:col-span-6">
+              <input type="checkbox" name="soloConActividad" className="h-4 w-4" />
+              Solo para DDIs: cobrarlos solo los meses en que la campaña tuvo llamadas (según el
+              presupuesto del cliente; p. ej. las bbdd entre tandas no los pagan)
+            </label>
           </form>
         </CardContent>
       </Card>
@@ -160,6 +173,11 @@ export default async function PaginaFacturacionAdmin({
                       {l.unidad === "horas_logadas" && (
                         <span className="ml-1 text-xs text-muted-foreground">
                           · {l.prefijoUsuario ? `${l.prefijoUsuario}_nnnn` : "falta el prefijo"}
+                        </span>
+                      )}
+                      {l.unidad === "ddi" && (
+                        <span className="ml-1 text-xs text-muted-foreground">
+                          · {l.soloConActividad ? "solo los meses con llamadas" : "todos los meses"}
                         </span>
                       )}
                     </TableCell>

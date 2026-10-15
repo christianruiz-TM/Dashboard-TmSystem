@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   esUsuarioDelCliente,
   facturarHorasLogadas,
+  leerPrefijosExcluidos,
   patronLikeUsuarios,
   repartirHorasLogadas,
 } from "./facturacion-horas-logadas";
@@ -56,42 +57,36 @@ describe("facturarHorasLogadas", () => {
   });
 });
 
-describe("reparto estimado de las horas logadas por campaña", () => {
+describe("reparto de las horas logadas por campaña (método del Excel de operaciones)", () => {
   const base = {
-    logado: [
-      { usuario: "GH_0851", fecha: "2026-09-01", horas: 7 },
-      { usuario: "GH_0851", fecha: "2026-09-02", horas: 6 },
-      { usuario: "GH_0900", fecha: "2026-09-01", horas: 5 },
-      // Día logado sin ninguna atendida
-      { usuario: "GH_0900", fecha: "2026-09-02", horas: 2 },
-      // De otro cliente o de bbdd: no cuentan
-      { usuario: "GH_0851_BD", fecha: "2026-09-01", horas: 3 },
-      { usuario: "UGR_0851", fecha: "2026-09-01", horas: 4 },
-    ],
-    productivo: [
-      { usuario: "GH_0851", fecha: "2026-09-01", campania: "gh_toyota", horas: 3 },
-      { usuario: "GH_0851", fecha: "2026-09-01", campania: "gh_seat", horas: 1 },
-      { usuario: "GH_0851", fecha: "2026-09-02", campania: "gh_seat", horas: 2 },
-      { usuario: "GH_0900", fecha: "2026-09-01", campania: "gh_toyota", horas: 2 },
-      { usuario: "GH_0851_BD", fecha: "2026-09-01", campania: "gh_bbdd_x", horas: 2 },
+    tiempoAgente: [
+      { usuario: "GH_0851", campania: "gh_toyota", prefijo: "7101", horas: 3 },
+      { usuario: "GH_0851", campania: "gh_seat", prefijo: "7101", horas: 1 },
+      { usuario: "GH_0900", campania: "gh_toyota", prefijo: "7101", horas: 2 },
+      { usuario: "GH_0900", campania: "gh_seat", prefijo: "7101", horas: 2 },
+      // De bbdd o de otro cliente: no cuentan
+      { usuario: "GH_0851_BD", campania: "gh_bbdd_x", prefijo: "7101", horas: 5 },
+      { usuario: "UGR_0851", campania: "ugr_egre", prefijo: "7101", horas: 4 },
     ],
   };
 
-  it("reparte por usuario y día según lo productivo y deja aparte los días sin llamadas", () => {
+  it("reparte el total de una vez en proporción al tiempo de agente", () => {
     const r = repartirHorasLogadas(base, "GH", 20, 28);
     expect(r).toEqual([
-      // 7 × 3/4 + 5 = 10,25 h · productivas 3 + 2 = 5 de 8
-      { campania: "gh_toyota", horasProductivas: 5, pctProductivo: 62.5, horasLogadas: 10.25, importe: 287 },
-      // 7 × 1/4 + 6 = 7,75 h
-      { campania: "gh_seat", horasProductivas: 3, pctProductivo: 37.5, horasLogadas: 7.75, importe: 217 },
-      { campania: null, horasProductivas: 0, pctProductivo: null, horasLogadas: 2, importe: 56 },
+      // 5 h de agente de 8 → 62,5 % de 20 h
+      { campania: "gh_toyota", horasAgente: 5, pctAgente: 62.5, horasLogadas: 12.5, importe: 350 },
+      { campania: "gh_seat", horasAgente: 3, pctAgente: 37.5, horasLogadas: 7.5, importe: 210 },
     ]);
+  });
+
+  it("solo reparte entre las campañas del cliente que se le indican", () => {
+    const r = repartirHorasLogadas(base, "GH", 10, null, new Set(["gh_seat", "gh_bbdd_x"]));
+    expect(r).toEqual([{ campania: "gh_seat", horasAgente: 3, pctAgente: 100, horasLogadas: 10, importe: null }]);
   });
 
   it("las filas suman exactamente el total facturado", () => {
     const tercios = {
-      logado: [{ usuario: "GH_0851", fecha: "2026-09-01", horas: 1 }],
-      productivo: ["a", "b", "c"].map((campania) => ({ usuario: "GH_0851", fecha: "2026-09-01", campania, horas: 1 })),
+      tiempoAgente: ["a", "b", "c"].map((campania) => ({ usuario: "GH_0851", campania, prefijo: "7101", horas: 1 })),
     };
     const r = repartirHorasLogadas(tercios, "GH", 1, null);
     expect(r.map((x) => x.horasLogadas).sort()).toEqual([0.33, 0.33, 0.34]);
@@ -99,16 +94,50 @@ describe("reparto estimado de las horas logadas por campaña", () => {
     expect(r.every((x) => x.importe === null)).toBe(true);
   });
 
-  it("facturarHorasLogadas añade el reparto a cada cliente", () => {
+  it("los prefijos excluidos del cliente no cuentan para el reparto (segmentador del Excel)", () => {
+    const conHuntGroup = {
+      tiempoAgente: [
+        ...base.tiempoAgente,
+        // Entrantes por el hunt group 8259 de gh_seat: 6 h que no deben pesar
+        { usuario: "GH_0851", campania: "gh_seat", prefijo: "8259", horas: 6 },
+      ],
+    };
+    expect(repartirHorasLogadas(conHuntGroup, "GH", 20, null).find((r) => r.campania === "gh_seat")?.horasAgente).toBe(9);
+    const r = repartirHorasLogadas(conHuntGroup, "GH", 20, 28, undefined, new Set(["8259", "0673"]));
+    // Sin el 8259 queda como sin la fila: 12,5 h y 7,5 h
+    expect(r.map((x) => [x.campania, x.horasLogadas])).toEqual([
+      ["gh_toyota", 12.5],
+      ["gh_seat", 7.5],
+    ]);
+  });
+
+  it("leerPrefijosExcluidos: números de hasta 4 cifras, sin repetidos y ordenados", () => {
+    expect(leerPrefijosExcluidos("8259, 0673\n1161;0673  7190")).toEqual(["0673", "1161", "7190", "8259"]);
+    expect(leerPrefijosExcluidos("")).toEqual([]);
+    expect(leerPrefijosExcluidos("8259, 82A9")).toBeNull();
+    expect(leerPrefijosExcluidos("12345")).toBeNull();
+  });
+
+  it("horas logadas sin tiempo de agente: una fila sin campaña, sin inventar el reparto", () => {
+    expect(repartirHorasLogadas({ tiempoAgente: [] }, "GH", 3.5, 28)).toEqual([
+      { campania: null, horasAgente: 0, pctAgente: null, horasLogadas: 3.5, importe: 98 },
+    ]);
+    expect(repartirHorasLogadas({ tiempoAgente: [] }, "GH", 0, 28)).toEqual([]);
+  });
+
+  it("facturarHorasLogadas añade el reparto a cada cliente con sus campañas", () => {
     const [gh] = facturarHorasLogadas(
       [{ servicio: "GrupoHuertas", prefijo: "GH", precioUnitario: 28, notas: null }],
       [
         { prefijo: "GH", usuario: "GH_0851", horas: 13, sesiones: 2 },
-        { prefijo: "GH", usuario: "GH_0900", horas: 7, sesiones: 2 },
+        { prefijo: "GH", usuario: "GH_0900", horas: 7.004, sesiones: 2 },
       ],
       base,
+      new Map([["GrupoHuertas", new Set(["gh_toyota", "gh_seat"])]]),
     );
     expect(gh.horas).toBe(20);
-    expect(gh.campanias.reduce((a, c) => a + c.horasLogadas, 0)).toBeCloseTo(gh.horas, 10);
+    expect(gh.campanias.map((c) => c.campania)).toEqual(["gh_toyota", "gh_seat"]);
+    expect(gh.campanias.reduce((a, c) => a + Math.round(c.horasLogadas * 100), 0)).toBe(2000);
+    expect(gh.campanias.reduce((a, c) => a + (c.importe ?? 0), 0)).toBeCloseTo(gh.importe ?? 0, 10);
   });
 });

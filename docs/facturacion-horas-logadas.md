@@ -131,7 +131,7 @@ cobraría dos veces (~356 h). Si hubiera que cambiarlo, la regla vive en
   CEFF (25 €/h) y CajaRural (25 €/h, prefijo `CR`; antes, horas productivas
   al mismo precio).
 
-## 7. Reparto estimado por campaña (09/10/2026)
+## 7. Reparto estimado por campaña (09/10/2026; sustituido el 14/10, ver el apartado 8)
 
 Operaciones pidió ver las horas logadas de cada cliente también por campaña.
 `user_log` no sabe de campañas, así que es un **reparto estimado**. Se factura
@@ -186,3 +186,25 @@ factura, con 35,26 h sin actividad en campaña.
 
 El % productivo del mes y el % de horas logadas de una campaña no coinciden
 exactamente: el reparto se hace día a día con lo logado de cada persona.
+
+## 8. Reparto por campaña con el método del Excel (14/10/2026)
+
+**Sustituye al apartado 7.** Operaciones pasó el Excel con el que factura GH
+(«Interacciones GH_cs v4…»): reparte las horas logadas del mes de otra forma,
+y a cada campaña le corresponde su albarán de GS. Christian decidió usar el
+método del Excel. El total no cambia (1.027,88 h en septiembre); cambia a qué
+campaña va cada hora.
+
+| | Excel (ahora el dashboard) | Apartado 7 (hasta el 14/10) |
+| --- | --- | --- |
+| Qué se reparte | El total del mes, de una vez | Lo de cada usuario, día a día |
+| En qué proporción | Tiempo de agente sin cola (marcar, hablar, retener, ACW) | Duración de las atendidas |
+| Llamadas fallidas | Cuentan | No cuentan |
+| Salientes sin número | No cuentan | — |
+| Días sin atendidas | Se reparten igual | Fila «sin actividad» (35,26 h) |
+
+Septiembre 2026: 70,6 h (≈1.976 €) cambian de campaña entre un método y otro
+(por ejemplo, gh_gra_pre_mer: 108,08 h con el Excel, 94,81 h antes).
+
+Medida exacta, ingeniería inversa y comparación mes a mes en
+`docs/facturacion-tarificacion.md`; regla 16 de CLAUDE.md.

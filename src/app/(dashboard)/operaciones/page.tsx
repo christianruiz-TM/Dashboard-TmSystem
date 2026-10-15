@@ -1,115 +1,46 @@
 import type { Metadata } from "next";
-import { Fragment } from "react";
-import { Download } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { Suspense } from "react";
+import { Download, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { AvisoRango } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
-import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
-import { ROLES_OPERACIONES, requireRol } from "@/lib/auth/rbac";
-import type { FacturacionHorasLogadas } from "@/lib/facturacion-horas-logadas";
-import {
-  NOMBRE_UNIDAD,
-  calcularFacturacion,
-  facturacionHorasLogadas,
-} from "@/lib/facturacion";
-import {
-  esquemaRango,
-  horasDesdeSegundos,
-  horasLegibles,
-  motivoRangoInvalido,
-  presetsRango,
-} from "@/lib/fechas";
+import { AvisoMsg } from "@/components/admin/aviso-msg";
+import { HistoricoCierres } from "@/components/operaciones/historico-cierres";
+import { ROLES_OPERACIONES, puedeEditarFacturacion, requireRol } from "@/lib/auth/rbac";
+import { lineasAjustadas, listarCierresVigentes } from "@/lib/db/facturacion";
+import { facturacionCompleta } from "@/lib/facturacion";
+import { esquemaRango, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
 import { horasAgenteReales, razonesNotReady } from "@/lib/rdb/queries/agentes";
-import { unidadesPorCampania } from "@/lib/rdb/queries/facturacion";
 import { penetracionListas } from "@/lib/rdb/queries/outbound";
+import { campaniasEfectivas, listaServicios } from "@/lib/rdb/queries/servicios";
+import { TODOS_SERVICIOS } from "@/lib/servicio-todos";
 import {
-  campaniasEfectivas,
-  listaServicios,
-  mapaCampaniaServicio,
-} from "@/lib/rdb/queries/servicios";
+  Cargando,
+  CargandoKpis,
+  KpisOperaciones,
+  SeccionFacturacion,
+  SeccionListas,
+  SeccionPausas,
+  type ContextoFacturacion,
+} from "./secciones";
+import { TabsOperaciones, VISTAS_OPERACIONES, type VistaOperaciones } from "./tabs-operaciones";
 
 export const metadata: Metadata = { title: "Operaciones" };
 export const dynamic = "force-dynamic";
 
-function euros(importe: number | null): string {
-  if (importe == null) return "—";
-  return importe.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
-}
-
 /**
- * Reparto ESTIMADO de las horas logadas de un cliente por campaña: por
- * usuario y día, según su tiempo productivo en cada una
- * (repartirHorasLogadas). Suma exactamente el total del cliente; se factura
- * el total, el reparto es para ver dónde se trabajó.
+ * Operaciones · Facturación. Para que abra rápido (15/10/2026):
+ *  - Empieza SIN cliente y sin consultar nada: «Todos los clientes» es una
+ *    opción del selector (`?servicio=todos`), no lo de por defecto.
+ *  - Pestañas como enlaces (`?vista=`): cada una consulta solo lo suyo; las
+ *    pausas (Not Ready deduplicado) y las listas eran lo más pesado.
+ *  - Cada sección va en <Suspense>: cabecera, filtros y pestañas salen al
+ *    momento y las cifras van apareciendo según acaban sus consultas.
  */
-function RepartoCampanias({ cliente }: { cliente: FacturacionHorasLogadas }) {
-  const filas = cliente.campanias;
-  const totalProd = filas.reduce((a, f) => a + f.horasProductivas, 0);
-  return (
-    <details className="rounded-md border bg-muted/30 px-3 py-2">
-      <summary className="cursor-pointer text-sm font-medium">
-        Reparto por campaña ({filas.filter((f) => f.campania != null).length} campañas) · estimado según el
-        tiempo productivo
-      </summary>
-      <p className="mt-1 text-xs text-muted-foreground">
-        Altitude no registra en qué campaña está un usuario mientras espera: los de este cliente tienen casi
-        siempre todas abiertas a la vez. Por eso, cada día, las horas logadas de cada usuario se reparten en
-        proporción a su tiempo productivo (gestión de las atendidas) en cada campaña. Los días logados sin
-        ninguna llamada atendida van aparte. Suma exactamente las horas del cliente; se factura el total.
-      </p>
-      <Table className="mt-2">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Campaña</TableHead>
-            <TableHead className="text-right">H. productivas ({cliente.prefijo}_nnnn)</TableHead>
-            <TableHead className="text-right">% tiempo productivo</TableHead>
-            <TableHead className="text-right">Horas logadas repartidas</TableHead>
-            <TableHead className="text-right">Importe repartido</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filas.map((f) => (
-            <TableRow key={f.campania ?? "(sin actividad)"}>
-              <TableCell className={f.campania == null ? "text-muted-foreground italic" : "font-medium"}>
-                {f.campania ?? "Logado sin actividad en campaña"}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{horasLegibles(f.horasProductivas)}</TableCell>
-              <TableCell className="text-right tabular-nums">
-                {f.pctProductivo == null
-                  ? "—"
-                  : `${f.pctProductivo.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{horasLegibles(f.horasLogadas)}</TableCell>
-              <TableCell className="text-right tabular-nums">{euros(f.importe)}</TableCell>
-            </TableRow>
-          ))}
-          <TableRow className="font-medium">
-            <TableCell>Total</TableCell>
-            <TableCell className="text-right tabular-nums">{horasLegibles(Math.round(totalProd * 100) / 100)}</TableCell>
-            <TableCell className="text-right tabular-nums">100,00 %</TableCell>
-            <TableCell className="text-right tabular-nums">{horasLegibles(cliente.horas)}</TableCell>
-            <TableCell className="text-right tabular-nums">{euros(cliente.importe)}</TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
-    </details>
-  );
-}
-
 export default async function PaginaOperaciones({
   searchParams,
 }: {
@@ -118,9 +49,13 @@ export default async function PaginaOperaciones({
     hasta?: string;
     servicio?: string;
     ivr?: string;
+    vivo?: string;
+    vista?: string;
+    msg?: string;
+    detalle?: string;
   }>;
 }) {
-  await requireRol(...ROLES_OPERACIONES);
+  const usuario = await requireRol(...ROLES_OPERACIONES);
   const presets = presetsRango();
   const mesActual = presets.find((p) => p.etiqueta === "Mes actual")!;
   const params = await searchParams;
@@ -129,43 +64,47 @@ export default async function PaginaOperaciones({
     hasta: params.hasta ?? mesActual.hasta,
   });
   const { desde, hasta } = rango.success ? rango.data : mesActual;
+  const vista: VistaOperaciones = VISTAS_OPERACIONES.find((v) => v === params.vista) ?? "facturacion";
 
-  // Scoping por cliente/servicio; IVR excluido salvo que se marque el check
-  const incluirIvr = params.ivr === "1";
+  // Cliente: vacío = ninguno (no se consulta nada); «todos» = todos los clientes
   const servicios = await listaServicios();
-  const camp = await campaniasEfectivas(params.servicio, incluirIvr);
-
-  const [unidades, horasReales, razones, listas, porCliente] = await Promise.all([
-    unidadesPorCampania(desde, hasta, camp),
-    horasAgenteReales(desde, hasta, camp),
-    razonesNotReady(desde, hasta, camp),
-    penetracionListas(desde, hasta, camp),
-    // Horas logadas de los usuarios del cliente: no dependen de campañas ni del check IVR
-    facturacionHorasLogadas(desde, hasta, params.servicio),
-  ]);
-  const facturacion = calcularFacturacion(unidades, mapaCampaniaServicio(servicios));
-
-  // Horas logadas: cifra REAL global (unión de intervalos por agente). NO se
-  // suma por campaña porque los agentes blended duplican el tiempo (~×13).
-  const totales = unidades.reduce(
-    (acc, u) => ({
-      interacciones: acc.interacciones + u.interacciones,
-      atendidas: acc.atendidas + u.atendidas,
-      exitos: acc.exitos + u.exitos,
-      leads: acc.leads + u.leadsFinalizados,
-    }),
-    { interacciones: 0, atendidas: 0, exitos: 0, leads: 0 },
-  );
-  const importeTotal =
-    facturacion.reduce((acc, f) => acc + (f.importeTotal ?? 0), 0) +
-    porCliente.reduce((acc, c) => acc + (c.importe ?? 0), 0);
-  const hayImportes =
-    facturacion.some((f) => f.importeTotal != null) || porCliente.some((c) => c.importe != null);
+  const elegido = params.servicio ?? "";
+  const todos = elegido === TODOS_SERVICIOS;
+  const servicio = todos || !servicios.some((s) => s.servicio === elegido) ? undefined : elegido;
+  const hayCliente = todos || servicio != null;
+  const incluirIvr = params.ivr === "1";
 
   const urlExport = (formato: string) =>
     `/api/export/operaciones?desde=${desde}&hasta=${hasta}&formato=${formato}` +
-    (params.servicio ? `&servicio=${encodeURIComponent(params.servicio)}` : "") +
-    (incluirIvr ? "&ivr=1" : "");
+    (servicio ? `&servicio=${encodeURIComponent(servicio)}` : "") +
+    (incluirIvr ? "&ivr=1" : "") +
+    (params.vivo === "1" ? "&vivo=1" : "");
+
+  const ctx: ContextoFacturacion = {
+    desde,
+    hasta,
+    servicio,
+    incluirIvr,
+    vivo: params.vivo === "1",
+    puedeEditar: puedeEditarFacturacion(usuario.rol),
+    esAdmin: usuario.rol === "admin",
+  };
+
+  // Solo se lanza lo de la pestaña abierta, y solo con cliente elegido. Las
+  // promesas se pasan a las secciones (Suspense) sin esperarlas aquí.
+  const campanias = hayCliente && vista !== "cerrados" ? campaniasEfectivas(servicio, incluirIvr) : null;
+  const datosFacturacion =
+    hayCliente && vista === "facturacion" ? facturacionCompleta(desde, hasta, servicio, incluirIvr) : null;
+  const datosHorasReales =
+    campanias && vista === "facturacion" ? campanias.then((c) => horasAgenteReales(desde, hasta, c)) : null;
+  const datosListas = campanias && vista === "listas" ? campanias.then((c) => penetracionListas(desde, hasta, c)) : null;
+  const datosPausas = campanias && vista === "pausas" ? campanias.then((c) => razonesNotReady(desde, hasta, c)) : null;
+
+  // Meses cerrados: solo SQLite (rápido), con o sin cliente
+  const cierres =
+    vista === "cerrados" ? listarCierresVigentes().filter((c) => !servicio || c.servicio === servicio) : [];
+  const lineasHistorico =
+    vista === "cerrados" ? lineasAjustadas(cierres.map((c) => c.id)).filter((l) => !l.quitada) : [];
 
   return (
     <div className="space-y-6">
@@ -176,308 +115,112 @@ export default async function PaginaOperaciones({
             Unidades facturables por campaña según la configuración de cada cliente
           </p>
         </div>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" render={<a href={urlExport("csv")} />}>
-            <Download className="h-4 w-4" /> CSV
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" render={<a href="/operaciones/ddis" />}>
+            DDIs
           </Button>
-          <Button variant="outline" size="sm" render={<a href={urlExport("xlsx")} />}>
-            <Download className="h-4 w-4" /> Excel
+          <Button variant="outline" size="sm" render={<a href="/operaciones/campanias-gs" />}>
+            Códigos GS
           </Button>
+          <Button variant="outline" size="sm" render={<a href="/operaciones/reparto" />}>
+            Reparto
+          </Button>
+          {hayCliente && (
+            <>
+              <Button variant="outline" size="sm" render={<a href={urlExport("csv")} />}>
+                <Download className="h-4 w-4" /> CSV
+              </Button>
+              <Button variant="outline" size="sm" render={<a href={urlExport("xlsx")} />}>
+                <Download className="h-4 w-4" /> Excel
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SelectorRango desde={desde} hasta={hasta} presets={presets} />
         <div className="flex flex-wrap items-center gap-4">
-          <SelectorServicio servicios={servicios.map((s) => s.servicio)} valor={params.servicio} />
+          <SelectorServicio
+            servicios={servicios.map((s) => s.servicio)}
+            valor={todos ? TODOS_SERVICIOS : (servicio ?? "")}
+            todosExplicito
+          />
           <SelectorIvr incluir={incluirIvr} />
         </div>
       </div>
       <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
+      <AvisoMsg msg={params.msg} detalle={params.detalle} />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-        <TarjetaKpi
-          titulo="Horas logadas (reales)"
-          valor={horasLegibles(horasReales.horasLogadas)}
-          sub="Global, sin duplicar por campaña"
-        />
-        <TarjetaKpi
-          titulo="Interacciones"
-          valor={totales.interacciones.toLocaleString("es-ES")}
-        />
-        <TarjetaKpi titulo="Atendidas" valor={totales.atendidas.toLocaleString("es-ES")} />
-        <TarjetaKpi titulo="Éxitos" valor={totales.exitos.toLocaleString("es-ES")} />
-        <TarjetaKpi titulo="Leads finalizados" valor={totales.leads.toLocaleString("es-ES")} />
-        <TarjetaKpi
-          titulo="Importe estimado"
-          valor={hayImportes ? euros(importeTotal) : "—"}
-          sub={hayImportes ? "Líneas con precio configurado" : "Sin precios configurados"}
-        />
-      </div>
+      <TabsOperaciones
+        vista={vista}
+        params={{ servicio: todos ? TODOS_SERVICIOS : servicio, desde, hasta, ivr: incluirIvr }}
+      />
 
-      <Tabs defaultValue="facturacion">
-        <TabsList>
-          <TabsTrigger value="facturacion">Facturación</TabsTrigger>
-          <TabsTrigger value="listas">Listas outbound</TabsTrigger>
-          <TabsTrigger value="pausas">Pausas (Not Ready)</TabsTrigger>
-        </TabsList>
+      {!hayCliente && vista !== "cerrados" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Users className="h-4 w-4" /> Elige un cliente
+            </CardTitle>
+            <CardDescription>
+              Elige un cliente en «Cliente / Servicio» para ver su facturación. «Todos los clientes» también
+              está en la lista, pero tarda más: calcula todos a la vez.
+            </CardDescription>
+          </CardHeader>
+        </Card>
+      )}
 
-        <TabsContent value="facturacion" className="space-y-4">
-          {porCliente.length > 0 && (
-            <Card>
-              <CardHeader>
-                <CardTitle className="text-base">Horas logadas por cliente</CardTitle>
-                <CardDescription>
-                  Tiempo logado (de login a logout, haya o no campaña abierta) de los
-                  usuarios del cliente, <code>PREFIJO_nnnn</code>. No cuentan los usuarios
-                  sin el prefijo ni los de bbdd (<code>_BD</code>, <code>_BD_LX</code>), que se
-                  facturan por sus campañas. Las sesiones se asignan al día en que
-                  empiezan. Debajo de cada cliente, el reparto estimado por campaña según
-                  el tiempo productivo. Período: {desde} a {hasta}.
-                </CardDescription>
-              </CardHeader>
-              <CardContent>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <TableHead>Cliente (servicio)</TableHead>
-                      <TableHead>Usuarios</TableHead>
-                      <TableHead className="text-right">Horas logadas</TableHead>
-                      <TableHead className="text-right">€/hora</TableHead>
-                      <TableHead className="text-right">Importe</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {porCliente.map((c) => (
-                      <Fragment key={`${c.servicio}|${c.prefijo}`}>
-                      <TableRow>
-                        <TableCell className="font-medium">{c.servicio}</TableCell>
-                        <TableCell>
-                          <details>
-                            <summary className="cursor-pointer text-sm">
-                              {c.prefijo}_nnnn · {c.usuarios.length} usuarios
-                            </summary>
-                            <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                              {c.usuarios.map((u) => (
-                                <li key={u.usuario} className="flex justify-between gap-6">
-                                  <span>{u.usuario}</span>
-                                  <span className="tabular-nums">{horasLegibles(u.horas)}</span>
-                                </li>
-                              ))}
-                            </ul>
-                          </details>
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {horasLegibles(c.horas)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {euros(c.precioUnitario)}
-                        </TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">
-                          {euros(c.importe)}
-                        </TableCell>
-                      </TableRow>
-                      {c.campanias.length > 0 && (
-                        <TableRow className="hover:bg-transparent">
-                          <TableCell colSpan={5} className="pt-0 pb-3 whitespace-normal">
-                            <RepartoCampanias cliente={c} />
-                          </TableCell>
-                        </TableRow>
-                      )}
-                      </Fragment>
-                    ))}
-                  </TableBody>
-                </Table>
-              </CardContent>
-            </Card>
-          )}
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Unidades por campaña</CardTitle>
-              <CardDescription>
-                La columna «Facturable» marca las unidades configuradas en Administración →
-                Facturación. Las horas por campaña son las <strong>productivas</strong>{" "}
-                (en llamada). Las logadas no salen aquí: si el cliente factura por ellas, van en
-                «Horas logadas por cliente», con su reparto estimado por campaña. Período:{" "}
-                {desde} a {hasta}.
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Campaña</TableHead>
-                    <TableHead className="text-right">H. productivas</TableHead>
-                    <TableHead className="text-right">Interacc.</TableHead>
-                    <TableHead className="text-right">Atendidas</TableHead>
-                    <TableHead className="text-right">Éxitos</TableHead>
-                    <TableHead className="text-right">Leads fin.</TableHead>
-                    <TableHead>Facturable</TableHead>
-                    <TableHead className="text-right">Importe</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {facturacion.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
-                        Sin actividad en el período seleccionado
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    facturacion.map((f) => (
-                      <TableRow key={f.campania}>
-                        <TableCell className="font-medium">{f.campania}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {horasLegibles(f.medidas.horasProductivas)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {f.medidas.interacciones.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {f.medidas.atendidas.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {f.medidas.exitos.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {f.medidas.leadsFinalizados.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell>
-                          {f.lineas.length === 0 ? (
-                            <span className="text-xs text-muted-foreground">
-                              {f.porHorasLogadas ? "Horas logadas (cliente)" : "Sin configurar"}
-                            </span>
-                          ) : (
-                            <div className="flex flex-wrap gap-1">
-                              {f.lineas.map((l, i) => (
-                                <Badge key={i} variant="secondary" className="text-[10px]">
-                                  {NOMBRE_UNIDAD[l.unidad]}
-                                </Badge>
-                              ))}
-                            </div>
-                          )}
-                        </TableCell>
-                        <TableCell className="text-right font-medium tabular-nums">
-                          {euros(f.importeTotal)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {datosFacturacion && datosHorasReales && (
+        <>
+          <Suspense fallback={<CargandoKpis />}>
+            <KpisOperaciones ctx={ctx} datos={datosFacturacion} horasReales={datosHorasReales} />
+          </Suspense>
+          <Suspense fallback={<Cargando texto="Calculando la factura…" alto="h-72" />}>
+            <SeccionFacturacion ctx={ctx} datos={datosFacturacion} />
+          </Suspense>
+        </>
+      )}
 
-        <TabsContent value="listas">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Penetración de listas outbound</CardTitle>
-              <CardDescription>
-                Contactos según fecha programada (activity.moment) dentro del período
-              </CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Campaña</TableHead>
-                    <TableHead>Lista</TableHead>
-                    <TableHead className="text-right">Contactos</TableHead>
-                    <TableHead className="text-right">Finalizados</TableHead>
-                    <TableHead className="text-right">Éxitos</TableHead>
-                    <TableHead className="text-right">Sin éxito</TableHead>
-                    <TableHead className="text-right">Sin contactar</TableHead>
-                    <TableHead className="text-right">Intentos medios</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {listas.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={8} className="text-center text-muted-foreground">
-                        Sin listas con actividad en el período
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    listas.map((l) => (
-                      <TableRow key={`${l.campania}-${l.lista}`}>
-                        <TableCell className="font-medium">{l.campania}</TableCell>
-                        <TableCell>{l.lista}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {l.totalContactos.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {l.done.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums text-emerald-700">
-                          {l.exitos.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {l.sinExito.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {l.sinContacto.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {l.intentosAutoMedio ?? "—"}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+      {vista === "cerrados" && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="text-base">Meses cerrados</CardTitle>
+            <CardDescription>
+              Lo que se facturó cada mes, tal como se cerró{servicio ? ` (${servicio})` : ""}. Incluye el
+              histórico de «facturacion cerrada» del Excel de operaciones. Pulsa un mes para ver su detalle por
+              campaña.
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <HistoricoCierres cierres={cierres} lineas={lineasHistorico} />
+          </CardContent>
+        </Card>
+      )}
 
-        <TabsContent value="pausas">
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-base">Tiempo en No Disponible por agente y razón</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Agente</TableHead>
-                    <TableHead>Razón</TableHead>
-                    <TableHead className="text-right">Veces</TableHead>
-                    <TableHead className="text-right">Tiempo total</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {razones.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center text-muted-foreground">
-                        Sin pausas registradas en el período
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    razones.map((r, i) => (
-                      <TableRow key={i}>
-                        <TableCell className="font-medium">{r.agente}</TableCell>
-                        <TableCell>{r.razon}</TableCell>
-                        <TableCell className="text-right tabular-nums">{r.veces}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {horasDesdeSegundos(r.segundosTotal)}
-                        </TableCell>
-                      </TableRow>
-                    ))
-                  )}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-      </Tabs>
+      {datosListas && (
+        <Suspense fallback={<Cargando texto="Cargando las listas…" />}>
+          <SeccionListas datos={datosListas} />
+        </Suspense>
+      )}
+
+      {datosPausas && (
+        <Suspense fallback={<Cargando texto="Cargando las pausas…" />}>
+          <SeccionPausas datos={datosPausas} />
+        </Suspense>
+      )}
 
       <Glosario
         titulo="Operaciones"
         claves={[
           "servicio",
           "horasLogadas",
+          "facturaCampania",
+          "cierreMes",
           "horasLogadasCliente",
           "repartoHorasLogadas",
+          "minutosLinea",
+          "ddis",
           "horasProductivas",
           "interacciones",
           "atendidas",

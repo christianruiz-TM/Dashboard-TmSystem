@@ -317,20 +317,25 @@ export async function horasLogadasUsuarios(
 }
 
 /**
- * Base del REPARTO estimado de las horas logadas de un cliente por campaña
- * (decidido 09/10/2026 con Christian). user_log no sabe de campañas y
- * ag_in_cp_log no sirve: los usuarios de GH tienen más de 15 campañas
- * abiertas a la vez el 92,8 % del tiempo (septiembre 2026, ×34 sumando por
- * campaña), así que repartir el tiempo «abierto» da lo mismo a todas. La
- * única señal de dónde se trabajó es la gestión de las llamadas: por usuario
- * y día, lo logado se reparte en proporción a lo productivo de cada campaña
+ * Base del REPARTO de las horas logadas de un cliente por campaña. Método del
+ * Excel de facturación de operaciones (decidido 14/10/2026 con Christian; el
+ * anterior, por usuario y día según las atendidas, dejaba 35 h «sin
+ * actividad» que no se pueden pasar a un albarán de GS). user_log no sabe de
+ * campañas y ag_in_cp_log no sirve (los usuarios de GH tienen más de 15
+ * campañas abiertas a la vez el 92,8 % del tiempo), así que el total del
+ * mes se reparte en proporción al tiempo de agente de cada campaña
  * (repartirHorasLogadas, en lib/facturacion-horas-logadas.ts).
  *
- * - Logado: las mismas islas de user_log que horasLogadasUsuarios, agrupadas
- *   por el día en que empiezan (la suma de los días = el total facturado).
- * - Productivo: la misma medida que «H. productivas» (duration de las
- *   atendidas, en DÉCIMAS de segundo → / 36000.0 = horas), solo de esos
- *   usuarios.
+ * Tiempo de agente = segmentos del agente fuera de cola (state 2/3 es cola,
+ * regla 6) de sus hilos entrantes y salientes, atendidos o NO (el tiempo
+ * marcando a quien no contesta también pesa). Sin los hilos sin número
+ * marcado: «si blanco no suma» (4.304 min en septiembre 2026). Verificado
+ * contra «facturacion cerrada» de septiembre 2026: 19 de 38 campañas al
+ * céntimo y el resto a ±0,25 h. Por campaña y PREFIJO (4 primeros caracteres
+ * del número): el Excel excluye a mano unos cuantos en un segmentador y
+ * Christian decidió replicarlo (15/10/2026); la lista es de cada cliente y
+ * la mantiene Operaciones (repartirHorasLogadas la aplica).
+ * Duraciones en DÉCIMAS de segundo → / 36000.0 = horas.
  */
 export async function baseRepartoHorasLogadas(
   desdeISO: string,
@@ -338,7 +343,7 @@ export async function baseRepartoHorasLogadas(
   prefijos: string[],
 ): Promise<BaseRepartoHorasLogadas> {
   const unicos = [...new Set(prefijos)].sort();
-  if (unicos.length === 0) return { logado: [], productivo: [] };
+  if (unicos.length === 0) return { tiempoAgente: [] };
   if (esMock()) return mockBaseRepartoHorasLogadas(desdeISO, hastaISO, unicos);
   const claveCache = `rdb:repartoLogadas:${desdeISO}:${hastaISO}:${unicos.join(",")}`;
   return conCache(claveCache, ttlSegunRango(hastaISO), async () => {
@@ -351,47 +356,27 @@ export async function baseRepartoHorasLogadas(
       request.input(`usr${i}`, sql.VarChar(80), patronLikeUsuarios(prefijo));
       return `RTRIM(u.usr_name) LIKE @usr${i}`;
     });
-    const filtroUsuarios = condiciones.join(" OR ");
 
     const r = await request.query(`
-      -- 1) Tiempo logado por usuario y día: unión de sus sesiones de user_log
-      WITH base AS (
-          SELECT l.e_user AS usuario, l.start_time AS ini,
-                 ${sqlFinIntervalo("l")} AS fin
-          FROM user_log l
-          INNER JOIN ph_e_user u ON u.code = l.e_user AND u.type = 1
-          WHERE l.start_time >= @desde AND l.start_time < @hastaExcl
-            AND (${filtroUsuarios})
-      ),
-      ${sqlCtesIslas("usuario")}
-      SELECT RTRIM(u.usr_name)                                            AS usuario,
-             CONVERT(varchar(10), i.ini, 23)                              AS fecha,
-             SUM(CAST(DATEDIFF(SECOND, i.ini, i.fin) AS BIGINT)) / 3600.0 AS horas
-      FROM islas i
-      INNER JOIN ph_e_user u ON u.code = i.usuario
-      GROUP BY RTRIM(u.usr_name), CONVERT(varchar(10), i.ini, 23);
-
-      -- 2) Gestión de las atendidas por usuario, día y campaña
-      SELECT RTRIM(u.usr_name)                                AS usuario,
-             CONVERT(varchar(10), t.start_time, 23)           AS fecha,
-             RTRIM(c.shortname)                               AS campania,
-             SUM(CAST(t.duration AS BIGINT)) / 36000.0        AS horas
+      -- Tiempo de agente por usuario, campaña y prefijo del número marcado
+      -- (medida del Excel de operaciones)
+      SELECT RTRIM(u.usr_name)                            AS usuario,
+             RTRIM(c.shortname)                           AS campania,
+             LEFT(LTRIM(RTRIM(g.to_address)), 4)          AS prefijo,
+             SUM(CAST(s.duration AS BIGINT)) / 36000.0    AS horas
       FROM itr_thread t
+      INNER JOIN itr_global  g ON g.code = t.itr_global
+      INNER JOIN itr_segment s ON s.itr_thread = t.code AND s.state NOT IN (2, 3)
       INNER JOIN ph_e_user   u ON u.code = t.e_user AND u.type = 1
       INNER JOIN ph_campaign c ON c.code = t.campaign
       WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
-        AND t.termination_state = 1
-        AND (${filtroUsuarios})
-      GROUP BY RTRIM(u.usr_name), CONVERT(varchar(10), t.start_time, 23), RTRIM(c.shortname);
+        AND t.origin IN (1, 2)
+        AND LTRIM(RTRIM(ISNULL(g.to_address, ''))) <> ''
+        AND (${condiciones.join(" OR ")})
+      GROUP BY RTRIM(u.usr_name), RTRIM(c.shortname), LEFT(LTRIM(RTRIM(g.to_address)), 4);
     `);
-    const [logado, productivo] = r.recordsets as unknown as [
-      BaseRepartoHorasLogadas["logado"],
-      BaseRepartoHorasLogadas["productivo"],
-    ];
+    const filas = r.recordset as BaseRepartoHorasLogadas["tiempoAgente"];
     const delCliente = (usuario: string) => unicos.some((p) => esUsuarioDelCliente(usuario, p));
-    return {
-      logado: logado.filter((f) => delCliente(f.usuario)),
-      productivo: productivo.filter((f) => delCliente(f.usuario)),
-    };
+    return { tiempoAgente: filas.filter((f) => delCliente(f.usuario)) };
   });
 }
