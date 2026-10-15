@@ -132,14 +132,28 @@ aprobado el plan, se implementó. Detalle técnico y cifras en
   - Le di las cifras para comparar (I72 61.672,92, I78 33.106,61, aclasse
     1.110,32 min).
 
+### Commit y despliegue (15/10)
+
+- Commit `87f7b63` (53 ficheros) y push.
+- Desplegado con el §3 de `despliegue-linux.md`:
+  - Backup `dashboard_20261015_1435.db`; `anterior` = `0bfbd62204fe`.
+  - `verificar` de la imagen nueva sin errores.
+  - `up -d` a las 14:38 (imagen `ed31b337d485`); migraciones 0008-0010
+    aplicadas (11 en total).
+- En producción:
+  - Las bbdd ya estaban en contactos a 2 € (Lexus 3 €).
+  - Excel copiado (SHA-256 comprobado), importado (878 DDIs, 42 códigos GS,
+    21 meses, 2.832 líneas) y borrado del servidor.
+  - `facturacion:comparar` de septiembre con la lista de prefijos y la opción
+    de DDIs: 35.120,10 € = Excel.
+- Limpieza: una imagen vieja del dashboard sin etiqueta (filtro por label;
+  las de tickets no se tocan). Disco: 3,2 GB libres.
+
 ## Pendiente
 
-- Commit y despliegue (backup antes de `up -d`, lleva la 0008, la 0009 y la 0010).
-- En producción:
-  - `npm run facturacion:importar-excel -- --archivo … --guardar` (copiar el
-    Excel al servidor y borrarlo después).
+- Christian, en producción:
   - Tarifas en `/admin/facturacion`: GrupoHuertas minutos fijo 0,02, móvil
-    0,05 y DDI 2,50; DDI 2,50 en cada bbdd (con «solo los meses con
-    llamadas»).
+    0,05 y DDI 2,50; DDI 2,50 en cada bbdd con «solo los meses con
+    llamadas».
   - Lista de prefijos de GH en `/operaciones/reparto`.
-- Revisión de Christian en local y, después, commit.
+- Quitar del Excel la contraseña guardada del usuario `tms` y cambiarla.

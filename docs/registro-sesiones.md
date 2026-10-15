@@ -37,7 +37,7 @@ histórico de git.
 | 12 | 09/10/2026 (14:25-14:46) | no consta | Ratios de éxito en Supervisión y Dirección | `12e303f` `595ca57` `e55d757` `d1a56bc` | CLAUDE.md regla 17 |
 | 13 | 13/10/2026 (11:40) | no consta | Dirección ve Operaciones y Supervisión | `31f638a` `ecae120` | CLAUDE.md «Arquitectura → Auth propia»; `despliegue-linux.md` |
 | 14 | 13-14/10/2026 | Opus 5.5 | Resultados de actividad (ratio bruto y neto) y tipos de campaña | `d9d70fb` `9b9e080` `708da22` `a49c856` | `registro-sesion-13-octubre-2026.md`; CLAUDE.md regla 18 |
-| 15 | 14/10/2026 | Opus 5.5 | Tarificación desde Operaciones (sustituye al Excel de facturación) | sin commit todavía | `registro-sesion-14-octubre-2026.md`; `facturacion-tarificacion.md`; CLAUDE.md reglas 16 y 19 |
+| 15 | 14-15/10/2026 | Opus 5.5 | Tarificación desde Operaciones (sustituye al Excel de facturación) y Operaciones más rápida | `87f7b63` (+ histórico de despliegues) | `registro-sesion-14-octubre-2026.md`; `facturacion-tarificacion.md`; CLAUDE.md reglas 16 y 19 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -151,7 +151,7 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Falta configurar los servicios y los tipos en producción.
 - Registro completo en `registro-sesion-13-octubre-2026.md`.
 
-### 15 · 14/10/2026 · Tarificación desde Operaciones (Opus 5.5)
+### 15 · 14-15/10/2026 · Tarificación desde Operaciones (Opus 5.5)
 
 - Ingeniería inversa del Excel de facturación de operaciones, verificada contra RDBv2.
 - Reparto de horas logadas por campaña con el método del Excel (sustituye al del 09/10).
@@ -162,5 +162,6 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - 15/10: prefijos excluidos del reparto replicados (Operaciones → Reparto) y opción «solo los meses con llamadas» en los DDIs (migración 0009).
 - 15/10: ajustes manuales de un mes cerrado (quitar o cambiar precio, con motivo; migración 0010).
 - 15/10: Operaciones más rápida: sin cliente por defecto («Todos» explícito), pestañas por URL y secciones en Suspense.
-- Pendiente: revisión de Christian en local, commit y despliegue.
+- Desplegado el 15/10/2026 a las 14:38 (migraciones 0008-0010); maestros e histórico importados en producción.
+- Pendiente: tarifas de minutos y DDIs y lista de prefijos de GH en producción (Christian).
 - Registro completo en `registro-sesion-14-octubre-2026.md`.

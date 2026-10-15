@@ -1022,11 +1022,16 @@ técnico y las cifras, en `docs/facturacion-tarificacion.md` (regla 19).
       cierre de mes con histórico, export y migración 0008.
 - [x] Septiembre 2026 en pantalla (copia de la SQLite + RDBv2 real):
       35.120,11 € frente a los 35.120,10 € del Excel.
-- [ ] Commit y despliegue (backup antes de `up -d`: lleva la 0008, la 0009
-      y la 0010). En producción:
-      - Importar maestros e histórico.
-      - Dar de alta las tarifas de minutos y DDIs en `/admin/facturacion`.
-      - Escribir la lista de prefijos de GH en `/operaciones/reparto`.
+- [x] Commit `87f7b63`, desplegado el 15/10/2026 a las 14:38 (imagen
+      `ed31b337d485`, backup `dashboard_20261015_1435.db`, migraciones
+      0008-0010).
+      - Maestros e histórico importados en producción; el Excel se borró del
+        servidor.
+      - Septiembre desde producción = Excel (35.120,10 €).
+- [ ] Christian, en producción:
+      - Tarifas en `/admin/facturacion`: GH minutos fijo 0,02, móvil 0,05 y
+        DDI 2,50; DDI 2,50 en cada bbdd con «solo los meses con llamadas».
+      - Lista de prefijos de GH en `/operaciones/reparto`.
 - [x] Fichero de albaranes de GS (15/10, con los ejemplos de operaciones):
       formato idéntico; las líneas solo difieren en las horas por campaña.
 - [x] SQLite de desarrollo migrada a la 0008 y con los datos del Excel
