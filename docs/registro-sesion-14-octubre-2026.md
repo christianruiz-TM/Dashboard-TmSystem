@@ -180,6 +180,20 @@ más de una campaña, una fila de total con la sumatoria de cada campo».
   - «Todos»: Total general 37.498,61 €; pantalla y XLSX iguales, con
     `servicio=todos` y sin él.
   - `tsc`, lint y 214 tests sin errores.
+- Commit `2d564d0` y push. Desplegado con el §3 de `despliegue-linux.md` el
+  16/10/2026 a las 14:03:
+  - Backup `dashboard_20261016_1401.db`; `anterior` = `ed31b337d485`.
+  - `verificar` de la imagen nueva sin errores; imagen `b2e6ba1933dc`. Sin
+    migraciones.
+  - Desde `tareas`, la misma cadena que la pantalla con septiembre en vivo
+    (solo lectura): Total GrupoHuertas 33.764,64 € (42 campañas), Ávolo
+    2.004 € (10), Total general 41.082,34 €.
+  - GH da 1.355,47 € menos que en desarrollo porque en producción aún no
+    están las tarifas de minutos y DDIs (912,50 + 442,18 + 0,79): es el
+    pendiente de abajo. Con «Todos» se enseña lo calculado en vivo; con GH
+    solo, el mes cerrado (35.120,10 €, importado del Excel).
+  - Imagen vieja del dashboard sin etiqueta borrada con el filtro por label;
+    las de tickets no se tocan. Disco: 3,2 GB libres.
 
 ## Pendiente
 

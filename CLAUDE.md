@@ -1057,7 +1057,8 @@ técnico y las cifras, en `docs/facturacion-tarificacion.md` (regla 19).
       general» en las tablas de tarificación y en la hoja «Factura por
       campaña» del XLSX. El export trata `servicio=todos` como sin cliente,
       igual que la página (antes lo buscaba como nombre de servicio y salía
-      sin horas logadas).
+      sin horas logadas). Commit `2d564d0`, desplegado a las 14:03 (backup
+      `dashboard_20261016_1401.db`, sin migraciones).
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
