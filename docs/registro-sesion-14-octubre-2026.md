@@ -149,6 +149,38 @@ aprobado el plan, se implementó. Detalle técnico y cifras en
 - Limpieza: una imagen vieja del dashboard sin etiqueta (filtro por label;
   las de tickets no se tocan). Disco: 3,2 GB libres.
 
+## Continuación (16/10/2026): totales por cliente
+
+Pedido de Christian: «totaliza la tarificación en los servicios que tienen
+más de una campaña, una fila de total con la sumatoria de cada campo».
+
+- **Pantalla** (Operaciones → Facturación):
+  - «Factura por campaña» y «Unidades por campaña»: cada cliente con más de
+    una campaña lleva su fila de total con la suma de cada columna. Con una
+    sola campaña no hay total (repetiría la fila).
+  - Con «Todos los clientes»: subtotal por cliente, «Total general» al final
+    y, en «Unidades por campaña», la columna «Cliente» (la otra tabla ya la
+    tenía). Las filas se agrupan por cliente sin cambiar su orden.
+- **XLSX**: la hoja «Factura por campaña» lleva los mismos subtotales y el
+  total final. «Detalle» se queda sin ellos: mezcla la fila de horas logadas
+  del cliente, su reparto y las campañas, y al sumar se contaría dos veces.
+- **Arreglo de paso**: el export con `servicio=todos` buscaba un servicio
+  llamado «todos» y salía sin horas logadas. El botón de la página no lo
+  manda, pero ahora significa lo mismo que en la página (sin cliente).
+- Código: `agruparPorServicio` y `totalesUnidades` en
+  `lib/facturacion-campania.ts` (puros, 2 tests nuevos); `FacturacionCampania`
+  lleva ahora su `servicio`.
+- Verificado en build de producción contra RDBv2 real y una copia de la
+  SQLite, septiembre de 2026:
+  - Total GrupoHuertas: 1.027,88 h · 4.984 € · fijo 0,79 € · móvil 442,18 €
+    · DDIs 912,50 € → 35.120,11 € (el céntimo frente al Excel es el de
+    siempre: horas −0,06, móvil +0,06, fijo +0,01).
+  - «Unidades por campaña» de GH: 848,28 h productivas, 20.788 atendidas,
+    365 DDIs y 6.339,47 € sin las horas logadas.
+  - «Todos»: Total general 37.498,61 €; pantalla y XLSX iguales, con
+    `servicio=todos` y sin él.
+  - `tsc`, lint y 214 tests sin errores.
+
 ## Pendiente
 
 - Christian, en producción:

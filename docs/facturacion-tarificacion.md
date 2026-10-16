@@ -151,6 +151,16 @@ Excel puso 2,00 h justas).
   conserva. La pantalla, el histórico, el Excel y el fichero de GS salen
   ajustados. Es para lo que decide dirección cada mes (julio de 2026: bbdd a
   precios distintos; agosto: sin facturarlas).
+- **Totales por cliente** (16/10/2026), en «Factura por campaña» y en
+  «Unidades por campaña»:
+  - Cada cliente con más de una campaña lleva su fila de total («Total
+    GrupoHuertas») con la suma de cada columna (cantidades, importes y
+    total). Con una sola
+    campaña no hay fila de total: repetiría la misma.
+  - Con «Todos los clientes», además «Total general» y la columna «Cliente».
+  - Septiembre de 2026 en vivo: Total GrupoHuertas 35.120,11 € (1.027,88 h,
+    4.984 €, fijo 0,79 €, móvil 442,18 €, DDIs 912,50 €); Total general de
+    todos los clientes 37.498,61 €.
 - **Operaciones → Meses cerrados**: histórico, incluido el importado del Excel.
 - **/operaciones/ddis** y **/operaciones/campanias-gs**: maestros. Los edita
   el rol operaciones (y admin); Dirección los ve.
@@ -158,6 +168,12 @@ Excel puso 2,00 h justas).
   `minutos_movil` y `ddi`. Una campaña con config propia (bbdd) no hereda la
   del servicio: necesita su propia línea de DDIs.
 - Export XLSX: hoja «Factura por campaña» + «Detalle».
+  - «Factura por campaña» lleva los mismos subtotales por cliente que la
+    pantalla y el total final («Total general» si hay varios clientes).
+  - «Detalle» no lleva subtotales: mezcla la fila de horas logadas de cada
+    cliente, su reparto y las campañas, y al sumar en Excel se contaría dos
+    veces.
+  - `servicio=todos` es lo mismo que sin cliente, como en la página.
 - **Albaranes de GS** (15/10/2026): con un mes cerrado, botones «Albaranes GS
   (ventas)» y «(promociones)». Mismo formato que los ficheros que operaciones
   sacaba del Excel («COMPROBACION FACTURACION MES DE SEPTIEMBRE 26 version 1

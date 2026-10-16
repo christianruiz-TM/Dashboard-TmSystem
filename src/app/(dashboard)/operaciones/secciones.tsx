@@ -20,7 +20,13 @@ import { tipoFicheroGs } from "@/lib/albaranes-gs";
 import { cierreVigente, lineasAjustadas, prefijosExcluidosReparto } from "@/lib/db/facturacion";
 import { mesCompleto } from "@/lib/ddis";
 import { NOMBRE_UNIDAD, totalesFactura, type FacturacionCompleta } from "@/lib/facturacion";
-import { etiquetaCampania, filasDeCierre } from "@/lib/facturacion-campania";
+import {
+  agruparPorServicio,
+  etiquetaCampania,
+  filasDeCierre,
+  totalesUnidades,
+  type FacturacionCampania,
+} from "@/lib/facturacion-campania";
 import type { FacturacionHorasLogadas } from "@/lib/facturacion-horas-logadas";
 import { horasDesdeSegundos, horasLegibles, hoyISO } from "@/lib/fechas";
 import type { HorasAgenteReales, PenetracionLista, RazonNotReady } from "@/lib/rdb/types";
@@ -226,6 +232,32 @@ export async function SeccionFacturacion({
   // Ficheros de albaranes de GS: solo de un mes cerrado, uno por tipo presente
   const tiposGs = verCierre ? [...new Set(facturaMostrada.map((f) => tipoFicheroGs(f)))].sort() : [];
   const sinCodigoGs = factura.filter((f) => !f.codigoGs).map(etiquetaCampania);
+  // «Unidades por campaña»: agrupada por cliente, con su total si tiene más de una campaña
+  const gruposUnidades = agruparPorServicio(facturacion);
+  const filaTotalUnidades = (
+    clave: string,
+    etiqueta: string,
+    de: readonly FacturacionCampania[],
+    general: boolean,
+  ) => {
+    const t = totalesUnidades(de);
+    return (
+      <TableRow key={clave} className={general ? "font-semibold" : "bg-muted/40 font-medium"}>
+        <TableCell colSpan={servicio ? 1 : 2}>{etiqueta}</TableCell>
+        <TableCell className="text-right tabular-nums">{horasLegibles(t.horasProductivas)}</TableCell>
+        <TableCell className="text-right tabular-nums">{t.interacciones.toLocaleString("es-ES")}</TableCell>
+        <TableCell className="text-right tabular-nums">{t.atendidas.toLocaleString("es-ES")}</TableCell>
+        <TableCell className="text-right tabular-nums">{t.exitos.toLocaleString("es-ES")}</TableCell>
+        <TableCell className="text-right tabular-nums">{t.leadsFinalizados.toLocaleString("es-ES")}</TableCell>
+        <TableCell className="text-right tabular-nums">{minutos(t.minutosMovil)}</TableCell>
+        <TableCell className="text-right tabular-nums">{minutos(t.minutosFijo)}</TableCell>
+        <TableCell className="text-right tabular-nums text-muted-foreground">{minutos(t.minutosEspecial)}</TableCell>
+        <TableCell className="text-right tabular-nums">{t.ddis ? t.ddis.toLocaleString("es-ES") : "—"}</TableCell>
+        <TableCell />
+        <TableCell className="text-right tabular-nums">{euros(t.importe)}</TableCell>
+      </TableRow>
+    );
+  };
 
   return (
     <div className="space-y-4">
@@ -417,6 +449,7 @@ export async function SeccionFacturacion({
           <Table>
             <TableHeader>
               <TableRow>
+                {!servicio && <TableHead>Cliente</TableHead>}
                 <TableHead>Campaña</TableHead>
                 <TableHead className="text-right">H. productivas</TableHead>
                 <TableHead className="text-right">Interacc.</TableHead>
@@ -436,56 +469,68 @@ export async function SeccionFacturacion({
             <TableBody>
               {facturacion.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={12} className="text-center text-muted-foreground">
+                  <TableCell colSpan={servicio ? 12 : 13} className="text-center text-muted-foreground">
                     Sin actividad en el período seleccionado
                   </TableCell>
                 </TableRow>
               ) : (
-                facturacion.map((f) => (
-                  <TableRow key={f.campania}>
-                    <TableCell className="font-medium">{f.campania}</TableCell>
-                    <TableCell className="text-right tabular-nums">{horasLegibles(f.medidas.horasProductivas)}</TableCell>
-                    <TableCell className="text-right tabular-nums">{f.medidas.interacciones.toLocaleString("es-ES")}</TableCell>
-                    <TableCell className="text-right tabular-nums">{f.medidas.atendidas.toLocaleString("es-ES")}</TableCell>
-                    <TableCell className="text-right tabular-nums">{f.medidas.exitos.toLocaleString("es-ES")}</TableCell>
-                    <TableCell className="text-right tabular-nums">{f.medidas.leadsFinalizados.toLocaleString("es-ES")}</TableCell>
-                    <TableCell
-                      className="text-right tabular-nums"
-                      title={
-                        f.tarificacion?.minutosEncuesta
-                          ? `De ellos, ${minutos(f.tarificacion.minutosEncuesta)} min de encuesta (móvil y fijo)`
-                          : undefined
-                      }
-                    >
-                      {minutos(f.tarificacion?.minutos.movil)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{minutos(f.tarificacion?.minutos.fijo)}</TableCell>
-                    <TableCell className="text-right tabular-nums text-muted-foreground">
-                      {minutos(f.tarificacion?.minutos.especial)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{f.ddis ? f.ddis.toLocaleString("es-ES") : "—"}</TableCell>
-                    <TableCell>
-                      {f.lineas.length === 0 && !f.porHorasLogadas ? (
-                        <span className="text-xs text-muted-foreground">Sin configurar</span>
-                      ) : (
-                        <div className="flex flex-wrap gap-1">
-                          {f.porHorasLogadas && (
-                            <Badge variant="secondary" className="text-[10px]">
-                              Horas logadas (cliente)
-                            </Badge>
-                          )}
-                          {f.lineas.map((l, i) => (
-                            <Badge key={i} variant="secondary" className="text-[10px]">
-                              {NOMBRE_UNIDAD[l.unidad]}
-                            </Badge>
-                          ))}
-                        </div>
-                      )}
-                    </TableCell>
-                    <TableCell className="text-right font-medium tabular-nums">{euros(f.importeTotal)}</TableCell>
-                  </TableRow>
-                ))
+                gruposUnidades.map((g) => [
+                  ...g.filas.map((f) => (
+                    <TableRow key={f.campania}>
+                      {!servicio && <TableCell className="text-muted-foreground">{f.servicio ?? "—"}</TableCell>}
+                      <TableCell className="font-medium">{f.campania}</TableCell>
+                      <TableCell className="text-right tabular-nums">{horasLegibles(f.medidas.horasProductivas)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{f.medidas.interacciones.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{f.medidas.atendidas.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{f.medidas.exitos.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{f.medidas.leadsFinalizados.toLocaleString("es-ES")}</TableCell>
+                      <TableCell
+                        className="text-right tabular-nums"
+                        title={
+                          f.tarificacion?.minutosEncuesta
+                            ? `De ellos, ${minutos(f.tarificacion.minutosEncuesta)} min de encuesta (móvil y fijo)`
+                            : undefined
+                        }
+                      >
+                        {minutos(f.tarificacion?.minutos.movil)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{minutos(f.tarificacion?.minutos.fijo)}</TableCell>
+                      <TableCell className="text-right tabular-nums text-muted-foreground">
+                        {minutos(f.tarificacion?.minutos.especial)}
+                      </TableCell>
+                      <TableCell className="text-right tabular-nums">{f.ddis ? f.ddis.toLocaleString("es-ES") : "—"}</TableCell>
+                      <TableCell>
+                        {f.lineas.length === 0 && !f.porHorasLogadas ? (
+                          <span className="text-xs text-muted-foreground">Sin configurar</span>
+                        ) : (
+                          <div className="flex flex-wrap gap-1">
+                            {f.porHorasLogadas && (
+                              <Badge variant="secondary" className="text-[10px]">
+                                Horas logadas (cliente)
+                              </Badge>
+                            )}
+                            {f.lineas.map((l, i) => (
+                              <Badge key={i} variant="secondary" className="text-[10px]">
+                                {NOMBRE_UNIDAD[l.unidad]}
+                              </Badge>
+                            ))}
+                          </div>
+                        )}
+                      </TableCell>
+                      <TableCell className="text-right font-medium tabular-nums">{euros(f.importeTotal)}</TableCell>
+                    </TableRow>
+                  )),
+                  g.filas.length > 1
+                    ? filaTotalUnidades(
+                        `total|${g.servicio}`,
+                        `Total ${g.servicio ?? "sin cliente"}`,
+                        g.filas,
+                        gruposUnidades.length === 1,
+                      )
+                    : null,
+                ])
               )}
+              {gruposUnidades.length > 1 && filaTotalUnidades("total|general", "Total general", facturacion, true)}
             </TableBody>
           </Table>
         </CardContent>

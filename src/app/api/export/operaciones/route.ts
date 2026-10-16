@@ -12,8 +12,9 @@ import {
   totalesFactura,
   type FilaFactura,
 } from "@/lib/facturacion";
-import { filasDeCierre } from "@/lib/facturacion-campania";
+import { agruparPorServicio, filasDeCierre } from "@/lib/facturacion-campania";
 import { esquemaRango, motivoRangoInvalido } from "@/lib/fechas";
+import { TODOS_SERVICIOS } from "@/lib/servicio-todos";
 import { generarCsv, respuestaCsv } from "@/lib/export/csv";
 import { FORMATO_2_DECIMALES, generarXlsxHojas, respuestaXlsx, type HojaXlsx } from "@/lib/export/xlsx";
 
@@ -22,6 +23,7 @@ const min2 = (v: number | undefined) => (v ? Math.round(v * 100) / 100 : null);
 
 /** Hoja «Factura por campaña»: lo mismo que la tabla de la pantalla. */
 function hojaFactura(filas: FilaFactura[]): HojaXlsx {
+  // Solo para las columnas: qué unidades aparecen
   const totales = totalesFactura(filas);
   const columnas: HojaXlsx["columnas"] = [
     { cabecera: "Cliente", clave: "servicio", ancho: 18 },
@@ -51,12 +53,25 @@ function hojaFactura(filas: FilaFactura[]): HojaXlsx {
     }
     return r;
   };
-  const total: Record<string, unknown> = { campania: "Total", total: totales.importe };
-  for (const t of totales.porUnidad) {
-    total[`c_${t.unidad}`] = t.cantidad;
-    total[`i_${t.unidad}`] = t.importe;
-  }
-  return { nombre: "Factura por campaña", columnas, filas: [...filas.map(fila), total] };
+  /** Fila de total con la suma de cada columna (de un cliente o de todos). */
+  const filaTotal = (etiqueta: string, de: readonly FilaFactura[]): Record<string, unknown> => {
+    const t = totalesFactura(de);
+    const r: Record<string, unknown> = { campania: etiqueta, total: t.importe };
+    for (const u of t.porUnidad) {
+      r[`c_${u.unidad}`] = u.cantidad;
+      r[`i_${u.unidad}`] = u.importe;
+    }
+    return r;
+  };
+  // Como en la pantalla: cada cliente con más de una campaña lleva su total
+  // (con un solo cliente, el total final ya es el suyo)
+  const grupos = agruparPorServicio(filas);
+  const cuerpo = grupos.flatMap((g) => [
+    ...g.filas.map(fila),
+    ...(grupos.length > 1 && g.filas.length > 1 ? [filaTotal(`Total ${g.servicio ?? "sin cliente"}`, g.filas)] : []),
+  ]);
+  const final = filaTotal(grupos.length > 1 ? "Total general" : "Total", filas);
+  return { nombre: "Factura por campaña", columnas, filas: [...cuerpo, final] };
 }
 
 /** Export del módulo de facturación (CSV para Excel ES o XLSX). */
@@ -76,7 +91,9 @@ export async function GET(peticion: NextRequest) {
   }
   const { desde, hasta } = rango.data;
   const formato = params.get("formato") === "xlsx" ? "xlsx" : "csv";
-  const servicio = params.get("servicio") ?? undefined;
+  // «todos» es lo mismo que sin cliente, como en la página
+  const elegido = params.get("servicio");
+  const servicio = elegido && elegido !== TODOS_SERVICIOS ? elegido : undefined;
 
   const { facturacion, porCliente, factura } = await facturacionCompleta(
     desde,

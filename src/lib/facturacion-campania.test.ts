@@ -5,12 +5,14 @@ import type { TarificacionCampania } from "@/lib/tarificacion";
 import {
   consolidarFactura,
   etiquetaCampania,
+  agruparPorServicio,
   aplicarAjustes,
   facturarCampanias,
   importeVigente,
   filasDeCierre,
   lineasDeCierre,
   totalesFactura,
+  totalesUnidades,
   type ConfigFacturacion,
 } from "./facturacion-campania";
 
@@ -132,6 +134,26 @@ describe("facturarCampanias", () => {
     expect(bbdd).toMatchObject({ ddis: 1, ddisConLlamadas: 0 });
     // La línea del servicio no lleva la opción: la campaña parada paga sus DDIs
     expect(agosto.find((f) => f.campania === "gh_parada")!.lineas.find((l) => l.unidad === "ddi")?.cantidad).toBe(2);
+  });
+
+  it("cada campaña lleva su cliente", () => {
+    expect(de("gh_toyota").servicio).toBe("GrupoHuertas");
+    expect(de("otra").servicio).toBe("OtroCliente");
+  });
+
+  it("totales de «Unidades por campaña» por cliente", () => {
+    const grupos = agruparPorServicio(r);
+    expect(grupos.map((g) => [g.servicio, g.filas.map((f) => f.campania)])).toEqual([
+      ["GrupoHuertas", ["gh_toyota", "gh_bbdd_x", "gh_parada", "gh_seat"]],
+      ["OtroCliente", ["otra"]],
+    ]);
+    const gh = totalesUnidades(grupos[0].filas);
+    expect(gh).toMatchObject({ horasProductivas: 14, interacciones: 150, atendidas: 90, exitos: 8, leadsFinalizados: 574, ddis: 14 });
+    expect(gh.minutosMovil).toBeCloseTo(652.824 + 21.12, 10);
+    expect(gh.minutosFijo).toBeCloseTo(3.304, 10);
+    // 47,71 (toyota) + 1.150,50 (bbdd) + 5 (parada) + 1,06 + 12,50 (seat)
+    expect(gh.importe).toBe(1216.77);
+    expect(totalesUnidades(grupos[1].filas).importe).toBeNull();
   });
 
   it("sin config no hay líneas ni importe", () => {

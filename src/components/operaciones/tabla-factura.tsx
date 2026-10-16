@@ -10,6 +10,7 @@ import type { UnidadFacturacion } from "@/lib/db/schema";
 import {
   NOMBRE_CORTO_UNIDAD,
   NOMBRE_UNIDAD,
+  agruparPorServicio,
   etiquetaCampania,
   totalesFactura,
   type FilaFactura,
@@ -33,6 +34,8 @@ export function cantidadLegible(unidad: UnidadFacturacion, cantidad: number): st
 /**
  * La factura por campaña: cantidad e importe de cada unidad que se cobra,
  * código de GS y total. Es la hoja «FACTURACION» del Excel de operaciones.
+ * Cada cliente con más de una campaña lleva su fila de total; con varios
+ * clientes («Todos»), además el total general.
  */
 export function TablaFactura({ filas, conServicio }: { filas: FilaFactura[]; conServicio: boolean }) {
   const totales = totalesFactura(filas);
@@ -44,6 +47,31 @@ export function TablaFactura({ filas, conServicio }: { filas: FilaFactura[]; con
       </p>
     );
   }
+  const grupos = agruparPorServicio(filas);
+  const columnasEtiqueta = conServicio ? 3 : 2;
+
+  /** Fila de total con la suma de cada columna (de un cliente o de todos). */
+  const filaTotal = (clave: string, etiqueta: string, de: readonly FilaFactura[], general = false) => {
+    const t = totalesFactura(de);
+    return (
+      <TableRow key={clave} className={general ? "font-semibold" : "bg-muted/40 font-medium"}>
+        <TableCell colSpan={columnasEtiqueta}>{etiqueta}</TableCell>
+        {unidades.map((u) => {
+          const tu = t.porUnidad.find((x) => x.unidad === u);
+          return [
+            <TableCell key={`${u}c`} className="text-right tabular-nums">
+              {tu ? cantidadLegible(u, tu.cantidad) : ""}
+            </TableCell>,
+            <TableCell key={`${u}i`} className="text-right tabular-nums">
+              {tu ? euros(tu.importe) : ""}
+            </TableCell>,
+          ];
+        })}
+        <TableCell className="text-right tabular-nums">{euros(t.importe)}</TableCell>
+      </TableRow>
+    );
+  };
+
   return (
     <Table>
       <TableHeader>
@@ -60,41 +88,35 @@ export function TablaFactura({ filas, conServicio }: { filas: FilaFactura[]; con
         </TableRow>
       </TableHeader>
       <TableBody>
-        {filas.map((f) => (
-          <TableRow key={`${f.servicio}|${etiquetaCampania(f)}`}>
-            {conServicio && <TableCell className="text-muted-foreground">{f.servicio ?? "—"}</TableCell>}
-            <TableCell className={f.campania == null ? "italic text-muted-foreground" : "font-medium"}>
-              {etiquetaCampania(f)}
-            </TableCell>
-            <TableCell className="tabular-nums">
-              {f.codigoGs ?? <span className="text-xs text-amber-700 dark:text-amber-400">sin código</span>}
-            </TableCell>
-            {unidades.map((u) => {
-              const l = f.lineas.find((x) => x.unidad === u);
-              return [
-                <TableCell key={`${u}c`} className="text-right tabular-nums">
-                  {l ? cantidadLegible(u, l.cantidad) : ""}
-                </TableCell>,
-                <TableCell key={`${u}i`} className="text-right tabular-nums text-muted-foreground">
-                  {l ? euros(l.importe) : ""}
-                </TableCell>,
-              ];
-            })}
-            <TableCell className="text-right font-medium tabular-nums">{euros(f.importeTotal)}</TableCell>
-          </TableRow>
-        ))}
-        <TableRow className="font-medium">
-          <TableCell colSpan={conServicio ? 3 : 2}>Total</TableCell>
-          {totales.porUnidad.map((t) => [
-            <TableCell key={`${t.unidad}c`} className="text-right tabular-nums">
-              {cantidadLegible(t.unidad, t.cantidad)}
-            </TableCell>,
-            <TableCell key={`${t.unidad}i`} className="text-right tabular-nums">
-              {euros(t.importe)}
-            </TableCell>,
-          ])}
-          <TableCell className="text-right tabular-nums">{euros(totales.importe)}</TableCell>
-        </TableRow>
+        {grupos.map((g) => [
+          ...g.filas.map((f) => (
+            <TableRow key={`${f.servicio}|${etiquetaCampania(f)}`}>
+              {conServicio && <TableCell className="text-muted-foreground">{f.servicio ?? "—"}</TableCell>}
+              <TableCell className={f.campania == null ? "italic text-muted-foreground" : "font-medium"}>
+                {etiquetaCampania(f)}
+              </TableCell>
+              <TableCell className="tabular-nums">
+                {f.codigoGs ?? <span className="text-xs text-amber-700 dark:text-amber-400">sin código</span>}
+              </TableCell>
+              {unidades.map((u) => {
+                const l = f.lineas.find((x) => x.unidad === u);
+                return [
+                  <TableCell key={`${u}c`} className="text-right tabular-nums">
+                    {l ? cantidadLegible(u, l.cantidad) : ""}
+                  </TableCell>,
+                  <TableCell key={`${u}i`} className="text-right tabular-nums text-muted-foreground">
+                    {l ? euros(l.importe) : ""}
+                  </TableCell>,
+                ];
+              })}
+              <TableCell className="text-right font-medium tabular-nums">{euros(f.importeTotal)}</TableCell>
+            </TableRow>
+          )),
+          g.filas.length > 1
+            ? filaTotal(`total|${g.servicio}`, `Total ${g.servicio ?? "sin cliente"}`, g.filas, grupos.length === 1)
+            : null,
+        ])}
+        {grupos.length > 1 && filaTotal("total|general", "Total general", filas, true)}
       </TableBody>
     </Table>
   );

@@ -356,6 +356,14 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         necesita su propia línea de DDIs.
       - `facturacionCompleta()` (`lib/facturacion.ts`) es la ÚNICA cadena
         para la pantalla, el export y el cierre.
+      - **Totales por cliente** (16/10/2026): en «Factura por campaña» y
+        «Unidades por campaña», cada cliente con más de una campaña lleva
+        una fila de total («Total GrupoHuertas») con la suma de cada
+        columna; con «Todos»,
+        además «Total general» y la columna «Cliente». La hoja «Factura por
+        campaña» del XLSX lleva los mismos subtotales; «Detalle», no (mezcla
+        filas de cliente y de campaña y se sumaría dos veces). Puros:
+        `agruparPorServicio` y `totalesUnidades`, con tests.
     - **Cierre de mes** (`facturacion_cierres` + `_lineas`): foto fija de un
       mes PASADO y completo de un servicio, con los precios de entonces.
       - Como mucho uno «cerrado» por mes y servicio (índice único parcial).
@@ -1045,6 +1053,11 @@ técnico y las cifras, en `docs/facturacion-tarificacion.md` (regla 19).
       con motivo; migración 0010, aplicada en desarrollo con backup
       `dashboard_20261015_1250.db`) para las decisiones puntuales de dirección.
 - [ ] Quitar del Excel la contraseña guardada del usuario `tms` y cambiarla.
+- [x] 16/10: fila de total por cliente (con más de una campaña) y «Total
+      general» en las tablas de tarificación y en la hoja «Factura por
+      campaña» del XLSX. El export trata `servicio=todos` como sin cliente,
+      igual que la página (antes lo buscaba como nombre de servicio y salía
+      sin horas logadas).
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 

@@ -76,6 +76,8 @@ export interface ExtrasFacturacion {
 
 export interface FacturacionCampania {
   campania: string;
+  /** Cliente (servicio) de la campaña; null si no tiene. */
+  servicio: string | null;
   medidas: UnidadesCampania;
   tarificacion: TarificacionCampania | null;
   /** DDI-meses activos en el rango (lo que se cobra si la línea no pide llamadas). */
@@ -178,6 +180,7 @@ export function facturarCampanias(
     });
     return {
       campania,
+      servicio: servicio ?? null,
       ...base,
       lineas,
       ambito: propias ? "campania" : delServicio ? "servicio" : null,
@@ -275,6 +278,55 @@ export function totalesFactura(filas: readonly FilaFactura[]): { porUnidad: Tota
     });
   }
   return { porUnidad, importe: sumaImportes(filas.map((f) => ({ importe: f.importeTotal }))) };
+}
+
+/**
+ * Agrupa filas por cliente (servicio), en el orden en que aparece cada uno y
+ * sin cambiar el orden de las filas dentro de cada grupo. Para los subtotales
+ * de las tablas de Operaciones con «Todos los clientes».
+ */
+export function agruparPorServicio<T extends { servicio: string | null }>(
+  filas: readonly T[],
+): { servicio: string | null; filas: T[] }[] {
+  const grupos = new Map<string | null, T[]>();
+  for (const f of filas) {
+    const g = grupos.get(f.servicio) ?? [];
+    g.push(f);
+    grupos.set(f.servicio, g);
+  }
+  return [...grupos].map(([servicio, g]) => ({ servicio, filas: g }));
+}
+
+/** Sumas de la tabla «Unidades por campaña». Minutos SIN redondear (se redondea al enseñarlos). */
+export interface TotalesUnidades {
+  horasProductivas: number;
+  interacciones: number;
+  atendidas: number;
+  exitos: number;
+  leadsFinalizados: number;
+  minutosMovil: number;
+  minutosFijo: number;
+  minutosEspecial: number;
+  ddis: number;
+  /** Suma de los importes por campaña (sin las horas logadas, que van por cliente). */
+  importe: number | null;
+}
+
+export function totalesUnidades(filas: readonly FacturacionCampania[]): TotalesUnidades {
+  const suma = (fn: (f: FacturacionCampania) => number) => filas.reduce((a, f) => a + fn(f), 0);
+  return {
+    // Cada campaña trae sus horas ya redondeadas: la suma es la de la columna
+    horasProductivas: redondear2(suma((f) => f.medidas.horasProductivas)),
+    interacciones: suma((f) => f.medidas.interacciones),
+    atendidas: suma((f) => f.medidas.atendidas),
+    exitos: suma((f) => f.medidas.exitos),
+    leadsFinalizados: suma((f) => f.medidas.leadsFinalizados),
+    minutosMovil: suma((f) => f.tarificacion?.minutos.movil ?? 0),
+    minutosFijo: suma((f) => f.tarificacion?.minutos.fijo ?? 0),
+    minutosEspecial: suma((f) => f.tarificacion?.minutos.especial ?? 0),
+    ddis: suma((f) => f.ddis),
+    importe: sumaImportes(filas.map((f) => ({ importe: f.importeTotal }))),
+  };
 }
 
 /** Etiqueta de la fila sin campaña (horas logadas sin tiempo de agente). */
