@@ -6,7 +6,7 @@ histórico de git.
 
 **De dónde sale cada sesión:**
 
-- Tres tienen registro propio en `docs/` (las del 01-06/10, 09/10 y 13-14/10).
+- Cuatro tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10 y 19/10).
 - Las demás se han reconstruido el 14/10/2026 a partir de los commits, los apartados con fecha
   de CLAUDE.md, los «Estado de F…» de `docs/plan-planificacion.md` y el histórico de
   `docs/despliegue-linux.md`. De esas no hay transcripción.
@@ -180,5 +180,7 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Dirección: tabla «Por cliente» sin cliente elegido (interacciones, atendidas, % abandono, horas logadas, éxitos, finalizados y AHT; horas con `horasLogadasPorServicio`, una consulta), tarjeta «Finalizados» (contactos cerrados, como en facturación), detalle agrupado por los tipos de campaña del cliente con total por grupo (Bolsas: cartera `Bol_` + 3-4 cifras y resto) y «Comparar dos campañas». Lógica pura en `lib/direccion.ts`, con tests.
 - «Tiempo por éxito» → «Conversación por éxito» (llamadas atendidas de cada éxito) y «Gestión por éxito» (`script_session.duration`, en décimas). GH septiembre: 323,56 s y 451,54 s.
 - Supervisión → Resultados: buscador con autocompletado por un dato del directorio del contacto (GH: `dir_fdlt_origen`, tabla `dir_1616009371`), por valor exacto, «contiene» o sin valor; se configura en `/admin/resultados`. GH septiembre «contiene granada»: 454 finalizados, bruto 40,75 %.
-- Verificado contra RDBv2 y en el `next dev`. Sin desplegar ni commit.
+- Verificado contra RDBv2 y en el `next dev`. Desplegado el 19/10/2026 a las 12:18 (`90b1192`, sin migraciones; backup `dashboard_20261019_1216.db`).
+- Pendiente: en `/admin/resultados` de producción, el tipo «Cartera» de Bolsas y el dato «Origen» de GrupoHuertas (Christian).
+- Registro completo en `registro-sesion-19-octubre-2026.md`.
 

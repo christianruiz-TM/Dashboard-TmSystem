@@ -1147,8 +1147,13 @@ Peticiones de Christian del 19/10/2026 (reglas 17, 18 y 20).
 - [x] Verificado contra RDBv2 con las funciones de las páginas y en el
       `next dev` (SQLite de desarrollo, backup `dashboard_20261019_1144.db`;
       allí quedan configurados los tipos de Bolsas y el campo de GH).
-- [ ] Sin desplegar. En producción, en `/admin/resultados`: tipos de Bolsas
-      (Cartera) y el dato «Origen» de GrupoHuertas.
+- [x] Commit `90b1192`, desplegado el 19/10/2026 a las 12:18 (imagen
+      `cb98ebdf9317`, backup `dashboard_20261019_1216.db`, sin migraciones).
+      Registro completo en `docs/registro-sesion-19-octubre-2026.md`.
+- [ ] Christian, en `/admin/resultados` de producción: tipo «Cartera» de
+      Bolsas (`Cartera: Bol[_][0-9][0-9][0-9], Bol[_][0-9][0-9][0-9][0-9]`)
+      y dato `dir_fdlt_origen` («Origen») de GrupoHuertas. Sin eso, ni el
+      agrupado de Bolsas ni el buscador de origen salen.
 - [ ] Visto al medir (ya pasaba antes): los ratios de Bolsas tardan ~4,5 s
       (la consulta de atendidas de sus 20 campañas, 3 s incluso con la
       lista literal) y `metricasIvr` de un mes de GH, 42 s (el Histórico).
