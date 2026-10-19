@@ -60,7 +60,8 @@ type ClaveOrden =
   | "efectividadPct"
   | "exitosHoraLogada"
   | "exitosHoraProductiva"
-  | "segPorExito"
+  | "conversacionPorExitoSeg"
+  | "gestionPorExitoSeg"
   | "indice";
 
 const COLUMNAS: { clave: ClaveOrden; titulo: string; ayuda: string }[] = [
@@ -76,7 +77,16 @@ const COLUMNAS: { clave: ClaveOrden; titulo: string; ayuda: string }[] = [
   },
   { clave: "exitosHoraLogada", titulo: "Éx./h logada", ayuda: "Éxitos por hora logada" },
   { clave: "exitosHoraProductiva", titulo: "Éx./h productiva", ayuda: "Éxitos por hora de gestión" },
-  { clave: "segPorExito", titulo: "Tiempo por éxito", ayuda: "Gestión de las atendidas ÷ éxitos" },
+  {
+    clave: "conversacionPorExitoSeg",
+    titulo: "Conv. por éxito",
+    ayuda: "Conversación media de las llamadas atendidas de cada éxito",
+  },
+  {
+    clave: "gestionPorExitoSeg",
+    titulo: "Gestión por éxito",
+    ayuda: "Tiempo medio con el script abierto de cada éxito",
+  },
   { clave: "indice", titulo: "Índice", ayuda: "Éxitos reales ÷ esperados según sus campañas × 100" },
 ];
 
@@ -112,7 +122,10 @@ function CeldasRatios({
         {num2(r.exitosHoraProductiva)}
       </TableCell>
       <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")}>
-        {segundosLegibles(r.segPorExito)}
+        {segundosLegibles(r.conversacionPorExitoSeg)}
+      </TableCell>
+      <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")}>
+        {segundosLegibles(r.gestionPorExitoSeg)}
       </TableCell>
       <TableCell className={cn("text-right tabular-nums", colorIndice(indice ?? null, at))}>
         {indice == null ? "—" : Math.round(indice).toLocaleString("es-ES")}
@@ -199,7 +212,7 @@ export function RatiosExito({
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
           <TarjetaKpi
             titulo="Conversión (contactos)"
             valor={pct(t.convContactosPct)}
@@ -222,7 +235,18 @@ export function RatiosExito({
             titulo="Éxitos por hora productiva"
             valor={num2(t.exitosHoraProductiva)}
             variacionPct={variacion(t.exitosHoraProductiva, anterior?.exitosHoraProductiva)}
-            sub={`Tiempo por éxito: ${segundosLegibles(t.segPorExito)}`}
+          />
+          <TarjetaKpi
+            titulo="Conversación por éxito"
+            valor={segundosLegibles(t.conversacionPorExitoSeg)}
+            variacionPct={variacion(t.conversacionPorExitoSeg, anterior?.conversacionPorExitoSeg)}
+            sub="Llamadas atendidas de cada éxito"
+          />
+          <TarjetaKpi
+            titulo="Gestión por éxito"
+            valor={segundosLegibles(t.gestionPorExitoSeg)}
+            variacionPct={variacion(t.gestionPorExitoSeg, anterior?.gestionPorExitoSeg)}
+            sub="Con el script abierto"
           />
         </div>
 
@@ -311,7 +335,7 @@ export function RatiosExito({
               <TableBody>
                 {ratios.campanias.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    <TableCell colSpan={COLUMNAS.length - 1} className="text-center text-muted-foreground">
                       Sin contactos gestionados {periodo}
                     </TableCell>
                   </TableRow>
@@ -343,7 +367,10 @@ export function RatiosExito({
                           {num2(c.exitosHoraProductiva)}
                         </TableCell>
                         <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")}>
-                          {segundosLegibles(c.segPorExito)}
+                          {segundosLegibles(c.conversacionPorExitoSeg)}
+                        </TableCell>
+                        <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")}>
+                          {segundosLegibles(c.gestionPorExitoSeg)}
                         </TableCell>
                       </TableRow>
                     );

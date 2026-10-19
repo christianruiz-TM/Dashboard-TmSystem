@@ -7,8 +7,14 @@ import {
   colorMaximo,
   colorMinimo,
   escribirTiposCampania,
+  esquemaCampoContacto,
   filtrarPorTipo,
+  finalizadosConFiltro,
+  leerFiltroCampo,
   leerTiposCampania,
+  normalizarBusqueda,
+  patronContiene,
+  sugerenciasCampo,
   objetivoDe,
   opcionesTipo,
   seleccionTipo,
@@ -348,5 +354,58 @@ describe("tipos de campaña (GH: BBDD)", () => {
     const tipos = leerTiposCampania("BBDD: gh_bbdd_%\nGranada: %granada%")!;
     expect(tipoDeCampania("gh_bbdd_granada", tipos)).toBe("BBDD");
     expect(opcionesTipo(tipos).map((o) => o.etiqueta)).toEqual(["Todas", "Resto", "Solo BBDD", "Solo Granada"]);
+  });
+});
+
+describe("filtro por un dato del contacto", () => {
+  // Orígenes reales de GH (dir_fdlt_origen), con sus finalizados inventados
+  const valores = [
+    { valor: "Centralita", finalizados: 1500 },
+    { valor: null, finalizados: 300 },
+    { valor: "HUE1298_GRANADA_MARCA_VO_CLASECSEMINUEVO_01092026", finalizados: 120 },
+    { valor: "HUE1334_GRANADA_MARCA_VN_DIASESTRELLA_14092026", finalizados: 40 },
+    { valor: "HUE1324_DIMOVIL_PROPIA_VO_MICROCAMPAÑAS_08092026", finalizados: 3 },
+    { valor: "Autocasión", finalizados: 1 },
+  ];
+
+  it("lee la URL: sin texto no hay filtro, salvo «sin valor»", () => {
+    expect(leerFiltroCampo(undefined, undefined)).toBeNull();
+    expect(leerFiltroCampo("  ", "contiene")).toBeNull();
+    expect(leerFiltroCampo(" Centralita ", undefined)).toEqual({ modo: "exacto", valor: "Centralita" });
+    expect(leerFiltroCampo("granada", "contiene")).toEqual({ modo: "contiene", valor: "granada" });
+    expect(leerFiltroCampo(undefined, "vacio")).toEqual({ modo: "vacio", valor: "" });
+    // Un modo desconocido es «exacto»
+    expect(leerFiltroCampo("x", "raro")).toEqual({ modo: "exacto", valor: "x" });
+  });
+
+  it("el patrón de «contiene» escapa los comodines de LIKE", () => {
+    expect(patronContiene("GRANADA")).toBe("%GRANADA%");
+    expect(patronContiene("50%_[a]")).toBe("%50[%][_][[]a]%");
+  });
+
+  it("busca sin mayúsculas ni tildes, por «contiene» y de más a menos finalizados", () => {
+    expect(normalizarBusqueda("  MicroCampañas  Autocasión ")).toBe("microcampanas autocasion");
+    expect(sugerenciasCampo(valores, "granada").map((v) => v.finalizados)).toEqual([120, 40]);
+    expect(sugerenciasCampo(valores, "autocasion").map((v) => v.valor)).toEqual(["Autocasión"]);
+    expect(sugerenciasCampo(valores, "CAMPANAS").map((v) => v.finalizados)).toEqual([3]);
+    // Sin texto: los de más finalizados, sin el «sin valor», con tope
+    expect(sugerenciasCampo(valores, "", 2).map((v) => v.valor)).toEqual([
+      "Centralita",
+      "HUE1298_GRANADA_MARCA_VO_CLASECSEMINUEVO_01092026",
+    ]);
+  });
+
+  it("cuenta los finalizados que deja cada filtro", () => {
+    expect(finalizadosConFiltro(valores, { modo: "contiene", valor: "granada" })).toBe(160);
+    expect(finalizadosConFiltro(valores, { modo: "exacto", valor: "CENTRALITA" })).toBe(1500);
+    expect(finalizadosConFiltro(valores, { modo: "exacto", valor: "granada" })).toBe(0);
+    expect(finalizadosConFiltro(valores, { modo: "vacio", valor: "" })).toBe(300);
+  });
+
+  it("solo acepta identificadores seguros para la tabla y la columna", () => {
+    const ok = { tabla: "dir_1616009371", columna: "dir_fdlt_origen", etiqueta: "Origen" };
+    expect(esquemaCampoContacto.safeParse(ok).success).toBe(true);
+    expect(esquemaCampoContacto.safeParse({ ...ok, columna: "x]; DROP TABLE y--" }).success).toBe(false);
+    expect(esquemaCampoContacto.safeParse({ ...ok, etiqueta: " " }).success).toBe(false);
   });
 });

@@ -3,7 +3,9 @@ import { db } from "./sqlite";
 import { objetivosResultados, resultadosConfig, type ResultadosConfigRow } from "./schema";
 import { guardarAjuste, obtenerAjuste } from "./settings";
 import {
+  esquemaCampoContacto,
   esquemaTiposCampania,
+  type CampoContacto,
   type ObjetivoResultados,
   type TipoCampania,
 } from "@/lib/resultados-actividad";
@@ -48,4 +50,26 @@ export function tiposCampaniaDe(servicio: string): TipoCampania[] {
 
 export function guardarTiposCampania(servicio: string, tipos: TipoCampania[]): void {
   guardarAjuste(`resultados.tipos.${servicio}`, JSON.stringify(tipos));
+}
+
+/**
+ * Campo del contacto por el que se puede filtrar Resultados en un servicio
+ * (GH: el origen del lead, dir_fdlt_origen de su directorio). En app_settings
+ * (`resultados.campoContacto.<servicio>`, JSON), sin migración, como los
+ * tipos. null si no hay o el JSON no es válido. La tabla y la columna se
+ * vuelven a comprobar contra la lista blanca de RDBv2 en cada consulta.
+ */
+export function campoContactoDe(servicio: string): CampoContacto | null {
+  try {
+    const valor = obtenerAjuste(`resultados.campoContacto.${servicio}`, "");
+    if (!valor) return null;
+    const r = esquemaCampoContacto.safeParse(JSON.parse(valor));
+    return r.success ? r.data : null;
+  } catch {
+    return null;
+  }
+}
+
+export function guardarCampoContacto(servicio: string, campo: CampoContacto | null): void {
+  guardarAjuste(`resultados.campoContacto.${servicio}`, campo ? JSON.stringify(campo) : "");
 }

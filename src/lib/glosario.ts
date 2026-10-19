@@ -136,9 +136,9 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "Éxitos ÷ horas. «Logada»: todo el tiempo conectado del usuario del agente (de login a logout), por eso solo existe por agente y no por campaña. «Productiva»: el tiempo de gestión de sus llamadas atendidas; las llamadas de 2 horas o más no cuentan como tiempo, porque son errores de registro.",
   },
   tiempoPorExito: {
-    termino: "Tiempo por éxito",
+    termino: "Conversación y gestión por éxito",
     definicion:
-      "Tiempo de gestión de las llamadas atendidas dividido entre los éxitos: cuántos segundos de trabajo cuesta, de media, cada éxito.",
+      "Solo con los contactos que acabaron en éxito. «Conversación»: lo que se habló, de media, en las llamadas atendidas de cada éxito (si un éxito necesitó dos llamadas, cuentan las dos). «Gestión»: el tiempo medio que el agente tuvo abierto el script de cada éxito, que incluye también lo que tarda en rellenarlo. Las llamadas de 2 horas o más no cuentan, porque son errores de registro.",
   },
   indiceExito: {
     termino: "Índice (frente a la campaña)",
@@ -188,6 +188,31 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     termino: "Semáforo de objetivos",
     definicion:
       "Compara el ratio bruto, el neto y el % de no válidos con el objetivo de la campaña o de su servicio (Administración → Resultados). Verde: cumple; ámbar: se queda a menos de un 10 % del objetivo; rojo: no llega. Sin objetivo, o con menos de 30 finalizados, no hay color.",
+  },
+  finalizados: {
+    termino: "Finalizados",
+    definicion:
+      "Contactos que se dieron por cerrados en el período, fechados por su último intento: los mismos «contactos finalizados» de facturación. Incluye los que se cerraron sin hablar con nadie y los cierres en bloque, así que puede ser algo mayor que los finalizados de Supervisión → Resultados (GrupoHuertas, septiembre de 2026: 8.696 frente a 8.417, por 278 cierres administrativos).",
+  },
+  visionPorCliente: {
+    termino: "Visión por cliente",
+    definicion:
+      "Sin cliente elegido, una fila por cliente con sus cifras del período. Las horas logadas de cada cliente son las de sus campañas, contando cada rato una vez; un agente abierto a la vez en campañas de dos clientes cuenta en los dos, por eso la suma de los clientes puede pasar del total global.",
+  },
+  gruposCampania: {
+    termino: "Grupos de campañas",
+    definicion:
+      "Si el cliente tiene tipos de campaña (Administración → Resultados; en Bolsas, «Cartera» = Bol_ seguido de 3 o 4 cifras), el detalle por campaña sale agrupado por tipo, con el resto al final y una fila de total en cada grupo.",
+  },
+  comparadorCampanias: {
+    termino: "Comparar dos campañas",
+    definicion:
+      "Elige dos campañas del período y se ven todas sus cifras una al lado de la otra, con la diferencia (B − A). En verde la que sale mejor en las métricas donde hay mejor y peor (conversión, abandono, AHT…); en las de volumen no se marca.",
+  },
+  filtroCampoContacto: {
+    termino: "Filtro por campo del contacto",
+    definicion:
+      "Deja ver los resultados solo de los contactos con un valor en un dato de su ficha (en GrupoHuertas, el origen del lead). Al escribir salen los valores que contienen ese texto, con cuántos finalizados tienen en el período. Se puede elegir un valor concreto o todos los que contienen el texto. Qué dato se filtra en cada cliente se elige en Administración → Resultados.",
   },
   leads: {
     termino: "Leads finalizados",

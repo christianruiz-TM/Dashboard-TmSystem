@@ -9,9 +9,18 @@ import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { db } from "@/lib/db/sqlite";
 import { objetivosResultados, resultadosConfig } from "@/lib/db/schema";
 import { esquemaFechaISO } from "@/lib/fechas";
-import { guardarTiposCampania } from "@/lib/db/resultados";
-import { MAX_NIVELES, escribirTiposCampania, leerTiposCampania } from "@/lib/resultados-actividad";
-import { tablasResultados } from "@/lib/rdb/queries/resultados-actividad";
+import { guardarCampoContacto, guardarTiposCampania } from "@/lib/db/resultados";
+import {
+  MAX_NIVELES,
+  esquemaCampoContacto,
+  escribirTiposCampania,
+  leerTiposCampania,
+} from "@/lib/resultados-actividad";
+import {
+  campoContactoValido,
+  directoriosServicio,
+  tablasResultados,
+} from "@/lib/rdb/queries/resultados-actividad";
 
 // ============================================================
 // Server Actions de Administración → Resultados (regla 18). Solo admin;
@@ -102,6 +111,34 @@ export async function guardarTiposCampaniaAccion(formData: FormData): Promise<vo
   if (!servicio || !tipos) volver(servicio || null, "error_tipos");
   guardarTiposCampania(servicio, tipos!);
   await auditar(admin, `${servicio}: tipos de campaña [${escribirTiposCampania(tipos!).replace(/\n/g, " | ")}]`);
+  volver(servicio, "guardado");
+}
+
+/**
+ * Campo del contacto por el que se filtra Resultados (GH: dir_fdlt_origen).
+ * `campo` = «tabla|columna» de la lista blanca (directoriosServicio) o vacío
+ * para quitarlo.
+ */
+export async function guardarCampoContactoAccion(formData: FormData): Promise<void> {
+  const admin = await requireRol();
+  const servicio = String(formData.get("servicio") ?? "");
+  const [tabla, columna] = String(formData.get("campo") ?? "").split("|");
+  if (!servicio) volver(null, "error_campo");
+  if (!tabla) {
+    guardarCampoContacto(servicio, null);
+    await auditar(admin, `${servicio}: sin campo de filtro del contacto`);
+    volver(servicio, "guardado");
+  }
+  // Sin nombre, el de la columna sin el prefijo del directorio («dir_fdlt_origen» → «Origen»)
+  const porDefecto = (columna ?? "").replace(/^dir_(fdlt_)?/i, "").replace(/_/g, " ");
+  const etiqueta =
+    String(formData.get("etiqueta") ?? "").trim() || porDefecto.charAt(0).toUpperCase() + porDefecto.slice(1);
+  const r = esquemaCampoContacto.safeParse({ tabla, columna, etiqueta });
+  if (!r.success || !campoContactoValido(servicio, r.data, await directoriosServicio())) {
+    volver(servicio, "error_campo");
+  }
+  guardarCampoContacto(servicio, r.data!);
+  await auditar(admin, `${servicio}: campo de filtro del contacto ${tabla}.${columna} («${r.data!.etiqueta}»)`);
   volver(servicio, "guardado");
 }
 

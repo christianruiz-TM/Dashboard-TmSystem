@@ -3,19 +3,33 @@ import { conCache, TTL, ttlSegunRango } from "../cache";
 import { obtenerEnums } from "../enums";
 import {
   mockBaseResultados,
+  mockDirectoriosServicio,
+  mockFiltrarPorCampo,
   mockTablasResultados,
   mockTextosResultados,
+  mockValoresCampo,
   mockValoresColumnaResultados,
 } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type {
   BaseResultados,
   CategoriaCierre,
+  DirectorioServicio,
   FilaBaseResultados,
   TablaResultados,
   ValorColumnaResultado,
 } from "../types";
-import { calcularResultados, MAX_NIVELES, type ObjetivoResultados, type ResultadoResultados } from "@/lib/resultados-actividad";
+import {
+  calcularResultados,
+  MAX_NIVELES,
+  MAX_VALORES_CAMPO,
+  PATRON_IDENTIFICADOR_SQL,
+  patronContiene,
+  type CampoContacto,
+  type FiltroCampo,
+  type ObjetivoResultados,
+  type ResultadoResultados,
+} from "@/lib/resultados-actividad";
 import { claveCampanias, filtroCampanias, limitesRango } from "./util";
 import { listaServicios, mapaCampaniaServicio } from "./servicios";
 
@@ -40,7 +54,10 @@ import { listaServicios, mapaCampaniaServicio } from "./servicios";
 const DIAS_SESION = 90;
 
 /** Identificador de SQL Server seguro para ir entre corchetes. */
-const PATRON_IDENTIFICADOR = /^[A-Za-z0-9_]+$/;
+const PATRON_IDENTIFICADOR = PATRON_IDENTIFICADOR_SQL;
+
+/** Días de sesiones de script con los que se averigua el directorio de cada servicio. */
+const DIAS_DIRECTORIO = 90;
 
 /** Configuración de un servicio, tal como sale de SQLite. */
 export interface ConfigResultados {
@@ -93,6 +110,73 @@ export function configValida(cfg: ConfigResultados, tablas: TablaResultados[]): 
     cfg.columnas.every((c) => PATRON_IDENTIFICADOR.test(c) && t.columnas.includes(c)) &&
     cfg.codigosNoValidos.every((c) => Number.isInteger(c))
   );
+}
+
+/**
+ * Directorios de contactos de cada servicio con sus columnas de texto: la
+ * LISTA BLANCA del filtro por campo del contacto (nada que no salga de aquí
+ * entra en el SQL). El directorio de un servicio es el de los contactos de
+ * sus sesiones de script de los últimos 90 días, y su tabla la da
+ * table_schema.directory (el nombre no siempre se deduce: el de GH,
+ * dirgrupohuertas, es dir_1616009371). Columnas de texto de hasta 500
+ * caracteres: fuera los indexed_field_* de 4.000. Verificado 19/10/2026.
+ */
+export async function directoriosServicio(): Promise<DirectorioServicio[]> {
+  if (esMock()) return mockDirectoriosServicio();
+  return conCache("rdb:resultados:directorios", TTL.maestros, async () => {
+    const pool = await obtenerPool();
+    const request = pool.request();
+    request.input("dias", sql.Int, DIAS_DIRECTORIO);
+    const r = await request.query(`
+      WITH dirs AS (
+          SELECT DISTINCT cfg.service, s.directory
+          FROM script_session s
+          INNER JOIN cp_general_cfg cfg ON cfg.campaign = s.campaign
+          WHERE s.start_time >= DATEADD(day, -@dias, GETDATE())
+      )
+      SELECT RTRIM(sv.name) AS servicio, RTRIM(d.name) AS directorio,
+             RTRIM(ts.table_name) AS tabla, col.COLUMN_NAME AS columna
+      FROM dirs
+      INNER JOIN ph_service   sv ON sv.code = dirs.service
+      INNER JOIN ph_directory d  ON d.code = dirs.directory
+      INNER JOIN table_schema ts ON ts.directory = dirs.directory AND ts.ts_type = 4
+      INNER JOIN INFORMATION_SCHEMA.COLUMNS col ON col.TABLE_NAME = RTRIM(ts.table_name)
+      WHERE sv.name NOT LIKE 'Test[_]%'
+        AND col.DATA_TYPE IN ('varchar', 'nvarchar', 'char', 'nchar')
+        AND col.CHARACTER_MAXIMUM_LENGTH BETWEEN 1 AND 500
+      ORDER BY sv.name, ts.table_name, col.ORDINAL_POSITION;
+    `);
+    const mapa = new Map<string, DirectorioServicio>();
+    for (const f of r.recordset as { servicio: string; directorio: string; tabla: string; columna: string }[]) {
+      const clave = `${f.servicio}|${f.tabla}`;
+      const d = mapa.get(clave) ?? { servicio: f.servicio, directorio: f.directorio, tabla: f.tabla, columnas: [] };
+      d.columnas.push(f.columna);
+      mapa.set(clave, d);
+    }
+    return [...mapa.values()];
+  });
+}
+
+/** ¿El campo es una columna de texto de un directorio del servicio? */
+export function campoContactoValido(
+  servicio: string,
+  campo: CampoContacto,
+  directorios: DirectorioServicio[],
+): boolean {
+  const d = directorios.find((x) => x.servicio === servicio && x.tabla === campo.tabla);
+  return (
+    !!d &&
+    PATRON_IDENTIFICADOR.test(campo.tabla) &&
+    PATRON_IDENTIFICADOR.test(campo.columna) &&
+    d.columnas.includes(campo.columna)
+  );
+}
+
+/** Campo del contacto de un servicio y el filtro elegido (null: solo la lista de valores). */
+export interface CampoResultados {
+  servicio: string;
+  campo: CampoContacto;
+  filtro: FiltroCampo | null;
 }
 
 /** Textos de todos los valores de las tablas de resultados (code → nombre). */
@@ -184,14 +268,21 @@ async function baseResultadosCore(
   hastaISO: string,
   campanias: string[] | undefined,
   configs: ConfigResultados[],
+  campoPedido: CampoResultados | null,
 ): Promise<BaseResultados> {
-  const [tablas, servicios, familias, textos] = await Promise.all([
+  const [tablas, servicios, familias, textos, directorios] = await Promise.all([
     tablasResultados(),
     listaServicios(),
     familiasEstadoContacto(),
     textosResultados(),
+    campoPedido ? directoriosServicio() : Promise.resolve([]),
   ]);
   const validas = configs.filter((c) => configValida(c, tablas));
+  // Campo del contacto: solo si está en la lista blanca (identificadores)
+  const campo =
+    campoPedido && campoContactoValido(campoPedido.servicio, campoPedido.campo, directorios)
+      ? campoPedido
+      : null;
 
   const pool = await obtenerPool();
   const request = pool.request();
@@ -206,6 +297,43 @@ async function baseResultadosCore(
   const sinTocar = listaParametros(request, "st", familias.sinTocar);
   const exito = listaParametros(request, "ex", familias.exito);
   const noValidos = listaParametros(request, "nv", [...new Set(validas.flatMap((c) => c.codigosNoValidos))]);
+
+  // Campo del contacto: lista de valores (antes de filtrar) y filtro. La tabla
+  // y la columna vienen de la lista blanca (directoriosServicio), entre
+  // corchetes; el texto buscado va SIEMPRE como parámetro.
+  let sqlCampo = "";
+  if (campo) {
+    const col = `d.[${campo.campo.columna}]`;
+    const dir = `[${campo.campo.tabla}]`;
+    request.input("maxValores", sql.Int, MAX_VALORES_CAMPO);
+    sqlCampo = `
+    -- 3a) Valores del campo con sus finalizados (tipificados), ANTES del filtro:
+    --     las sugerencias del autocompletado. Vacío o solo espacios = sin valor.
+    --     El CASE (y no un NOT IN) aguanta la lista de «sin tocar» vacía.
+    SELECT TOP (@maxValores) NULLIF(LTRIM(RTRIM(${col})), '') AS valor, COUNT(*) AS finalizados
+    FROM #cerr k
+    INNER JOIN #ses s ON s.contact = k.activity
+    LEFT JOIN ${dir} d ON d.easycode = k.contact_profile
+    WHERE CASE WHEN k.estado IS NULL OR k.estado IN (${sinTocar}) THEN 0 ELSE 1 END = 1
+    GROUP BY NULLIF(LTRIM(RTRIM(${col})), '')
+    ORDER BY finalizados DESC;`;
+    const f = campo.filtro;
+    if (f?.modo === "vacio") {
+      sqlCampo += `
+    -- 3b) Filtro: solo los contactos SIN valor en el campo
+    DELETE k FROM #cerr k
+    WHERE EXISTS (SELECT 1 FROM ${dir} d
+                  WHERE d.easycode = k.contact_profile AND NULLIF(LTRIM(RTRIM(${col})), '') IS NOT NULL);`;
+    } else if (f) {
+      // Intercalación CI_AI: no distingue mayúsculas ni tildes
+      request.input("campoValor", sql.VarChar(210), f.modo === "contiene" ? patronContiene(f.valor) : f.valor);
+      const cond = f.modo === "contiene" ? `${col} LIKE @campoValor` : `LTRIM(RTRIM(${col})) = @campoValor`;
+      sqlCampo += `
+    -- 3b) Filtro: solo los contactos con ese valor en el campo
+    DELETE k FROM #cerr k
+    WHERE NOT EXISTS (SELECT 1 FROM ${dir} d WHERE d.easycode = k.contact_profile AND ${cond});`;
+    }
+  }
 
   // Una tabla ao_* por servicio configurado. easycode es único en toda la
   // instalación, así que cada contacto casa como mucho con UNA de ellas y
@@ -232,15 +360,16 @@ async function baseResultadosCore(
     --    evento, como «leads finalizados» de facturación: MAX por actividad
     --    y no NOT EXISTS (regla 13).
     CREATE TABLE #cerr (activity int PRIMARY KEY, cierre datetime NOT NULL,
-                        campania varchar(20) NOT NULL, estado smallint NULL);
+                        campania varchar(20) NOT NULL, estado smallint NULL,
+                        contact_profile int NULL);
     WITH ult AS (
         SELECT h.activity, MAX(h.event_moment) AS cierre
         FROM activity_history h
         WHERE h.event_moment >= @desde AND h.event_moment < @hastaExcl
         GROUP BY h.activity
     )
-    INSERT INTO #cerr (activity, cierre, campania, estado)
-    SELECT ult.activity, ult.cierre, RTRIM(c.shortname), a.business_status
+    INSERT INTO #cerr (activity, cierre, campania, estado, contact_profile)
+    SELECT ult.activity, ult.cierre, RTRIM(c.shortname), a.business_status, a.contact_profile
     FROM ult
     INNER JOIN activity    a ON a.code = ult.activity AND a.status = 3
     INNER JOIN ph_campaign c ON c.code = a.campaign
@@ -271,6 +400,7 @@ async function baseResultadosCore(
     INSERT INTO #ses (contact, e_user, outcome)
     SELECT contact, e_user, outcome FROM ses WHERE rn = 1
     OPTION (HASH JOIN);
+${sqlCampo}
 
     -- 3) Categoría, resultado (niveles configurados) y agente de cada
     --    contacto, agrupado por día de cierre, campaña y agente.
@@ -316,8 +446,13 @@ async function baseResultadosCore(
     DROP TABLE #cerr;
   `);
 
+  // Con campo, el primer resultado es la lista de valores; el último, las filas
+  const conjuntos = r.recordsets as unknown as Record<string, unknown>[][];
+  const valoresCampo = campo
+    ? (conjuntos[0] as { valor: string | null; finalizados: number }[])
+    : undefined;
   const filas: FilaBaseResultados[] = (
-    r.recordset as {
+    conjuntos[conjuntos.length - 1] as {
       fecha: string;
       campania: string;
       categoria: CategoriaCierre;
@@ -341,7 +476,7 @@ async function baseResultadosCore(
     exitos: f.exitos,
     noValidos: f.noValidos,
   }));
-  return montarBase(filas, textos, mapaCampaniaServicio(servicios), validas);
+  return { ...montarBase(filas, textos, mapaCampaniaServicio(servicios), validas), valoresCampo };
 }
 
 /** Completa la base con el servicio de cada campaña y los niveles configurados. */
@@ -380,35 +515,57 @@ function claveConfigs(configs: ConfigResultados[]): string {
     .join("|");
 }
 
-/** Resultados de actividad de un rango (Supervisión → Resultados). */
+/** Clave de cache del campo y su filtro. */
+function claveCampo(c: CampoResultados | null): string {
+  if (!c) return "-";
+  return `${c.servicio}=${c.campo.tabla}.${c.campo.columna}:${c.filtro ? `${c.filtro.modo}:${c.filtro.valor}` : ""}`;
+}
+
+/**
+ * Resultados de actividad de un rango (Supervisión → Resultados). Con
+ * `campo`, trae además los valores de ese campo del contacto y, si lleva
+ * filtro, se queda solo con los contactos que lo cumplen.
+ */
 export async function resultadosActividadRango(
   desdeISO: string,
   hastaISO: string,
   campanias: string[] | undefined,
   configs: ConfigResultados[],
   objetivos: ObjetivoResultados[],
+  campo: CampoResultados | null = null,
 ): Promise<ResultadoResultados> {
   let base: BaseResultados;
   if (campanias && campanias.length === 0) {
     // Lista vacía (p. ej. un tipo de campaña sin campañas en el cliente): en
     // filtroCampanias vacío significa «todas», así que no se consulta nada
-    base = { filas: [], textos: {}, servicioDeCampania: {}, niveles: {}, serviciosConfigurados: [] };
+    base = {
+      filas: [],
+      textos: {},
+      servicioDeCampania: {},
+      niveles: {},
+      serviciosConfigurados: [],
+      valoresCampo: campo ? [] : undefined,
+    };
   } else if (esMock()) {
     const tablas = await tablasResultados();
     const validas = configs.filter((c) => configValida(c, tablas));
     const mapa = mapaCampaniaServicio(await listaServicios());
-    base = montarBase(
-      mockBaseResultados(desdeISO, hastaISO, campanias, validas),
-      mockTextosResultados(),
-      mapa,
-      validas,
-    );
+    const filas = mockBaseResultados(desdeISO, hastaISO, campanias, validas);
+    base = {
+      ...montarBase(
+        campo?.filtro ? mockFiltrarPorCampo(filas, campo.filtro) : filas,
+        mockTextosResultados(),
+        mapa,
+        validas,
+      ),
+      valoresCampo: campo ? mockValoresCampo(filas) : undefined,
+    };
   } else {
     // La configuración entra en la clave: al cambiarla en el admin, se recalcula
     base = await conCache(
-      `rdb:resultados:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}:${claveConfigs(configs)}`,
+      `rdb:resultados:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}:${claveConfigs(configs)}:${claveCampo(campo)}`,
       ttlSegunRango(hastaISO),
-      () => baseResultadosCore(desdeISO, hastaISO, campanias, configs),
+      () => baseResultadosCore(desdeISO, hastaISO, campanias, configs, campo),
     );
   }
   return calcularResultados(base, objetivos, desdeISO, hastaISO);

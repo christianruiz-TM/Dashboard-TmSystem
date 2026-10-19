@@ -13,8 +13,18 @@ import {
 } from "@/lib/rdb/queries/supervision";
 import { ratiosExitoHoy, ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
 import { resultadosActividadRango } from "@/lib/rdb/queries/resultados-actividad";
-import { configsResultados, objetivosDeResultados, tiposCampaniaDe } from "@/lib/db/resultados";
-import { filtrarPorTipo, opcionesTipo, seleccionTipo } from "@/lib/resultados-actividad";
+import {
+  campoContactoDe,
+  configsResultados,
+  objetivosDeResultados,
+  tiposCampaniaDe,
+} from "@/lib/db/resultados";
+import {
+  filtrarPorTipo,
+  leerFiltroCampo,
+  opcionesTipo,
+  seleccionTipo,
+} from "@/lib/resultados-actividad";
 import {
   campaniasDeServicio,
   campaniasEfectivas,
@@ -39,6 +49,8 @@ export default async function PaginaSupervision({
     hasta?: string;
     ivr?: string;
     tipo?: string;
+    campo?: string;
+    modo?: string;
   }>;
 }) {
   const usuario = await requireRol(...ROLES_SUPERVISION);
@@ -70,6 +82,9 @@ export default async function PaginaSupervision({
     // Tipos de campaña del cliente (GH: BBDD): se filtra la lista antes de consultar
     const tipos = servicioElegido ? tiposCampaniaDe(servicioElegido) : [];
     const tipo = seleccionTipo(params.tipo, tipos);
+    // Filtro por un dato del contacto (GH: origen del lead), si el cliente lo tiene
+    const campo = servicioElegido ? campoContactoDe(servicioElegido) : null;
+    const filtroCampo = campo ? leerFiltroCampo(params.campo, params.modo) : null;
     const resultado = servicioElegido
       ? await resultadosActividadRango(
           desde,
@@ -77,6 +92,7 @@ export default async function PaginaSupervision({
           filtrarPorTipo(camp ?? [], tipos, tipo),
           configsResultados(),
           objetivosDeResultados(),
+          campo ? { servicio: servicioElegido, campo, filtro: filtroCampo } : null,
         )
       : null;
     return (
@@ -100,6 +116,7 @@ export default async function PaginaSupervision({
           esAdmin={usuario.rol === "admin"}
           tipos={opcionesTipo(tipos)}
           tipo={tipo}
+          campo={campo ? { etiqueta: campo.etiqueta, filtro: filtroCampo } : null}
         />
       </div>
     );

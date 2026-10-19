@@ -6,9 +6,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { FiltroCampo } from "@/components/filtros/filtro-campo";
 import { Glosario } from "@/components/glosario";
 import { ResultadosActividad } from "@/components/kpi/resultados-actividad";
-import type { ResultadoResultados, SeleccionTipo } from "@/lib/resultados-actividad";
+import type { FiltroCampo as Filtro, ResultadoResultados, SeleccionTipo } from "@/lib/resultados-actividad";
 import { cn } from "@/lib/utils";
 
 /**
@@ -28,6 +29,7 @@ export function PanelResultados({
   esAdmin,
   tipos,
   tipo,
+  campo,
 }: {
   resultado: ResultadoResultados | null;
   /** Opciones del selector de tipo de campaña (vacío si el cliente no tiene tipos). */
@@ -40,6 +42,8 @@ export function PanelResultados({
   servicio?: string;
   incluirIvr: boolean;
   esAdmin: boolean;
+  /** Dato del contacto por el que se puede filtrar (null si el cliente no tiene). */
+  campo: { etiqueta: string; filtro: Filtro | null } | null;
 }) {
   const sinConfigurar = resultado?.serviciosSinConfigurar ?? [];
   // Enlace a un cliente conservando rango e IVR
@@ -53,6 +57,11 @@ export function PanelResultados({
     const p = new URLSearchParams({ vista: "resultados", servicio: servicio ?? "", desde, hasta });
     if (incluirIvr) p.set("ivr", "1");
     if (t !== "todas") p.set("tipo", t);
+    // El filtro por un dato del contacto se mantiene al cambiar de tipo
+    if (campo?.filtro) {
+      if (campo.filtro.valor) p.set("campo", campo.filtro.valor);
+      if (campo.filtro.modo !== "exacto") p.set("modo", campo.filtro.modo);
+    }
     return `/supervision?${p.toString()}`;
   };
   return (
@@ -94,6 +103,10 @@ export function PanelResultados({
             ))}
           </div>
         </div>
+      ) : null}
+
+      {campo && resultado?.valoresCampo ? (
+        <FiltroCampo etiqueta={campo.etiqueta} valores={resultado.valoresCampo} filtro={campo.filtro} />
       ) : null}
 
       {sinConfigurar.length > 0 ? (
@@ -153,6 +166,7 @@ export function PanelResultados({
           "desgloseResultados",
           "agenteFrenteCampania",
           "semaforoResultados",
+          "filtroCampoContacto",
           "ivr",
         ]}
       />

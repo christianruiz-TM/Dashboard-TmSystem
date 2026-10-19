@@ -1,5 +1,5 @@
 import { conCache, ttlSegunRango } from "../cache";
-import { mockHorasAgenteReales, mockRazonesNotReady } from "../mock";
+import { mockHorasAgenteReales, mockHorasLogadasPorServicio, mockRazonesNotReady } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type { HorasAgenteReales, RazonNotReady } from "../types";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
@@ -68,6 +68,58 @@ export async function horasAgenteReales(
       redondear2(filas.find((f) => f.op === op)?.horas ?? 0) ?? 0;
     return { horasLogadas: horaDe(0), horasReady: horaDe(1) };
   });
+}
+
+/**
+ * Horas LOGADAS reales de cada cliente (servicio) en una sola consulta: la
+ * misma unión que horasAgenteReales con las campañas de ese servicio (lo que
+ * sale en Dirección al elegir el cliente), pero de todos a la vez para la
+ * vista por cliente. Islas por servicio y agente.
+ *
+ * La suma de los clientes puede pasar de la cifra global: un agente abierto
+ * en campañas de dos clientes a la vez cuenta ese rato en los dos (como con
+ * dos usuarios logados a la vez, regla 15). El total es horasAgenteReales.
+ * Sin redondear: es un valor final por cliente, se redondea al pintarlo.
+ */
+export async function horasLogadasPorServicio(
+  desdeISO: string,
+  hastaISO: string,
+  campanias?: string[],
+): Promise<Map<string, number>> {
+  if (esMock()) return mockHorasLogadasPorServicio(desdeISO, hastaISO, campanias);
+  const claveCache = `rdb:horasRealesServ:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}`;
+  const filas = await conCache(claveCache, ttlSegunRango(hastaISO), async () => {
+    const pool = await obtenerPool();
+    const request = pool.request();
+    const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+    request.input("desde", sql.DateTime, desde);
+    request.input("hastaExcl", sql.DateTime, hastaExcl);
+    const filtro = filtroCampanias(request, campanias, "c.shortname");
+    const r = await request.query(`
+      -- Unión de las sesiones (op_type 0) por servicio y agente. Si
+      -- cp_general_cfg repitiese una campaña en el mismo servicio, la fila
+      -- duplicada cae en la misma isla y no suma dos veces.
+      WITH base AS (
+          SELECT RTRIM(sv.name) AS servicio, l.agent AS agente,
+                 l.start_time AS ini,
+                 ${sqlFinIntervalo("l")} AS fin
+          FROM ag_in_cp_log l
+          INNER JOIN ph_e_user      u   ON l.agent = u.code AND u.type = 1
+          INNER JOIN ph_campaign    c   ON l.campaign = c.code
+          INNER JOIN cp_general_cfg cfg ON cfg.campaign = l.campaign
+          INNER JOIN ph_service     sv  ON sv.code = cfg.service AND sv.name NOT LIKE 'Test[_]%'
+          WHERE l.op_type = 0
+            AND l.start_time >= @desde AND l.start_time < @hastaExcl${filtro}
+      ),
+      ${sqlCtesIslas("servicio, agente")}
+      SELECT servicio,
+             SUM(CAST(DATEDIFF(SECOND, ini, fin) AS BIGINT)) / 3600.0 AS horas
+      FROM islas
+      GROUP BY servicio;
+    `);
+    return r.recordset as { servicio: string; horas: number }[];
+  });
+  return new Map(filas.map((f) => [f.servicio, Number(f.horas)]));
 }
 
 /**

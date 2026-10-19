@@ -150,6 +150,12 @@ export interface ResultadoResultados {
   serie: { granularidad: "dia" | "semana"; puntos: PuntoSerie[] };
   /** Servicios del alcance con contactos cerrados y sin resultados configurados. */
   serviciosSinConfigurar: string[];
+  /**
+   * Valores del campo del contacto del cliente (si tiene uno configurado) con
+   * sus finalizados en el período, ANTES de aplicar el filtro: son las
+   * sugerencias del autocompletado. null sin campo configurado.
+   */
+  valoresCampo: ValorCampo[] | null;
 }
 
 // ------------------------------------------------------------
@@ -233,6 +239,103 @@ export function filtrarPorTipo(
   if (seleccion === "resto") return campanias.filter((c) => tipoDeCampania(c, tipos) == null);
   const nombre = seleccion.slice("solo:".length);
   return campanias.filter((c) => tipoDeCampania(c, tipos) === nombre);
+}
+
+// ------------------------------------------------------------
+// Filtro por un campo del contacto (19/10/2026, pedido por Christian: GH
+// por el origen del lead, dir_fdlt_origen). El campo es una columna de texto
+// del directorio del cliente (tabla dir_* de table_schema, ts_type 4,
+// ligada por activity.contact_profile = easycode); se elige por cliente en
+// /admin/resultados. GH tiene 483 orígenes distintos (95 en septiembre de
+// 2026) y muchos son códigos de campaña de marketing
+// («HUE1298_GRANADA_MARCA_VO_…»), así que se busca por «contiene», no por
+// «empieza por», y además de un valor exacto se puede filtrar por todos los
+// que contienen un texto (todos los de GRANADA, todos los de LEXUS…).
+// ------------------------------------------------------------
+
+/** Identificador de SQL Server seguro para ir entre corchetes. */
+export const PATRON_IDENTIFICADOR_SQL = /^[A-Za-z0-9_]+$/;
+
+export interface CampoContacto {
+  /** Tabla del directorio (dir_*), de la lista blanca de camposContacto(). */
+  tabla: string;
+  columna: string;
+  /** Cómo se llama en pantalla («Origen»). */
+  etiqueta: string;
+}
+
+export const esquemaCampoContacto = z.object({
+  tabla: z.string().regex(PATRON_IDENTIFICADOR_SQL).max(128),
+  columna: z.string().regex(PATRON_IDENTIFICADOR_SQL).max(128),
+  etiqueta: z.string().trim().min(1).max(40),
+});
+
+export type ModoFiltroCampo = "exacto" | "contiene" | "vacio";
+
+export interface FiltroCampo {
+  modo: ModoFiltroCampo;
+  /** Texto buscado ('' con modo «vacio»). */
+  valor: string;
+}
+
+export interface ValorCampo {
+  /** null = contactos sin valor en el campo. */
+  valor: string | null;
+  finalizados: number;
+}
+
+/** Tope de valores distintos que se mandan al navegador para sugerir. */
+export const MAX_VALORES_CAMPO = 2000;
+
+/** Parámetros de la URL (`campo`, `modo`) → filtro; null si no hay filtro. */
+export function leerFiltroCampo(valor: string | undefined, modo: string | undefined): FiltroCampo | null {
+  if (modo === "vacio") return { modo: "vacio", valor: "" };
+  const texto = (valor ?? "").trim().slice(0, 200);
+  if (!texto) return null;
+  return { modo: modo === "contiene" ? "contiene" : "exacto", valor: texto };
+}
+
+/**
+ * Patrón LIKE de «contiene»: los comodines del texto (% _ [) van como
+ * literales entre corchetes. Se pasa como PARÁMETRO, nunca concatenado.
+ */
+export function patronContiene(texto: string): string {
+  return `%${texto.replace(/[%_[]/g, (c) => `[${c}]`)}%`;
+}
+
+/**
+ * Texto para comparar sin mayúsculas ni tildes y con los espacios
+ * normalizados, como la intercalación de RDBv2 (SQL_Latin1_General_CP1_CI_AI).
+ */
+export function normalizarBusqueda(texto: string): string {
+  return texto
+    .normalize("NFD")
+    .replace(/\p{M}/gu, "")
+    .toLowerCase()
+    .replace(/\s+/g, " ")
+    .trim();
+}
+
+/** Valores que contienen el texto, de más a menos finalizados (como mucho `max`). */
+export function sugerenciasCampo(valores: ValorCampo[], texto: string, max = 50): ValorCampo[] {
+  const buscado = normalizarBusqueda(texto);
+  return valores
+    .filter((v) => v.valor != null && (!buscado || normalizarBusqueda(v.valor).includes(buscado)))
+    .sort((a, b) => b.finalizados - a.finalizados || a.valor!.localeCompare(b.valor!))
+    .slice(0, max);
+}
+
+/** Finalizados que se quedarían con un filtro (para el texto de la opción). */
+export function finalizadosConFiltro(valores: ValorCampo[], filtro: FiltroCampo): number {
+  const buscado = normalizarBusqueda(filtro.valor);
+  return valores
+    .filter((v) => {
+      if (filtro.modo === "vacio") return v.valor == null;
+      if (v.valor == null) return false;
+      const n = normalizarBusqueda(v.valor);
+      return filtro.modo === "contiene" ? n.includes(buscado) : n === buscado;
+    })
+    .reduce((s, v) => s + v.finalizados, 0);
 }
 
 // ------------------------------------------------------------
@@ -714,5 +817,6 @@ export function calcularResultados(
     comparaciones,
     serie: serie(tipificadas, configurados, servicioDe, desde, hasta),
     serviciosSinConfigurar,
+    valoresCampo: base.valoresCampo ?? null,
   };
 }

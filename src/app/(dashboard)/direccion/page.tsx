@@ -10,8 +10,16 @@ import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
+import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { requireRol } from "@/lib/auth/rbac";
 import { estadoAgregados, tendenciaConversionMensual, tendenciaMensual } from "@/lib/db/agregados";
+import { tiposCampaniaDe } from "@/lib/db/resultados";
+import {
+  agruparPorTipo,
+  filasCampaniaDireccion,
+  resumenPorCliente,
+  sumarCampanias,
+} from "@/lib/direccion";
 import {
   segundosLegibles,
   esquemaRango,
@@ -19,16 +27,19 @@ import {
   motivoRangoInvalido,
   presetsRango,
 } from "@/lib/fechas";
-import { horasAgenteReales } from "@/lib/rdb/queries/agentes";
+import { horasAgenteReales, horasLogadasPorServicio } from "@/lib/rdb/queries/agentes";
 import { unidadesPorCampania } from "@/lib/rdb/queries/facturacion";
 import { volumenPorCampania } from "@/lib/rdb/queries/interacciones";
 import { ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
-import { campaniasEfectivas, listaServicios } from "@/lib/rdb/queries/servicios";
+import {
+  campaniasEfectivas,
+  listaServicios,
+  mapaCampaniaServicio,
+} from "@/lib/rdb/queries/servicios";
+import { TablaCampanias, TablaClientes } from "./tablas";
 
 export const metadata: Metadata = { title: "Dirección" };
 export const dynamic = "force-dynamic";
-
-const DOS_DECIMALES: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
 
 /** Variación porcentual entre dos valores (null si no hay base). */
 function variacion(actual: number, anterior: number): number | null {
@@ -69,6 +80,10 @@ export default async function PaginaDireccion({
   const incluirIvr = params.ivr === "1";
   const servicios = await listaServicios();
   const camp = await campaniasEfectivas(params.servicio, incluirIvr);
+  // Sin cliente elegido (o uno que no existe): visión por cliente
+  const servicioElegido = servicios.some((s) => s.servicio === params.servicio)
+    ? params.servicio
+    : undefined;
 
   const [
     campanias,
@@ -79,6 +94,7 @@ export default async function PaginaDireccion({
     horasRealesAnt,
     ratios,
     ratiosAnt,
+    horasPorServicio,
   ] = await Promise.all([
     volumenPorCampania(desde, hasta, camp),
     volumenPorCampania(anterior.desde, anterior.hasta, camp),
@@ -89,12 +105,21 @@ export default async function PaginaDireccion({
     // Ratios de éxito en vivo, la MISMA consulta que Supervisión (regla 17)
     ratiosExitoRango(desde, hasta, camp),
     ratiosExitoRango(anterior.desde, anterior.hasta, camp),
+    servicioElegido ? null : horasLogadasPorServicio(desde, hasta, camp),
   ]);
   const tendencia = tendenciaMensual(12, camp);
   // Conversión mensual desde agg_daily_agent_campaign (hasta ayer)
   const tendenciaConversion = tendenciaConversionMensual(12, camp);
-  const ratiosPorCampania = new Map(ratios.campanias.map((r) => [r.campania, r]));
   const agregados = estadoAgregados();
+  // Una fila por campaña con todas sus cifras: detalle, clientes y comparador
+  const filas = filasCampaniaDireccion(
+    campanias,
+    unidades,
+    ratios.campanias,
+    mapaCampaniaServicio(servicios),
+  );
+  // Grupos del detalle: los tipos de campaña del cliente (Bolsas: cartera y resto)
+  const grupos = agruparPorTipo(filas, servicioElegido ? tiposCampaniaDe(servicioElegido) : []);
 
   // Totales del período y del período comparable anterior
   const suma = <T,>(filas: T[], f: (x: T) => number) => filas.reduce((acc, x) => acc + f(x), 0);
@@ -116,12 +141,19 @@ export default async function PaginaDireccion({
   // por campaña: los agentes blended duplican el tiempo entre campañas.
   const horas = horasReales.horasLogadas;
   const horasAnt = horasRealesAnt.horasLogadas;
-  const exitos = suma(unidades, (u) => u.exitos);
-  const exitosAnt = suma(unidadesAnt, (u) => u.exitos);
-  const ahtMedio =
-    atendidas > 0
-      ? campanias.reduce((acc, c) => acc + (c.ahtSeg ?? 0) * c.atendidas, 0) / atendidas
-      : null;
+  // Éxitos de las sesiones de agente (regla 17), los mismos que el detalle,
+  // la visión por cliente y «Rendimiento por éxitos»
+  const exitos = ratios.total.exitos;
+  const exitosAnt = ratiosAnt.total.exitos;
+  // Contactos cerrados: los «contactos finalizados» de facturación
+  const finalizados = suma(unidades, (u) => u.leadsFinalizados);
+  const finalizadosAnt = suma(unidadesAnt, (u) => u.leadsFinalizados);
+  const ahtMedio = sumarCampanias(filas).ahtSeg;
+  const hrefCliente = (servicio: string) => {
+    const p = new URLSearchParams({ servicio, desde, hasta });
+    if (incluirIvr) p.set("ivr", "1");
+    return `/direccion?${p.toString()}`;
+  };
 
   const top10 = campanias.slice(0, 10).map((c) => ({
     campania: c.campania,
@@ -148,7 +180,7 @@ export default async function PaginaDireccion({
       </div>
       <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <TarjetaKpi
           titulo="Interacciones"
           valor={total.toLocaleString("es-ES")}
@@ -180,8 +212,36 @@ export default async function PaginaDireccion({
           valor={exitos.toLocaleString("es-ES")}
           variacionPct={variacion(exitos, exitosAnt)}
         />
+        <TarjetaKpi
+          titulo="Finalizados"
+          valor={finalizados.toLocaleString("es-ES")}
+          variacionPct={variacion(finalizados, finalizadosAnt)}
+          sub="Contactos cerrados"
+        />
         <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} invertirColor />
       </div>
+
+      {horasPorServicio ? (
+        <TablaClientes
+          filas={resumenPorCliente(filas, horasPorServicio)}
+          total={{
+            interacciones: total,
+            inbound,
+            outbound: suma(filas, (f) => f.outbound),
+            atendidas,
+            abandonadasInbound: abandonadasIn,
+            pctAbandono,
+            ahtSeg: ahtMedio,
+            horasProductivas: suma(filas, (f) => f.horasProductivas),
+            finalizados,
+            contactos: ratios.total.contactos,
+            exitos,
+            convContactosPct: ratios.total.convContactosPct,
+            horasLogadas: horas,
+          }}
+          hrefCliente={hrefCliente}
+        />
+      ) : null}
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>
@@ -256,70 +316,19 @@ export default async function PaginaDireccion({
 
       <RatiosExito ratios={ratios} periodo="en el período" anterior={ratiosAnt.total} />
 
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Detalle por campaña</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
-                  <th className="py-2 pr-4">Campaña</th>
-                  <th className="py-2 pr-4">Tipo</th>
-                  <th className="py-2 pr-4 text-right">Interacciones</th>
-                  <th className="py-2 pr-4 text-right">Atendidas</th>
-                  <th className="py-2 pr-4 text-right">Abandonadas (entrantes)</th>
-                  <th className="py-2 pr-4 text-right">Éxitos</th>
-                  <th className="py-2 pr-4 text-right">Conv. contactos</th>
-                  <th className="py-2 pr-4 text-right">AHT</th>
-                  <th className="py-2 text-right">Horas productivas</th>
-                </tr>
-              </thead>
-              <tbody>
-                {campanias.map((c) => {
-                  const u = unidades.find((x) => x.campania === c.campania);
-                  const r = ratiosPorCampania.get(c.campania);
-                  return (
-                    <tr key={c.campania} className="border-b last:border-0">
-                      <td className="py-2 pr-4 font-medium">{c.campania}</td>
-                      <td className="py-2 pr-4 text-muted-foreground">{c.tipo}</td>
-                      <td className="py-2 pr-4 text-right tabular-nums">
-                        {c.total.toLocaleString("es-ES")}
-                      </td>
-                      <td className="py-2 pr-4 text-right tabular-nums">
-                        {c.atendidas.toLocaleString("es-ES")}
-                      </td>
-                      <td className="py-2 pr-4 text-right tabular-nums">
-                        {c.abandonadasInbound.toLocaleString("es-ES")}
-                      </td>
-                      <td className="py-2 pr-4 text-right tabular-nums text-emerald-700">
-                        {(r?.exitos ?? 0).toLocaleString("es-ES")}
-                      </td>
-                      <td className="py-2 pr-4 text-right tabular-nums">
-                        {r?.convContactosPct != null
-                          ? `${r.convContactosPct.toLocaleString("es-ES", DOS_DECIMALES)} %`
-                          : "—"}
-                      </td>
-                      <td className="py-2 pr-4 text-right tabular-nums">
-                        {segundosLegibles(c.ahtSeg)}
-                      </td>
-                      <td className="py-2 text-right tabular-nums">
-                        {u ? horasLegibles(u.horasProductivas) : "—"}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </CardContent>
-      </Card>
+      <TablaCampanias grupos={grupos} />
+
+      <ComparadorCampanias
+        // Remonta al cambiar de cliente o de rango: las campañas elegidas pueden no estar
+        key={`${servicioElegido ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}`}
+        filas={filas}
+      />
 
       <Glosario
         titulo="Dirección"
         claves={[
           "servicio",
+          "visionPorCliente",
           "interacciones",
           "atendidas",
           "abandonadas",
@@ -328,6 +337,7 @@ export default async function PaginaDireccion({
           "horasLogadas",
           "horasProductivas",
           "exitos",
+          "finalizados",
           "contactosGestionados",
           "conversion",
           "efectividadCierre",
@@ -335,6 +345,8 @@ export default async function PaginaDireccion({
           "tiempoPorExito",
           "indiceExito",
           "inboundOutbound",
+          "gruposCampania",
+          "comparadorCampanias",
         ]}
       />
     </div>

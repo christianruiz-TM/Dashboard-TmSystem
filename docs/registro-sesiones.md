@@ -174,3 +174,11 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - `llamadasPorDevolverHoy` sustituye a `entrantesNoAtendidasHoy`: números con una perdida sin saliente de agente después ni entrante suya atendida. Un ocupado ya cuenta como devuelta (decidido con Christian). 0,1-0,2 s.
 - Texto nuevo: «Ávolo: N llamadas por devolver (la más antigua, de las HH:MM)…», también en la ayuda de supervisión.
 - Desplegado el 19/10/2026 a las 08:56 (`1783cb3`, sin migraciones; backup `dashboard_20261019_0854.db`). Al momento salían 2 por devolver de esa mañana, comprobadas en RDBv2.
+
+### 17 · 19/10/2026 · Dirección por cliente, comparador y filtro de origen (Opus 5.5)
+
+- Dirección: tabla «Por cliente» sin cliente elegido (interacciones, atendidas, % abandono, horas logadas, éxitos, finalizados y AHT; horas con `horasLogadasPorServicio`, una consulta), tarjeta «Finalizados» (contactos cerrados, como en facturación), detalle agrupado por los tipos de campaña del cliente con total por grupo (Bolsas: cartera `Bol_` + 3-4 cifras y resto) y «Comparar dos campañas». Lógica pura en `lib/direccion.ts`, con tests.
+- «Tiempo por éxito» → «Conversación por éxito» (llamadas atendidas de cada éxito) y «Gestión por éxito» (`script_session.duration`, en décimas). GH septiembre: 323,56 s y 451,54 s.
+- Supervisión → Resultados: buscador con autocompletado por un dato del directorio del contacto (GH: `dir_fdlt_origen`, tabla `dir_1616009371`), por valor exacto, «contiene» o sin valor; se configura en `/admin/resultados`. GH septiembre «contiene granada»: 454 finalizados, bruto 40,75 %.
+- Verificado contra RDBv2 y en el `next dev`. Sin desplegar ni commit.
+

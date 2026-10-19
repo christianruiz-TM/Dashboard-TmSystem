@@ -16,12 +16,18 @@ import {
 import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { SelectNativo } from "@/components/admin/select-nativo";
 import { requireRol } from "@/lib/auth/rbac";
-import { configsResultados, objetivosDeResultados, tiposCampaniaDe } from "@/lib/db/resultados";
+import {
+  campoContactoDe,
+  configsResultados,
+  objetivosDeResultados,
+  tiposCampaniaDe,
+} from "@/lib/db/resultados";
 import { presetsRango } from "@/lib/fechas";
 import { MAX_NIVELES, escribirTiposCampania, tipoDeCampania } from "@/lib/resultados-actividad";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import {
   configValida,
+  directoriosServicio,
   etiquetaColumna,
   resultadosActividadRango,
   tablasResultados,
@@ -32,6 +38,7 @@ import {
   borrarConfigResultados,
   borrarObjetivoResultados,
   crearObjetivoResultados,
+  guardarCampoContactoAccion,
   guardarColumnasResultados,
   guardarNoValidos,
   guardarTiposCampaniaAccion,
@@ -75,6 +82,12 @@ export default async function PaginaResultadosAdmin({
     const t = tipoDeCampania(c, tipos) ?? "";
     porTipo.set(t, [...(porTipo.get(t) ?? []), c]);
   }
+
+  // Campo del contacto para filtrar Resultados: columnas de su directorio
+  const campo = servicio ? campoContactoDe(servicio) : null;
+  const directorios = servicio
+    ? (await directoriosServicio()).filter((d) => d.servicio === servicio)
+    : [];
 
   // Valores de cada columna configurada (para marcar los «no válidos»)
   const valores = tabla
@@ -264,8 +277,11 @@ export default async function PaginaResultadosAdmin({
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   Para separar los resultados en Supervisión con un selector («Todas · Sin BBDD · Solo
-                  BBDD»). Una línea por tipo: <code>Nombre: patrón, patrón</code>. En el patrón,{" "}
-                  <code>%</code> es cualquier texto; por ejemplo <code>BBDD: gh_bbdd_%</code>. Si una
+                  BBDD») y agrupar el detalle por campaña de Dirección, con un total por tipo. Una
+                  línea por tipo: <code>Nombre: patrón, patrón</code>. En el patrón, <code>%</code> es
+                  cualquier texto, <code>[_]</code> un guion bajo y <code>[0-9]</code> una cifra; por
+                  ejemplo <code>BBDD: gh[_]bbdd[_]%</code> o, en Bolsas,{" "}
+                  <code>Cartera: Bol[_][0-9][0-9][0-9], Bol[_][0-9][0-9][0-9][0-9]</code>. Si una
                   campaña casa con dos tipos, cuenta en el primero. Vacío = sin tipos.
                 </p>
                 <textarea
@@ -295,6 +311,62 @@ export default async function PaginaResultadosAdmin({
               <Button type="submit" size="sm">
                 Guardar tipos
               </Button>
+            </form>
+
+            <form action={guardarCampoContactoAccion} className="space-y-3 rounded-lg border p-4">
+              <input type="hidden" name="servicio" value={servicio} />
+              <div className="space-y-1.5">
+                <div className="text-sm font-medium">Filtro por un dato del contacto (opcional)</div>
+                <p className="text-xs text-muted-foreground">
+                  Añade a Supervisión → Resultados un buscador para ver solo los contactos con un
+                  valor en un dato de su ficha (en GrupoHuertas, el origen del lead:{" "}
+                  <code>dir_fdlt_origen</code>). Salen los datos de texto del directorio de contactos
+                  del servicio
+                  {directorios.length > 0
+                    ? ` (${directorios.map((d) => `${d.directorio}, tabla ${d.tabla}`).join("; ")})`
+                    : ""}
+                  .
+                </p>
+              </div>
+              {directorios.length === 0 ? (
+                <p className="text-sm text-muted-foreground">
+                  No se ha encontrado el directorio de contactos de este servicio (sin sesiones de
+                  script en los últimos 90 días).
+                </p>
+              ) : (
+                <div className="grid gap-3 md:grid-cols-[minmax(0,2fr)_minmax(0,1fr)_auto] md:items-end">
+                  <div className="space-y-1.5">
+                    <Label htmlFor="campo">Dato</Label>
+                    <SelectNativo
+                      id="campo"
+                      name="campo"
+                      defaultValue={campo ? `${campo.tabla}|${campo.columna}` : ""}
+                    >
+                      <option value="">— Sin filtro —</option>
+                      {directorios.flatMap((d) =>
+                        d.columnas.map((c) => (
+                          <option key={`${d.tabla}|${c}`} value={`${d.tabla}|${c}`}>
+                            {directorios.length > 1 ? `${d.tabla} · ${c}` : c}
+                          </option>
+                        )),
+                      )}
+                    </SelectNativo>
+                  </div>
+                  <div className="space-y-1.5">
+                    <Label htmlFor="etiqueta">Nombre en pantalla</Label>
+                    <Input
+                      id="etiqueta"
+                      name="etiqueta"
+                      defaultValue={campo?.etiqueta ?? ""}
+                      placeholder="Origen"
+                      maxLength={40}
+                    />
+                  </div>
+                  <Button type="submit" size="sm">
+                    Guardar dato
+                  </Button>
+                </div>
+              )}
             </form>
 
             {previa ? (

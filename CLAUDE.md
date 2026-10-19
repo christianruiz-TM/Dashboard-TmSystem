@@ -243,6 +243,18 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       y campaña; la rellena `npm run agregados`). Backfill del 01/06/2025 al
       08/10/2026 en 49 s; septiembre cuadra exacto con la consulta en vivo
       (61.457 contactos, 88.771 atendidas, 5.430 éxitos; solo GH, también).
+    - **Tiempos de los éxitos** (19/10/2026, sustituyen al «tiempo por
+      éxito» = gestión de TODAS las atendidas ÷ éxitos): «Conversación por
+      éxito» = `duration - wrapup_duration` de las llamadas ATENDIDAS de cada
+      sesión de éxito, sumadas por éxito (`itr_thread.script_session`, la
+      suma se hace por sesión ANTES de unir: no duplica éxitos), y «Gestión
+      por éxito» = `script_session.duration` (script abierto, también en
+      DÉCIMAS: ratio 10,0 exacto en 71.276 sesiones). Cada media divide entre
+      los éxitos que tienen ese tiempo (GH septiembre: 124 de 2.529 sin
+      llamada atendida ligada) y descarta hilos y sesiones de 2 h o más.
+      Septiembre 2026: GH 323,56 s y 451,54 s; Bolsas 302,05 s y 471,22 s.
+      Consulta propia (`tiemposExitos`) solo para los rangos: el agregado
+      `agg_daily_agent_campaign` no los guarda (`FilaDiariaRatios` = conteos).
     - Pendiente: objetivos de conversión por campaña con semáforo (más
       adelante). Operaciones aún no ve los ratios (su panel no tiene la
       sección; Supervisión y Dirección piden sus propios roles).
@@ -313,6 +325,26 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       ≥ 10 p.p., con ≥ 30 finalizados) y evolución (por día; por semana ISO
       a partir de 62 días). Semáforo con objetivos de SQLite (campaña >
       servicio, vigencia por fechas): verde, ámbar a menos del 10 % y rojo.
+    - **Filtro por un dato del contacto** (19/10/2026, GH: origen del lead,
+      `dir_fdlt_origen`): buscador con autocompletado en la pestaña. El dato
+      es una columna de texto del DIRECTORIO del cliente, ligada por
+      `activity.contact_profile = dir_*.easycode`. La tabla del directorio
+      NO se deduce del nombre (GH = `dirgrupohuertas` = `dir_1616009371`):
+      la da `table_schema.directory` (ts_type 4), y el directorio de cada
+      servicio, sus sesiones de script de 90 días (`directoriosServicio`,
+      lista blanca de identificadores, como `tablasResultados`). Se elige
+      por cliente en `/admin/resultados` (`app_settings`
+      `resultados.campoContacto.<servicio>`, sin migración).
+      - En el SQL: `#cerr` guarda `contact_profile`; antes de filtrar sale
+        la lista de valores con sus finalizados (las sugerencias, hasta
+        2.000) y el filtro BORRA de `#cerr` lo que no casa, así que todas
+        las vistas salen filtradas. El texto va como parámetro; «contiene»
+        con los comodines escapados (`patronContiene`); la intercalación
+        CI_AI no distingue mayúsculas ni tildes.
+      - URL: `?campo=<texto>&modo=contiene|vacio` (sin modo = valor exacto).
+        Cambiar de cliente lo quita (`SelectorServicio`).
+      - GH septiembre: 75 valores; «contiene granada» 454 finalizados y bruto
+        40,75 %; sin origen 2.576. 1,1-1,3 s al mes (sin filtro, 1,35 s).
 
 19. **Tarificación desde Operaciones (decidido 14/10/2026 con Christian)**:
     sustituye al Excel de facturación de operaciones («Interacciones GH_cs
@@ -405,6 +437,35 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       - Agosto: no se facturaron por decisión de dirección, aunque hubo 3
         llamadas sueltas el 03/08.
       - Se resuelven con los ajustes manuales del cierre (arriba).
+
+20. **Panel de Dirección (pedido por Christian el 19/10/2026)**. Lógica pura
+    con tests en `lib/direccion.ts`; tablas en `direccion/tablas.tsx`.
+    - Una fila por campaña (`filasCampaniaDireccion`) con las tres fuentes
+      de la página (volumen, unidades y ratios): la usan el detalle, la
+      visión por cliente y el comparador. Entran también las campañas que
+      solo cierran contactos.
+    - **Finalizados** = contactos cerrados (`leadsFinalizados`, los
+      «contactos finalizados» de facturación). GH septiembre sin IVR: 8.696
+      = 8.417 finalizados de Resultados + 278 cierres administrativos + 1
+      sin tocar.
+    - **Éxitos** de la tarjeta y de las tablas = los de los ratios (sesiones
+      de agente, regla 17), para que todo sume lo mismo (5.430 en
+      septiembre, igual que las unidades: todos los éxitos son de agente).
+    - **Visión por cliente** (sin cliente elegido): interacciones,
+      atendidas, % abandono de entrantes, horas logadas, éxitos, finalizados
+      y AHT. Horas = `horasLogadasPorServicio` (islas por servicio y agente
+      en UNA consulta, 2,2 s el mes; cada cliente cuadra con
+      `horasAgenteReales` de sus campañas). La suma de clientes PASA del
+      total (septiembre: 3.726,76 h frente a 3.618,45 h): un agente abierto
+      en dos clientes cuenta en los dos. La fila de total usa la global.
+    - **Grupos del detalle** = los tipos de campaña del cliente de
+      `/admin/resultados` (regla 18), con un total por grupo y «Resto» al
+      final. Bolsas: `Cartera: Bol[_][0-9][0-9][0-9], Bol[_][0-9][0-9][0-9][0-9]`
+      (10 campañas, 10.744 de las 57.605 interacciones de septiembre). GH,
+      con su «BBDD», también sale agrupado.
+    - **Comparar dos campañas**: componente de cliente con las filas ya
+      cargadas (no consulta), métricas en `METRICAS_COMPARACION`; marca en
+      verde la mejor solo donde hay mejor y peor (no en volumen).
 
 ## Referencia del esquema RDBv2
 
@@ -1072,6 +1133,25 @@ técnico y las cifras, en `docs/facturacion-tarificacion.md` (regla 19).
       igual que la página (antes lo buscaba como nombre de servicio y salía
       sin horas logadas). Commit `2d564d0`, desplegado a las 14:03 (backup
       `dashboard_20261016_1401.db`, sin migraciones).
+
+## Sesión 19/10/2026 (Opus 5.5): Dirección y filtro de Resultados
+
+Peticiones de Christian del 19/10/2026 (reglas 17, 18 y 20).
+
+- [x] Dirección: visión por cliente, «Finalizados», grupos con total
+      (Bolsas: cartera y resto) y comparador de dos campañas.
+- [x] «Tiempo por éxito» sustituido por conversación y gestión (script
+      abierto) de los éxitos, también en Supervisión.
+- [x] Resultados: filtro con autocompletado por un dato del contacto (GH:
+      origen del lead), configurable por cliente en `/admin/resultados`.
+- [x] Verificado contra RDBv2 con las funciones de las páginas y en el
+      `next dev` (SQLite de desarrollo, backup `dashboard_20261019_1144.db`;
+      allí quedan configurados los tipos de Bolsas y el campo de GH).
+- [ ] Sin desplegar. En producción, en `/admin/resultados`: tipos de Bolsas
+      (Cartera) y el dato «Origen» de GrupoHuertas.
+- [ ] Visto al medir (ya pasaba antes): los ratios de Bolsas tardan ~4,5 s
+      (la consulta de atendidas de sus 20 campañas, 3 s incluso con la
+      lista literal) y `metricasIvr` de un mes de GH, 42 s (el Histórico).
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 

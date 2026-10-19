@@ -1,7 +1,7 @@
 import { conCache, TTL, ttlSegunRango } from "../cache";
 import { mockBaseRatiosExito, mockRatiosDiarios } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
-import type { BaseRatiosExito, FilaDiariaRatios } from "../types";
+import type { BaseRatiosExito, FilaBaseRatios, FilaDiariaRatios } from "../types";
 import { calcularRatiosExito, type ResultadoRatios } from "@/lib/ratios-exito";
 import { hoyISO } from "@/lib/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
@@ -18,7 +18,8 @@ import { claveCampanias, filtroCampanias, limitesRango } from "./util";
 //    atendidas para 24.619 sesiones): los éxitos se cuentan en
 //    script_session, NUNCA uniendo con itr_thread, o salen duplicados.
 //  - Un mes entero por usuario y campaña: ~0,4 s (índice en start_time).
-// Tres queries separadas, como en kpisCampaniasCore: no combinarlas.
+// Queries separadas (sesiones, atendidas, tiempos de los éxitos y logado),
+// como en kpisCampaniasCore: no combinarlas.
 // ============================================================
 
 /** Días hacia atrás para decidir si una campaña usa la calificación «sin éxito». */
@@ -152,6 +153,85 @@ async function filasAgenteCampania(
   return [...filas.values()];
 }
 
+/** Tiempos de los éxitos por usuario y campaña (clave `agente|campania`). */
+type TiemposExitos = Pick<
+  FilaBaseRatios,
+  "exitosConConversacion" | "conversacionExitosSeg" | "exitosConGestion" | "gestionExitosSeg"
+>;
+
+/**
+ * Tiempos de las sesiones de ÉXITO (decidido 19/10/2026 con Christian):
+ *  - conversación = duration - wrapup_duration (regla 6) de sus llamadas
+ *    ATENDIDAS, sumadas por éxito: en Bolsas un éxito lleva ~1,8 atendidas.
+ *  - gestión = script_session.duration, el tiempo con el script abierto
+ *    (en DÉCIMAS de segundo: verificado 19/10/2026, ratio 10,0 exacto
+ *    contra gmt_end_time - gmt_start_time en 71.276 sesiones).
+ * Fuera los hilos y las sesiones de 2 h o más (regla 15: 6 éxitos de CEFF de
+ * septiembre 2026 tenían llamadas de días). Los éxitos se cuentan en
+ * script_session: la conversación se suma por sesión ANTES de unir, así
+ * que una sesión con varias llamadas no se cuenta dos veces (regla 17).
+ * Septiembre 2026, GH: 2.529 éxitos, 451,5 s de script y 320,2 s de
+ * conversación de media; 124 éxitos sin llamada atendida ligada.
+ */
+async function tiemposExitos(
+  desdeISO: string,
+  hastaISO: string,
+  campanias: string[] | undefined,
+): Promise<Map<string, TiemposExitos>> {
+  const pool = await obtenerPool();
+  const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+  const request = pool.request();
+  request.input("desde", sql.DateTime, desde);
+  request.input("hastaExcl", sql.DateTime, hastaExcl);
+  // La llamada puede empezar un poco antes que el script: margen de un día
+  const desdeHilos = new Date(desde);
+  desdeHilos.setDate(desdeHilos.getDate() - 1);
+  request.input("desdeHilos", sql.DateTime, desdeHilos);
+  request.input("maxDecimas", sql.Int, MAX_SEG_HILO * 10);
+  const filtro = filtroCampanias(request, campanias, "c.shortname");
+  const r = await request.query(`
+    WITH ex AS (
+        SELECT s.code, s.e_user, s.campaign, s.duration
+        FROM script_session s
+        INNER JOIN ph_campaign c ON s.campaign = c.code
+        WHERE s.start_time >= @desde AND s.start_time < @hastaExcl
+          AND s.business_status = 3${filtro}
+    ),
+    conv AS (
+        -- Conversación de las atendidas de cada éxito, en décimas
+        SELECT t.script_session, SUM(CAST(t.duration - t.wrapup_duration AS BIGINT)) AS talk
+        FROM itr_thread t
+        INNER JOIN ex ON ex.code = t.script_session
+        WHERE t.start_time >= @desdeHilos AND t.start_time < @hastaExcl
+          AND t.termination_state = 1 AND t.duration < @maxDecimas
+        GROUP BY t.script_session
+    )
+    SELECT RTRIM(u.usr_name)       AS agente,
+           RTRIM(c.shortname)      AS campania,
+           COUNT(conv.script_session) AS exitosConConversacion,
+           ISNULL(SUM(conv.talk), 0) / 10.0 AS conversacionExitosSeg,
+           SUM(CASE WHEN ex.duration < @maxDecimas THEN 1 ELSE 0 END) AS exitosConGestion,
+           SUM(CASE WHEN ex.duration < @maxDecimas
+                    THEN CAST(ex.duration AS BIGINT) ELSE 0 END) / 10.0 AS gestionExitosSeg
+    FROM ex
+    INNER JOIN ph_e_user   u ON u.code = ex.e_user AND u.type = 1
+    INNER JOIN ph_campaign c ON c.code = ex.campaign
+    LEFT JOIN conv ON conv.script_session = ex.code
+    GROUP BY RTRIM(u.usr_name), RTRIM(c.shortname);
+  `);
+  return new Map(
+    (r.recordset as (TiemposExitos & { agente: string; campania: string })[]).map((f) => [
+      `${f.agente}|${f.campania}`,
+      {
+        exitosConConversacion: f.exitosConConversacion,
+        conversacionExitosSeg: Number(f.conversacionExitosSeg),
+        exitosConGestion: f.exitosConGestion,
+        gestionExitosSeg: Number(f.gestionExitosSeg),
+      },
+    ]),
+  );
+}
+
 async function baseRatiosCore(
   desdeISO: string,
   hastaISO: string,
@@ -183,15 +263,27 @@ async function baseRatiosCore(
     GROUP BY RTRIM(u.usr_name);
   `);
 
-  const [filas, rLogado, conSinExito] = await Promise.all([
+  const [conteos, tiempos, rLogado, conSinExito] = await Promise.all([
     filasAgenteCampania(desdeISO, hastaISO, campanias, false),
+    tiemposExitos(desdeISO, hastaISO, campanias),
     logado,
     campaniasConSinExito(hastaISO),
   ]);
+  const sinTiempos: TiemposExitos = {
+    exitosConConversacion: 0,
+    conversacionExitosSeg: 0,
+    exitosConGestion: 0,
+    gestionExitosSeg: 0,
+  };
+  // Los éxitos salen de las sesiones de Q1, así que todo éxito tiene ya su fila
+  const filas: FilaBaseRatios[] = conteos.map((f) => ({
+    ...f,
+    ...(tiempos.get(`${f.agente}|${f.campania}`) ?? sinTiempos),
+  }));
   // Las horas de los usuarios sin actividad en el alcance no hacen falta
   const conActividad = new Set(filas.map((f) => f.agente));
   return {
-    filas, // FilaDiariaRatios es una FilaBaseRatios (fecha = '')
+    filas,
     horasLogadas: (rLogado.recordset as { agente: string; horas: number }[]).filter((h) =>
       conActividad.has(h.agente),
     ),

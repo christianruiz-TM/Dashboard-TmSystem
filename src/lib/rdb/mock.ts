@@ -1,4 +1,5 @@
 import { coincideLike } from "@/lib/planificacion/motor/campanias";
+import { finalizadosConFiltro, type FiltroCampo, type ValorCampo } from "@/lib/resultados-actividad";
 import type {
   AgenteEstado,
   AgenteHoy,
@@ -7,6 +8,7 @@ import type {
   CampaniaInfo,
   CierresDia,
   DemandaFranja,
+  DirectorioServicio,
   EstadoLista,
   FestivosServicio,
   FilaBaseRatios,
@@ -450,6 +452,8 @@ export function mockBaseRatiosExito(
       const atendidas = Math.round(sesiones * llamadasPorSesion);
       const productivoSeg = Math.round(atendidas * (90 + r() * 150));
       horas += productivoSeg / 3600;
+      // Como en la real: algún éxito sin llamada atendida ligada (GH: 5 %)
+      const exitosConConversacion = Math.round(exitos * (0.9 + r() * 0.1));
       filas.push({
         agente,
         nombre: `Agente ${agente.charAt(0).toUpperCase()}${agente.slice(1)}`,
@@ -459,6 +463,10 @@ export function mockBaseRatiosExito(
         sinExito,
         atendidas,
         productivoSeg,
+        exitosConConversacion,
+        conversacionExitosSeg: Math.round(exitosConConversacion * (150 + r() * 200) * llamadasPorSesion),
+        exitosConGestion: exitos,
+        gestionExitosSeg: Math.round(exitos * (200 + r() * 300)),
       });
     }
     // Logado ≈ productivo + pausas y espera en Ready
@@ -600,6 +608,20 @@ export function mockHorasAgenteReales(
     horasLogadas: Math.round(logadas * 10) / 10,
     horasReady: Math.round(logadas * (0.55 + r() * 0.1) * 10) / 10,
   };
+}
+
+/** Horas logadas reales por servicio: la de cada servicio por separado. */
+export function mockHorasLogadasPorServicio(
+  desde: string,
+  hasta: string,
+  campanias?: string[],
+): Map<string, number> {
+  const mapa = new Map<string, number>();
+  for (const s of mockServicios()) {
+    const suyas = s.campanias.filter((c) => !campanias || campanias.length === 0 || campanias.includes(c));
+    if (suyas.length > 0) mapa.set(s.servicio, mockHorasAgenteReales(desde, hasta, suyas).horasLogadas);
+  }
+  return mapa;
 }
 
 /**
@@ -978,6 +1000,49 @@ const RESULTADOS_DEMO: { codigo: number; nombre: string; peso: number; hijos: { 
   { codigo: 9004, nombre: "No contesta - Ilocalizable", peso: 12, hijos: [] },
   { codigo: 9005, nombre: "Pospone", peso: 6, hijos: [] },
 ];
+
+/** En demo cada servicio tiene un directorio con el origen y el canal del lead. */
+export function mockDirectoriosServicio(): DirectorioServicio[] {
+  return CAMPANIAS_DEMO.map((c) => ({
+    servicio: c.shortname,
+    directorio: `dir${c.shortname.toLowerCase()}`,
+    tabla: `dir_dir${c.shortname.toLowerCase()}`,
+    columnas: ["dir_fdlt_nombre", "dir_fdlt_canal", "dir_fdlt_origen", "dir_fdlt_detalle_origen"],
+  }));
+}
+
+/** Orígenes de lead ficticios, con la forma de los reales (pesos relativos). */
+const ORIGENES_DEMO: { valor: string | null; peso: number }[] = [
+  { valor: "Centralita", peso: 30 },
+  { valor: null, peso: 12 },
+  { valor: "Portal coches", peso: 6 },
+  { valor: "Formulario web", peso: 5 },
+  { valor: "DEMO0101_CENTRO_MARCA_VO_SEMINUEVOS_01092026", peso: 4 },
+  { valor: "DEMO0102_CENTRO_PROPIA_VN_GAMA_08092026", peso: 3 },
+  { valor: "DEMO0103_NORTE_MARCA_VN_DIAS_ESPECIALES_14092026", peso: 3 },
+  { valor: "DEMO0104_NORTE_PROPIA_VO_OFERTA_16092026", peso: 2 },
+  { valor: "DEMO0105_SUR_MARCA_VN_LANZAMIENTO_19082026", peso: 2 },
+  { valor: "Redes sociales", peso: 1 },
+];
+
+/** Valores del campo con sus finalizados (los tipificados de la base). */
+export function mockValoresCampo(filas: FilaBaseResultados[]): ValorCampo[] {
+  const total = filas.filter((f) => f.categoria === "tipificado").reduce((s, f) => s + f.contactos, 0);
+  const pesos = ORIGENES_DEMO.reduce((s, o) => s + o.peso, 0);
+  return ORIGENES_DEMO.map((o) => ({ valor: o.valor, finalizados: Math.round((total * o.peso) / pesos) }))
+    .filter((v) => v.finalizados > 0)
+    .sort((a, b) => b.finalizados - a.finalizados);
+}
+
+/** Filtro por campo en demo: se queda con la parte de las filas que le toca. */
+export function mockFiltrarPorCampo(filas: FilaBaseResultados[], filtro: FiltroCampo): FilaBaseResultados[] {
+  const valores = mockValoresCampo(filas);
+  const total = valores.reduce((s, v) => s + v.finalizados, 0);
+  const parte = total > 0 ? finalizadosConFiltro(valores, filtro) / total : 0;
+  return filas.filter(
+    (f) => rng(`campo|${filtro.modo}|${filtro.valor}|${f.fecha}|${f.campania}|${f.agente}|${f.codigos.join(",")}`)() < parte,
+  );
+}
 
 /** En demo cada campaña es un servicio con su tabla ao_<nombre>. */
 export function mockTablasResultados(): TablaResultados[] {

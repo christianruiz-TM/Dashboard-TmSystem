@@ -135,7 +135,7 @@ export interface AgenteHoy {
  * hilo duplicaba éxitos (septiembre 2026: 1.180 sesiones de éxito con 2+
  * hilos).
  */
-export interface FilaBaseRatios {
+export interface FilaConteosRatios {
   agente: string; // usr_name (un usuario por agente y cliente, regla 15)
   nombre: string;
   campania: string;
@@ -149,8 +149,24 @@ export interface FilaBaseRatios {
   productivoSeg: number;
 }
 
-/** Fila de ratios de un día (agg_daily_agent_campaign). `fecha` = '' si no es diaria. */
-export interface FilaDiariaRatios extends FilaBaseRatios {
+/**
+ * Fila de la base de ratios de un rango: los conteos y los tiempos de los
+ * ÉXITOS (decidido 19/10/2026 con Christian, sustituyen al «tiempo por éxito»
+ * de gestión de todas las atendidas ÷ éxitos). En segundos, sin redondear.
+ * Cada tiempo lleva su propio número de éxitos: no todos los éxitos tienen
+ * llamada atendida ligada y los de 2 h o más no cuentan (regla 15).
+ */
+export interface FilaBaseRatios extends FilaConteosRatios {
+  /** Éxitos con alguna llamada atendida y la conversación de esas llamadas. */
+  exitosConConversacion: number;
+  conversacionExitosSeg: number;
+  /** Éxitos con su tiempo de script abierto (script_session.duration). */
+  exitosConGestion: number;
+  gestionExitosSeg: number;
+}
+
+/** Fila de ratios de un día (agg_daily_agent_campaign): solo los conteos. */
+export interface FilaDiariaRatios extends FilaConteosRatios {
   fecha: string;
 }
 
@@ -427,6 +443,22 @@ export interface BaseResultados {
   niveles: Record<string, string[]>;
   /** Servicios con resultados configurados: solo en ellos hay ratio neto. */
   serviciosConfigurados: string[];
+  /** Valores del campo del contacto configurado (antes del filtro), si lo hay. */
+  valoresCampo?: { valor: string | null; finalizados: number }[];
+}
+
+/**
+ * Directorio de contactos de un servicio (tabla dir_*, table_schema ts_type
+ * 4) con sus columnas de texto: la lista blanca del filtro por campo del
+ * contacto de Resultados.
+ */
+export interface DirectorioServicio {
+  /** ph_service.name */
+  servicio: string;
+  /** ph_directory.name */
+  directorio: string;
+  tabla: string;
+  columnas: string[];
 }
 
 /** Tabla ao_<servicio> de RDBv2 con sus columnas candidatas (int). */

@@ -10,6 +10,10 @@ function fila(p: Partial<FilaBaseRatios> & Pick<FilaBaseRatios, "agente" | "camp
     sinExito: 0,
     atendidas: 0,
     productivoSeg: 0,
+    exitosConConversacion: 0,
+    conversacionExitosSeg: 0,
+    exitosConGestion: 0,
+    gestionExitosSeg: 0,
     ...p,
   };
 }
@@ -33,7 +37,8 @@ describe("conversión", () => {
     const r = calcularRatiosExito(base([fila({ agente: "GH_0851", campania: "gh_x" })]));
     expect(r.agentes[0].convContactosPct).toBeNull();
     expect(r.agentes[0].convAtendidasPct).toBeNull();
-    expect(r.agentes[0].segPorExito).toBeNull();
+    expect(r.agentes[0].conversacionPorExitoSeg).toBeNull();
+    expect(r.agentes[0].gestionPorExitoSeg).toBeNull();
   });
 });
 
@@ -119,7 +124,6 @@ describe("horas y totales", () => {
     expect(a.horasLogadas).toBe(7.5);
     expect(a.exitosHoraLogada).toBe(1.6); // 12 / 7,5
     expect(a.exitosHoraProductiva).toBe(3); // 12 / 4 h
-    expect(a.segPorExito).toBe(1200); // 14.400 s / 12
     // Sin sesión en user_log: null, no 0
     expect(r.agentes.find((x) => x.agente === "GH_0925")!.exitosHoraLogada).toBeNull();
     // El total solo suma las horas de quien trabajó en el alcance (no Otro_0001)
@@ -152,5 +156,54 @@ describe("horas y totales", () => {
       ["mucho", false],
       ["poco", true],
     ]);
+  });
+});
+
+describe("tiempos de los éxitos", () => {
+  it("cada media divide entre los éxitos que tienen ese tiempo", () => {
+    const r = calcularRatiosExito(
+      base([
+        // 10 éxitos: 8 con llamada atendida ligada, los 10 con script
+        fila({
+          agente: "GH_0851",
+          campania: "gh_a",
+          sesiones: 40,
+          exitos: 10,
+          atendidas: 40,
+          productivoSeg: 40 * 300,
+          exitosConConversacion: 8,
+          conversacionExitosSeg: 8 * 320,
+          exitosConGestion: 10,
+          gestionExitosSeg: 10 * 450,
+        }),
+        fila({
+          agente: "GH_0851",
+          campania: "gh_b",
+          sesiones: 20,
+          exitos: 2,
+          exitosConConversacion: 2,
+          conversacionExitosSeg: 2 * 200,
+          exitosConGestion: 2,
+          gestionExitosSeg: 2 * 300,
+        }),
+      ]),
+    );
+    const a = r.agentes[0];
+    // (2.560 + 400) / 10 = 296; (4.500 + 600) / 12 = 425
+    expect(a.conversacionPorExitoSeg).toBe(296);
+    expect(a.gestionPorExitoSeg).toBe(425);
+    expect(a.campanias.find((c) => c.campania === "gh_a")!.conversacionPorExitoSeg).toBe(320);
+    expect(r.campanias.find((c) => c.campania === "gh_b")!.gestionPorExitoSeg).toBe(300);
+    expect(r.total.conversacionPorExitoSeg).toBe(296);
+    // Ya no depende de la gestión de las atendidas SIN éxito
+    expect(r.total.gestionPorExitoSeg).toBe(425);
+  });
+
+  it("sin éxitos con tiempo, null y no 0", () => {
+    const r = calcularRatiosExito(
+      base([fila({ agente: "CEFF_0001", campania: "ceff", sesiones: 5, exitos: 1, exitosConGestion: 1, gestionExitosSeg: 60 })]),
+    );
+    expect(r.agentes[0].conversacionPorExitoSeg).toBeNull();
+    expect(r.agentes[0].gestionPorExitoSeg).toBe(60);
   });
 });

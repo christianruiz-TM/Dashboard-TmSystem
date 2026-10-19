@@ -22,6 +22,10 @@ import type { BaseRatiosExito, FilaBaseRatios } from "@/lib/rdb/types";
 //   campañas conviertan mucho más que otras.
 // - Éxitos por hora LOGADA solo por agente (user_log de su usuario, regla
 //   16): por campaña no existe (regla 11). Por campaña, por hora PRODUCTIVA.
+// - Tiempos de los éxitos (19/10/2026, sustituyen al «tiempo por éxito» =
+//   gestión de TODAS las atendidas ÷ éxitos): conversación de las llamadas
+//   atendidas de cada éxito y tiempo con el script abierto, de media por
+//   éxito. Cada media divide entre los éxitos que tienen ese tiempo.
 // ============================================================
 
 /** Por debajo de estos contactos el ratio se enseña atenuado («muestra pequeña»). */
@@ -40,8 +44,10 @@ export interface RatiosBasicos {
   /** null si ninguna de sus campañas usa la calificación «sin éxito». */
   efectividadPct: number | null;
   exitosHoraProductiva: number | null;
-  /** Gestión de las atendidas ÷ éxitos, en segundos. */
-  segPorExito: number | null;
+  /** Conversación media de las llamadas atendidas de cada éxito, en segundos. */
+  conversacionPorExitoSeg: number | null;
+  /** Tiempo medio con el script abierto de cada éxito, en segundos. */
+  gestionPorExitoSeg: number | null;
   muestraPequenia: boolean;
 }
 
@@ -88,6 +94,10 @@ interface Acumulado {
   atendidas: number;
   exitos: number;
   productivoSeg: number;
+  exitosConConversacion: number;
+  conversacionExitosSeg: number;
+  exitosConGestion: number;
+  gestionExitosSeg: number;
   /** Solo de las filas de campañas que marcan «sin éxito». */
   exitosCalificables: number;
   sinExitoCalificables: number;
@@ -100,6 +110,10 @@ function vacio(): Acumulado {
     atendidas: 0,
     exitos: 0,
     productivoSeg: 0,
+    exitosConConversacion: 0,
+    conversacionExitosSeg: 0,
+    exitosConGestion: 0,
+    gestionExitosSeg: 0,
     exitosCalificables: 0,
     sinExitoCalificables: 0,
     hayCalificables: false,
@@ -111,6 +125,10 @@ function acumular(a: Acumulado, f: FilaBaseRatios, marcaSinExito: boolean): void
   a.atendidas += f.atendidas;
   a.exitos += f.exitos;
   a.productivoSeg += f.productivoSeg;
+  a.exitosConConversacion += f.exitosConConversacion;
+  a.conversacionExitosSeg += f.conversacionExitosSeg;
+  a.exitosConGestion += f.exitosConGestion;
+  a.gestionExitosSeg += f.gestionExitosSeg;
   if (marcaSinExito) {
     a.hayCalificables = true;
     a.exitosCalificables += f.exitos;
@@ -129,7 +147,8 @@ function ratios(a: Acumulado): RatiosBasicos {
       ? r2(cociente(a.exitosCalificables, a.exitosCalificables + a.sinExitoCalificables, 100))
       : null,
     exitosHoraProductiva: r2(cociente(a.exitos, a.productivoSeg / 3600)),
-    segPorExito: r2(cociente(a.productivoSeg, a.exitos)),
+    conversacionPorExitoSeg: r2(cociente(a.conversacionExitosSeg, a.exitosConConversacion)),
+    gestionPorExitoSeg: r2(cociente(a.gestionExitosSeg, a.exitosConGestion)),
     muestraPequenia: a.contactos < MIN_CONTACTOS_RATIO,
   };
 }
