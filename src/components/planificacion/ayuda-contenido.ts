@@ -378,8 +378,8 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     ],
     siPasa: [
       {
-        caso: "Alerta: Ávolo con entrantes sin atender.",
-        haz: "Hay llamadas de Ávolo sin coger y nadie con usuario Av_. Que alguien con ese usuario se conecte.",
+        caso: "Alerta: Ávolo con llamadas por devolver.",
+        haz: "Alguien llamó a Ávolo cuando no había nadie con usuario Av_ y aún no se le ha llamado. Que alguien con ese usuario se conecte y le llame. Si da ocupado, ya cuenta como devuelta.",
       },
       {
         caso: "Alerta: GH por debajo del mínimo.",

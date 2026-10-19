@@ -488,14 +488,14 @@ export async function datosHoy(ahora = new Date()): Promise<DatosHoy> {
     });
   }
 
-  // Entrantes de los clientes a demanda (Ávolo): campañas de su servicio sin IVR
+  // Llamadas por devolver de los clientes a demanda (Ávolo): campañas de su servicio sin IVR
   const aDemanda = await Promise.all(
     clientes
       .filter((c) => c.modo === "a_demanda" && c.activo && c.servicioAltitude)
       .map(async (c) => {
         const campanias = (await campaniasEfectivas(c.servicioAltitude!, false)) ?? [];
-        const r = await q.entrantesNoAtendidasHoy(campanias);
-        return { cliente: c.codigo, noAtendidas: r.noAtendidas, ultima: r.ultima, ultimaAtendida: r.ultimaAtendida };
+        const r = await q.llamadasPorDevolverHoy(campanias);
+        return { cliente: c.codigo, porDevolver: r.porDevolver, primera: r.primera };
       }),
   );
 

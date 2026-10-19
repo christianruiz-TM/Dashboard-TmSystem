@@ -495,9 +495,14 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   y **no atendidas en horario** = las que entraron mientras había ≥1 agente logado
   (`ag_in_cp_log op_type=0`) en las campañas del servicio → "horario de producción"
   DINÁMICO (sin config fija). OJO: el `itr_global` NO liga la no-atendida con su
-  callback (los hermanos `origin=2` son salientes del agente en llamadas atendidas)
-  y los números salientes van codificados ≠ entrante → el seguimiento
-  «devuelta/pendiente» de callbacks quedó PENDIENTE de definir el mecanismo real.
+  callback (los hermanos `origin=2` son salientes del agente en llamadas atendidas).
+  **Sí se liga por el NÚMERO** (16/10/2026): la saliente lleva el account code
+  delante en `itr_global.to_address` (`1217` + `614805750`) y basta comparar sus
+  9 últimos dígitos con el `from_address` de la entrante. Comprobado en Ávolo
+  en 6 días de octubre: casi todas las perdidas tienen su devolución, de
+  segundos a 143 min después (sin devolver ese día: 7 números el 05/10, 2 el
+  14/10, ninguno los otros). Lo usa la alerta de Ávolo (`llamadasPorDevolverHoy`, en
+  `queries/planificacion.ts`); `metricasIvr` aún no enseña «devuelta/pendiente».
 - **Planificación de turnos** (rama `feature/planificacion`, plan por fases en
   `docs/plan-planificacion.md`; F1 = datos y motor y F2 = tablero de solo
   lectura, «Generar» y configuración, hechas el 30/09/2026; F3 = edición,
@@ -668,11 +673,19 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       con facturación (GH 1.027,88 h en septiembre) y el grupo GH+BD+LX con el
       Excel de operaciones (1.384,22 h).
     - **Alertas** (vista «Hoy» y tarjeta «Alertas de planificación» de
-      Supervisión): Ávolo con entrantes sin atender y nadie con `Av_`; GH bajo
+      Supervisión): Ávolo con llamadas por devolver y nadie con `Av_`; GH bajo
       el mínimo de la franja (si la franja lo sube, tras los minutos de
       margen); planificado sin conectar tras `plan.minutosAlertaConexion`
       (más de 3 → una alerta con la lista); saliente por debajo de
       `plan.pctAlertaRetraso` en la semana.
+      - **Ávolo** (corregido el 16/10/2026): sin nadie con `Av_`, la campaña
+        rechaza la entrante (estado 7) y alguien se conecta luego a
+        devolverla. La alerta contaba TODAS las perdidas del día, también
+        las ya devueltas (salió «9 sin atender» con las 9 devueltas). Ahora
+        cuenta NÚMEROS con alguna perdida sin saliente de un agente a ese
+        número después, ni entrante suya atendida. Una devolución que da
+        ocupado YA cuenta como hecha (decidido con Christian). Sin número de
+        9 cifras no se puede devolver y no cuenta.
   - **Tarea nocturna (F5)**, `npm run planificacion:nocturno` a las 02:15:
     `nocturno.ts` (PURO, misma regla de ESLint) decide por fecha y
     `tarea-nocturna.ts` lo ejecuta. Idempotente y se pone al día sola:
@@ -1084,8 +1097,9 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 6. KPI de ocupación (productivas / logadas) y % ready.
 7. Cerrar o completar el portal de clientes: 0 mapeos en `client_campaigns`,
    0 usuarios con rol `cliente` → hoy da error si alguien entra.
-8. Investigación acotada (2-3 días) del seguimiento de callbacks del IVR — ver
-   nota "PENDIENTE de definir el mecanismo real" en la sección de Campañas IVR.
+8. Seguimiento de callbacks del IVR: el mecanismo ya se conoce (se liga por
+   el número, 16/10/2026, ver «Campañas IVR») y lo usa la alerta de Ávolo;
+   falta enseñar «devuelta/pendiente» en la tarjeta IVR de Supervisión.
 9. Módulo de calidad de datos (F4): campañas sin servicio, `Test_*` mapeadas a
    clientes, duraciones imposibles, huecos de replicación.
 10. F5: 2FA, HTTPS en el nginx del compose (el bloque TLS ya está comentado en

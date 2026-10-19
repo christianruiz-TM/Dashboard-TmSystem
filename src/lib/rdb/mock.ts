@@ -7,7 +7,6 @@ import type {
   CampaniaInfo,
   CierresDia,
   DemandaFranja,
-  EntrantesNoAtendidas,
   EstadoLista,
   FestivosServicio,
   FilaBaseRatios,
@@ -18,6 +17,7 @@ import type {
   HorasLogadasUsuario,
   IslaSesion,
   KpiCampaniaHoy,
+  LlamadasPorDevolver,
   MetricaDiariaCampania,
   MetricasIvr,
   MinutosLineaFila,
@@ -945,12 +945,10 @@ export function mockHorariosServicio(): HorarioServicio[] {
   ];
 }
 
-export function mockEntrantesNoAtendidasHoy(campanias: string[]): EntrantesNoAtendidas {
-  const r = rng(`noAtendidas|${new Date().toISOString().slice(0, 13)}|${campanias.join(",")}`);
+export function mockLlamadasPorDevolverHoy(campanias: string[]): LlamadasPorDevolver {
+  const r = rng(`porDevolver|${new Date().toISOString().slice(0, 13)}|${campanias.join(",")}`);
   const n = entre(r, 0, 4);
-  return n === 0
-    ? { noAtendidas: 0, primera: null, ultima: null, ultimaAtendida: "10:05" }
-    : { noAtendidas: n, primera: "09:12", ultima: "11:40", ultimaAtendida: "10:05" };
+  return n === 0 ? { porDevolver: 0, primera: null, ultima: null } : { porDevolver: n, primera: "09:12", ultima: "11:40" };
 }
 
 // ---------- Resultados de actividad (regla 18) ----------

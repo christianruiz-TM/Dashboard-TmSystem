@@ -369,14 +369,13 @@ export interface HorarioServicio {
   hasta: string;
 }
 
-/** Entrantes de hoy que no atendió nadie (alerta de clientes «a demanda»). */
-export interface EntrantesNoAtendidas {
-  noAtendidas: number;
-  /** HH:MM de la primera y la última no atendida de hoy (null si ninguna). */
+/** Entrantes perdidas de hoy que nadie ha devuelto (alerta de clientes «a demanda»). */
+export interface LlamadasPorDevolver {
+  /** Números distintos con alguna entrante perdida y sin devolver. */
+  porDevolver: number;
+  /** HH:MM de la primera y la última perdida sin devolver de hoy (null si ninguna). */
   primera: string | null;
   ultima: string | null;
-  /** HH:MM de la última entrante atendida de hoy (null si ninguna). */
-  ultimaAtendida: string | null;
 }
 
 // ------------------------------------------------------------

@@ -107,7 +107,7 @@ mock en `src/lib/rdb/mock.ts`. El SQL Server es anterior a 2017: sin `STRING_AGG
 | `cierresPorDia(desde, hasta, campanias)` | Patrón de la regla 13: `MAX(event_moment)` por actividad, como los leads de `facturacion.ts` (nunca `NOT EXISTS`) | → `agg_cierres_campania` |
 | `estadoListas(campanias)` | `a2.sql`: `activity` filtrado por campaña | → `plan_listas_estado` |
 | `festivosServicio(desde, hasta)` / `horariosServicio()` | `fh2.sql` | Cache 24 h. Avisa si no cubren el mes. |
-| `entrantesNoAtendidasHoy(campanias)` | `itr_thread` origin=1, ts≠1, hoy | Alerta de Ávolo a demanda (TTL 60 s). |
+| `llamadasPorDevolverHoy(campanias)` | `itr_thread` origin=1, ts≠1, hoy, sin saliente ni entrante atendida de un agente después al mismo número (9 últimos dígitos) | Alerta de Ávolo a demanda (TTL 60 s). Hasta el 16/10/2026 era `entrantesNoAtendidasHoy` y contaba también las ya devueltas. |
 
 Se reutiliza lo que ya existe: `limitesRango`, `filtroCampanias`, `claveCampanias`, `conCache`
 y `ttlSegunRango` (`queries/util.ts`, `cache.ts`); `listaServicios`, `campaniasEfectivas`,
@@ -554,7 +554,7 @@ Pedido por Christian al cerrar F3:
   - la migración `0005` del saldo (la `0004` es de facturación).
 - **Adherencia**: por turno (logado con cualquier usuario dentro de lo planificado) y por cliente (logado con el usuario correcto). El tiempo en `Av_` cuenta como «a demanda», no como desvío.
 - **Alertas** (la mejora nº 4 pendiente de CLAUDE.md):
-  - Ávolo: «N entrantes sin atender desde las HH:MM: que alguien con `Av_` se logue»;
+  - Ávolo: «N llamadas por devolver (la más antigua, de las HH:MM): que alguien con `Av_` se conecte y las devuelva» (16/10/2026: antes contaba todas las perdidas del día, también las ya devueltas; una devolución que da ocupado cuenta como hecha);
   - GH por debajo del mínimo en la franja actual (logados ahora con GH/BD/LX frente al mínimo);
   - agente planificado sin conectar a los 15 min (`plan.minutosAlertaConexion`);
   - campaña saliente retrasada: horas de la semana frente al objetivo prorrateado a hoy, por debajo del 80 %.

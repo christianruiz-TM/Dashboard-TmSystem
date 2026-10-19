@@ -2,23 +2,23 @@ import { conCache, TTL, ttlSegunRango } from "../cache";
 import {
   mockCierresPorDia,
   mockDemandaPorFranja,
-  mockEntrantesNoAtendidasHoy,
   mockEstadoListas,
   mockFestivosServicio,
   mockHorariosServicio,
   mockIslasLogadoUsuario,
   mockIslasSesionUsuario,
+  mockLlamadasPorDevolverHoy,
   mockUsuariosAgente,
 } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type {
   CierresDia,
   DemandaFranja,
-  EntrantesNoAtendidas,
   EstadoLista,
   FestivosServicio,
   HorarioServicio,
   IslaSesion,
+  LlamadasPorDevolver,
   UsuarioAgenteRdb,
 } from "../types";
 import { hoyISO } from "@/lib/fechas";
@@ -423,17 +423,28 @@ export async function horariosServicio(): Promise<HorarioServicio[]> {
 }
 
 /**
- * Entrantes de HOY (origin 1) que no atendió nadie en las campañas dadas. Es
- * la alerta de los clientes «a demanda» (Ávolo): alguien con su usuario debe
- * logarse cuando hay una entrante pendiente. Cache de 60 s, como Supervisión.
+ * Entrantes de HOY (origin 1) perdidas en las campañas dadas y que aún nadie
+ * ha devuelto. Es la alerta de los clientes «a demanda» (Ávolo): si no hay
+ * nadie logado con su usuario, la campaña rechaza la llamada (estado 7) y
+ * alguien con ese usuario se conecta luego a devolverla. Cache de 60 s, como
+ * Supervisión.
+ *
+ * Una perdida deja de estar pendiente si, en la misma llamada, la cogió un
+ * agente, o si después un agente (de cualquier campaña) llamó a ese número
+ * con el resultado que fuera (dar ocupado ya cuenta como devuelta, decidido
+ * con Christian el 16/10/2026) o atendió otra entrante suya. El número se
+ * cruza por sus 9 últimos dígitos: la saliente lleva el account code delante
+ * en `to_address` (1217614805750 → 614805750), como en la tarificación. Las
+ * perdidas sin un número de 9 cifras no se pueden devolver y no cuentan.
+ * Se cuentan NÚMEROS, no hilos: quien llama tres veces se devuelve una vez.
+ * Antes contaba todas las perdidas del día aunque ya estuvieran devueltas
+ * (16/10/2026: 9 «sin atender», todas devueltas).
  */
-export async function entrantesNoAtendidasHoy(campanias: string[]): Promise<EntrantesNoAtendidas> {
+export async function llamadasPorDevolverHoy(campanias: string[]): Promise<LlamadasPorDevolver> {
   // Sin campañas no hay nada que vigilar (y el filtro vacío lo abriría a todas)
-  if (campanias.length === 0) {
-    return { noAtendidas: 0, primera: null, ultima: null, ultimaAtendida: null };
-  }
-  if (esMock()) return mockEntrantesNoAtendidasHoy(campanias);
-  return conCache(`rdb:plan:noAtendidas:${claveCampanias(campanias)}`, TTL.supervision, async () => {
+  if (campanias.length === 0) return { porDevolver: 0, primera: null, ultima: null };
+  if (esMock()) return mockLlamadasPorDevolverHoy(campanias);
+  return conCache(`rdb:plan:porDevolver:${claveCampanias(campanias)}`, TTL.supervision, async () => {
     const pool = await obtenerPool();
     const request = pool.request();
     const { desde, hastaExcl } = limitesRango(hoyISO(), hoyISO());
@@ -441,17 +452,35 @@ export async function entrantesNoAtendidasHoy(campanias: string[]): Promise<Entr
     request.input("hastaExcl", sql.DateTime, hastaExcl);
     const filtro = filtroCampanias(request, campanias, "c.shortname");
     const r = await request.query(`
-      SELECT
-          SUM(CASE WHEN t.termination_state <> 1 THEN 1 ELSE 0 END)                  AS noAtendidas,
-          CONVERT(varchar(5), MIN(CASE WHEN t.termination_state <> 1 THEN t.start_time END), 108) AS primera,
-          CONVERT(varchar(5), MAX(CASE WHEN t.termination_state <> 1 THEN t.start_time END), 108) AS ultima,
-          CONVERT(varchar(5), MAX(CASE WHEN t.termination_state = 1 THEN t.start_time END), 108)  AS ultimaAtendida
-      FROM itr_thread t
-      INNER JOIN ph_campaign c ON t.campaign = c.code
-      WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
-        AND t.origin = 1${filtro};
+      WITH perdidas AS (
+          -- Entrantes de hoy en las campañas del cliente que no acabaron atendidas
+          SELECT t.itr_global, t.start_time, RIGHT(RTRIM(g.from_address), 9) AS numero
+          FROM itr_thread t
+          INNER JOIN ph_campaign c ON t.campaign = c.code
+          INNER JOIN itr_global g ON g.code = t.itr_global
+          WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+            AND t.origin = 1 AND t.termination_state <> 1${filtro}
+      ),
+      agente AS (
+          -- Lo que hicieron hoy los agentes humanos, en cualquier campaña:
+          -- salientes con cualquier resultado y entrantes atendidas
+          SELECT t.itr_global, t.start_time,
+                 RIGHT(RTRIM(CASE WHEN t.origin = 2 THEN g.to_address ELSE g.from_address END), 9) AS numero
+          FROM itr_thread t
+          INNER JOIN ph_e_user u ON u.code = t.e_user AND u.type = 1
+          INNER JOIN itr_global g ON g.code = t.itr_global
+          WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+            AND (t.origin = 2 OR (t.origin = 1 AND t.termination_state = 1))
+      )
+      SELECT COUNT(DISTINCT p.numero)                     AS porDevolver,
+             CONVERT(varchar(5), MIN(p.start_time), 108) AS primera,
+             CONVERT(varchar(5), MAX(p.start_time), 108) AS ultima
+      FROM perdidas p
+      WHERE LEN(p.numero) = 9 AND p.numero NOT LIKE '%[^0-9]%'
+        AND NOT EXISTS (SELECT 1 FROM agente a WHERE a.itr_global = p.itr_global)
+        AND NOT EXISTS (SELECT 1 FROM agente a WHERE a.numero = p.numero AND a.start_time >= p.start_time);
     `);
-    const f = r.recordset[0] as EntrantesNoAtendidas;
-    return { ...f, noAtendidas: f.noAtendidas ?? 0 };
+    const f = r.recordset[0] as LlamadasPorDevolver;
+    return { ...f, porDevolver: f.porDevolver ?? 0 };
   });
 }

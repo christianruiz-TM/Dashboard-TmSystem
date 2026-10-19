@@ -4,8 +4,9 @@
 // las entrantes de los clientes a demanda y las horas de la semana) y
 // devuelve qué avisar. Umbrales en los parámetros plan.*.
 //
-//   1. A demanda (Ávolo): entrantes sin atender después de la última atendida
-//      y nadie logado con su usuario.
+//   1. A demanda (Ávolo): entrantes perdidas que aún nadie ha devuelto y
+//      nadie logado con su usuario (lo devuelto lo decide la consulta,
+//      `llamadasPorDevolverHoy`).
 //   2. Cliente base (GH) por debajo del mínimo en la franja actual, contando
 //      a los logados con GH o con los que cuentan como GH (BD, LX). Si la
 //      franja sube el mínimo, se esperan los mismos N minutos que para
@@ -51,8 +52,8 @@ export interface DatosAlertas {
   minimosBase: readonly number[] | null;
   /** Tiempo logado HOY por agente (minutos), con el cliente del usuario. */
   logadoHoy: readonly { agenteNumero: string; inicioMin: number; finMin: number; clienteCodigo: string | null }[];
-  /** Entrantes de hoy de cada cliente a demanda (horas «HH:MM»). */
-  aDemanda: readonly { cliente: string; noAtendidas: number; ultima: string | null; ultimaAtendida: string | null }[];
+  /** Llamadas perdidas de hoy y aún sin devolver de cada cliente a demanda (horas «HH:MM»). */
+  aDemanda: readonly { cliente: string; porDevolver: number; primera: string | null }[];
   /** Por cliente objetivo: horas planificadas y reales de la semana hasta ahora. */
   semana: readonly { cliente: string; planificadoH: number; realH: number }[];
   nombres: Readonly<Record<string, string>>;
@@ -75,17 +76,18 @@ export function evaluarAlertas(d: DatosAlertas): Alerta[] {
   const ahora = d.logadoHoy.filter((t) => t.inicioMin <= d.ahoraMin && t.finMin >= d.ahoraMin - MARGEN_ABIERTA_MIN);
   const agentesAhora = new Set(ahora.map((t) => t.agenteNumero));
 
-  // 1. Clientes a demanda con entrantes pendientes y nadie con su usuario
+  // 1. Clientes a demanda con llamadas por devolver y nadie con su usuario
   for (const x of d.aDemanda) {
-    const pendiente = x.noAtendidas > 0 && x.ultima != null && (x.ultimaAtendida == null || x.ultima > x.ultimaAtendida);
-    if (!pendiente || ahora.some((t) => t.clienteCodigo === x.cliente)) continue;
+    if (x.porDevolver <= 0 || ahora.some((t) => t.clienteCodigo === x.cliente)) continue;
     const c = cliente.get(x.cliente);
     const usuario = c?.prefijos.length ? c.prefijos.join(" o ") : "su usuario";
+    const una = x.porDevolver === 1;
+    const desde = x.primera ? (una ? ` (de las ${x.primera})` : ` (la más antigua, de las ${x.primera})`) : "";
     alertas.push({
       tipo: "a_demanda",
       gravedad: "alta",
       cliente: x.cliente,
-      mensaje: `${c?.nombre ?? x.cliente}: ${x.noAtendidas} ${x.noAtendidas === 1 ? "entrante sin atender" : "entrantes sin atender"} hoy (la última a las ${x.ultima}) y nadie conectado con ${usuario}: que alguien con ese usuario se conecte.`,
+      mensaje: `${c?.nombre ?? x.cliente}: ${x.porDevolver} ${una ? "llamada" : "llamadas"} por devolver${desde} y nadie conectado con ${usuario}: que alguien con ese usuario se conecte y ${una ? "la" : "las"} devuelva.`,
     });
   }
 

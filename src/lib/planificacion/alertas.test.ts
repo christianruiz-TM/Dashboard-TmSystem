@@ -25,7 +25,7 @@ const BASE: DatosAlertas = {
     { agenteNumero: "0892", inicioMin: 538, finMin: 629, clienteCodigo: "BD" },
     { agenteNumero: "0925", inicioMin: 600, finMin: 625, clienteCodigo: "UGR" },
   ],
-  aDemanda: [{ cliente: "AV", noAtendidas: 0, ultima: null, ultimaAtendida: null }],
+  aDemanda: [{ cliente: "AV", porDevolver: 0, primera: null }],
   semana: [],
   nombres: { "0851": "Lourdes", "0925": "Bego" },
   parametros: { minutosConexion: 15, pctRetraso: 80, horasMinRetraso: 2 },
@@ -81,20 +81,23 @@ describe("alertas de planificación", () => {
     expect(evaluarAlertas({ ...BASE, ahoraMin: 21 * 60, logadoHoy: [], bloquesHoy: [] })).toEqual([]);
   });
 
-  it("Ávolo con entrantes pendientes y nadie con Av_; si alguien está conectado, nada", () => {
-    const pendientes = { ...BASE, logadoHoy: BASE.logadoHoy.map((t) => ({ ...t, finMin: 630 })), aDemanda: [{ cliente: "AV", noAtendidas: 3, ultima: "10:12", ultimaAtendida: "09:40" }] };
+  it("Ávolo con llamadas por devolver y nadie con Av_; si alguien está conectado, nada", () => {
+    const pendientes = { ...BASE, logadoHoy: BASE.logadoHoy.map((t) => ({ ...t, finMin: 630 })), aDemanda: [{ cliente: "AV", porDevolver: 3, primera: "09:49" }] };
     expect(evaluarAlertas(pendientes)).toEqual([
       {
         tipo: "a_demanda",
         gravedad: "alta",
         cliente: "AV",
-        mensaje: "Ávolo: 3 entrantes sin atender hoy (la última a las 10:12) y nadie conectado con Av_: que alguien con ese usuario se conecte.",
+        mensaje: "Ávolo: 3 llamadas por devolver (la más antigua, de las 09:49) y nadie conectado con Av_: que alguien con ese usuario se conecte y las devuelva.",
       },
+    ]);
+    expect(evaluarAlertas({ ...pendientes, aDemanda: [{ cliente: "AV", porDevolver: 1, primera: "13:04" }] }).map((a) => a.mensaje)).toEqual([
+      "Ávolo: 1 llamada por devolver (de las 13:04) y nadie conectado con Av_: que alguien con ese usuario se conecte y la devuelva.",
     ]);
     const atendiendo = { ...pendientes, logadoHoy: [...pendientes.logadoHoy, { agenteNumero: "0985", inicioMin: 620, finMin: 630, clienteCodigo: "AV" }] };
     expect(evaluarAlertas(atendiendo)).toEqual([]);
-    // Ya atendida después de la última perdida: nada pendiente
-    expect(evaluarAlertas({ ...pendientes, aDemanda: [{ cliente: "AV", noAtendidas: 3, ultima: "10:12", ultimaAtendida: "10:20" }] })).toEqual([]);
+    // Perdidas, pero todas devueltas (aunque dieran ocupado): nada pendiente
+    expect(evaluarAlertas({ ...pendientes, aDemanda: [{ cliente: "AV", porDevolver: 0, primera: null }] })).toEqual([]);
   });
 
   it("campaña saliente retrasada por debajo del 80 % (y solo pasadas las horas mínimas)", () => {
