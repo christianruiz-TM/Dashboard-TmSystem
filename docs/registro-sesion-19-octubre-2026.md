@@ -99,11 +99,17 @@ cambiar de versión.
   migraciones, imagen `cb98ebdf9317`; vuelta atrás a `dashboard-app:anterior`
   = `001ff43cc165`). Detalle en el §9.
 - En producción ya estaban la configuración de Resultados de GH y su tipo
-  «BBDD». **Faltan** (Christian, en `/admin/resultados`):
+  «BBDD». A las 12:24, a petición de Christian, se dieron de alta los dos
+  que faltaban (backup `dashboard_20261019_1224.db`), con las mismas
+  funciones y validaciones que `/admin/resultados` y una línea
+  `config_resultados` en `audit_log` cada uno (usuario `admin`, «alta por
+  Claude a petición de Christian»). El script se negaba si ya había algo:
   - Bolsas → Tipos de campaña:
-    `Cartera: Bol[_][0-9][0-9][0-9], Bol[_][0-9][0-9][0-9][0-9]`
-  - GrupoHuertas → Filtro por un dato del contacto: `dir_fdlt_origen`,
-    nombre «Origen».
+    `Cartera: Bol[_][0-9][0-9][0-9], Bol[_][0-9][0-9][0-9][0-9]`. Quedan 10
+    campañas en «Cartera» y 12 en «Resto» (con `IVR_Bolsas`, que el panel
+    no cuenta salvo con «Incluir IVR», y `Bol_incid_prueba`).
+  - GrupoHuertas → Filtro por un dato del contacto: `dir_fdlt_origen`
+    (`dir_1616009371`), nombre «Origen».
 
 ## Visto de paso, sin tocar (ya pasaba antes)
 

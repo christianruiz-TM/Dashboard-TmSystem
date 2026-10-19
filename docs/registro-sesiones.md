@@ -181,6 +181,6 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - «Tiempo por éxito» → «Conversación por éxito» (llamadas atendidas de cada éxito) y «Gestión por éxito» (`script_session.duration`, en décimas). GH septiembre: 323,56 s y 451,54 s.
 - Supervisión → Resultados: buscador con autocompletado por un dato del directorio del contacto (GH: `dir_fdlt_origen`, tabla `dir_1616009371`), por valor exacto, «contiene» o sin valor; se configura en `/admin/resultados`. GH septiembre «contiene granada»: 454 finalizados, bruto 40,75 %.
 - Verificado contra RDBv2 y en el `next dev`. Desplegado el 19/10/2026 a las 12:18 (`90b1192`, sin migraciones; backup `dashboard_20261019_1216.db`).
-- Pendiente: en `/admin/resultados` de producción, el tipo «Cartera» de Bolsas y el dato «Origen» de GrupoHuertas (Christian).
+- 12:24: dados de alta en producción el tipo «Cartera» de Bolsas y el dato «Origen» de GrupoHuertas (backup `dashboard_20261019_1224.db`, con su línea en `audit_log`).
 - Registro completo en `registro-sesion-19-octubre-2026.md`.
 
