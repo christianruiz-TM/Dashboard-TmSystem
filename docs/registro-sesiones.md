@@ -173,3 +173,4 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - La devolución se liga por el número: la saliente lleva el account code delante en `to_address` (9 últimos dígitos = `from_address` de la entrante). Era el «PENDIENTE» del seguimiento de callbacks del IVR.
 - `llamadasPorDevolverHoy` sustituye a `entrantesNoAtendidasHoy`: números con una perdida sin saliente de agente después ni entrante suya atendida. Un ocupado ya cuenta como devuelta (decidido con Christian). 0,1-0,2 s.
 - Texto nuevo: «Ávolo: N llamadas por devolver (la más antigua, de las HH:MM)…», también en la ayuda de supervisión.
+- Desplegado el 19/10/2026 a las 08:56 (`1783cb3`, sin migraciones; backup `dashboard_20261019_0854.db`). Al momento salían 2 por devolver de esa mañana, comprobadas en RDBv2.
