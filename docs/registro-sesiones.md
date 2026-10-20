@@ -6,7 +6,7 @@ histórico de git.
 
 **De dónde sale cada sesión:**
 
-- Cuatro tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10 y 19/10).
+- Seis tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10, 14-16/10, 19/10 y 20/10).
 - Las demás se han reconstruido el 14/10/2026 a partir de los commits, los apartados con fecha
   de CLAUDE.md, los «Estado de F…» de `docs/plan-planificacion.md` y el histórico de
   `docs/despliegue-linux.md`. De esas no hay transcripción.
@@ -38,6 +38,9 @@ histórico de git.
 | 13 | 13/10/2026 (11:40) | no consta | Dirección ve Operaciones y Supervisión | `31f638a` `ecae120` | CLAUDE.md «Arquitectura → Auth propia»; `despliegue-linux.md` |
 | 14 | 13-14/10/2026 | Opus 5.5 | Resultados de actividad (ratio bruto y neto) y tipos de campaña | `d9d70fb` `9b9e080` `708da22` `a49c856` | `registro-sesion-13-octubre-2026.md`; CLAUDE.md regla 18 |
 | 15 | 14-16/10/2026 | Opus 5.5 | Tarificación desde Operaciones (sustituye al Excel de facturación), Operaciones más rápida y totales por cliente | `87f7b63` `2d564d0` (+ histórico de despliegues) | `registro-sesion-14-octubre-2026.md`; `facturacion-tarificacion.md`; CLAUDE.md reglas 16 y 19 |
+| 16 | 16/10/2026 | Opus 5.5 | Alerta de Ávolo: llamadas por devolver | `1783cb3` (+ histórico de despliegues) | CLAUDE.md «Planificación → Alertas» y «Campañas IVR» |
+| 17 | 19/10/2026 | Opus 5.5 | Dirección por cliente, comparador y filtro de origen en Resultados | `90b1192` `cf283cf` `7f1d014` | `registro-sesion-19-octubre-2026.md`; CLAUDE.md reglas 17, 18 y 20 |
+| 18 | 20/10/2026 | Opus 5.5 | Incidencia: Dirección no cargaba tras el login (plan en caché de `tiemposExitos`) | `52329c1` (+ documentación) | `registro-sesion-20-octubre-2026.md`; CLAUDE.md regla 17 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -184,3 +187,11 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - 12:24: dados de alta en producción el tipo «Cartera» de Bolsas y el dato «Origen» de GrupoHuertas (backup `dashboard_20261019_1224.db`, con su línea en `audit_log`).
 - Registro completo en `registro-sesion-19-octubre-2026.md`.
 
+### 18 · 20/10/2026 · Incidencia: Dirección no cargaba (Opus 5.5)
+
+- «No puedo logarme, se queda colgado en la ventana de login»: el login iba bien; se colgaba `/direccion`, la página a la que manda después.
+- Causa: `tiemposExitos` (ratios de éxito, del despliegue del 19/10) tardaba 390-440 s para el mes en curso de todos los clientes con el plan que SQL Server tenía en caché; el mismo SQL con otro texto, 0,5 s. Sin bloqueos en RDBv2 (comprobado con `LOCK_TIMEOUT` mientras tanto).
+- Arreglo: `OPTION (HASH JOIN)` en esa consulta. Septiembre igual que lo verificado (5.430 éxitos; GH 323,56 s y 451,54 s; Bolsas 302,05 s y 471,22 s).
+- Desplegado a las 09:12 (`52329c1`, solo ese fichero, sin migraciones; backup `dashboard_20261020_0911.db`). Las 9 consultas de `/direccion`, en 0,1-1,0 s.
+- Pendiente: el timeout de 120 s de mssql no saltó con esa consulta (mejora 3), y los permisos del usuario `tms` para ver planes y bloqueos.
+- Registro completo en `registro-sesion-20-octubre-2026.md`.

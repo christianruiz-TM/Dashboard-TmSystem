@@ -255,6 +255,12 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       Septiembre 2026: GH 323,56 s y 451,54 s; Bolsas 302,05 s y 471,22 s.
       Consulta propia (`tiemposExitos`) solo para los rangos: el agregado
       `agg_daily_agent_campaign` no los guarda (`FilaDiariaRatios` = conteos).
+      **`OPTION (HASH JOIN)` obligatorio en `tiemposExitos`** (20/10/2026):
+      el texto de la consulta es el mismo para un día (Supervisión en vivo)
+      que para un mes, y SQL Server reutiliza el plan en caché. Con el que
+      tenía, el mes en curso de todos los clientes tardaba 390-440 s (sin
+      que saltase el timeout de 120 s) y `/direccion` no cargaba; con
+      hash, 1,2 s y las mismas cifras. No quitarlo.
     - Pendiente: objetivos de conversión por campaña con semáforo (más
       adelante). Operaciones aún no ve los ratios (su panel no tiene la
       sección; Supervisión y Dirección piden sus propios roles).
@@ -1159,6 +1165,23 @@ Peticiones de Christian del 19/10/2026 (reglas 17, 18 y 20).
       (la consulta de atendidas de sus 20 campañas, 3 s incluso con la
       lista literal) y `metricasIvr` de un mes de GH, 42 s (el Histórico).
 
+## Incidencia 20/10/2026 (Opus 5.5): Dirección no cargaba
+
+Registro completo en `docs/registro-sesion-20-octubre-2026.md`.
+
+- [x] «No puedo entrar»: el login iba bien; `/direccion` se colgaba por
+      `tiemposExitos` (regla 17), 390-440 s con el plan en caché de SQL
+      Server y 0,5 s con uno nuevo. `OPTION (HASH JOIN)` (`52329c1`),
+      desplegado a las 09:12 (backup `dashboard_20261020_0911.db`, sin
+      migraciones). Las 9 consultas de la página, en 0,1-1,0 s.
+- [ ] El timeout de 120 s de mssql no saltó con esa consulta (terminó
+      sin error a los 392 s y a los 438 s): cada recarga dejaba otra en
+      marcha. Va con la mejora 3.
+- [ ] El usuario `tms` no puede ver planes ni bloqueos (`VIEW SERVER
+      STATE`, `SHOWPLAN`). RDBv2: SQL Server 2019 RTM sin CU, nivel de
+      compatibilidad 100, RCSI desactivado y estadísticas de
+      `ixscript_session_start_time` del 10/09. Lo decide Christian.
+
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
 Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:
@@ -1174,6 +1197,9 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 3. Degradación elegante cuando RDBv2 no responde (hoy: `ConnectionError` de
    Next sin más). `error.tsx` por vista + banner de salud visible (ya existe
    `saludRdb()`, solo lo ve /admin).
+   Además, un límite propio por consulta: el 20/10/2026 una tardó 390-440 s
+   sin que saltase el timeout de mssql, nginx cortaba a los 180 s y cada
+   recarga de la página lanzaba otra (`registro-sesion-20-octubre-2026.md`).
 4. Alertas proactivas en Supervisión (SLA bajo, abandono alto, Not Ready largo,
    campaña con entrantes y cero agentes logados). **A medias** (06/10/2026):
    las de planificación (F4 del módulo) ya salen en Supervisión, incluida
