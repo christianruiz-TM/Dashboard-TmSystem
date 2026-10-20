@@ -116,6 +116,9 @@ export default async function PaginaOperaciones({
           </p>
         </div>
         <div className="flex flex-wrap gap-2">
+          <Button variant="outline" size="sm" render={<a href="/operaciones/articulos" />}>
+            Artículos y tarifas
+          </Button>
           <Button variant="outline" size="sm" render={<a href="/operaciones/ddis" />}>
             DDIs
           </Button>
@@ -219,6 +222,8 @@ export default async function PaginaOperaciones({
           "cierreMes",
           "horasLogadasCliente",
           "repartoHorasLogadas",
+          "articulosGs",
+          "cargosPuntuales",
           "minutosLinea",
           "ddis",
           "horasProductivas",

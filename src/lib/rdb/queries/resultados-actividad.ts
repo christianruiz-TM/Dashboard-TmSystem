@@ -3,6 +3,7 @@ import { conCache, TTL, ttlSegunRango } from "../cache";
 import { obtenerEnums } from "../enums";
 import {
   mockBaseResultados,
+  mockContactosExport,
   mockDirectoriosServicio,
   mockFiltrarPorCampo,
   mockTablasResultados,
@@ -30,6 +31,7 @@ import {
   type ObjetivoResultados,
   type ResultadoResultados,
 } from "@/lib/resultados-actividad";
+import type { ColumnaExport, ContactoExport } from "@/lib/export-contactos";
 import { claveCampanias, filtroCampanias, limitesRango } from "./util";
 import { listaServicios, mapaCampaniaServicio } from "./servicios";
 
@@ -263,50 +265,47 @@ function listaParametros(
     .join(", ");
 }
 
-async function baseResultadosCore(
-  desdeISO: string,
-  hastaISO: string,
-  campanias: string[] | undefined,
-  configs: ConfigResultados[],
-  campoPedido: CampoResultados | null,
-): Promise<BaseResultados> {
-  const [tablas, servicios, familias, textos, directorios] = await Promise.all([
-    tablasResultados(),
-    listaServicios(),
-    familiasEstadoContacto(),
-    textosResultados(),
-    campoPedido ? directoriosServicio() : Promise.resolve([]),
-  ]);
-  const validas = configs.filter((c) => configValida(c, tablas));
-  // Campo del contacto: solo si está en la lista blanca (identificadores)
-  const campo =
-    campoPedido && campoContactoValido(campoPedido.servicio, campoPedido.campo, directorios)
-      ? campoPedido
-      : null;
+/** Opciones del paso común de Resultados y del CSV de contactos finalizados. */
+interface OpcionesCerrados {
+  desde: Date;
+  hastaExcl: Date;
+  campanias: string[] | undefined;
+  /** Estados «sin tocar» (familias de ContactBusinessStatus). */
+  sinTocar: number[];
+  /** Dato del contacto ya validado contra la lista blanca, o null. */
+  campo: CampoResultados | null;
+  /** Con la lista de valores del dato (3a), antes de filtrar. */
+  conValores: boolean;
+}
 
-  const pool = await obtenerPool();
-  const request = pool.request();
-  const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
-  const desdeSesiones = new Date(desde);
+/**
+ * Paso común de Resultados y del CSV de contactos finalizados: crea #cerr
+ * (contactos cerrados en el rango, de las campañas pedidas y, si hay filtro,
+ * con ese valor en el dato del contacto) y #ses (la última sesión de agente
+ * de cada uno). Añade los parámetros a `request` y devuelve el SQL y el
+ * fragmento de la lista «sin tocar» para el WHERE de quien lo use.
+ */
+function sqlCerrados(request: Request, o: OpcionesCerrados): { sql: string; sinTocar: string } {
+  const desdeSesiones = new Date(o.desde);
   desdeSesiones.setDate(desdeSesiones.getDate() - DIAS_SESION);
-  request.input("desde", sql.DateTime, desde);
-  request.input("hastaExcl", sql.DateTime, hastaExcl);
+  request.input("desde", sql.DateTime, o.desde);
+  request.input("hastaExcl", sql.DateTime, o.hastaExcl);
   request.input("desdeSes", sql.DateTime, desdeSesiones);
   request.input("diasSesion", sql.Int, DIAS_SESION);
-  const filtro = filtroCampanias(request, campanias, "c.shortname");
-  const sinTocar = listaParametros(request, "st", familias.sinTocar);
-  const exito = listaParametros(request, "ex", familias.exito);
-  const noValidos = listaParametros(request, "nv", [...new Set(validas.flatMap((c) => c.codigosNoValidos))]);
+  const filtro = filtroCampanias(request, o.campanias, "c.shortname");
+  const sinTocar = listaParametros(request, "st", o.sinTocar);
 
-  // Campo del contacto: lista de valores (antes de filtrar) y filtro. La tabla
+  // Dato del contacto: lista de valores (antes de filtrar) y filtro. La tabla
   // y la columna vienen de la lista blanca (directoriosServicio), entre
   // corchetes; el texto buscado va SIEMPRE como parámetro.
   let sqlCampo = "";
+  const campo = o.campo;
   if (campo) {
     const col = `d.[${campo.campo.columna}]`;
     const dir = `[${campo.campo.tabla}]`;
-    request.input("maxValores", sql.Int, MAX_VALORES_CAMPO);
-    sqlCampo = `
+    if (o.conValores) {
+      request.input("maxValores", sql.Int, MAX_VALORES_CAMPO);
+      sqlCampo = `
     -- 3a) Valores del campo con sus finalizados (tipificados), ANTES del filtro:
     --     las sugerencias del autocompletado. Vacío o solo espacios = sin valor.
     --     El CASE (y no un NOT IN) aguanta la lista de «sin tocar» vacía.
@@ -317,6 +316,7 @@ async function baseResultadosCore(
     WHERE CASE WHEN k.estado IS NULL OR k.estado IN (${sinTocar}) THEN 0 ELSE 1 END = 1
     GROUP BY NULLIF(LTRIM(RTRIM(${col})), '')
     ORDER BY finalizados DESC;`;
+    }
     const f = campo.filtro;
     if (f?.modo === "vacio") {
       sqlCampo += `
@@ -335,19 +335,9 @@ async function baseResultadosCore(
     }
   }
 
-  // Una tabla ao_* por servicio configurado. easycode es único en toda la
-  // instalación, así que cada contacto casa como mucho con UNA de ellas y
-  // el COALESCE de cada nivel recoge la columna de su servicio.
-  const joins = validas
-    .map((c, i) => `LEFT JOIN [${c.tablaAo}] ao${i} ON ao${i}.easycode = s.outcome`)
-    .join("\n        ");
-  const nivel = (k: number) => {
-    const cols = validas.flatMap((c, i) => (c.columnas[k] ? [`ao${i}.[${c.columnas[k]}]`] : []));
-    if (cols.length === 0) return "CAST(NULL AS int)";
-    return cols.length === 1 ? cols[0] : `COALESCE(${cols.join(", ")})`;
-  };
-
-  const r = await request.query(`
+  return {
+    sinTocar,
+    sql: `
     SET NOCOUNT ON;
     -- Tablas temporales (tempdb, de esta conexión): en una sola sentencia con
     -- CTEs el optimizador no estima los cerrados y pasaba de 5 minutos para un
@@ -401,7 +391,58 @@ async function baseResultadosCore(
     SELECT contact, e_user, outcome FROM ses WHERE rn = 1
     OPTION (HASH JOIN);
 ${sqlCampo}
+`,
+  };
+}
 
+async function baseResultadosCore(
+  desdeISO: string,
+  hastaISO: string,
+  campanias: string[] | undefined,
+  configs: ConfigResultados[],
+  campoPedido: CampoResultados | null,
+): Promise<BaseResultados> {
+  const [tablas, servicios, familias, textos, directorios] = await Promise.all([
+    tablasResultados(),
+    listaServicios(),
+    familiasEstadoContacto(),
+    textosResultados(),
+    campoPedido ? directoriosServicio() : Promise.resolve([]),
+  ]);
+  const validas = configs.filter((c) => configValida(c, tablas));
+  // Campo del contacto: solo si está en la lista blanca (identificadores)
+  const campo =
+    campoPedido && campoContactoValido(campoPedido.servicio, campoPedido.campo, directorios)
+      ? campoPedido
+      : null;
+
+  const pool = await obtenerPool();
+  const request = pool.request();
+  const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+  const { sql: cerrados, sinTocar } = sqlCerrados(request, {
+    desde,
+    hastaExcl,
+    campanias,
+    sinTocar: familias.sinTocar,
+    campo,
+    conValores: true,
+  });
+  const exito = listaParametros(request, "ex", familias.exito);
+  const noValidos = listaParametros(request, "nv", [...new Set(validas.flatMap((c) => c.codigosNoValidos))]);
+
+  // Una tabla ao_* por servicio configurado. easycode es único en toda la
+  // instalación, así que cada contacto casa como mucho con UNA de ellas y
+  // el COALESCE de cada nivel recoge la columna de su servicio.
+  const joins = validas
+    .map((c, i) => `LEFT JOIN [${c.tablaAo}] ao${i} ON ao${i}.easycode = s.outcome`)
+    .join("\n        ");
+  const nivel = (k: number) => {
+    const cols = validas.flatMap((c, i) => (c.columnas[k] ? [`ao${i}.[${c.columnas[k]}]`] : []));
+    if (cols.length === 0) return "CAST(NULL AS int)";
+    return cols.length === 1 ? cols[0] : `COALESCE(${cols.join(", ")})`;
+  };
+
+  const r = await request.query(`${cerrados}
     -- 3) Categoría, resultado (niveles configurados) y agente de cada
     --    contacto, agrupado por día de cierre, campaña y agente.
     WITH base AS (
@@ -569,4 +610,129 @@ export async function resultadosActividadRango(
     );
   }
   return calcularResultados(base, objetivos, desdeISO, hastaISO);
+}
+
+// ============================================================
+// CSV de contactos finalizados (Supervisión → Resultados, solo GH; pedido
+// el 19/10/2026). Los MISMOS contactos que cuenta la pestaña: el paso común
+// (sqlCerrados) con sus filtros y solo los tipificados por un agente. Las
+// tablas del cliente salen de los metadatos de Altitude (directorio por
+// table_schema.directory, atributos de actividad por ts_type 1, resultados
+// por /admin/resultados) y cada columna se comprueba en INFORMATION_SCHEMA
+// antes de entrar en el SQL; si una ya no existe, sale vacía.
+// ============================================================
+
+/** Tabla de atributos de actividad (act_*, table_schema ts_type 1) de cada servicio. */
+async function tablasActividad(): Promise<Map<string, string>> {
+  const filas = await conCache("rdb:resultados:tablasAct", TTL.maestros, async () => {
+    const pool = await obtenerPool();
+    const r = await pool.request().query(`
+      SELECT RTRIM(sv.name) AS servicio, RTRIM(ts.table_name) AS tabla
+      FROM table_schema ts
+      INNER JOIN ph_service sv ON sv.code = ts.service
+      WHERE ts.ts_type = 1 AND sv.name NOT LIKE 'Test[_]%';
+    `);
+    return r.recordset as { servicio: string; tabla: string }[];
+  });
+  return new Map(filas.map((f) => [f.servicio, f.tabla]));
+}
+
+/** Columnas de una tabla (INFORMATION_SCHEMA): la lista blanca de sus identificadores. */
+async function columnasDeTabla(tabla: string): Promise<string[]> {
+  if (!PATRON_IDENTIFICADOR.test(tabla)) return [];
+  return conCache(`rdb:resultados:columnas:${tabla}`, TTL.maestros, async () => {
+    const pool = await obtenerPool();
+    const request = pool.request();
+    request.input("tabla", sql.VarChar(128), tabla);
+    const r = await request.query(`SELECT COLUMN_NAME AS columna FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_NAME = @tabla;`);
+    return (r.recordset as { columna: string }[]).map((f) => f.columna);
+  });
+}
+
+/** Contactos finalizados de un cliente para el CSV, en orden de cierre. */
+export async function contactosFinalizadosExport(
+  desdeISO: string,
+  hastaISO: string,
+  servicio: string,
+  campanias: string[] | undefined,
+  configs: ConfigResultados[],
+  campoPedido: CampoResultados | null,
+  columnas: readonly ColumnaExport[],
+): Promise<{ contactos: ContactoExport[]; textos: Record<number, string> }> {
+  if (campanias && campanias.length === 0) return { contactos: [], textos: {} };
+  if (esMock()) return { contactos: mockContactosExport(desdeISO, hastaISO, campanias), textos: mockTextosResultados() };
+
+  const [tablas, familias, textos, directorios, actividad] = await Promise.all([
+    tablasResultados(),
+    familiasEstadoContacto(),
+    textosResultados(),
+    directoriosServicio(),
+    tablasActividad(),
+  ]);
+  const campo =
+    campoPedido && campoContactoValido(campoPedido.servicio, campoPedido.campo, directorios) ? campoPedido : null;
+  const config = configs.find((c) => c.serviceName === servicio && configValida(c, tablas));
+  const tablaDir = directorios.find((d) => d.servicio === servicio)?.tabla;
+  const tablaAct = actividad.get(servicio);
+  const [colsDir, colsAct] = await Promise.all([
+    tablaDir ? columnasDeTabla(tablaDir) : Promise.resolve([]),
+    tablaAct ? columnasDeTabla(tablaAct) : Promise.resolve([]),
+  ]);
+  const valida = (c: string, lista: string[]) => PATRON_IDENTIFICADOR.test(c) && lista.includes(c);
+
+  // Columnas pedidas → expresiones SQL con alias fijos (dir0, act0…)
+  const deTipo = <T extends ColumnaExport["origen"]["tipo"]>(tipo: T) =>
+    [...new Set(columnas.flatMap((c) => (c.origen.tipo === tipo && "columna" in c.origen ? [c.origen.columna] : [])))];
+  const dirPedidas = deTipo("directorio");
+  const actPedidas = deTipo("actividad");
+  const perfilPedidas = deTipo("perfil");
+  const niveles = config ? config.columnas : [];
+  const seleccion = [
+    ...perfilPedidas.map((c, i) => `cp.[${c}] AS perfil${i}`),
+    ...dirPedidas.map((c, i) => (tablaDir && valida(c, colsDir) ? `d.[${c}] AS dir${i}` : `NULL AS dir${i}`)),
+    ...actPedidas.map((c, i) => (tablaAct && valida(c, colsAct) ? `g.[${c}] AS act${i}` : `NULL AS act${i}`)),
+    ...niveles.map((c, i) => `ao.[${c}] AS nivel${i}`),
+  ];
+  const joins = [
+    tablaDir && dirPedidas.length > 0 ? `LEFT JOIN [${tablaDir}] d ON d.easycode = k.contact_profile` : "",
+    tablaAct && actPedidas.length > 0 ? `LEFT JOIN [${tablaAct}] g ON g.easycode = k.activity` : "",
+    config ? `LEFT JOIN [${config.tablaAo}] ao ON ao.easycode = s.outcome` : "",
+  ].filter(Boolean);
+
+  const pool = await obtenerPool();
+  const request = pool.request();
+  const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+  const { sql: cerrados, sinTocar } = sqlCerrados(request, {
+    desde,
+    hastaExcl,
+    campanias,
+    sinTocar: familias.sinTocar,
+    campo,
+    conValores: false,
+  });
+  const r = await request.query(`${cerrados}
+    -- 3) Solo los finalizados de la pestaña: tipificados por un agente (con
+    --    sesión en los 90 días), sin los «sin tocar» ni los administrativos
+    SELECT k.campania, k.cierre${seleccion.length > 0 ? `,\n           ${seleccion.join(",\n           ")}` : ""}
+    FROM #cerr k
+    INNER JOIN #ses s ON s.contact = k.activity
+    LEFT JOIN ph_contact_profile cp ON cp.code = k.contact_profile
+    ${joins.join("\n    ")}
+    WHERE CASE WHEN k.estado IS NULL OR k.estado IN (${sinTocar}) THEN 0 ELSE 1 END = 1
+    ORDER BY k.cierre, k.activity;
+
+    DROP TABLE #ses;
+    DROP TABLE #cerr;
+  `);
+  const filas = r.recordsets as unknown as Record<string, unknown>[][];
+  const recordset = filas[filas.length - 1] as Record<string, string | number | Date | null>[];
+  const contactos: ContactoExport[] = recordset.map((f) => ({
+    campania: String(f.campania),
+    cierre: f.cierre as Date,
+    niveles: niveles.map((_, i) => (f[`nivel${i}`] as number | null) ?? null),
+    perfil: Object.fromEntries(perfilPedidas.map((c, i) => [c, (f[`perfil${i}`] as string | null) ?? null])),
+    directorio: Object.fromEntries(dirPedidas.map((c, i) => [c, (f[`dir${i}`] as string | number | null) ?? null])),
+    actividad: Object.fromEntries(actPedidas.map((c, i) => [c, (f[`act${i}`] as string | number | null) ?? null])),
+  }));
+  return { contactos, textos };
 }

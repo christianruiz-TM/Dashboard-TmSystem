@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { FilaFactura } from "@/lib/facturacion-campania";
-import { filasFicheroGs, generarFicheroGs } from "./albaranes-gs";
+import { filasFicheroGs, generarFicheroGs, unidadesExtraGs } from "./albaranes-gs";
 
 const linea = (unidad: FilaFactura["lineas"][number]["unidad"], cantidad: number) => ({
   unidad,
@@ -81,3 +81,46 @@ describe("fichero de albaranes de GS", () => {
     expect(generarFicheroGs([fila], "ventas")).toContain("1\t1027,88\t0,00\t0,00\t0");
   });
 });
+
+describe("artículos de GS en columnas añadidas", () => {
+  const conArticulos: FilaFactura[] = [
+    {
+      campania: "enc_bol",
+      servicio: "Encuestas_Bolsas",
+      codigoGs: "0004001",
+      lineas: [linea("encuestas", 136), linea("minutos_movil", 12.5), linea("preparacion", 1)],
+      importeTotal: null,
+    },
+    {
+      campania: "enc_soc",
+      servicio: "Encuestas_Bolsas",
+      codigoGs: "0004002",
+      lineas: [linea("encuestas", 9), linea("ddi_movil", 2)],
+      importeTotal: null,
+    },
+  ];
+
+  it("sin artículos nuevos, el fichero de siempre (GH septiembre)", () => {
+    expect(unidadesExtraGs(filas.slice(0, 3), "ventas", ["horas_logadas", "minutos_fijo", "minutos_movil", "ddi"])).toEqual([]);
+  });
+
+  it("una columna por artículo de la tarifa o con cantidad, en el orden de GS y con 0 si no tiene", () => {
+    // La tarifa lleva además los minutos 90X, aunque este mes no haya ninguno
+    const extra = unidadesExtraGs(conArticulos, "ventas", ["encuestas", "minutos_especial"]);
+    expect(extra).toEqual(["encuestas", "preparacion", "minutos_especial", "ddi_movil"]);
+    const { filas: ventas } = filasFicheroGs(conArticulos, "ventas");
+    expect(generarFicheroGs(ventas, "ventas", extra)).toBe(
+      [
+        "Cod Camp\tHoras Logadas\tTarif Fija\tTarif Movil\tDdis\tEncuestas\tPreparacion Campana\tTarif 90X\tDdis Movil",
+        "0004001\t0,00\t0,00\t12,50\t0\t136\t1,00\t0,00\t0",
+        "0004002\t0,00\t0,00\t0,00\t0\t9\t0,00\t0,00\t2",
+        "",
+      ].join("\r\n"),
+    );
+  });
+
+  it("las atendidas y los éxitos por sesión no son artículo de GS: no salen", () => {
+    expect(unidadesExtraGs([], "ventas", ["interacciones", "exitos"])).toEqual([]);
+  });
+});
+

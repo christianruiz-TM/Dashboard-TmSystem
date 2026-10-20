@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Settings2, Users } from "lucide-react";
+import { Download, Settings2, Users } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -30,6 +30,7 @@ export function PanelResultados({
   tipos,
   tipo,
   campo,
+  urlCsv,
 }: {
   resultado: ResultadoResultados | null;
   /** Opciones del selector de tipo de campaña (vacío si el cliente no tiene tipos). */
@@ -44,6 +45,8 @@ export function PanelResultados({
   esAdmin: boolean;
   /** Dato del contacto por el que se puede filtrar (null si el cliente no tiene). */
   campo: { etiqueta: string; filtro: Filtro | null } | null;
+  /** Descarga del CSV de contactos finalizados con los filtros de la vista (solo GH). */
+  urlCsv: string | null;
 }) {
   const sinConfigurar = resultado?.serviciosSinConfigurar ?? [];
   // Enlace a un cliente conservando rango e IVR
@@ -79,6 +82,16 @@ export function PanelResultados({
         <div className="flex flex-wrap items-center gap-4">
           <SelectorServicio servicios={servicios} valor={servicio} obligatorio />
           <SelectorIvr incluir={incluirIvr} />
+          {urlCsv && resultado ? (
+            <Button
+              variant="outline"
+              size="sm"
+              render={<a href={urlCsv} download />}
+              title="Los finalizados que se ven aquí, con los filtros de fechas, tipo de campaña y dato del contacto"
+            >
+              <Download className="h-4 w-4" /> CSV de contactos ({resultado.total.finalizados.toLocaleString("es-ES")})
+            </Button>
+          ) : null}
         </div>
       </div>
 
@@ -167,6 +180,7 @@ export function PanelResultados({
           "agenteFrenteCampania",
           "semaforoResultados",
           "filtroCampoContacto",
+          "csvContactos",
           "ivr",
         ]}
       />

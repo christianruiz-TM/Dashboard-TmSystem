@@ -14,17 +14,17 @@ import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
+import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
+import { TablaKpisCampania } from "@/components/kpi/tabla-kpis-campania";
 import type { ResultadoRatios } from "@/lib/ratios-exito";
+import type { TipoCampania } from "@/lib/resultados-actividad";
+import {
+  METRICAS_SUPERVISION,
+  agruparKpisPorTipo,
+  filasCampaniaSupervision,
+} from "@/lib/supervision";
 import { horasDesdeSegundos, segundosLegibles } from "@/lib/fechas";
-import { cn } from "@/lib/utils";
 import type { AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
-
-function colorSla(pct: number | null): string {
-  if (pct == null) return "text-muted-foreground";
-  if (pct >= 80) return "text-emerald-600 font-semibold";
-  if (pct >= 60) return "text-amber-600 font-semibold";
-  return "text-red-600 font-semibold";
-}
 
 /**
  * Vista histórica de supervisión: mismos KPIs de campaña (cola, SLA) y
@@ -44,6 +44,8 @@ export function PanelHistorico({
   servicios,
   servicio,
   incluirIvr,
+  tipos,
+  servicioDe,
 }: {
   kpis: KpiCampaniaHoy[];
   agentes: AgenteHoy[];
@@ -56,6 +58,10 @@ export function PanelHistorico({
   servicios: string[];
   servicio?: string;
   incluirIvr: boolean;
+  /** Tipos de campaña del cliente (Bolsas: cartera; GH: BBDD): agrupan la tabla. */
+  tipos: TipoCampania[];
+  /** Cliente de cada campaña (para el comparador sin cliente elegido). */
+  servicioDe: Record<string, string>;
 }) {
   const recibidas = kpis.reduce((acc, k) => acc + k.recibidas, 0);
   const atendidas = kpis.reduce((acc, k) => acc + k.atendidas, 0);
@@ -133,67 +139,10 @@ export function PanelHistorico({
           <CardTitle className="text-base">Campañas en el período</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Campaña</TableHead>
-                <TableHead className="text-right">Recibidas</TableHead>
-                <TableHead className="text-right">Atendidas</TableHead>
-                <TableHead className="text-right">Éxitos</TableHead>
-                <TableHead className="text-right">Abandono</TableHead>
-                <TableHead className="text-right">Cola media</TableHead>
-                <TableHead className="text-right">Espera aband.</TableHead>
-                <TableHead className="text-right">AHT</TableHead>
-                <TableHead className="text-right">SLA</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {kpis.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={9} className="text-center text-muted-foreground">
-                    Sin actividad en el período seleccionado
-                  </TableCell>
-                </TableRow>
-              ) : (
-                kpis.map((k) => {
-                  const pctAb =
-                    k.recibidas > 0
-                      ? ((k.abandonadasInbound / k.recibidas) * 100).toFixed(1)
-                      : "0.0";
-                  return (
-                    <TableRow key={k.campania}>
-                      <TableCell className="font-medium">{k.campania}</TableCell>
-                      <TableCell className="text-right tabular-nums">{k.recibidas}</TableCell>
-                      <TableCell className="text-right tabular-nums">{k.atendidas}</TableCell>
-                      <TableCell className="text-right tabular-nums text-emerald-700">
-                        {k.exitos}
-                      </TableCell>
-                      <TableCell
-                        className={cn(
-                          "text-right tabular-nums",
-                          Number(pctAb) >= 10 && "font-semibold text-red-600",
-                        )}
-                      >
-                        {pctAb} %
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {segundosLegibles(k.colaMediaSeg)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {segundosLegibles(k.esperaAbandonadasSeg)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {segundosLegibles(k.ahtSeg)}
-                      </TableCell>
-                      <TableCell className={cn("text-right tabular-nums", colorSla(k.slaPct))}>
-                        {k.slaPct != null ? `${k.slaPct.toFixed(1)} %` : "—"}
-                      </TableCell>
-                    </TableRow>
-                  );
-                })
-              )}
-            </TableBody>
-          </Table>
+          <TablaKpisCampania
+            grupos={agruparKpisPorTipo(kpis, tipos)}
+            vacio="Sin actividad en el período seleccionado"
+          />
         </CardContent>
       </Card>
 
@@ -250,10 +199,19 @@ export function PanelHistorico({
 
       <RatiosExito ratios={ratios} periodo="en el período" />
 
+      <ComparadorCampanias
+        // Remonta al cambiar de cliente o de rango: las campañas elegidas pueden no estar
+        key={`${servicio ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}`}
+        filas={filasCampaniaSupervision(kpis, ratios.campanias, servicioDe)}
+        metricas={METRICAS_SUPERVISION}
+      />
+
       <Glosario
         titulo="Supervisión · histórico"
         claves={[
           "servicio",
+          "gruposCampania",
+          "comparadorCampanias",
           "recibidas",
           "atendidas",
           "exitos",

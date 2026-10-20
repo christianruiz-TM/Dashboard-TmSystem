@@ -17,9 +17,16 @@ import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { AjustesCierre } from "@/components/operaciones/ajustes-cierre";
 import { TablaFactura, euros } from "@/components/operaciones/tabla-factura";
 import { tipoFicheroGs } from "@/lib/albaranes-gs";
-import { cierreVigente, lineasAjustadas, prefijosExcluidosReparto } from "@/lib/db/facturacion";
-import { mesCompleto } from "@/lib/ddis";
-import { NOMBRE_UNIDAD, totalesFactura, type FacturacionCompleta } from "@/lib/facturacion";
+import { cierreVigente, lineasAjustadas, listarCargos, prefijosExcluidosReparto } from "@/lib/db/facturacion";
+import { UNIDADES_CARGO } from "@/lib/db/schema";
+import { mesCompleto, mesesDelRango } from "@/lib/ddis";
+import {
+  ARTICULO_GS,
+  NOMBRE_UNIDAD,
+  configuracionFacturacion,
+  totalesFactura,
+  type FacturacionCompleta,
+} from "@/lib/facturacion";
 import {
   agruparPorServicio,
   etiquetaCampania,
@@ -29,8 +36,16 @@ import {
 } from "@/lib/facturacion-campania";
 import type { FacturacionHorasLogadas } from "@/lib/facturacion-horas-logadas";
 import { horasDesdeSegundos, horasLegibles, hoyISO } from "@/lib/fechas";
+import { esIvr, listaServicios } from "@/lib/rdb/queries/servicios";
 import type { HorasAgenteReales, PenetracionLista, RazonNotReady } from "@/lib/rdb/types";
-import { ajustarCierre, cerrarMes, deshacerAjusteCierre, reabrirMes } from "./acciones";
+import {
+  ajustarCierre,
+  borrarCargoPuntual,
+  cerrarMes,
+  crearCargoPuntual,
+  deshacerAjusteCierre,
+  reabrirMes,
+} from "./acciones";
 
 // ============================================================
 // Secciones de Operaciones (server components asíncronos). La página las
@@ -95,6 +110,178 @@ function minutos(valor: number | undefined): string {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   });
+}
+
+/** DDIs geográficos y, si los hay, los móviles entre paréntesis. */
+function ddisTexto(geo: number, movil: number): string {
+  if (!geo && !movil) return "—";
+  return `${geo.toLocaleString("es-ES")}${movil ? ` (+${movil.toLocaleString("es-ES")} móv.)` : ""}`;
+}
+
+// ---------- Cargos puntuales ----------
+
+/**
+ * Cargos puntuales del cliente (BASE DE DATOS y PREPARACIÓN DE CAMPAÑA,
+ * «U» en GS): los de los meses del rango y, con un mes completo sin cerrar,
+ * el formulario para apuntar otro. Entran en la factura de su campaña.
+ */
+async function CargosPuntuales({
+  ctx,
+  mes,
+  cerrado,
+}: {
+  ctx: ContextoFacturacion;
+  mes: string | null;
+  cerrado: boolean;
+}) {
+  const servicio = ctx.servicio!;
+  const meses = mesesDelRango(ctx.desde, ctx.hasta);
+  const cargos = listarCargos(meses[0].mes, meses[meses.length - 1].mes, servicio);
+  const campanias = ((await listaServicios()).find((s) => s.servicio === servicio)?.campanias ?? [])
+    .filter((c) => !esIvr(c))
+    .sort();
+  // Precio de tarifa del cliente para cada cargo (orientativo: una campaña con tarifa propia manda)
+  const tarifa = configuracionFacturacion().porServicio.get(servicio) ?? [];
+  const precioTarifa = (u: string) => tarifa.find((l) => l.unidad === u)?.precioUnitario ?? null;
+  const puedeApuntar = ctx.puedeEditar && mes != null && !cerrado;
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Cargos puntuales</CardTitle>
+        <CardDescription>
+          BASE DE DATOS (CAMP. EXTERNAS) y PREPARACIÓN DE CAMPAÑA: no se miden, se apuntan aquí en el mes y la
+          campaña que toca y entran en su factura. Sin precio, el de la tarifa del cliente.
+          {mes == null && " Para apuntar uno, elige el mes completo."}
+          {mes != null && cerrado && ` ${mes} está cerrado: sus cargos ya están facturados.`}
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4">
+        {cargos.length === 0 ? (
+          <p className="text-sm text-muted-foreground">Ningún cargo puntual en el período.</p>
+        ) : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Mes</TableHead>
+                <TableHead>Campaña</TableHead>
+                <TableHead>Artículo</TableHead>
+                <TableHead>Concepto</TableHead>
+                <TableHead className="text-right">Cantidad</TableHead>
+                <TableHead className="text-right">€/unidad</TableHead>
+                <TableHead>Apuntado por</TableHead>
+                {puedeApuntar && <TableHead />}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {cargos.map((c) => (
+                <TableRow key={c.id}>
+                  <TableCell className="tabular-nums">{c.mes}</TableCell>
+                  <TableCell className="font-medium">{c.campaignShortname}</TableCell>
+                  <TableCell>{ARTICULO_GS[c.unidad]}</TableCell>
+                  <TableCell className="whitespace-normal text-sm">{c.concepto}</TableCell>
+                  <TableCell className="text-right tabular-nums">{c.cantidad.toLocaleString("es-ES")}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {c.precioUnitario != null ? (
+                      euros(c.precioUnitario)
+                    ) : (
+                      <span className="text-muted-foreground">tarifa ({euros(precioTarifa(c.unidad))})</span>
+                    )}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {c.creadoPor} · {c.creadoAt.toLocaleDateString("es-ES")}
+                  </TableCell>
+                  {puedeApuntar && (
+                    <TableCell className="text-right">
+                      {c.mes === mes && (
+                        <form action={borrarCargoPuntual}>
+                          <input type="hidden" name="id" value={c.id} />
+                          <Button variant="destructive" size="xs" type="submit">
+                            Quitar
+                          </Button>
+                        </form>
+                      )}
+                    </TableCell>
+                  )}
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
+        {puedeApuntar && (
+          <form
+            action={crearCargoPuntual}
+            className="grid items-end gap-3 rounded-md border border-dashed p-3 md:grid-cols-[1fr_1.4fr_90px_110px_1.6fr_auto]"
+          >
+            <input type="hidden" name="servicio" value={servicio} />
+            <input type="hidden" name="mes" value={mes ?? ""} />
+            <div className="space-y-1">
+              <label htmlFor="cargo-campania" className="text-xs font-medium">
+                Campaña
+              </label>
+              <select
+                id="cargo-campania"
+                name="campania"
+                required
+                className="h-8 w-full rounded-lg border border-border bg-background px-2 text-sm"
+              >
+                {campanias.map((c) => (
+                  <option key={c} value={c}>
+                    {c}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="cargo-unidad" className="text-xs font-medium">
+                Artículo
+              </label>
+              <select
+                id="cargo-unidad"
+                name="unidad"
+                required
+                className="h-8 w-full rounded-lg border border-border bg-background px-2 text-sm"
+              >
+                {UNIDADES_CARGO.map((u) => (
+                  <option key={u} value={u}>
+                    {ARTICULO_GS[u]}
+                    {precioTarifa(u) != null ? ` (tarifa ${euros(precioTarifa(u))})` : ""}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="cargo-cantidad" className="text-xs font-medium">
+                Cantidad
+              </label>
+              <Input id="cargo-cantidad" name="cantidad" type="number" step="0.01" min="0.01" defaultValue="1" required />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="cargo-precio" className="text-xs font-medium">
+                €/unidad
+              </label>
+              <Input id="cargo-precio" name="precio" type="number" step="0.0001" min="0" placeholder="tarifa" />
+            </div>
+            <div className="space-y-1">
+              <label htmlFor="cargo-concepto" className="text-xs font-medium">
+                Concepto
+              </label>
+              <Input
+                id="cargo-concepto"
+                name="concepto"
+                required
+                minLength={3}
+                maxLength={200}
+                placeholder="ej. carga de la lista de octubre"
+              />
+            </div>
+            <Button type="submit" size="sm">
+              Apuntar en {mes}
+            </Button>
+          </form>
+        )}
+      </CardContent>
+    </Card>
+  );
 }
 
 // ---------- KPIs ----------
@@ -249,10 +436,13 @@ export async function SeccionFacturacion({
         <TableCell className="text-right tabular-nums">{t.atendidas.toLocaleString("es-ES")}</TableCell>
         <TableCell className="text-right tabular-nums">{t.exitos.toLocaleString("es-ES")}</TableCell>
         <TableCell className="text-right tabular-nums">{t.leadsFinalizados.toLocaleString("es-ES")}</TableCell>
+        <TableCell className="text-right tabular-nums">{t.exitosFinalizados.toLocaleString("es-ES")}</TableCell>
+        <TableCell className="text-right tabular-nums">{t.leadsRecibidos.toLocaleString("es-ES")}</TableCell>
+        <TableCell className="text-right tabular-nums">{t.sesiones.toLocaleString("es-ES")}</TableCell>
         <TableCell className="text-right tabular-nums">{minutos(t.minutosMovil)}</TableCell>
         <TableCell className="text-right tabular-nums">{minutos(t.minutosFijo)}</TableCell>
-        <TableCell className="text-right tabular-nums text-muted-foreground">{minutos(t.minutosEspecial)}</TableCell>
-        <TableCell className="text-right tabular-nums">{t.ddis ? t.ddis.toLocaleString("es-ES") : "—"}</TableCell>
+        <TableCell className="text-right tabular-nums">{minutos(t.minutosEspecial)}</TableCell>
+        <TableCell className="text-right tabular-nums">{ddisTexto(t.ddis, t.ddisMovil)}</TableCell>
         <TableCell />
         <TableCell className="text-right tabular-nums">{euros(t.importe)}</TableCell>
       </TableRow>
@@ -273,9 +463,9 @@ export async function SeccionFacturacion({
             )}
           </CardTitle>
           <CardDescription>
-            Todo lo que se cobra a cada campaña: su parte de las horas logadas del cliente, los minutos de
-            línea a fijos y a móviles (encuesta incluida), los contactos finalizados y la cuota de DDIs, con
-            el código de la campaña en GS. Período: {desde} a {hasta}.
+            Todo lo que se cobra a cada campaña, con el código de la campaña en GS: los artículos de GS que el
+            cliente tiene en su tarifa (Artículos y tarifas) y los cargos puntuales del mes. Pasa el ratón por
+            una columna para ver su artículo de GS. Período: {desde} a {hasta}.
             {!servicio && " Para cerrar un mes, elige un cliente y el mes completo."}
           </CardDescription>
         </CardHeader>
@@ -371,6 +561,8 @@ export async function SeccionFacturacion({
         </CardContent>
       </Card>
 
+      {servicio && <CargosPuntuales ctx={ctx} mes={mes} cerrado={cierre != null} />}
+
       {porCliente.length > 0 && (
         <Card>
           <CardHeader>
@@ -437,12 +629,13 @@ export async function SeccionFacturacion({
         <CardHeader>
           <CardTitle className="text-base">Unidades por campaña</CardTitle>
           <CardDescription>
-            Todo lo medido por campaña. La columna «Facturable» marca las unidades configuradas en
-            Administración → Facturación. Las horas por campaña son las <strong>productivas</strong> (en
-            llamada); las logadas van en «Horas logadas por cliente». Minutos de línea: llamadas atendidas a
-            móviles y a fijos, más la encuesta tras la gestión; los especiales (901, 902…) se presupuestan
-            aparte y no se cobran aquí. DDIs: cuota del mes entero por cada uno activo algún día. Período:{" "}
-            {desde} a {hasta}.
+            Todo lo medido por campaña. La columna «Facturable» marca los artículos de su tarifa (Artículos y
+            tarifas). Las horas por campaña son las <strong>productivas</strong> (en llamada); las logadas van en
+            «Horas logadas por cliente». «Fin. éxito»: contactos cerrados en éxito; «Recibidos»: contactos que
+            entran en la campaña; «Gestionados»: sesiones de script (el artículo «Encuestas realizadas»). Minutos
+            de línea: llamadas atendidas a móviles, a fijos y a especiales (901, 902…), más la encuesta tras la
+            gestión. DDIs: cuota del mes entero por cada uno activo algún día (geográficos y, entre paréntesis,
+            móviles). Período: {desde} a {hasta}.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -456,10 +649,13 @@ export async function SeccionFacturacion({
                 <TableHead className="text-right">Atendidas</TableHead>
                 <TableHead className="text-right">Éxitos</TableHead>
                 <TableHead className="text-right">Leads fin.</TableHead>
+                <TableHead className="text-right" title="Contactos cerrados en éxito">Fin. éxito</TableHead>
+                <TableHead className="text-right" title="Contactos que entran en la campaña">Recibidos</TableHead>
+                <TableHead className="text-right" title="Sesiones de script: contactos gestionados">Gestionados</TableHead>
                 <TableHead className="text-right">Min. móvil</TableHead>
                 <TableHead className="text-right">Min. fijo</TableHead>
-                <TableHead className="text-right" title="Números especiales (901, 902, 80x, 70x): no se cobran aquí">
-                  Min. especial
+                <TableHead className="text-right" title="Números especiales (901, 902, 80x, 70x): artículo «TARIFICACION 901,2,X»">
+                  Min. 90X
                 </TableHead>
                 <TableHead className="text-right">DDIs</TableHead>
                 <TableHead>Facturable</TableHead>
@@ -469,7 +665,7 @@ export async function SeccionFacturacion({
             <TableBody>
               {facturacion.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={servicio ? 12 : 13} className="text-center text-muted-foreground">
+                  <TableCell colSpan={servicio ? 15 : 16} className="text-center text-muted-foreground">
                     Sin actividad en el período seleccionado
                   </TableCell>
                 </TableRow>
@@ -484,6 +680,9 @@ export async function SeccionFacturacion({
                       <TableCell className="text-right tabular-nums">{f.medidas.atendidas.toLocaleString("es-ES")}</TableCell>
                       <TableCell className="text-right tabular-nums">{f.medidas.exitos.toLocaleString("es-ES")}</TableCell>
                       <TableCell className="text-right tabular-nums">{f.medidas.leadsFinalizados.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{f.medidas.exitosFinalizados.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{f.leadsRecibidos.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{f.medidas.sesiones.toLocaleString("es-ES")}</TableCell>
                       <TableCell
                         className="text-right tabular-nums"
                         title={
@@ -495,10 +694,8 @@ export async function SeccionFacturacion({
                         {minutos(f.tarificacion?.minutos.movil)}
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{minutos(f.tarificacion?.minutos.fijo)}</TableCell>
-                      <TableCell className="text-right tabular-nums text-muted-foreground">
-                        {minutos(f.tarificacion?.minutos.especial)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{f.ddis ? f.ddis.toLocaleString("es-ES") : "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{minutos(f.tarificacion?.minutos.especial)}</TableCell>
+                      <TableCell className="text-right tabular-nums">{ddisTexto(f.ddis, f.ddisMovil)}</TableCell>
                       <TableCell>
                         {f.lineas.length === 0 && !f.porHorasLogadas ? (
                           <span className="text-xs text-muted-foreground">Sin configurar</span>
@@ -510,8 +707,8 @@ export async function SeccionFacturacion({
                               </Badge>
                             )}
                             {f.lineas.map((l, i) => (
-                              <Badge key={i} variant="secondary" className="text-[10px]">
-                                {NOMBRE_UNIDAD[l.unidad]}
+                              <Badge key={i} variant="secondary" className="text-[10px]" title={NOMBRE_UNIDAD[l.unidad]}>
+                                {ARTICULO_GS[l.unidad] ?? NOMBRE_UNIDAD[l.unidad]}
                               </Badge>
                             ))}
                           </div>

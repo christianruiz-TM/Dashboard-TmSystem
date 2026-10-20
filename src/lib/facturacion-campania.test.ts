@@ -73,9 +73,9 @@ function tarif(campania: string, movil: number, fijo: number): TarificacionCampa
 }
 
 const unidades = [
-  { campania: "gh_toyota", horasProductivas: 10, interacciones: 100, atendidas: 60, exitos: 5, leadsFinalizados: 0 },
-  { campania: "gh_bbdd_x", horasProductivas: 4, interacciones: 50, atendidas: 30, exitos: 3, leadsFinalizados: 574 },
-  { campania: "otra", horasProductivas: 2, interacciones: 10, atendidas: 8, exitos: 0, leadsFinalizados: 0 },
+  { campania: "gh_toyota", horasProductivas: 10, interacciones: 100, atendidas: 60, exitos: 5, leadsFinalizados: 0, sesiones: 0, exitosFinalizados: 0 },
+  { campania: "gh_bbdd_x", horasProductivas: 4, interacciones: 50, atendidas: 30, exitos: 3, leadsFinalizados: 574, sesiones: 0, exitosFinalizados: 0 },
+  { campania: "otra", horasProductivas: 2, interacciones: 10, atendidas: 8, exitos: 0, leadsFinalizados: 0, sesiones: 0, exitosFinalizados: 0 },
 ];
 
 const extras = {
@@ -237,5 +237,99 @@ describe("consolidarFactura", () => {
     expect(sin).toHaveLength(1);
     expect(etiquetaCampania(sin[0])).toBe("(sin campaña) GrupoHuertas");
     expect(sin[0]).toMatchObject({ campania: null, codigoGs: null, importeTotal: 84 });
+  });
+});
+
+describe("artículos de GS añadidos el 19/10/2026", () => {
+  const medidas = (campania: string, p: Partial<(typeof unidades)[number]> = {}) => ({
+    campania,
+    horasProductivas: 0,
+    interacciones: 0,
+    atendidas: 0,
+    exitos: 0,
+    leadsFinalizados: 0,
+    sesiones: 0,
+    exitosFinalizados: 0,
+    ...p,
+  });
+  const servicioEnc: ConfigFacturacion = {
+    porServicio: new Map([
+      [
+        "Encuestas",
+        [
+          linea({ servicio: "Encuestas" }, "encuestas", 1.5),
+          linea({ servicio: "Encuestas" }, "minutos_especial", 0.3),
+          linea({ servicio: "Encuestas" }, "ddi", 2.5),
+          linea({ servicio: "Encuestas" }, "ddi_movil", 6),
+          linea({ servicio: "Encuestas" }, "leads_recibidos", 0.2),
+          linea({ servicio: "Encuestas" }, "exitos_finalizados", 10),
+          linea({ servicio: "Encuestas" }, "preparacion", 300),
+        ],
+      ],
+    ]),
+    porCampania: new Map(),
+  };
+  const mapaEnc = new Map([
+    ["enc_a", "Encuestas"],
+    ["enc_b", "Encuestas"],
+  ]);
+  const r = facturarCampanias(servicioEnc, [medidas("enc_a", { sesiones: 136, exitosFinalizados: 25 })], mapaEnc, {
+    tarificacion: new Map([["enc_a", { ...tarif("enc_a", 10, 5), minutos: { movil: 10, fijo: 5, especial: 3.456, sin_coste: 0, sin_numero: 0, otro: 0 } }]]),
+    ddisPorMes: new Map([["enc_a", new Map([["2026-09", 3]])]]),
+    ddisMovilPorMes: new Map([["enc_a", new Map([["2026-09", 1]])]]),
+    leadsRecibidos: new Map([["enc_a", 500]]),
+    cargos: [
+      { campania: "enc_a", unidad: "preparacion", cantidad: 1, precioUnitario: null, concepto: "Puesta en marcha" },
+      // Una campaña sin actividad que solo tiene un cargo, con su propio precio
+      { campania: "enc_b", unidad: "base_datos", cantidad: 2, precioUnitario: 150, concepto: "Lista octubre" },
+    ],
+  });
+  const de = (c: string) => r.find((f) => f.campania === c)!;
+  const cant = (c: string, u: string) => de(c).lineas.find((l) => l.unidad === u);
+
+  it("cada artículo con su medida: sesiones, 90X, DDIs geográficos y móviles, leads recibidos y éxitos", () => {
+    expect(cant("enc_a", "encuestas")).toMatchObject({ cantidad: 136, importe: 204 });
+    expect(cant("enc_a", "minutos_especial")).toMatchObject({ cantidad: 3.46, importe: 1.04 });
+    expect(cant("enc_a", "ddi")).toMatchObject({ cantidad: 3, importe: 7.5 });
+    expect(cant("enc_a", "ddi_movil")).toMatchObject({ cantidad: 1, importe: 6 });
+    expect(cant("enc_a", "leads_recibidos")).toMatchObject({ cantidad: 500, importe: 100 });
+    expect(cant("enc_a", "exitos_finalizados")).toMatchObject({ cantidad: 25, importe: 250 });
+  });
+
+  it("cargo puntual sin precio: el de la tarifa; la tarifa sola no cobra nada", () => {
+    expect(cant("enc_a", "preparacion")).toMatchObject({ cantidad: 1, precioUnitario: 300, importe: 300, notas: "Puesta en marcha" });
+    expect(de("enc_a").lineas.filter((l) => l.unidad === "preparacion")).toHaveLength(1);
+  });
+
+  it("un cargo se cobra aunque la unidad no esté en la tarifa, y saca la campaña aunque no tenga actividad", () => {
+    expect(r.map((f) => f.campania)).toEqual(["enc_a", "enc_b"]);
+    expect(cant("enc_b", "base_datos")).toMatchObject({ cantidad: 2, precioUnitario: 150, importe: 300 });
+  });
+
+  it("varios cargos de la misma unidad: una línea con la suma y el precio medio", () => {
+    const [f] = facturarCampanias({ porServicio: new Map(), porCampania: new Map() }, [], new Map(), {
+      cargos: [
+        { campania: "x", unidad: "base_datos", cantidad: 1, precioUnitario: 100, concepto: "A" },
+        { campania: "x", unidad: "base_datos", cantidad: 3, precioUnitario: 200, concepto: "B" },
+      ],
+    });
+    expect(f.lineas).toEqual([{ unidad: "base_datos", cantidad: 4, precioUnitario: 175, importe: 700, notas: "A · B" }]);
+  });
+
+  it("la factura los ordena como la lista de artículos de GS", () => {
+    const [fila] = consolidarFactura(r.filter((f) => f.campania === "enc_a"), [], mapaEnc, new Map());
+    expect(fila.lineas.map((l) => l.unidad)).toEqual([
+      "encuestas",
+      "preparacion",
+      "minutos_especial",
+      "ddi",
+      "ddi_movil",
+      "leads_recibidos",
+      "exitos_finalizados",
+    ]);
+  });
+
+  it("totales de «Unidades por campaña» con las medidas nuevas", () => {
+    expect(totalesUnidades(r)).toMatchObject({ sesiones: 136, exitosFinalizados: 25, leadsRecibidos: 500, ddis: 3, ddisMovil: 1 });
   });
 });

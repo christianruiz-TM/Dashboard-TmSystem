@@ -15,6 +15,7 @@ import { requireRol } from "@/lib/auth/rbac";
 import { estadoAgregados, tendenciaConversionMensual, tendenciaMensual } from "@/lib/db/agregados";
 import { tiposCampaniaDe } from "@/lib/db/resultados";
 import {
+  METRICAS_COMPARACION,
   agruparPorTipo,
   filasCampaniaDireccion,
   resumenPorCliente,
@@ -322,6 +323,7 @@ export default async function PaginaDireccion({
         // Remonta al cambiar de cliente o de rango: las campañas elegidas pueden no estar
         key={`${servicioElegido ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}`}
         filas={filas}
+        metricas={METRICAS_COMPARACION}
       />
 
       <Glosario

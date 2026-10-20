@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { activoEntre, ddisFacturables, mesCompleto, mesesDelRango, seSolapan } from "./ddis";
+import { activoEntre, ddisFacturables, esDdiMovil, mesCompleto, mesesDelRango, seSolapan } from "./ddis";
 
 describe("mesesDelRango", () => {
   it("un rango dentro de un mes es ese mes entero", () => {
@@ -90,5 +90,16 @@ describe("cuota de DDIs (mes entero)", () => {
       "2025-01-31",
     );
     expect(r.size).toBe(0);
+  });
+});
+
+describe("DDI geográfico o móvil", () => {
+  it("por sus 9 últimas cifras, con el plan de numeración", () => {
+    expect(esDdiMovil("958123456")).toBe(false);
+    expect(esDdiMovil("+34 912 345 678")).toBe(false);
+    expect(esDdiMovil("600123456")).toBe(true);
+    expect(esDdiMovil("0034 711 22 33 44")).toBe(true);
+    expect(esDdiMovil("750123456")).toBe(false); // 75x no es móvil
+    expect(esDdiMovil("1234")).toBe(false);
   });
 });

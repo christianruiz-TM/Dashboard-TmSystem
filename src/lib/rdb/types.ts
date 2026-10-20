@@ -197,6 +197,10 @@ export interface UnidadesCampania {
   atendidas: number;
   exitos: number;
   leadsFinalizados: number;
+  /** Sesiones de script (contactos gestionados). */
+  sesiones: number;
+  /** Contactos cerrados en éxito (familia Success* de ContactBusinessStatus). */
+  exitosFinalizados: number;
 }
 
 /**
@@ -263,6 +267,10 @@ export interface MetricaDiariaCampania {
   horasProductivas: number;
   exitos: number;
   leadsFinalizados: number;
+  /** Sesiones de script (contactos gestionados): artículo «Encuestas realizadas». */
+  sesiones: number;
+  /** De los finalizados, los cerrados en éxito (familia Success*). */
+  exitosFinalizados: number;
 }
 
 /** Penetración de listas outbound (query 7.7 del doc de referencia). */

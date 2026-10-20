@@ -4,17 +4,19 @@ import { Fragment, useState } from "react";
 import { ArrowLeftRight } from "lucide-react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import {
-  METRICAS_COMPARACION,
   formatearMetrica,
   mejorDeDos,
-  type FilaCampaniaDireccion,
-} from "@/lib/direccion";
+  valorMetrica,
+  type FilaComparable,
+  type SeccionComparable,
+} from "@/lib/comparador";
 import { cn } from "@/lib/utils";
 
 // ============================================================
-// Comparador de dos campañas (Dirección, 19/10/2026): dos desplegables y
-// todas las métricas de cada una, con la diferencia. Trabaja con las filas
-// que la página ya ha cargado: elegir otra campaña no consulta nada.
+// Comparador de dos campañas (Dirección y Supervisión, 19/10/2026): dos
+// desplegables y todas las métricas de cada una, con la diferencia. Cada
+// panel pasa sus filas y sus métricas (lib/direccion.ts, lib/supervision.ts).
+// Trabaja con lo que la página ya ha cargado: elegir otra no consulta nada.
 // ============================================================
 
 const CLASE_SELECT =
@@ -28,10 +30,10 @@ function SelectorCampania({
 }: {
   etiqueta: string;
   valor: string;
-  grupos: [string, FilaCampaniaDireccion[]][];
+  grupos: [string, FilaComparable[]][];
   onChange: (v: string) => void;
 }) {
-  const opciones = (filas: FilaCampaniaDireccion[]) =>
+  const opciones = (filas: FilaComparable[]) =>
     filas.map((f) => (
       <option key={f.campania} value={f.campania}>
         {f.campania}
@@ -53,13 +55,19 @@ function SelectorCampania({
   );
 }
 
-export function ComparadorCampanias({ filas }: { filas: FilaCampaniaDireccion[] }) {
+export function ComparadorCampanias({
+  filas,
+  metricas,
+}: {
+  filas: FilaComparable[];
+  metricas: SeccionComparable[];
+}) {
   const [a, setA] = useState(filas[0]?.campania ?? "");
   const [b, setB] = useState(filas[1]?.campania ?? filas[0]?.campania ?? "");
   if (filas.length < 2) return null;
 
   // Campañas por cliente, en orden alfabético dentro de cada uno
-  const porServicio = new Map<string, FilaCampaniaDireccion[]>();
+  const porServicio = new Map<string, FilaComparable[]>();
   for (const f of [...filas].sort((x, y) => x.campania.localeCompare(y.campania))) {
     const s = f.servicio ?? "Sin cliente";
     porServicio.set(s, [...(porServicio.get(s) ?? []), f]);
@@ -116,7 +124,7 @@ export function ComparadorCampanias({ filas }: { filas: FilaCampaniaDireccion[] 
                   </td>
                   <td />
                 </tr>
-                {METRICAS_COMPARACION.map(({ seccion, metricas }) => (
+                {metricas.map(({ seccion, metricas: deSeccion }) => (
                   <Fragment key={seccion}>
                     <tr>
                       <td
@@ -126,9 +134,9 @@ export function ComparadorCampanias({ filas }: { filas: FilaCampaniaDireccion[] 
                         {seccion}
                       </td>
                     </tr>
-                    {metricas.map((m) => {
-                      const va = fa[m.clave];
-                      const vb = fb[m.clave];
+                    {deSeccion.map((m) => {
+                      const va = valorMetrica(fa, m.clave);
+                      const vb = valorMetrica(fb, m.clave);
                       const gana = mejorDeDos(va, vb, m.mejor);
                       const dif = va != null && vb != null ? vb - va : null;
                       // En volumen, la diferencia relativa ayuda a leerla

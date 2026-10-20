@@ -25,6 +25,14 @@ export type Rol = (typeof ROLES)[number];
  * `minutos_fijo`/`minutos_movil`: minutos de línea con el cliente según el
  * número marcado (tarificación, lib/tarificacion.ts); `ddi`: cuota mensual
  * por DDI en producción (tabla `ddis`). Añadidas el 14/10/2026.
+ *
+ * 19/10/2026: los artículos de GS que faltaban (lib/facturacion-campania.ts,
+ * ARTICULO_GS): `encuestas` (contactos gestionados de las campañas de la
+ * línea), `minutos_especial` (901, 902, 80x, 70x), `ddi_movil` (`ddi` pasa a
+ * ser solo los geográficos), `leads_recibidos` (contactos que entran en el
+ * mes), `exitos_finalizados` (cerrados en éxito) y los cargos puntuales que
+ * apunta Operaciones a mano (`base_datos`, `preparacion`; tabla
+ * facturacion_cargos). Sin CHECK en SQLite: añadir una unidad no migra.
  */
 export const UNIDADES_FACTURACION = [
   "horas",
@@ -35,6 +43,13 @@ export const UNIDADES_FACTURACION = [
   "minutos_fijo",
   "minutos_movil",
   "ddi",
+  "base_datos",
+  "encuestas",
+  "preparacion",
+  "minutos_especial",
+  "ddi_movil",
+  "leads_recibidos",
+  "exitos_finalizados",
 ] as const;
 export type UnidadFacturacion = (typeof UNIDADES_FACTURACION)[number];
 
@@ -420,6 +435,36 @@ export const facturacionCierreAjustes = sqliteTable(
       .default(sql`(unixepoch())`),
   },
   (t) => [index("idx_fact_ajustes_cierre").on(t.cierreId), uniqueIndex("uq_fact_ajuste_linea").on(t.lineaId)],
+);
+
+/** Unidades que no se miden: las apunta Operaciones a mano, mes a mes (cargos puntuales). */
+export const UNIDADES_CARGO = ["base_datos", "preparacion"] as const;
+export type UnidadCargo = (typeof UNIDADES_CARGO)[number];
+
+/**
+ * Cargos puntuales («Valor cadencia U» en GS, decidido 19/10/2026): BASE DE
+ * DATOS (CAMP. EXTERNAS) y PREPARACIÓN DE CAMPAÑA. Operaciones apunta la
+ * cantidad en el mes y la campaña que toca; el precio, si no se pone, es el
+ * de la tarifa de esa unidad. Con el mes cerrado no se tocan.
+ */
+export const facturacionCargos = sqliteTable(
+  "facturacion_cargos",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    mes: text("mes").notNull(), // YYYY-MM
+    servicio: text("servicio").notNull(),
+    campaignShortname: text("campaign_shortname").notNull(),
+    unidad: text("unidad", { enum: UNIDADES_CARGO }).notNull(),
+    cantidad: real("cantidad").notNull(),
+    // NULL = el precio de la tarifa (billing_config) de esa unidad
+    precioUnitario: real("precio_unitario"),
+    concepto: text("concepto").notNull(),
+    creadoPor: text("creado_por").notNull(),
+    creadoAt: integer("creado_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index("idx_fact_cargos_mes").on(t.mes, t.servicio)],
 );
 
 /** Líneas de un cierre: una por campaña y unidad. */
@@ -824,6 +869,7 @@ export type NewUser = typeof users.$inferInsert;
 export type Client = typeof clients.$inferSelect;
 export type Session = typeof sessions.$inferSelect;
 export type BillingConfigRow = typeof billingConfig.$inferSelect;
+export type FacturacionCargoRow = typeof facturacionCargos.$inferSelect;
 export type AggDailyRow = typeof aggDailyCampaign.$inferSelect;
 export type PlanClienteRow = typeof planClientes.$inferSelect;
 export type PlanAgenteRow = typeof planAgentes.$inferSelect;

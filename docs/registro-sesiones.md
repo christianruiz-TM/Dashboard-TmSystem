@@ -185,6 +185,8 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Supervisión → Resultados: buscador con autocompletado por un dato del directorio del contacto (GH: `dir_fdlt_origen`, tabla `dir_1616009371`), por valor exacto, «contiene» o sin valor; se configura en `/admin/resultados`. GH septiembre «contiene granada»: 454 finalizados, bruto 40,75 %.
 - Verificado contra RDBv2 y en el `next dev`. Desplegado el 19/10/2026 a las 12:18 (`90b1192`, sin migraciones; backup `dashboard_20261019_1216.db`).
 - 12:24: dados de alta en producción el tipo «Cartera» de Bolsas y el dato «Origen» de GrupoHuertas (backup `dashboard_20261019_1224.db`, con su línea en `audit_log`).
+- Después: lo mismo en Supervisión (Tiempo real e Histórico): tabla de campañas agrupada por tipo con total por grupo (SLA, cola y abandono desde los recuentos) y «Comparar dos campañas»; comparador y reparto por tipo comunes a los dos paneles.
+- Después: CSV de contactos finalizados de GH en Resultados (mismos filtros que la pestaña) y artículos facturables de GS en Operaciones (encuestas, 90X, DDIs geográficos y móviles, leads recibidos, finalizados en éxito y cargos puntuales de base de datos y preparación; tarifas en `/operaciones/articulos`; migración 0011). Sin commit ni despliegue todavía.
 - Registro completo en `registro-sesion-19-octubre-2026.md`.
 
 ### 18 · 20/10/2026 · Incidencia: Dirección no cargaba (Opus 5.5)

@@ -49,7 +49,7 @@ export default async function PaginaReparto({
 
       {clientes.length === 0 && (
         <p className="text-sm text-muted-foreground">
-          Ningún cliente factura por horas logadas (Administración → Facturación).
+          Ningún cliente factura por horas logadas (Operaciones → Artículos y tarifas).
         </p>
       )}
       {clientes.map((servicio) => {

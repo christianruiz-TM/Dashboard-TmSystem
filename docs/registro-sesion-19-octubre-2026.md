@@ -94,7 +94,7 @@ cambiar de versión.
 
 ## Despliegue
 
-- Commit `90b1192`, desplegado el 19/10/2026 a las 12:18 con el §3 de
+- Commit `90b1192` (Dirección y filtro de origen), desplegado el 19/10/2026 a las 12:18 con el §3 de
   `docs/despliegue-linux.md` (backup `dashboard_20261019_1216.db`, sin
   migraciones, imagen `cb98ebdf9317`; vuelta atrás a `dashboard-app:anterior`
   = `001ff43cc165`). Detalle en el §9.
@@ -110,6 +110,59 @@ cambiar de versión.
     no cuenta salvo con «Incluir IVR», y `Bol_incid_prueba`).
   - GrupoHuertas → Filtro por un dato del contacto: `dir_fdlt_origen`
     (`dir_1616009371`), nombre «Origen».
+
+## Después del despliegue: lo mismo en Supervisión
+
+Christian pidió también en Supervisión la separación de las campañas de
+cartera (Bolsas) y de BBDD (GH) y el comparador de dos campañas.
+
+- Tiempo real e Histórico: la tabla de campañas sale agrupada por los tipos
+  de campaña del cliente, con una fila de total por grupo. El total calcula
+  el SLA, la cola y la espera con los recuentos y las sumas exactas de todo
+  el grupo, no con la media de los % de cada campaña (regla 6.b); AHT y ACW,
+  ponderados por atendidas (`lib/supervision.ts::sumarKpis`, con tests).
+- «Comparar dos campañas» al final de las dos pestañas, con las cifras de
+  Supervisión: recibidas, atendidas, abandonadas, SLA, % abandono, cola,
+  espera de las abandonadas, AHT, ACW, éxitos, contactos, conversiones,
+  efectividad, éxitos por hora productiva y tiempos de los éxitos. En Tiempo
+  real se recalcula con cada refresco y mantiene las campañas elegidas.
+- El comparador y el reparto por tipo pasaron a ser comunes a Dirección y
+  Supervisión (`lib/comparador.ts`, `agruparPorTipoCampania`).
+- Comprobado en el `next dev`: Histórico de Bolsas (13-17/10) con «Cartera»
+  (9 campañas con actividad) y «Resto»; GH septiembre con «BBDD» (4
+  campañas: 470 recibidas, abandono 52,1 %, SLA 56,1 %) y «Resto» (38: 4.230,
+  9,7 %, 60,5 %); Tiempo real de GH y Dirección, sin cambios en lo anterior.
+  234 tests en verde, `tsc` y ESLint sin errores.
+
+## Después: CSV de contactos de GH y artículos facturables de GS
+
+Antes de desplegar lo de Supervisión, Christian pidió dos cosas más, con
+capturas: un botón para descargar en CSV los contactos de GH con las columnas
+de su listado, y la lista de artículos facturables de GS («Nombre Artículo»,
+«Valor cadencia») para Operaciones. Se le preguntó lo que no se podía deducir:
+
+| Pregunta | Respuesta de Christian |
+| --- | --- |
+| Dónde va el CSV | Supervisión → Resultados |
+| Qué filas | Los finalizados del período con los filtros de fecha y origen |
+| `idcall` (relleno en 2 de 126.305) | Quitar la columna |
+| Quién mantiene artículos y precios | Operaciones (y admin) |
+| Cadencia «U» (base de datos, preparación) | Cargo puntual a mano |
+| Encuestas realizadas | Solo las campañas de encuestas |
+| Leads a gestionar externas | Leads recibidos en el mes |
+| Fichero de GS | Con los artículos que el cliente tenga en su presupuesto o configuración |
+
+- **CSV** (regla 18): botón «CSV de contactos (N)» junto a los filtros, solo
+  en GH. Las mismas filas que cuenta la pestaña: septiembre 8.417; «contiene
+  granada» 454; solo BBDD 2.467. Origen de cada columna comprobado en RDBv2:
+  `ph_contact_profile.unique_id` y `phone_01/02_value`, `dir_fdlt_nombre` y
+  `dir_fdlt_idllamada` del directorio, `resultado`/`subresultado` de
+  `ao_GrupoHuertas`, `nombre_campdig` de `act_GrupoHuertas`.
+- **Artículos de GS** (regla 19 y `docs/facturacion-tarificacion.md` §5):
+  unidades nuevas, cargos puntuales (migración 0011), tarifas en Operaciones
+  (`/operaciones/articulos`) y columnas nuevas en el fichero de GS.
+- Comprobado: 248 tests; GH septiembre sigue en 33.764,64 €; las páginas en
+  el `next dev`; un cargo de prueba entró en la factura (+150 €) y se borró.
 
 ## Visto de paso, sin tocar (ya pasaba antes)
 

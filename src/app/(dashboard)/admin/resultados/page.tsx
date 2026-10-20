@@ -277,7 +277,8 @@ export default async function PaginaResultadosAdmin({
                 </Label>
                 <p className="text-xs text-muted-foreground">
                   Para separar los resultados en Supervisión con un selector («Todas · Sin BBDD · Solo
-                  BBDD») y agrupar el detalle por campaña de Dirección, con un total por tipo. Una
+                  BBDD») y agrupar las tablas por campaña de Dirección y de Supervisión, con un
+                  total por tipo. Una
                   línea por tipo: <code>Nombre: patrón, patrón</code>. En el patrón, <code>%</code> es
                   cualquier texto, <code>[_]</code> un guion bajo y <code>[0-9]</code> una cifra; por
                   ejemplo <code>BBDD: gh[_]bbdd[_]%</code> o, en Bolsas,{" "}

@@ -25,10 +25,12 @@ import {
   opcionesTipo,
   seleccionTipo,
 } from "@/lib/resultados-actividad";
+import { definicionExportContactos } from "@/lib/export-contactos";
 import {
   campaniasDeServicio,
   campaniasEfectivas,
   listaServicios,
+  mapaCampaniaServicio,
 } from "@/lib/rdb/queries/servicios";
 import { PanelHistorico } from "./panel-historico";
 import { PanelResultados } from "./panel-resultados";
@@ -65,6 +67,12 @@ export default async function PaginaSupervision({
   const incluirIvr = params.ivr === "1";
   const camp = await campaniasEfectivas(params.servicio, incluirIvr);
   const campServicio = await campaniasDeServicio(params.servicio);
+  // Tiempo real e Histórico: la tabla de campañas se agrupa por los tipos de
+  // campaña del cliente (Bolsas: cartera; GH: BBDD) y el comparador agrupa
+  // las campañas por cliente
+  const tiposCliente =
+    params.servicio && nombresServicios.includes(params.servicio) ? tiposCampaniaDe(params.servicio) : [];
+  const servicioDe = Object.fromEntries(mapaCampaniaServicio(servicios));
 
   if (vista === "resultados") {
     // Por defecto el mes en curso: con un solo día la muestra por agente es pequeña
@@ -95,6 +103,16 @@ export default async function PaginaSupervision({
           campo ? { servicio: servicioElegido, campo, filtro: filtroCampo } : null,
         )
       : null;
+    // CSV de contactos finalizados (solo GH): con los mismos filtros de la pestaña
+    let urlCsv: string | null = null;
+    if (servicioElegido && definicionExportContactos(servicioElegido)) {
+      const p = new URLSearchParams({ servicio: servicioElegido, desde, hasta });
+      if (tipo !== "todas") p.set("tipo", tipo);
+      if (filtroCampo?.valor) p.set("campo", filtroCampo.valor);
+      if (filtroCampo && filtroCampo.modo !== "exacto") p.set("modo", filtroCampo.modo);
+      if (incluirIvr) p.set("ivr", "1");
+      urlCsv = `/api/export/resultados-contactos?${p.toString()}`;
+    }
     return (
       <div className="space-y-6">
         <TabsSupervision
@@ -117,6 +135,7 @@ export default async function PaginaSupervision({
           tipos={opcionesTipo(tipos)}
           tipo={tipo}
           campo={campo ? { etiqueta: campo.etiqueta, filtro: filtroCampo } : null}
+          urlCsv={urlCsv}
         />
       </div>
     );
@@ -158,6 +177,8 @@ export default async function PaginaSupervision({
           servicios={nombresServicios}
           servicio={params.servicio}
           incluirIvr={incluirIvr}
+          tipos={tiposCliente}
+          servicioDe={servicioDe}
         />
       </div>
     );
@@ -181,6 +202,8 @@ export default async function PaginaSupervision({
         servicios={nombresServicios}
         servicio={params.servicio}
         incluirIvr={incluirIvr}
+        tipos={tiposCliente}
+        servicioDe={servicioDe}
         inicial={{
           agentes,
           kpis,

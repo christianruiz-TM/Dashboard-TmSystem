@@ -1,4 +1,5 @@
 import { coincideLike } from "@/lib/planificacion/motor/campanias";
+import type { ContactoExport } from "@/lib/export-contactos";
 import { finalizadosConFiltro, type FiltroCampo, type ValorCampo } from "@/lib/resultados-actividad";
 import type {
   AgenteEstado,
@@ -151,6 +152,9 @@ function metricaDia(fecha: string, c: { shortname: string; tipo: string }): Metr
     horasProductivas: Math.round(((atendidas * aht) / 3600) * 100) / 100,
     exitos: Math.round(atendidas * (0.08 + r() * 0.18)),
     leadsFinalizados: c.tipo === "Inbound" ? 0 : Math.round(outbound * (0.15 + r() * 0.2)),
+    // Una sesión por contacto atendido, algo menos (varias llamadas por sesión)
+    sesiones: Math.round(atendidas * (0.8 + r() * 0.15)),
+    exitosFinalizados: c.tipo === "Inbound" ? 0 : Math.round(outbound * (0.02 + r() * 0.05)),
   };
 }
 
@@ -484,6 +488,16 @@ export function mockRatiosDiarios(desde: string, hasta: string): FilaDiariaRatio
   );
 }
 
+/** Leads recibidos por campaña en demo: solo las de salida, un poco más que los finalizados. */
+export function mockLeadsRecibidos(desde: string, hasta: string, campanias?: string[]): Map<string, number> {
+  const mapa = new Map<string, number>();
+  for (const m of mockMetricasDiarias(desde, hasta, campanias)) {
+    if (m.leadsFinalizados === 0) continue;
+    mapa.set(m.campania, (mapa.get(m.campania) ?? 0) + Math.round(m.leadsFinalizados * 1.15));
+  }
+  return mapa;
+}
+
 export function mockUnidadesPorCampania(
   desde: string,
   hasta: string,
@@ -500,12 +514,16 @@ export function mockUnidadesPorCampania(
         atendidas: 0,
         exitos: 0,
         leadsFinalizados: 0,
+        sesiones: 0,
+        exitosFinalizados: 0,
       } satisfies UnidadesCampania);
     u.horasProductivas += m.horasProductivas;
     u.interacciones += m.interacciones;
     u.atendidas += m.atendidas;
     u.exitos += m.exitos;
     u.leadsFinalizados += m.leadsFinalizados;
+    u.sesiones += m.sesiones;
+    u.exitosFinalizados += m.exitosFinalizados;
     porCampania.set(m.campania, u);
   }
   return [...porCampania.values()]
@@ -1032,6 +1050,30 @@ export function mockValoresCampo(filas: FilaBaseResultados[]): ValorCampo[] {
   return ORIGENES_DEMO.map((o) => ({ valor: o.valor, finalizados: Math.round((total * o.peso) / pesos) }))
     .filter((v) => v.finalizados > 0)
     .sort((a, b) => b.finalizados - a.finalizados);
+}
+
+/** Contactos finalizados del CSV en demo: uno por finalizado tipificado de la base. */
+export function mockContactosExport(desde: string, hasta: string, campanias: string[] | undefined): ContactoExport[] {
+  const filas = mockBaseResultados(desde, hasta, campanias, [
+    { serviceName: "", columnas: ["resultado", "subresultado"], codigosNoValidos: [] },
+  ]).filter((f) => f.categoria === "tipificado");
+  const contactos: ContactoExport[] = [];
+  for (const f of filas) {
+    const r = rng(`csv|${f.fecha}|${f.campania}|${f.agente}`);
+    for (let i = 0; i < f.contactos; i++) {
+      const id = 1_000_000 + Math.floor(r() * 900_000);
+      const origen = ORIGENES_DEMO[Math.floor(r() * ORIGENES_DEMO.length)].valor;
+      contactos.push({
+        campania: f.campania,
+        cierre: new Date(`${f.fecha}T${String(9 + Math.floor(r() * 10)).padStart(2, "0")}:${String(Math.floor(r() * 60)).padStart(2, "0")}:00`),
+        niveles: [9001 + Math.floor(r() * 3), null],
+        perfil: { unique_id: `# ${id}`, phone_01_value: `6${String(Math.floor(r() * 1e8)).padStart(8, "0")}`, phone_02_value: null },
+        directorio: { dir_fdlt_nombre: `Contacto ${id}`, dir_fdlt_idllamada: 8_000_000 + id, dir_fdlt_origen: origen },
+        actividad: { nombre_campdig: origen },
+      });
+    }
+  }
+  return contactos.sort((a, b) => a.cierre.getTime() - b.cierre.getTime());
 }
 
 /** Filtro por campo en demo: se queda con la parte de las filas que le toca. */

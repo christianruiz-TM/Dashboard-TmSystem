@@ -1,7 +1,12 @@
 import { esUsuarioDelCliente, patronLikeUsuarios } from "@/lib/facturacion-horas-logadas";
 import { conCache, ttlSegunRango } from "../cache";
 import { obtenerEnums } from "../enums";
-import { mockBaseRepartoHorasLogadas, mockHorasLogadasUsuarios, mockMetricasDiarias } from "../mock";
+import {
+  mockBaseRepartoHorasLogadas,
+  mockHorasLogadasUsuarios,
+  mockLeadsRecibidos,
+  mockMetricasDiarias,
+} from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type {
   BaseRepartoHorasLogadas,
@@ -83,22 +88,26 @@ export async function metricasDiariasPorCampania(
       GROUP BY CONVERT(varchar(10), t.start_time, 23), RTRIM(c.shortname), c.campaigntype;
     `);
 
-    // --- 2) Éxitos por día/campaña (script_session, business_status 3 = Success) ---
+    // --- 2) Sesiones de script y éxitos por día/campaña (business_status 3 = Success) ---
     const reqExitos = pool.request();
     reqExitos.input("desde", sql.DateTime, desde);
     reqExitos.input("hastaExcl", sql.DateTime, hastaExcl);
     const filtroExitos = filtroCampanias(reqExitos, campanias, "c.shortname");
     const exitos = reqExitos.query(`
-      -- Sesiones de script calificadas como Success por día y campaña
+      -- Sesiones de script (contactos gestionados: «Encuestas realizadas» en las
+      -- campañas de encuestas) y las calificadas como Success, por día y campaña
       SELECT
           CONVERT(varchar(10), s.start_time, 23)  AS fecha,
           RTRIM(c.shortname)                      AS campania,
-          COUNT(*)                                AS exitos
+          COUNT(*)                                AS sesiones,
+          SUM(CASE WHEN s.business_status = 3 THEN 1 ELSE 0 END) AS exitos
       FROM script_session s
       INNER JOIN ph_campaign c ON s.campaign = c.code
-      WHERE s.start_time >= @desde AND s.start_time < @hastaExcl
-        AND s.business_status = 3${filtroExitos}
-      GROUP BY CONVERT(varchar(10), s.start_time, 23), RTRIM(c.shortname);
+      WHERE s.start_time >= @desde AND s.start_time < @hastaExcl${filtroExitos}
+      GROUP BY CONVERT(varchar(10), s.start_time, 23), RTRIM(c.shortname)
+      -- RECOMPILE: el texto es el mismo para un día que para un mes y SQL
+      -- Server reutilizaría el plan del primero (incidencia del 20/10/2026)
+      OPTION (RECOMPILE);
     `);
 
     // --- 3) Leads finalizados por día/campaña (activity Done) ---
@@ -106,6 +115,15 @@ export async function metricasDiariasPorCampania(
     reqLeads.input("desde", sql.DateTime, desde);
     reqLeads.input("hastaExcl", sql.DateTime, hastaExcl);
     const filtroLeads = filtroCampanias(reqLeads, campanias, "c.shortname");
+    // Familia Success* de ContactBusinessStatus, resuelta con rdb_enums (regla 5)
+    const enumsLeads = await obtenerEnums();
+    const exitoContacto = Object.entries(enumsLeads.ContactBusinessStatus ?? {})
+      .filter(([, nombre]) => /^Success/.test(nombre))
+      .map(([valor], i) => {
+        reqLeads.input(`exc${i}`, sql.Int, Number(valor));
+        return `@exc${i}`;
+      });
+    const listaExito = exitoContacto.length > 0 ? exitoContacto.join(", ") : "NULL";
     const leads = reqLeads.query(`
       -- Contactos outbound finalizados (activity.status 3 = Done), fechados por su
       -- ÚLTIMO evento en activity_history (validado contra esquema real 12/06/2026:
@@ -130,7 +148,9 @@ export async function metricasDiariasPorCampania(
       SELECT
           CONVERT(varchar(10), ult.cierre, 23)  AS fecha,
           RTRIM(c.shortname)                    AS campania,
-          COUNT(*)                              AS leadsFinalizados
+          COUNT(*)                              AS leadsFinalizados,
+          -- «Contactos finalizados en éxito»: los cerrados con estado Success*
+          SUM(CASE WHEN a.business_status IN (${listaExito}) THEN 1 ELSE 0 END) AS exitosFinalizados
       FROM ult
       INNER JOIN activity    a ON a.code = ult.activity AND a.status = 3
       INNER JOIN ph_campaign c ON a.campaign = c.code
@@ -139,7 +159,10 @@ export async function metricasDiariasPorCampania(
           FROM activity_history h3
           WHERE h3.activity = ult.activity
       )${filtroLeads}
-      GROUP BY CONVERT(varchar(10), ult.cierre, 23), RTRIM(c.shortname);
+      GROUP BY CONVERT(varchar(10), ult.cierre, 23), RTRIM(c.shortname)
+      -- RECOMPILE: el texto es el mismo para un día que para un mes y SQL
+      -- Server reutilizaría el plan del primero (incidencia del 20/10/2026)
+      OPTION (RECOMPILE);
     `);
 
     const [rItr, rExitos, rLeads] = await Promise.all([itr, exitos, leads]);
@@ -166,6 +189,8 @@ export async function metricasDiariasPorCampania(
           horasProductivas: 0,
           exitos: 0,
           leadsFinalizados: 0,
+          sesiones: 0,
+          exitosFinalizados: 0,
         };
         mapa.set(clave(f), m);
       }
@@ -201,11 +226,15 @@ export async function metricasDiariasPorCampania(
       // Redondear cada día y luego sumar acumula error; se redondea solo el total.
       m.horasProductivas = f.horasProductivas;
     }
-    for (const f of rExitos.recordset as (FilaClave & { exitos: number })[]) {
-      obtener(f).exitos = f.exitos;
+    for (const f of rExitos.recordset as (FilaClave & { exitos: number; sesiones: number })[]) {
+      const m = obtener(f);
+      m.exitos = f.exitos;
+      m.sesiones = f.sesiones;
     }
-    for (const f of rLeads.recordset as (FilaClave & { leadsFinalizados: number })[]) {
-      obtener(f).leadsFinalizados = f.leadsFinalizados;
+    for (const f of rLeads.recordset as (FilaClave & { leadsFinalizados: number; exitosFinalizados: number })[]) {
+      const m = obtener(f);
+      m.leadsFinalizados = f.leadsFinalizados;
+      m.exitosFinalizados = f.exitosFinalizados;
     }
 
     return [...mapa.values()].sort(
@@ -232,6 +261,8 @@ export async function unidadesPorCampania(
         atendidas: 0,
         exitos: 0,
         leadsFinalizados: 0,
+        sesiones: 0,
+        exitosFinalizados: 0,
       };
       mapa.set(m.campania, u);
     }
@@ -241,12 +272,71 @@ export async function unidadesPorCampania(
     u.atendidas += m.atendidas;
     u.exitos += m.exitos;
     u.leadsFinalizados += m.leadsFinalizados;
+    u.sesiones += m.sesiones;
+    u.exitosFinalizados += m.exitosFinalizados;
   }
   return [...mapa.values()]
     // Único punto de redondeo de las horas productivas: el total ya sumado
     .map((u) => ({ ...u, horasProductivas: redondear2(u.horasProductivas) ?? 0 }))
     // Se ordena por volumen: las horas logadas por campaña ya no existen aquí
     .sort((a, b) => b.interacciones - a.interacciones);
+}
+
+/**
+ * Acciones de activity_history que dan de ALTA un contacto en una campaña:
+ * cargado (LoaderCreation), creado por un supervisor o un agente, o movido
+ * desde otra campaña. Por nombre en rdb_enums (regla 5), no por número.
+ */
+const ALTA_CONTACTO = /^(LoaderCreation|SupervisorCreation|AgentCreation|MoveToCampaign|MoveToCampaignLoad)$/;
+
+/**
+ * Contactos que ENTRAN en cada campaña en el rango: artículo «LEADS A
+ * GESTIONAR EXTERNAS» (decidido 19/10/2026 con Christian: los leads
+ * recibidos en el mes, los gestione o no un agente). Un contacto cuenta una
+ * vez aunque tenga varias altas en el rango; va a la campaña en la que está.
+ * Septiembre 2026: los leads web de GH entran como AgentCreation (12.924) y
+ * no por el cargador (500), así que valen todas las altas, no solo el cargador.
+ */
+export async function leadsRecibidosPorCampania(
+  desdeISO: string,
+  hastaISO: string,
+  campanias?: string[],
+): Promise<Map<string, number>> {
+  if (esMock()) return mockLeadsRecibidos(desdeISO, hastaISO, campanias);
+  const claveCache = `rdb:leadsRecibidos:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}`;
+  const filas = await conCache(claveCache, ttlSegunRango(hastaISO), async () => {
+    const enums = await obtenerEnums();
+    const altas = Object.entries(enums.ContactEventActionType ?? {})
+      .filter(([, nombre]) => ALTA_CONTACTO.test(nombre))
+      .map(([valor]) => Number(valor));
+    if (altas.length === 0) return [];
+    const pool = await obtenerPool();
+    const request = pool.request();
+    const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
+    request.input("desde", sql.DateTime, desde);
+    request.input("hastaExcl", sql.DateTime, hastaExcl);
+    const marcadores = altas.map((v, i) => {
+      request.input(`alta${i}`, sql.SmallInt, v);
+      return `@alta${i}`;
+    });
+    const filtro = filtroCampanias(request, campanias, "c.shortname");
+    const r = await request.query(`
+      -- Contactos dados de alta en el rango (activity_history, índice por
+      -- event_moment), uno por actividad, en su campaña actual
+      SELECT RTRIM(c.shortname) AS campania, COUNT(DISTINCT h.activity) AS leads
+      FROM activity_history h
+      INNER JOIN activity    a ON a.code = h.activity
+      INNER JOIN ph_campaign c ON c.code = a.campaign
+      WHERE h.event_moment >= @desde AND h.event_moment < @hastaExcl
+        AND h.event_action IN (${marcadores.join(", ")})${filtro}
+      GROUP BY RTRIM(c.shortname)
+      -- RECOMPILE: el texto es el mismo para un día que para un mes y SQL
+      -- Server reutilizaría el plan del primero (incidencia del 20/10/2026)
+      OPTION (RECOMPILE);
+    `);
+    return r.recordset as { campania: string; leads: number }[];
+  });
+  return new Map(filas.map((f) => [f.campania, f.leads]));
 }
 
 /**

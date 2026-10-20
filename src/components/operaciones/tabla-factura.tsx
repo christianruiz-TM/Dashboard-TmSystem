@@ -8,6 +8,7 @@ import {
 } from "@/components/ui/table";
 import type { UnidadFacturacion } from "@/lib/db/schema";
 import {
+  ARTICULO_GS,
   NOMBRE_CORTO_UNIDAD,
   NOMBRE_UNIDAD,
   agruparPorServicio,
@@ -22,13 +23,16 @@ export function euros(importe: number | null | undefined): string {
   return importe.toLocaleString("es-ES", { style: "currency", currency: "EUR" });
 }
 
-/** Cantidad con la unidad que toca: horas a «8,53 h», minutos a 2 decimales, el resto enteros. */
+/**
+ * Cantidad con la unidad que toca: horas a «8,53 h», minutos a 2 decimales,
+ * los cargos puntuales con decimales solo si los tienen y el resto, enteros.
+ */
 export function cantidadLegible(unidad: UnidadFacturacion, cantidad: number): string {
   if (unidad === "horas" || unidad === "horas_logadas") return horasLegibles(cantidad);
-  if (unidad === "minutos_fijo" || unidad === "minutos_movil") {
+  if (unidad === "minutos_fijo" || unidad === "minutos_movil" || unidad === "minutos_especial") {
     return cantidad.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
-  return cantidad.toLocaleString("es-ES");
+  return cantidad.toLocaleString("es-ES", { maximumFractionDigits: 2 });
 }
 
 /**
@@ -80,7 +84,7 @@ export function TablaFactura({ filas, conServicio }: { filas: FilaFactura[]; con
           <TableHead>Campaña</TableHead>
           <TableHead>Cód. GS</TableHead>
           {unidades.map((u) => (
-            <TableHead key={u} colSpan={2} className="text-center" title={NOMBRE_UNIDAD[u]}>
+            <TableHead key={u} colSpan={2} className="text-center" title={ARTICULO_GS[u] ?? NOMBRE_UNIDAD[u]}>
               {NOMBRE_CORTO_UNIDAD[u]}
             </TableHead>
           ))}

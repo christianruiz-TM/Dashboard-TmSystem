@@ -86,19 +86,29 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "Cómo se reparten las horas logadas de un cliente entre sus campañas, con el método del Excel de facturación de operaciones. Altitude no registra en qué campaña está un usuario mientras espera (los tiene casi siempre todas abiertas), así que las horas logadas del período se reparten en proporción al tiempo de agente en cada campaña: marcar, hablar, retener y cerrar la llamada, sin la cola, en entrantes y salientes aunque no contesten. No cuentan las salientes sin número marcado ni las campañas que se facturan a su manera (bbdd). Suma exactamente las horas del cliente y es lo que va al albarán de cada campaña.",
   },
   minutosLinea: {
-    termino: "Minutos de línea (fijo y móvil)",
+    termino: "Minutos de línea (fijo, móvil y especiales)",
     definicion:
-      "Minutos de conversación con el cliente que cuestan línea: llamadas salientes atendidas por un agente y la encuesta que suena después de la gestión (el cliente sigue al teléfono). Se separan por el número marcado: móviles (6xx, 71x-74x) y fijos (8xx, 9xx). Los especiales (901, 902, 80x, 70x) se presupuestan aparte y no se cobran aquí; los gratuitos (800, 900) y las llamadas entrantes, tampoco.",
+      "Minutos de conversación con el cliente que cuestan línea: llamadas salientes atendidas por un agente y la encuesta que suena después de la gestión (el cliente sigue al teléfono). Se separan por el número marcado: móviles (6xx, 71x-74x), fijos (8xx, 9xx) y especiales (901, 902, 80x, 70x: artículo «TARIFICACION 901,2,X», solo para los clientes que lo tengan en su tarifa). Los gratuitos (800, 900) y las llamadas entrantes no se cobran.",
   },
   ddis: {
     termino: "DDIs (cuota mensual)",
     definicion:
-      "Números de teléfono de TmSystem asignados a cada campaña. Se cobra el mes entero por cada DDI activo algún día del mes (puesto en producción antes de que acabe y sin baja o con la baja después de que empiece), sin prorratear. El inventario está en Operaciones → DDIs.",
+      "Números de teléfono de TmSystem asignados a cada campaña. Se cobra el mes entero por cada DDI activo algún día del mes (puesto en producción antes de que acabe y sin baja o con la baja después de que empiece), sin prorratear. Hay dos artículos: geográficos y móviles (6xx, 71x-74x), cada uno con su precio. El inventario está en Operaciones → DDIs.",
   },
   facturaCampania: {
     termino: "Factura por campaña",
     definicion:
       "Todo lo que se cobra a cada campaña en el período, con el código de la campaña en GS: su parte de las horas logadas del cliente, los minutos de línea, los contactos finalizados, la cuota de DDIs y lo que tenga configurado. Es lo que se guarda al cerrar el mes.",
+  },
+  articulosGs: {
+    termino: "Artículos de GS y tarifas",
+    definicion:
+      "Lo que se puede facturar, con el nombre del artículo en GS: base de datos, encuestas realizadas, hora de agente, preparación de campaña, minutos a fijos, a móviles y a especiales, alquiler de DDIs geográficos y móviles, leads a gestionar, contactos finalizados en éxito y número de contactos finalizados. Cada cliente factura los que tiene en su tarifa, con su precio (Operaciones → Artículos y tarifas). Los que tiene en la tarifa van también en el fichero de albaranes de GS.",
+  },
+  cargosPuntuales: {
+    termino: "Cargos puntuales",
+    definicion:
+      "Los artículos que no se miden (BASE DE DATOS y PREPARACIÓN DE CAMPAÑA, «U» en GS): Operaciones los apunta a mano en el mes y la campaña que toca, con su cantidad y, si no es el de la tarifa, su precio. Entran en la factura de esa campaña. Con el mes cerrado no se pueden añadir ni quitar.",
   },
   cierreMes: {
     termino: "Mes cerrado",
@@ -202,7 +212,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   gruposCampania: {
     termino: "Grupos de campañas",
     definicion:
-      "Si el cliente tiene tipos de campaña (Administración → Resultados; en Bolsas, «Cartera» = Bol_ seguido de 3 o 4 cifras), el detalle por campaña sale agrupado por tipo, con el resto al final y una fila de total en cada grupo.",
+      "Si el cliente tiene tipos de campaña (Administración → Resultados; en Bolsas, «Cartera» = Bol_ seguido de 3 o 4 cifras; en GrupoHuertas, «BBDD»), las tablas por campaña de Dirección y de Supervisión salen agrupadas por tipo, con el resto al final y una fila de total en cada grupo. En Supervisión, el SLA, la cola y el abandono del total se calculan con las llamadas de todo el grupo, no haciendo la media de los porcentajes.",
   },
   comparadorCampanias: {
     termino: "Comparar dos campañas",
@@ -213,6 +223,11 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     termino: "Filtro por campo del contacto",
     definicion:
       "Deja ver los resultados solo de los contactos con un valor en un dato de su ficha (en GrupoHuertas, el origen del lead). Al escribir salen los valores que contienen ese texto, con cuántos finalizados tienen en el período. Se puede elegir un valor concreto o todos los que contienen el texto. Qué dato se filtra en cada cliente se elige en Administración → Resultados.",
+  },
+  csvContactos: {
+    termino: "CSV de contactos",
+    definicion:
+      "Descarga una fila por cada contacto finalizado que se está viendo (con los filtros de fechas, tipo de campaña y dato del contacto): campaña, ID único del perfil, nombre, resultado, subresultado, fecha y hora de cierre, campaña digital, id de llamada y los dos primeros teléfonos. De momento solo en GrupoHuertas. Se abre con Excel (separado por punto y coma).",
   },
   leads: {
     termino: "Leads finalizados",
@@ -246,7 +261,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   importe: {
     termino: "Importe estimado",
     definicion:
-      "Cálculo orientativo del importe según la tarifa configurada (por servicio o por campaña) en Administración → Facturación.",
+      "Cálculo orientativo del importe según la tarifa configurada (por cliente o por campaña) en Operaciones → Artículos y tarifas.",
   },
   ivr: {
     termino: "IVR (campaña automática)",

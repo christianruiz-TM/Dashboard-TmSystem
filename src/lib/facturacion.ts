@@ -1,8 +1,13 @@
 import { eq } from "drizzle-orm";
 import { db } from "@/lib/db/sqlite";
 import { billingConfig, type BillingConfigRow } from "@/lib/db/schema";
-import { ddisParaFacturar, mapaCodigosGs, prefijosExcluidosReparto } from "@/lib/db/facturacion";
-import { ddisPorMes } from "@/lib/ddis";
+import {
+  cargosParaFacturar,
+  ddisParaFacturar,
+  mapaCodigosGs,
+  prefijosExcluidosReparto,
+} from "@/lib/db/facturacion";
+import { ddisPorMes, esDdiMovil } from "@/lib/ddis";
 import {
   consolidarFactura,
   facturarCampanias,
@@ -20,6 +25,7 @@ import { tarificacionPorCampania, type TarificacionCampania } from "@/lib/tarifi
 import {
   baseRepartoHorasLogadas,
   horasLogadasUsuarios,
+  leadsRecibidosPorCampania,
   metricasDiariasPorCampania,
   unidadesPorCampania,
 } from "@/lib/rdb/queries/facturacion";
@@ -38,14 +44,17 @@ import type { ServicioConCampanias, UnidadesCampania } from "@/lib/rdb/types";
 // lib/facturacion-campania.ts; aquí, la lectura de la config y las consultas.
 //
 // Dos niveles:
-//  - Por CAMPAÑA: horas productivas, atendidas, éxitos, leads, minutos de
-//    línea a fijo y a móvil y DDIs.
+//  - Por CAMPAÑA: los artículos de GS (ARTICULO_GS): horas productivas,
+//    contactos gestionados (encuestas), minutos de línea (fijo, móvil y
+//    especiales), DDIs geográficos y móviles, leads recibidos, finalizados y
+//    finalizados en éxito, y los cargos puntuales que apunta Operaciones.
 //  - Por CLIENTE (servicio): horas logadas de sus usuarios. user_log no sabe
 //    de campañas: el total se reparte por campaña con el método del Excel de
 //    operaciones (tiempo de agente).
 // ============================================================
 
 export {
+  ARTICULO_GS,
   NOMBRE_CORTO_UNIDAD,
   NOMBRE_UNIDAD,
   ORDEN_UNIDADES,
@@ -173,7 +182,7 @@ export async function facturacionCompleta(
   incluirIvr: boolean,
 ): Promise<FacturacionCompleta> {
   const [servicios, camp] = await Promise.all([listaServicios(), campaniasEfectivas(servicio, incluirIvr)]);
-  const [unidades, diarias, minutos, porCliente] = await Promise.all([
+  const [unidades, diarias, minutos, porCliente, leadsRecibidos] = await Promise.all([
     unidadesPorCampania(desdeISO, hastaISO, camp),
     // La misma consulta que la anterior (caché compartida): de aquí salen los
     // meses con llamadas de cada campaña, para los DDIs que solo se cobran así
@@ -181,6 +190,7 @@ export async function facturacionCompleta(
     minutosLineaPorCampania(desdeISO, hastaISO, camp),
     // Horas logadas de los usuarios del cliente: no dependen de campañas ni del check IVR
     facturacionHorasLogadas(desdeISO, hastaISO, servicio),
+    leadsRecibidosPorCampania(desdeISO, hastaISO, camp),
   ]);
   const mesesConLlamadas = new Map<string, Set<string>>();
   for (const d of diarias) {
@@ -191,10 +201,17 @@ export async function facturacionCompleta(
   }
   const mapa = mapaCampaniaServicio(servicios);
   const tarificacion = tarificacionPorCampania(minutos);
+  // DDIs geográficos y móviles por separado (dos artículos de GS). Un número
+  // es siempre de un tipo, así que partir la lista no cambia la regla de
+  // «una vez al mes, a la asignación más reciente» (lib/ddis.ts).
+  const ddis = ddisParaFacturar(camp);
   const facturacion = calcularFacturacion(unidades, mapa, {
     tarificacion,
-    ddisPorMes: ddisPorMes(ddisParaFacturar(camp), desdeISO, hastaISO),
+    ddisPorMes: ddisPorMes(ddis.filter((d) => !esDdiMovil(d.numero)), desdeISO, hastaISO),
+    ddisMovilPorMes: ddisPorMes(ddis.filter((d) => esDdiMovil(d.numero)), desdeISO, hastaISO),
     mesesConLlamadas,
+    leadsRecibidos,
+    cargos: cargosParaFacturar(desdeISO, hastaISO, camp),
   });
   const factura = consolidarFactura(facturacion, porCliente, mapa, mapaCodigosGs());
   return { unidades, tarificacion, facturacion, porCliente, factura };

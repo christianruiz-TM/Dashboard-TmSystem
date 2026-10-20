@@ -16,6 +16,19 @@
 // campaña a mitad de mes no lo cobra dos veces.
 // ============================================================
 
+import { clasificarPrefijo } from "@/lib/tarificacion";
+
+/**
+ * ¿Es un DDI móvil? (artículo «ALQUILER DDI (NUMERO MOVIL)», 19/10/2026).
+ * Por el plan de numeración, con sus 9 últimas cifras, como la
+ * tarificación: 6xx y 71x-74x. Todo lo demás es geográfico (en octubre de
+ * 2026, los 365 en producción son 8xx o 9xx).
+ */
+export function esDdiMovil(numero: string): boolean {
+  const cifras = numero.replace(/\D/g, "");
+  return cifras.length >= 9 && clasificarPrefijo(cifras.slice(-9, -6)) === "movil";
+}
+
 export interface DdiFechas {
   numero: string;
   campaignShortname: string | null;

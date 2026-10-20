@@ -1,5 +1,6 @@
+import type { SeccionComparable } from "@/lib/comparador";
 import type { RatiosCampania } from "@/lib/ratios-exito";
-import { tipoDeCampania, type TipoCampania } from "@/lib/resultados-actividad";
+import { agruparPorTipoCampania, type TipoCampania } from "@/lib/resultados-actividad";
 import type { UnidadesCampania, VolumenCampania } from "@/lib/rdb/types";
 
 // ============================================================
@@ -7,11 +8,11 @@ import type { UnidadesCampania, VolumenCampania } from "@/lib/rdb/types";
 // campaña con todo lo que se enseña de ella, el resumen por cliente (vista
 // sin cliente elegido), los grupos de campañas con subtotales (Bolsas:
 // cartera y resto, con los «tipos de campaña» del cliente) y las métricas
-// del comparador de dos campañas. Lógica PURA, con tests: la usan la página
-// (servidor) y el comparador (navegador).
+// del comparador de dos campañas. Lógica PURA, con tests.
 // ============================================================
 
-export interface FilaCampaniaDireccion {
+// Tipo y no interfaz: así encaja en FilaComparable (lib/comparador.ts)
+export type FilaCampaniaDireccion = {
   campania: string;
   /** Cliente (servicio) de la campaña; null si no tiene. */
   servicio: string | null;
@@ -37,7 +38,7 @@ export interface FilaCampaniaDireccion {
   exitosHoraProductiva: number | null;
   conversacionPorExitoSeg: number | null;
   gestionPorExitoSeg: number | null;
-}
+};
 
 /** Sumas de un conjunto de campañas (cliente, grupo o total). Sin redondear. */
 export interface TotalesCampanias {
@@ -178,39 +179,14 @@ export interface GrupoCampanias {
  * grupo sin nombre. Los grupos sin campañas no salen.
  */
 export function agruparPorTipo(filas: FilaCampaniaDireccion[], tipos: TipoCampania[]): GrupoCampanias[] {
-  if (tipos.length === 0) return [{ nombre: null, filas, total: sumarCampanias(filas) }];
-  const porTipo = new Map<string, FilaCampaniaDireccion[]>();
-  for (const f of filas) {
-    const t = tipoDeCampania(f.campania, tipos) ?? "";
-    porTipo.set(t, [...(porTipo.get(t) ?? []), f]);
-  }
-  return [...tipos.map((t) => t.nombre), ""]
-    .filter((n) => (porTipo.get(n)?.length ?? 0) > 0)
-    .map((n) => {
-      const suyas = porTipo.get(n)!;
-      return { nombre: n || "Resto", filas: suyas, total: sumarCampanias(suyas) };
-    });
+  return agruparPorTipoCampania(filas, tipos).map((g) => ({ ...g, total: sumarCampanias(g.filas) }));
 }
 
 // ------------------------------------------------------------
-// Comparador de dos campañas
+// Métricas del comparador de dos campañas (lib/comparador.ts)
 // ------------------------------------------------------------
 
-export type FormatoMetrica = "entero" | "pct" | "seg" | "horas" | "decimal";
-
-type ClaveNumerica = {
-  [K in keyof FilaCampaniaDireccion]: FilaCampaniaDireccion[K] extends number | null ? K : never;
-}[keyof FilaCampaniaDireccion];
-
-export interface MetricaComparable {
-  clave: ClaveNumerica;
-  titulo: string;
-  formato: FormatoMetrica;
-  /** Qué es mejor, para resaltar; null = es volumen, no hay mejor ni peor. */
-  mejor: "alto" | "bajo" | null;
-}
-
-export const METRICAS_COMPARACION: { seccion: string; metricas: MetricaComparable[] }[] = [
+export const METRICAS_COMPARACION: SeccionComparable[] = [
   {
     seccion: "Volumen",
     metricas: [
@@ -244,26 +220,3 @@ export const METRICAS_COMPARACION: { seccion: string; metricas: MetricaComparabl
     ],
   },
 ];
-
-const DOS: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
-
-/** Formato de una métrica; con `signo`, para una diferencia (+/−). */
-export function formatearMetrica(valor: number | null, formato: FormatoMetrica, signo = false): string {
-  if (valor == null || !Number.isFinite(valor)) return "—";
-  const pre = signo && valor > 0 ? "+" : "";
-  if (formato === "entero") return pre + Math.round(valor).toLocaleString("es-ES");
-  const num = pre + valor.toLocaleString("es-ES", DOS);
-  if (formato === "pct") return signo ? `${num} p.p.` : `${num} %`;
-  if (formato === "seg") return `${num} s`;
-  if (formato === "horas") return `${num} h`;
-  return num;
-}
-
-/**
- * Cuál de las dos es mejor en una métrica: «a», «b» o null (sin criterio,
- * empate o sin datos).
- */
-export function mejorDeDos(a: number | null, b: number | null, mejor: MetricaComparable["mejor"]): "a" | "b" | null {
-  if (mejor == null || a == null || b == null || a === b) return null;
-  return (mejor === "alto") === a > b ? "a" : "b";
-}

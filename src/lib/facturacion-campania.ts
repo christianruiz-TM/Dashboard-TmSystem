@@ -1,11 +1,11 @@
-import type { BillingConfigRow, UnidadFacturacion } from "@/lib/db/schema";
+import { UNIDADES_CARGO, type BillingConfigRow, type UnidadCargo, type UnidadFacturacion } from "@/lib/db/schema";
 import type { FacturacionHorasLogadas } from "@/lib/facturacion-horas-logadas";
 import type { UnidadesCampania } from "@/lib/rdb/types";
 import type { TarificacionCampania } from "@/lib/tarificacion";
 
 // ============================================================
 // Facturación por campaña (puro, sin I/O): cruza lo medido en RDBv2 con
-// billing_config. Dos pasos:
+// billing_config. Cada unidad es un artículo de GS (ARTICULO_GS). Dos pasos:
 //  1. facturarCampanias: las líneas de cada campaña según su config
 //     (campaña > servicio > ninguna): productivas, atendidas, éxitos, leads,
 //     minutos a fijo y a móvil y DDIs.
@@ -15,40 +15,127 @@ import type { TarificacionCampania } from "@/lib/tarificacion";
 //     se guarda al cerrar el mes.
 // ============================================================
 
-/** Orden de las unidades en tablas, exportaciones y cierres. */
+/**
+ * Orden de las unidades en tablas, exportaciones y cierres: el de los
+ * artículos de GS (lista de Operaciones del 19/10/2026), con las dos que no
+ * son artículo de GS (atendidas y éxitos por sesión) al final.
+ */
 export const ORDEN_UNIDADES: readonly UnidadFacturacion[] = [
+  "base_datos",
+  "encuestas",
   "horas_logadas",
   "horas",
-  "interacciones",
-  "exitos",
-  "leads",
+  "preparacion",
   "minutos_fijo",
   "minutos_movil",
+  "minutos_especial",
   "ddi",
+  "ddi_movil",
+  "leads_recibidos",
+  "exitos_finalizados",
+  "leads",
+  "interacciones",
+  "exitos",
 ];
 
+/**
+ * Artículo de GS de cada unidad (nombre tal cual en GS). Las dos horas son el
+ * mismo artículo: cada cliente factura una u otra. null = no es artículo de GS.
+ */
+export const ARTICULO_GS: Record<UnidadFacturacion, string | null> = {
+  base_datos: "BASE DE DATOS (CAMP. EXTERNAS)",
+  encuestas: "ENCUESTAS REALIZADAS",
+  horas_logadas: "HORA AGENTE/TELEOPERADOR/A",
+  horas: "HORA AGENTE/TELEOPERADOR/A",
+  preparacion: "PREPARACION DE CAMPAÑA",
+  minutos_fijo: "TARIFICACION MINUTOS A FIJOS",
+  minutos_movil: "TARIFICACION MINUTOS A MOVILES",
+  minutos_especial: "TARIFICACION 901,2,X",
+  ddi: "ALQUILER DDI (NUMERO GEOGRAFICO)",
+  ddi_movil: "ALQUILER DDI (NUMERO MOVIL)",
+  leads_recibidos: "LEADS A GESTIONAR EXTERNAS",
+  exitos_finalizados: 'CONTACTOS FINALIZADOS EN "EXITO"',
+  leads: "Nº CONTACTOS FINALIZADOS",
+  interacciones: null,
+  exitos: null,
+};
+
+/** Cómo se calcula cada unidad, en llano (formularios y tablas). */
 export const NOMBRE_UNIDAD: Record<UnidadFacturacion, string> = {
-  horas: "Horas productivas (en llamada)",
+  base_datos: "Base de datos (cargo puntual)",
+  encuestas: "Encuestas realizadas (contactos gestionados)",
   horas_logadas: "Horas logadas (usuarios del cliente)",
-  interacciones: "Interacciones gestionadas (atendidas)",
-  exitos: "Éxitos / ventas",
-  leads: "Leads / contactos finalizados",
+  horas: "Horas productivas (en llamada)",
+  preparacion: "Preparación de campaña (cargo puntual)",
   minutos_fijo: "Minutos de línea a fijos",
   minutos_movil: "Minutos de línea a móviles",
-  ddi: "DDIs (cuota mensual)",
+  minutos_especial: "Minutos a números especiales (901, 902, 80x, 70x)",
+  ddi: "DDIs geográficos (cuota mensual)",
+  ddi_movil: "DDIs móviles (cuota mensual)",
+  leads_recibidos: "Leads recibidos (contactos que entran)",
+  exitos_finalizados: "Contactos finalizados en éxito",
+  leads: "Contactos finalizados",
+  interacciones: "Interacciones gestionadas (atendidas)",
+  exitos: "Éxitos / ventas (sesiones de éxito)",
 };
 
 /** Cabecera corta para columnas de tabla. */
 export const NOMBRE_CORTO_UNIDAD: Record<UnidadFacturacion, string> = {
-  horas: "H. productivas",
+  base_datos: "Base datos",
+  encuestas: "Encuestas",
   horas_logadas: "H. logadas",
-  interacciones: "Atendidas",
-  exitos: "Éxitos",
-  leads: "Contactos fin.",
+  horas: "H. productivas",
+  preparacion: "Preparación",
   minutos_fijo: "Min. fijo",
   minutos_movil: "Min. móvil",
+  minutos_especial: "Min. 90X",
   ddi: "DDIs",
+  ddi_movil: "DDIs móvil",
+  leads_recibidos: "Leads recib.",
+  exitos_finalizados: "Fin. éxito",
+  leads: "Contactos fin.",
+  interacciones: "Atendidas",
+  exitos: "Éxitos",
 };
+
+/** Cómo se mide cada unidad, en llano (catálogo de Operaciones → Artículos). */
+export const CALCULO_UNIDAD: Record<UnidadFacturacion, string> = {
+  base_datos:
+    "Cargo puntual: Operaciones lo apunta a mano en el mes y la campaña que toca (Facturación → Cargos puntuales).",
+  encuestas:
+    "Contactos gestionados (sesiones de script) de las campañas de la línea. Pensado para las campañas de encuestas.",
+  horas_logadas:
+    "Tiempo logado de los usuarios PREFIJO_nnnn del cliente (de login a logout), repartido por campaña según el tiempo de agente.",
+  horas: "Tiempo de gestión de las llamadas atendidas de la campaña (en llamada y cierre).",
+  preparacion:
+    "Cargo puntual: Operaciones lo apunta a mano en el mes y la campaña que toca (Facturación → Cargos puntuales).",
+  minutos_fijo: "Minutos de las salientes atendidas a números fijos (8xx, 9xx), más la encuesta tras la gestión.",
+  minutos_movil: "Minutos de las salientes atendidas a móviles (6xx, 71x-74x), más la encuesta tras la gestión.",
+  minutos_especial: "Minutos de las salientes atendidas a números especiales (901-909, 803-807, 70x).",
+  ddi: "Cuota del mes entero por cada DDI geográfico activo algún día del mes (Operaciones → DDIs).",
+  ddi_movil: "Cuota del mes entero por cada DDI móvil (6xx, 71x-74x) activo algún día del mes.",
+  leads_recibidos:
+    "Contactos que entran en la campaña en el mes (cargados, creados por un agente o un supervisor, o movidos de otra), se gestionen o no.",
+  exitos_finalizados: "Contactos cerrados en el mes con estado de éxito.",
+  leads: "Contactos cerrados en el mes, fechados por su último intento.",
+  interacciones: "Llamadas atendidas por un agente. No es artículo de GS.",
+  exitos: "Sesiones de script marcadas como éxito. No es artículo de GS.",
+};
+
+/** Unidades que no se miden: las apunta Operaciones (cargos puntuales, «U» en GS). */
+export function esCargoPuntual(unidad: UnidadFacturacion): unidad is UnidadCargo {
+  return (UNIDADES_CARGO as readonly string[]).includes(unidad);
+}
+
+/** Un cargo puntual de un mes y campaña (tabla facturacion_cargos). */
+export interface CargoPuntual {
+  campania: string;
+  unidad: UnidadCargo;
+  cantidad: number;
+  /** null = el precio de la tarifa de esa unidad. */
+  precioUnitario: number | null;
+  concepto: string;
+}
 
 export interface LineaFacturable {
   unidad: UnidadFacturacion;
@@ -65,13 +152,19 @@ export interface ConfigFacturacion {
   porServicio: Map<string, BillingConfigRow[]>;
 }
 
-/** Medidas que no salen de itr_thread: tarificación y DDIs, por campaña. */
+/** Medidas que no salen de itr_thread: tarificación, DDIs, leads recibidos y cargos, por campaña. */
 export interface ExtrasFacturacion {
   tarificacion?: ReadonlyMap<string, TarificacionCampania>;
-  /** DDIs de cada mes del rango (lib/ddis.ts → ddisPorMes). */
+  /** DDIs GEOGRÁFICOS de cada mes del rango (lib/ddis.ts → ddisPorMes). */
   ddisPorMes?: ReadonlyMap<string, ReadonlyMap<string, number>>;
+  /** DDIs MÓVILES de cada mes del rango. */
+  ddisMovilPorMes?: ReadonlyMap<string, ReadonlyMap<string, number>>;
   /** Meses (YYYY-MM) con alguna llamada de cada campaña. */
   mesesConLlamadas?: ReadonlyMap<string, ReadonlySet<string>>;
+  /** Contactos que entran en cada campaña (leadsRecibidosPorCampania). */
+  leadsRecibidos?: ReadonlyMap<string, number>;
+  /** Cargos puntuales de los meses del rango (facturacion_cargos). */
+  cargos?: readonly CargoPuntual[];
 }
 
 export interface FacturacionCampania {
@@ -84,6 +177,13 @@ export interface FacturacionCampania {
   ddis: number;
   /** DDI-meses de los meses con llamadas (opción «solo los meses con llamadas»). */
   ddisConLlamadas: number;
+  /** Lo mismo con los DDIs móviles (`ddis` son los geográficos). */
+  ddisMovil: number;
+  ddisMovilConLlamadas: number;
+  /** Contactos que entraron en la campaña en el rango. */
+  leadsRecibidos: number;
+  /** Cargos puntuales apuntados por Operaciones. */
+  cargos: CargoPuntual[];
   /** Líneas según billing_config (vacío si la campaña no está configurada). */
   lineas: LineaFacturable[];
   /** Origen de la configuración aplicada: del servicio, de la campaña o ninguna. */
@@ -108,12 +208,28 @@ function sumaImportes(lineas: readonly { importe: number | null }[]): number | n
 }
 
 function medidasVacias(campania: string): UnidadesCampania {
-  return { campania, horasProductivas: 0, interacciones: 0, atendidas: 0, exitos: 0, leadsFinalizados: 0 };
+  return {
+    campania,
+    horasProductivas: 0,
+    interacciones: 0,
+    atendidas: 0,
+    exitos: 0,
+    leadsFinalizados: 0,
+    sesiones: 0,
+    exitosFinalizados: 0,
+  };
 }
 
+type MedidasLinea = Pick<
+  FacturacionCampania,
+  "medidas" | "tarificacion" | "ddis" | "ddisConLlamadas" | "ddisMovil" | "ddisMovilConLlamadas" | "leadsRecibidos"
+>;
+
 function cantidadPara(
-  linea: Pick<BillingConfigRow, "soloConActividad"> & { unidad: Exclude<UnidadFacturacion, "horas_logadas"> },
-  f: Pick<FacturacionCampania, "medidas" | "tarificacion" | "ddis" | "ddisConLlamadas">,
+  linea: Pick<BillingConfigRow, "soloConActividad"> & {
+    unidad: Exclude<UnidadFacturacion, "horas_logadas" | UnidadCargo>;
+  },
+  f: MedidasLinea,
 ): number {
   switch (linea.unidad) {
     case "horas":
@@ -134,11 +250,55 @@ function cantidadPara(
       return redondear2(f.tarificacion?.minutos.fijo ?? 0);
     case "minutos_movil":
       return redondear2(f.tarificacion?.minutos.movil ?? 0);
+    case "minutos_especial":
+      // 901, 902, 80x, 70x: hasta el 19/10/2026 se presupuestaban aparte;
+      // ahora es el artículo «TARIFICACION 901,2,X» para quien lo tenga
+      return redondear2(f.tarificacion?.minutos.especial ?? 0);
     case "ddi":
       // Según el presupuesto del cliente, los DDIs se cobran todos los meses
-      // o solo los meses en que la campaña tuvo llamadas (bbdd entre tandas)
+      // o solo los meses en que la campaña tuvo llamadas (bbdd entre tandas).
+      // Desde el 19/10/2026, solo los GEOGRÁFICOS (los móviles, en ddi_movil)
       return linea.soloConActividad ? f.ddisConLlamadas : f.ddis;
+    case "ddi_movil":
+      return linea.soloConActividad ? f.ddisMovilConLlamadas : f.ddisMovil;
+    case "encuestas":
+      // Contactos gestionados (sesiones de script) de las campañas de la línea
+      return f.medidas.sesiones;
+    case "leads_recibidos":
+      return f.leadsRecibidos;
+    case "exitos_finalizados":
+      return f.medidas.exitosFinalizados;
   }
+}
+
+/**
+ * Líneas de los cargos puntuales de una campaña: una por unidad, con la suma
+ * de sus cargos. Precio: el del cargo o, si no lo lleva, el de la tarifa de
+ * esa unidad. Con precios distintos, el importe es la suma de cada cargo y
+ * el precio, la media (importe ÷ cantidad).
+ */
+function lineasDeCargos(
+  cargos: readonly CargoPuntual[],
+  precioTarifa: (u: UnidadCargo) => number | null,
+): LineaFacturable[] {
+  return UNIDADES_CARGO.flatMap((unidad) => {
+    const suyos = cargos.filter((c) => c.unidad === unidad);
+    if (suyos.length === 0) return [];
+    const precios = suyos.map((c) => c.precioUnitario ?? precioTarifa(unidad));
+    const cantidad = redondear2(suyos.reduce((a, c) => a + c.cantidad, 0));
+    const sinPrecio = precios.some((p) => p == null);
+    const importe = sinPrecio ? null : redondear2(suyos.reduce((a, c, i) => a + c.cantidad * precios[i]!, 0));
+    const iguales = precios.every((p) => p === precios[0]);
+    return [
+      {
+        unidad,
+        cantidad,
+        precioUnitario: iguales ? precios[0] : importe != null && cantidad ? Math.round((importe / cantidad) * 10000) / 10000 : null,
+        importe,
+        notas: suyos.map((c) => c.concepto).join(" · "),
+      },
+    ];
+  });
 }
 
 /**
@@ -154,7 +314,19 @@ export function facturarCampanias(
   extras: ExtrasFacturacion = {},
 ): FacturacionCampania[] {
   const medidas = new Map(unidades.map((u) => [u.campania, u]));
-  const otras = [...new Set([...(extras.tarificacion?.keys() ?? []), ...(extras.ddisPorMes?.keys() ?? [])])]
+  const cargosPorCampania = new Map<string, CargoPuntual[]>();
+  for (const c of extras.cargos ?? []) {
+    cargosPorCampania.set(c.campania, [...(cargosPorCampania.get(c.campania) ?? []), c]);
+  }
+  const otras = [
+    ...new Set([
+      ...(extras.tarificacion?.keys() ?? []),
+      ...(extras.ddisPorMes?.keys() ?? []),
+      ...(extras.ddisMovilPorMes?.keys() ?? []),
+      ...(extras.leadsRecibidos?.keys() ?? []),
+      ...cargosPorCampania.keys(),
+    ]),
+  ]
     .filter((c) => !medidas.has(c))
     .sort();
   const campanias = [...unidades.map((u) => u.campania), ...otras];
@@ -164,20 +336,38 @@ export function facturarCampanias(
     const propias = config.porCampania.get(campania);
     const delServicio = servicio ? config.porServicio.get(servicio) : undefined;
     const lineasConfig = propias ?? delServicio ?? [];
-    const ddisMes = [...(extras.ddisPorMes?.get(campania) ?? new Map<string, number>())];
     const conLlamadas = extras.mesesConLlamadas?.get(campania);
+    // DDI-meses de la campaña: todos y los de los meses con llamadas
+    const ddiMeses = (porMes: ExtrasFacturacion["ddisPorMes"]) => {
+      const meses = [...(porMes?.get(campania) ?? new Map<string, number>())];
+      return {
+        todos: meses.reduce((a, [, n]) => a + n, 0),
+        conLlamadas: meses.filter(([mes]) => conLlamadas?.has(mes)).reduce((a, [, n]) => a + n, 0),
+      };
+    };
+    const geo = ddiMeses(extras.ddisPorMes);
+    const movil = ddiMeses(extras.ddisMovilPorMes);
+    const cargos = cargosPorCampania.get(campania) ?? [];
     const base = {
       medidas: medidas.get(campania) ?? medidasVacias(campania),
       tarificacion: extras.tarificacion?.get(campania) ?? null,
-      ddis: ddisMes.reduce((a, [, n]) => a + n, 0),
-      ddisConLlamadas: ddisMes.filter(([mes]) => conLlamadas?.has(mes)).reduce((a, [, n]) => a + n, 0),
+      ddis: geo.todos,
+      ddisConLlamadas: geo.conLlamadas,
+      ddisMovil: movil.todos,
+      ddisMovilConLlamadas: movil.conLlamadas,
+      leadsRecibidos: extras.leadsRecibidos?.get(campania) ?? 0,
+      cargos,
     };
     const lineas: LineaFacturable[] = lineasConfig.flatMap((c) => {
-      // Las horas logadas se facturan por cliente (facturacionHorasLogadas)
-      if (c.unidad === "horas_logadas") return [];
+      // Las horas logadas se facturan por cliente (facturacionHorasLogadas);
+      // los cargos puntuales, con lo que apunta Operaciones (abajo)
+      if (c.unidad === "horas_logadas" || esCargoPuntual(c.unidad)) return [];
       const cantidad = cantidadPara({ unidad: c.unidad, soloConActividad: c.soloConActividad }, base);
       return [{ unidad: c.unidad, cantidad, precioUnitario: c.precioUnitario, importe: importeDe(cantidad, c.precioUnitario), notas: c.notas }];
     });
+    // Los cargos se cobran aunque la unidad no esté en la tarifa del cliente:
+    // los apunta Operaciones a propósito. La tarifa solo pone el precio.
+    lineas.push(...lineasDeCargos(cargos, (u) => lineasConfig.find((c) => c.unidad === u)?.precioUnitario ?? null));
     return {
       campania,
       servicio: servicio ?? null,
@@ -304,10 +494,14 @@ export interface TotalesUnidades {
   atendidas: number;
   exitos: number;
   leadsFinalizados: number;
+  sesiones: number;
+  exitosFinalizados: number;
+  leadsRecibidos: number;
   minutosMovil: number;
   minutosFijo: number;
   minutosEspecial: number;
   ddis: number;
+  ddisMovil: number;
   /** Suma de los importes por campaña (sin las horas logadas, que van por cliente). */
   importe: number | null;
 }
@@ -321,10 +515,14 @@ export function totalesUnidades(filas: readonly FacturacionCampania[]): TotalesU
     atendidas: suma((f) => f.medidas.atendidas),
     exitos: suma((f) => f.medidas.exitos),
     leadsFinalizados: suma((f) => f.medidas.leadsFinalizados),
+    sesiones: suma((f) => f.medidas.sesiones),
+    exitosFinalizados: suma((f) => f.medidas.exitosFinalizados),
+    leadsRecibidos: suma((f) => f.leadsRecibidos),
     minutosMovil: suma((f) => f.tarificacion?.minutos.movil ?? 0),
     minutosFijo: suma((f) => f.tarificacion?.minutos.fijo ?? 0),
     minutosEspecial: suma((f) => f.tarificacion?.minutos.especial ?? 0),
     ddis: suma((f) => f.ddis),
+    ddisMovil: suma((f) => f.ddisMovil),
     importe: sumaImportes(filas.map((f) => ({ importe: f.importeTotal }))),
   };
 }

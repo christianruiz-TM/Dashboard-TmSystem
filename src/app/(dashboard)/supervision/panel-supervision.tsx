@@ -19,7 +19,15 @@ import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
+import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
+import { TablaKpisCampania } from "@/components/kpi/tabla-kpis-campania";
 import type { ResultadoRatios } from "@/lib/ratios-exito";
+import type { TipoCampania } from "@/lib/resultados-actividad";
+import {
+  METRICAS_SUPERVISION,
+  agruparKpisPorTipo,
+  filasCampaniaSupervision,
+} from "@/lib/supervision";
 import { TarjetaAlertasPlan } from "@/components/planificacion/alertas-plan";
 import type { Alerta } from "@/lib/planificacion/alertas";
 import type { PendienteRevision } from "@/lib/planificacion/vistas";
@@ -48,23 +56,22 @@ const COLOR_ESTADO: Record<string, string> = {
   Deslogado: "bg-zinc-100 text-zinc-600 border-zinc-200",
 };
 
-function colorSla(pct: number | null): string {
-  if (pct == null) return "text-muted-foreground";
-  if (pct >= 80) return "text-emerald-600 font-semibold";
-  if (pct >= 60) return "text-amber-600 font-semibold";
-  return "text-red-600 font-semibold";
-}
-
 export function PanelSupervision({
   inicial,
   servicios,
   servicio,
   incluirIvr,
+  tipos,
+  servicioDe,
 }: {
   inicial: DatosSupervision;
   servicios: string[];
   servicio?: string;
   incluirIvr: boolean;
+  /** Tipos de campaña del cliente (Bolsas: cartera; GH: BBDD): agrupan la tabla. */
+  tipos: TipoCampania[];
+  /** Cliente de cada campaña (para el comparador sin cliente elegido). */
+  servicioDe: Record<string, string>;
 }) {
   const [datos, setDatos] = useState<DatosSupervision>(inicial);
   const [error, setError] = useState<string | null>(null);
@@ -196,68 +203,10 @@ export function PanelSupervision({
             <CardTitle className="text-base">Campañas hoy</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Campaña</TableHead>
-                  <TableHead className="text-right">Recibidas</TableHead>
-                  <TableHead className="text-right">Atendidas</TableHead>
-                  <TableHead className="text-right">Éxitos</TableHead>
-                  <TableHead className="text-right">Abandono</TableHead>
-                  <TableHead className="text-right">Cola media</TableHead>
-                  <TableHead className="text-right">Espera aband.</TableHead>
-                  <TableHead className="text-right">AHT</TableHead>
-                  <TableHead className="text-right">SLA</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {datos.kpis.length === 0 ? (
-                  <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground">
-                      Sin actividad registrada hoy
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  datos.kpis.map((k) => {
-                    // Abandono de la campaña: entrantes abandonadas / entrantes recibidas
-                    const pctAb =
-                      k.recibidas > 0
-                        ? ((k.abandonadasInbound / k.recibidas) * 100).toFixed(1)
-                        : "0.0";
-                    return (
-                      <TableRow key={k.campania}>
-                        <TableCell className="font-medium">{k.campania}</TableCell>
-                        <TableCell className="text-right tabular-nums">{k.recibidas}</TableCell>
-                        <TableCell className="text-right tabular-nums">{k.atendidas}</TableCell>
-                        <TableCell className="text-right tabular-nums text-emerald-700">
-                          {k.exitos}
-                        </TableCell>
-                        <TableCell
-                          className={cn(
-                            "text-right tabular-nums",
-                            Number(pctAb) >= 10 && "font-semibold text-red-600",
-                          )}
-                        >
-                          {pctAb} %
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {segundosLegibles(k.colaMediaSeg)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {segundosLegibles(k.esperaAbandonadasSeg)}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {segundosLegibles(k.ahtSeg)}
-                        </TableCell>
-                        <TableCell className={cn("text-right tabular-nums", colorSla(k.slaPct))}>
-                          {k.slaPct != null ? `${k.slaPct.toFixed(1)} %` : "—"}
-                        </TableCell>
-                      </TableRow>
-                    );
-                  })
-                )}
-              </TableBody>
-            </Table>
+            <TablaKpisCampania
+              grupos={agruparKpisPorTipo(datos.kpis, tipos)}
+              vacio="Sin actividad registrada hoy"
+            />
           </CardContent>
         </Card>
 
@@ -367,10 +316,18 @@ export function PanelSupervision({
 
       <RatiosExito ratios={datos.ratios} periodo="hoy" />
 
+      {/* Se recalcula con cada refresco; las campañas elegidas se mantienen */}
+      <ComparadorCampanias
+        filas={filasCampaniaSupervision(datos.kpis, datos.ratios.campanias, servicioDe)}
+        metricas={METRICAS_SUPERVISION}
+      />
+
       <Glosario
         titulo="Supervisión · tiempo real"
         claves={[
           "servicio",
+          "gruposCampania",
+          "comparadorCampanias",
           "estado",
           "pausas",
           "recibidas",

@@ -192,6 +192,48 @@ Excel puso 2,00 h justas).
     darle código y volver a cerrar (el aviso sale ya al cerrar).
 - `npm run facturacion:importar-excel -- --archivo … [--ddis] [--gs] [--historico] [--guardar [--reemplazar]]`.
 
+## 5. Artículos de GS (19/10/2026)
+
+Operaciones pasó su lista de artículos facturables de GS («Nombre Artículo» y
+«Valor cadencia»). Cada artículo es una unidad de `billing_config`; el nombre
+en GS, el orden y cómo se calcula están en `lib/facturacion-campania.ts`
+(`ARTICULO_GS`, `ORDEN_UNIDADES`, `CALCULO_UNIDAD`).
+
+| Artículo de GS | Unidad | Cómo se mide | Septiembre 2026 |
+| --- | --- | --- | --- |
+| BASE DE DATOS (CAMP. EXTERNAS) | `base_datos` | Cargo puntual («U»): lo apunta Operaciones | — |
+| ENCUESTAS REALIZADAS | `encuestas` | Sesiones de script de las campañas de la línea | Encuestas_Bolsas 136, Encuestas_Socios 9 |
+| HORA AGENTE/TELEOPERADOR/A | `horas_logadas` / `horas` | Horas logadas del cliente (regla 16) o productivas | GH 1.027,88 h |
+| PREPARACION DE CAMPAÑA | `preparacion` | Cargo puntual («U») | — |
+| TARIFICACION MINUTOS A FIJOS / MOVILES | `minutos_fijo` / `minutos_movil` | Como hasta ahora (§2) | — |
+| TARIFICACION 901,2,X | `minutos_especial` | Minutos a 901-909, 803-807 y 70x | GH 0 |
+| ALQUILER DDI (NUMERO GEOGRAFICO) | `ddi` | Cuota por DDI no móvil | GH 365 |
+| ALQUILER DDI (NUMERO MOVIL) | `ddi_movil` | Cuota por DDI 6xx o 71x-74x | 0 |
+| LEADS A GESTIONAR EXTERNAS | `leads_recibidos` | Contactos que entran en la campaña (altas de activity_history) | GH 6.478, Bolsas 5.849, UGR 6.177 |
+| CONTACTOS FINALIZADOS EN "EXITO" | `exitos_finalizados` | Cerrados con estado Success* | GH 2.597, Bolsas 521, UGR 1.942 |
+| Nº CONTACTOS FINALIZADOS | `leads` | Cerrados (último evento), como hasta ahora | GH 8.696 |
+
+- **Leads recibidos**: altas por cargador (`LoaderCreation`), agente
+  (`AgentCreation`), supervisor o movidos de otra campaña, por nombre en
+  `rdb_enums` (`ContactEventActionType`). Un contacto cuenta una vez. Los
+  leads web de GH entran como `AgentCreation`: con solo el cargador saldrían
+  500 en vez de miles.
+- **Cargos puntuales** (`facturacion_cargos`, migración 0011): mes, campaña,
+  artículo, cantidad, precio opcional (si no, el de la tarifa) y concepto.
+  Se apuntan en la tarjeta «Cargos puntuales» de Operaciones → Facturación con
+  un cliente y un mes completo sin cerrar; entran en la línea de su campaña
+  (varios del mismo artículo: una línea con la suma y el precio medio).
+- **Tarifas**: desde el 19/10/2026 las mantiene Operaciones en
+  `/operaciones/articulos` (catálogo, alta, precio y notas editables, baja),
+  con su línea en `audit_log`. Administración → Facturación queda para el SLA.
+- **Fichero de albaranes**: las columnas de siempre y, detrás, una por cada
+  artículo de la tarifa del cliente (o con cantidad en el cierre), con 0 en
+  las filas que no lo tienen. Cabeceras nuevas en `CABECERA_EXTRA_GS`, sin
+  tildes como las de GS; están sin confirmar con GS.
+- Comprobado contra RDBv2: GH septiembre sigue en 33.764,64 € con las tarifas
+  de producción (solo horas logadas y contactos); un cargo de prueba de 150 €
+  entró en su campaña y se borró.
+
 ### Pendiente
 - Nada de lógica: queda el despliegue.
 - Los códigos de GS de las bbdd cambian en cada tanda (0003304 en mayo,

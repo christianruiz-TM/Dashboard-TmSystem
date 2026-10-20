@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ROLES_OPERACIONES } from "@/lib/auth/rbac";
 import { obtenerSesion } from "@/lib/auth/session";
 import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
-import { filasFicheroGs, generarFicheroGs, type TipoFicheroGs } from "@/lib/albaranes-gs";
+import { filasFicheroGs, generarFicheroGs, unidadesExtraGs, type TipoFicheroGs } from "@/lib/albaranes-gs";
 import { cierreVigente, lineasAjustadas } from "@/lib/db/facturacion";
 import { configuracionFacturacion } from "@/lib/facturacion";
 import { filasDeCierre } from "@/lib/facturacion-campania";
@@ -33,11 +33,20 @@ export async function GET(peticion: NextRequest) {
 
   // Una campaña con config propia que cobra contactos es de bbdd (promociones)
   // aunque ese mes no tenga ninguno
-  const { porCampania } = configuracionFacturacion();
+  const { porCampania, porServicio } = configuracionFacturacion();
   const esPromocion = (c: string | null) => !!c && (porCampania.get(c) ?? []).some((l) => l.unidad === "leads");
   // Con los ajustes manuales: lo quitado no va al albarán
   const vigentes = lineasAjustadas([cierre.id]).filter((l) => !l.quitada);
-  const { filas, sinCodigo } = filasFicheroGs(filasDeCierre(vigentes, servicio), tipo, esPromocion);
+  const filasCierre = filasDeCierre(vigentes, servicio);
+  const { filas, sinCodigo } = filasFicheroGs(filasCierre, tipo, esPromocion);
+  // Columnas añadidas: los artículos de la tarifa del cliente (y de sus
+  // campañas con tarifa propia del tipo de fichero) o con cantidad en el cierre
+  const delTipo = filasCierre.filter((f) => filas.some((g) => g.codigoGs === f.codigoGs));
+  const configuradas = [
+    ...(porServicio.get(servicio) ?? []),
+    ...delTipo.flatMap((f) => (f.campania ? (porCampania.get(f.campania) ?? []) : [])),
+  ].map((l) => l.unidad);
+  const extra = unidadesExtraGs(delTipo, tipo, configuradas);
   if (sinCodigo.length > 0) {
     return NextResponse.json(
       {
@@ -56,7 +65,7 @@ export async function GET(peticion: NextRequest) {
     detalle: `albaranes GS ${tipo} ${mes} ${servicio} (cierre ${cierre.id}, ${filas.length} filas)`,
     ip: await ipPeticion(),
   });
-  return new Response(generarFicheroGs(filas, tipo), {
+  return new Response(generarFicheroGs(filas, tipo, extra), {
     headers: {
       "Content-Type": "text/plain; charset=utf-8",
       "Content-Disposition": cabeceraAdjunto(`albaranes GS ${servicio} ${mes} ${tipo}.txt`),

@@ -212,6 +212,27 @@ export function tipoDeCampania(campania: string, tipos: TipoCampania[]): string 
   return tipos.find((t) => t.patrones.some((p) => coincideLike(campania, p)))?.nombre ?? null;
 }
 
+/**
+ * Reparte filas de campaña por tipo, en el orden configurado y con «Resto»
+ * (de ningún tipo) al final; sin tipos, un solo grupo sin nombre. Los grupos
+ * sin filas no salen. Lo usan los detalles por campaña de Dirección y de
+ * Supervisión (Bolsas: cartera y resto; GH: BBDD y resto).
+ */
+export function agruparPorTipoCampania<T extends { campania: string }>(
+  filas: T[],
+  tipos: TipoCampania[],
+): { nombre: string | null; filas: T[] }[] {
+  if (tipos.length === 0) return [{ nombre: null, filas }];
+  const porTipo = new Map<string, T[]>();
+  for (const f of filas) {
+    const t = tipoDeCampania(f.campania, tipos) ?? "";
+    porTipo.set(t, [...(porTipo.get(t) ?? []), f]);
+  }
+  return [...tipos.map((t) => t.nombre), ""]
+    .filter((n) => (porTipo.get(n)?.length ?? 0) > 0)
+    .map((n) => ({ nombre: n || "Resto", filas: porTipo.get(n)! }));
+}
+
 /** Opciones del selector: «todas», «solo:<tipo>» o «resto» (de ningún tipo). */
 export type SeleccionTipo = "todas" | "resto" | `solo:${string}`;
 

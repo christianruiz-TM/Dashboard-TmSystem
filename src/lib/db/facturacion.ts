@@ -1,13 +1,15 @@
-import { and, asc, desc, eq, inArray } from "drizzle-orm";
+import { and, asc, desc, eq, gte, inArray, lte } from "drizzle-orm";
 import { db } from "./sqlite";
 import {
   auditLog,
   campaniasGs,
   ddis,
+  facturacionCargos,
   facturacionCierreAjustes,
   facturacionCierreLineas,
   facturacionCierres,
   type TipoAjusteCierre,
+  type UnidadCargo,
 } from "./schema";
 import type { DdiFechas } from "@/lib/ddis";
 import { guardarAjuste, obtenerAjuste } from "./settings";
@@ -15,6 +17,7 @@ import {
   aplicarAjustes,
   importeVigente,
   type AjusteLinea,
+  type CargoPuntual,
   type LineaCierre,
   type LineaCierreAjustada,
 } from "@/lib/facturacion-campania";
@@ -27,6 +30,7 @@ import {
 // ============================================================
 
 export type DdiRow = typeof ddis.$inferSelect;
+export type CargoRow = typeof facturacionCargos.$inferSelect;
 export type CampaniaGsRow = typeof campaniasGs.$inferSelect;
 export type CierreRow = typeof facturacionCierres.$inferSelect;
 export type CierreLineaRow = typeof facturacionCierreLineas.$inferSelect;
@@ -49,6 +53,72 @@ export function ddisParaFacturar(campanias?: string[]): DdiFechas[] {
   if (!campanias) return q.all();
   if (campanias.length === 0) return [];
   return q.where(inArray(ddis.campaignShortname, campanias)).all();
+}
+
+// ------------------------------------------------------------
+// Cargos puntuales (base de datos, preparación de campaña; 19/10/2026)
+// ------------------------------------------------------------
+
+/** Cargos de los meses [desdeMes, hastaMes] (YYYY-MM), de un cliente o de todos. */
+export function listarCargos(desdeMes: string, hastaMes: string, servicio?: string): CargoRow[] {
+  const condiciones = [gte(facturacionCargos.mes, desdeMes), lte(facturacionCargos.mes, hastaMes)];
+  if (servicio) condiciones.push(eq(facturacionCargos.servicio, servicio));
+  return db
+    .select()
+    .from(facturacionCargos)
+    .where(and(...condiciones))
+    .orderBy(asc(facturacionCargos.mes), asc(facturacionCargos.campaignShortname), asc(facturacionCargos.id))
+    .all();
+}
+
+/** Cargos de los meses que toca el rango, para la factura (campañas del alcance o todas). */
+export function cargosParaFacturar(desdeISO: string, hastaISO: string, campanias?: string[]): CargoPuntual[] {
+  const filas = listarCargos(desdeISO.slice(0, 7), hastaISO.slice(0, 7));
+  const dentro = campanias ? new Set(campanias) : null;
+  return filas
+    .filter((c) => !dentro || dentro.has(c.campaignShortname))
+    .map((c) => ({
+      campania: c.campaignShortname,
+      unidad: c.unidad,
+      cantidad: c.cantidad,
+      precioUnitario: c.precioUnitario,
+      concepto: c.concepto,
+    }));
+}
+
+export function crearCargo(datos: {
+  mes: string;
+  servicio: string;
+  campania: string;
+  unidad: UnidadCargo;
+  cantidad: number;
+  precioUnitario: number | null;
+  concepto: string;
+  autor: string;
+}): number {
+  const r = db
+    .insert(facturacionCargos)
+    .values({
+      mes: datos.mes,
+      servicio: datos.servicio,
+      campaignShortname: datos.campania,
+      unidad: datos.unidad,
+      cantidad: datos.cantidad,
+      precioUnitario: datos.precioUnitario,
+      concepto: datos.concepto,
+      creadoPor: datos.autor,
+    })
+    .returning({ id: facturacionCargos.id })
+    .get();
+  return r.id;
+}
+
+export function obtenerCargo(id: number): CargoRow | undefined {
+  return db.select().from(facturacionCargos).where(eq(facturacionCargos.id, id)).get();
+}
+
+export function borrarCargo(id: number): void {
+  db.delete(facturacionCargos).where(eq(facturacionCargos.id, id)).run();
 }
 
 export function listarCampaniasGs(): CampaniaGsRow[] {

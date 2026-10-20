@@ -351,6 +351,20 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         Cambiar de cliente lo quita (`SelectorServicio`).
       - GH septiembre: 75 valores; «contiene granada» 454 finalizados y bruto
         40,75 %; sin origen 2.576. 1,1-1,3 s al mes (sin filtro, 1,35 s).
+    - **CSV de contactos finalizados** (19/10/2026, solo GH): botón en la
+      pestaña con los MISMOS filtros (fechas, tipo, dato del contacto); una
+      fila por finalizado. Columnas del listado de Christian
+      (`lib/export-contactos.ts`): Campaña, ID único del perfil, nombre y id
+      de llamada del directorio, resultado, subresultado, fecha y hora de
+      cierre, `nombre_campdig` (act_GrupoHuertas) y teléfonos 01/02
+      (`ph_contact_profile.phone_0x_value`). Sin `idcall`: solo está en 2 de
+      126.305 tipificaciones (decidido con Christian).
+      - Comparte con la pestaña el paso de los contactos cerrados
+        (`sqlCerrados`: #cerr, #ses y el filtro); cada columna se comprueba en
+        INFORMATION_SCHEMA antes de entrar en el SQL. Septiembre: 8.417 filas
+        = la pestaña; con «granada», 454; solo BBDD, 2.467. 1-2 s.
+      - En GH cada contacto se tipifica casi siempre una vez, al cerrarlo
+        (8.422 tipificaciones para 8.417 contactos en septiembre).
 
 19. **Tarificación desde Operaciones (decidido 14/10/2026 con Christian)**:
     sustituye al Excel de facturación de operaciones («Interacciones GH_cs
@@ -443,9 +457,44 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       - Agosto: no se facturaron por decisión de dirección, aunque hubo 3
         llamadas sueltas el 03/08.
       - Se resuelven con los ajustes manuales del cierre (arriba).
+    - **Artículos de GS** (19/10/2026, lista de Operaciones): cada unidad es
+      un artículo (`ARTICULO_GS`, en `lib/facturacion-campania.ts`, que también
+      fija el orden y explica el cálculo). Decidido con Christian:
+      - ENCUESTAS REALIZADAS (`encuestas`) = sesiones de script de las campañas
+        de la línea (Encuestas_Bolsas: 136 en septiembre).
+      - TARIFICACION 901,2,X (`minutos_especial`): ahora se cobra a quien lo
+        tenga en su tarifa.
+      - ALQUILER DDI: `ddi` = geográficos y `ddi_movil` = móviles (6xx,
+        71x-74x, `esDdiMovil`). Hoy los 365 son geográficos: no cambia nada.
+      - LEADS A GESTIONAR EXTERNAS (`leads_recibidos`) = contactos que ENTRAN
+        en la campaña en el mes, por cualquier alta de activity_history
+        (cargador, agente, supervisor o movidos; por nombre en rdb_enums). Los
+        leads web de GH entran como `AgentCreation` (12.924 eventos frente a
+        500 del cargador en septiembre), así que no basta con el cargador.
+      - CONTACTOS FINALIZADOS EN «EXITO» (`exitos_finalizados`) = cerrados con
+        estado Success* (GH septiembre: 2.597, con los cierres administrativos).
+      - BASE DE DATOS y PREPARACIÓN DE CAMPAÑA (`base_datos`, `preparacion`,
+        «U» en GS) = **cargos puntuales**: Operaciones los apunta a mano en el
+        mes y la campaña (tabla `facturacion_cargos`, migración 0011; tarjeta
+        «Cargos puntuales» de Facturación). Sin precio, el de la tarifa. Se
+        cobran aunque no estén en la tarifa; con el mes cerrado, ni se añaden
+        ni se quitan.
+      - **Las tarifas las lleva Operaciones** (y admin):
+        `/operaciones/articulos`, con catálogo, alta, edición de precio y
+        notas, y baja. `/admin/facturacion` queda para el SLA.
+      - **Fichero de GS**: una columna más por cada artículo que el cliente
+        tiene en su tarifa (o con cantidad en el cierre), detrás de las de
+        siempre (`CABECERA_EXTRA_GS`). Sin ninguno, sale igual que antes. Las
+        cabeceras nuevas («Encuestas», «Tarif 90X», «Ddis Movil»…) hay que
+        confirmarlas con GS: no salen de un ejemplo suyo.
+      - Las medidas de sesiones y finalizados en éxito salen de las consultas
+        de siempre (gratis); los leads recibidos, de una nueva (0,3-0,6 s).
+        GH septiembre sigue en 33.764,64 € con las tarifas de producción.
 
-20. **Panel de Dirección (pedido por Christian el 19/10/2026)**. Lógica pura
-    con tests en `lib/direccion.ts`; tablas en `direccion/tablas.tsx`.
+20. **Paneles de Dirección y Supervisión (pedido por Christian el
+    19/10/2026)**. Lógica pura con tests en `lib/direccion.ts`,
+    `lib/supervision.ts` y `lib/comparador.ts`; tablas en
+    `direccion/tablas.tsx` y `components/kpi/tabla-kpis-campania.tsx`.
     - Una fila por campaña (`filasCampaniaDireccion`) con las tres fuentes
       de la página (volumen, unidades y ratios): la usan el detalle, la
       visión por cliente y el comparador. Entran también las campañas que
@@ -468,10 +517,23 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       `/admin/resultados` (regla 18), con un total por grupo y «Resto» al
       final. Bolsas: `Cartera: Bol[_][0-9][0-9][0-9], Bol[_][0-9][0-9][0-9][0-9]`
       (10 campañas, 10.744 de las 57.605 interacciones de septiembre). GH,
-      con su «BBDD», también sale agrupado.
-    - **Comparar dos campañas**: componente de cliente con las filas ya
-      cargadas (no consulta), métricas en `METRICAS_COMPARACION`; marca en
-      verde la mejor solo donde hay mejor y peor (no en volumen).
+      con su «BBDD», también sale agrupado. El reparto es común
+      (`agruparPorTipoCampania`, en `lib/resultados-actividad.ts`).
+    - **Supervisión** (Tiempo real e Histórico, pedido el mismo día): la
+      tabla de campañas sale agrupada igual, con un total por grupo
+      (`sumarKpis`). El SLA, la cola y la espera del total salen de los
+      RECUENTOS y las sumas exactas (`atendidasFueraSla`,
+      `colaAtendidasTotalSeg`…), nunca promediando los % o las medias de
+      cada campaña (regla 6.b); AHT y ACW, ponderados por atendidas. GH
+      septiembre: BBDD 470 recibidas, abandono 52,1 %, SLA 56,1 %; resto
+      4.230, 9,7 % y 60,5 %. En Tiempo real se agrupa en el navegador con
+      cada refresco (los tipos llegan una vez, como prop).
+    - **Comparar dos campañas** (Dirección y Supervisión): componente de
+      cliente genérico (`ComparadorCampanias`, `lib/comparador.ts`) con las
+      filas ya cargadas (no consulta); cada panel pasa sus métricas
+      (`METRICAS_COMPARACION`, `METRICAS_SUPERVISION`: SLA, abandono, cola,
+      espera, AHT, ACW, éxitos y ratios). Marca en verde la mejor solo donde
+      hay mejor y peor (no en volumen).
 
 ## Referencia del esquema RDBv2
 
@@ -780,8 +842,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   mutuamente excluyentes — `serviceName` (lo normal: aplica a TODAS las campañas
   del servicio/cliente) o `campaignShortname` (excepción puntual). Al facturar,
   `calcularFacturacion()` resuelve por campaña: config de campaña → la de su
-  servicio → ninguna (necesita el mapa `mapaCampaniaServicio`). Admin lo gestiona
-  en `/admin/facturacion` con un selector de ámbito (servicios + campañas).
+  servicio → ninguna (necesita el mapa `mapaCampaniaServicio`). Desde el
+  19/10/2026 lo gestiona Operaciones (y admin) en `/operaciones/articulos`,
+  con un selector de ámbito (servicios + campañas).
   La unidad `horas_logadas` (regla 16) va aparte: solo con ámbito servicio y
   prefijo de usuario, la calcula `facturacionHorasLogadas()` una vez por
   cliente (lógica pura en `lib/facturacion-horas-logadas.ts`, con tests) y
@@ -791,7 +854,8 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   y cuota de DDIs, y todo se junta en la «Factura por campaña» con el código
   de GS (`facturacionCompleta()`). Los maestros (DDIs y códigos de GS) y el
   cierre de mes los lleva Operaciones (`/operaciones/ddis`,
-  `/operaciones/campanias-gs`, `operaciones/acciones.ts`); las tarifas, admin.
+  `/operaciones/campanias-gs`, `operaciones/acciones.ts`), igual que las
+  tarifas y los cargos puntuales desde el 19/10/2026.
 
 ## Comandos
 
@@ -1161,6 +1225,20 @@ Peticiones de Christian del 19/10/2026 (reglas 17, 18 y 20).
       blanca de `/admin/resultados` y su línea en `audit_log`): tipo
       «Cartera» de Bolsas (10 campañas) y dato `dir_fdlt_origen`
       («Origen») de GrupoHuertas.
+- [x] Supervisión (Tiempo real e Histórico): tabla de campañas agrupada por
+      tipo con total por grupo (Bolsas: cartera; GH: BBDD) y comparador de
+      dos campañas (regla 20). Verificado en el `next dev`.
+- [x] Resultados: CSV de contactos finalizados de GH con los filtros de la
+      pestaña (regla 18).
+- [x] Facturación: los artículos de GS de Operaciones (regla 19): unidades
+      nuevas, cargos puntuales (migración 0011, aplicada en desarrollo con
+      backup `dashboard_20261019_1342.db`), tarifas en Operaciones y columnas
+      nuevas en el fichero de GS. 248 tests, verificado contra RDBv2 y en el
+      `next dev`.
+- [ ] Sin commit ni despliegue (Supervisión, CSV y artículos). Al desplegar
+      entra la migración 0011: el backup del §3 va ANTES de `up -d`.
+- [ ] Confirmar con GS las cabeceras de las columnas nuevas del fichero de
+      albaranes antes del primer cliente que las use.
 - [ ] Visto al medir (ya pasaba antes): los ratios de Bolsas tardan ~4,5 s
       (la consulta de atendidas de sus 20 campañas, 3 s incluso con la
       lista literal) y `metricasIvr` de un mes de GH, 42 s (el Histórico).

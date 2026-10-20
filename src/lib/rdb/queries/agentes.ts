@@ -115,7 +115,10 @@ export async function horasLogadasPorServicio(
       SELECT servicio,
              SUM(CAST(DATEDIFF(SECOND, ini, fin) AS BIGINT)) / 3600.0 AS horas
       FROM islas
-      GROUP BY servicio;
+      GROUP BY servicio
+      -- RECOMPILE: el texto es el mismo para un día que para un mes y SQL
+      -- Server reutilizaría el plan del primero (incidencia del 20/10/2026)
+      OPTION (RECOMPILE);
     `);
     return r.recordset as { servicio: string; horas: number }[];
   });

@@ -5,12 +5,22 @@ import { revalidatePath } from "next/cache";
 import { eq } from "drizzle-orm";
 import { z } from "zod";
 import { db } from "@/lib/db/sqlite";
-import { campaniasGs, ddis, ESTADOS_DDI } from "@/lib/db/schema";
+import {
+  billingConfig,
+  campaniasGs,
+  ddis,
+  ESTADOS_DDI,
+  UNIDADES_CARGO,
+  UNIDADES_FACTURACION,
+} from "@/lib/db/schema";
 import { ROLES_OPERACIONES_EDICION, requireRol } from "@/lib/auth/rbac";
 import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import {
   ajustarLineas,
+  borrarCargo,
   cierreVigente,
+  crearCargo,
+  obtenerCargo,
   deshacerAjuste,
   guardarCierre,
   guardarPrefijosExcluidosReparto,
@@ -18,20 +28,22 @@ import {
   prefijosExcluidosReparto,
   reabrirCierre,
 } from "@/lib/db/facturacion";
-import { leerPrefijosExcluidos } from "@/lib/facturacion-horas-logadas";
+import { PATRON_PREFIJO_USUARIO, leerPrefijosExcluidos } from "@/lib/facturacion-horas-logadas";
 import { mesesDelRango, seSolapan } from "@/lib/ddis";
 import { facturacionCompleta } from "@/lib/facturacion";
-import { lineasDeCierre, totalesFactura } from "@/lib/facturacion-campania";
+import { ARTICULO_GS, NOMBRE_UNIDAD, lineasDeCierre, totalesFactura } from "@/lib/facturacion-campania";
 import { esquemaFechaISO, hoyISO } from "@/lib/fechas";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import { listaServicios } from "@/lib/rdb/queries/servicios";
 
 // ============================================================
 // Server Actions de facturación de Operaciones: maestros (DDIs, códigos de
-// campaña en GS y prefijos que no cuentan para el reparto de horas) y cierre
-// de mes. Solo operaciones y admin (Dirección los ve
-// pero no los toca); reabrir un mes, solo admin. Todo queda en audit_log
-// («facturacion_maestros» y «facturacion_cierre»).
+// campaña en GS y prefijos que no cuentan para el reparto de horas), la
+// tarifa de cada cliente (artículos de GS y precios, antes en Administración,
+// decidido 19/10/2026), los cargos puntuales y el cierre de mes. Solo
+// operaciones y admin (Dirección los ve pero no los toca); reabrir un mes,
+// solo admin. Todo queda en audit_log («facturacion_maestros»,
+// «config_facturacion» y «facturacion_cierre»).
 // ============================================================
 
 function volverCon(ruta: string, msg: string, detalle?: string): never {
@@ -380,3 +392,186 @@ export async function borrarCampaniaGs(formData: FormData): Promise<void> {
   });
   volverCon(ruta, "borrado");
 }
+
+// ---------- Tarifas: artículos de GS de cada cliente (19/10/2026) ----------
+
+const RUTA_ARTICULOS = "/operaciones/articulos";
+
+const esquemaLineaTarifa = z.object({
+  // Ámbito codificado por el formulario: "svc:<servicio>" o "camp:<campaña>"
+  objetivo: z.string().trim().regex(/^(svc|camp):.+/, "Ámbito inválido"),
+  unidad: z.enum(UNIDADES_FACTURACION),
+  // Solo para horas logadas: GH, Av, Soc_Fed... (sin el «_nnnn»)
+  prefijo: z.string().trim().max(30).regex(PATRON_PREFIJO_USUARIO).nullable(),
+  precio: z.coerce.number().nonnegative().nullable().catch(null),
+  notas: z.string().trim().max(300).nullable().catch(null),
+  // Solo para DDIs: cobrarlos solo los meses en que la campaña tuvo llamadas
+  soloConActividad: z.boolean(),
+});
+
+export async function crearLineaTarifa(formData: FormData): Promise<void> {
+  const usuario = await requireRol(...ROLES_OPERACIONES_EDICION);
+  const datos = esquemaLineaTarifa.safeParse({
+    objetivo: formData.get("objetivo"),
+    unidad: formData.get("unidad"),
+    prefijo: String(formData.get("prefijo") ?? "").trim() || null,
+    precio: formData.get("precio") || null,
+    notas: String(formData.get("notas") ?? "").trim() || null,
+    soloConActividad: formData.get("soloConActividad") === "on",
+  });
+  if (!datos.success) volverCon(RUTA_ARTICULOS, "error_datos", datos.error.issues[0]?.message);
+  const { objetivo, unidad, precio, notas } = datos.data;
+  const esServicio = objetivo.startsWith("svc:");
+  const nombre = objetivo.slice(objetivo.indexOf(":") + 1);
+  if (esServicio ? !(await listaServicios()).some((s) => s.servicio === nombre) : !(await campaniaExiste(nombre))) {
+    volverCon(RUTA_ARTICULOS, "error_datos", `${nombre} no existe en la centralita.`);
+  }
+  // Las horas logadas son del cliente (user_log no sabe de campañas) y
+  // necesitan el prefijo para saber qué usuarios cuentan
+  const horasLogadas = unidad === "horas_logadas";
+  if (horasLogadas && (!esServicio || !datos.data.prefijo)) volverCon(RUTA_ARTICULOS, "error_horas_logadas");
+  const prefijo = horasLogadas ? datos.data.prefijo : null;
+  const soloConActividad = (unidad === "ddi" || unidad === "ddi_movil") && datos.data.soloConActividad;
+
+  db.insert(billingConfig)
+    .values({
+      campaignShortname: esServicio ? null : nombre,
+      serviceName: esServicio ? nombre : null,
+      unidad,
+      prefijoUsuario: prefijo,
+      precioUnitario: precio,
+      notas,
+      soloConActividad,
+    })
+    .run();
+  registrarAuditoria({
+    accion: "config_facturacion",
+    userId: usuario.id,
+    username: usuario.username,
+    detalle:
+      `+${esServicio ? "servicio" : "campaña"} ${nombre} ${unidad} (${ARTICULO_GS[unidad] ?? NOMBRE_UNIDAD[unidad]})` +
+      `${prefijo ? ` usuarios ${prefijo}_nnnn` : ""}${soloConActividad ? " solo meses con llamadas" : ""}` +
+      ` @${precio ?? "s/p"}`,
+    ip: await ipPeticion(),
+  });
+  volverCon(RUTA_ARTICULOS, "creado");
+}
+
+const esquemaEdicionTarifa = z.object({
+  id: z.coerce.number().int().positive(),
+  precio: z.coerce.number().nonnegative().nullable().catch(null),
+  notas: z.string().trim().max(300).nullable().catch(null),
+});
+
+/** Cambia el precio o las notas de una línea de tarifa (el ámbito y el artículo, no). */
+export async function editarLineaTarifa(formData: FormData): Promise<void> {
+  const usuario = await requireRol(...ROLES_OPERACIONES_EDICION);
+  const datos = esquemaEdicionTarifa.safeParse({
+    id: formData.get("id"),
+    precio: formData.get("precio") || null,
+    notas: String(formData.get("notas") ?? "").trim() || null,
+  });
+  if (!datos.success) volverCon(RUTA_ARTICULOS, "error_datos");
+  const { id, precio, notas } = datos.data;
+  const antes = db.select().from(billingConfig).where(eq(billingConfig.id, id)).get();
+  if (!antes) volverCon(RUTA_ARTICULOS, "error_datos", "Esa línea ya no existe.");
+  db.update(billingConfig).set({ precioUnitario: precio, notas }).where(eq(billingConfig.id, id)).run();
+  registrarAuditoria({
+    accion: "config_facturacion",
+    userId: usuario.id,
+    username: usuario.username,
+    detalle: `~linea ${id} ${antes.serviceName ?? antes.campaignShortname} ${antes.unidad}: ${antes.precioUnitario ?? "s/p"} → ${precio ?? "s/p"}`,
+    ip: await ipPeticion(),
+  });
+  volverCon(RUTA_ARTICULOS, "guardado");
+}
+
+export async function borrarLineaTarifa(formData: FormData): Promise<void> {
+  const usuario = await requireRol(...ROLES_OPERACIONES_EDICION);
+  const id = Number(formData.get("id"));
+  const antes = id ? db.select().from(billingConfig).where(eq(billingConfig.id, id)).get() : undefined;
+  if (!antes) volverCon(RUTA_ARTICULOS, "error_datos", "Esa línea ya no existe.");
+  db.delete(billingConfig).where(eq(billingConfig.id, id)).run();
+  registrarAuditoria({
+    accion: "config_facturacion",
+    userId: usuario.id,
+    username: usuario.username,
+    detalle: `-linea ${id} ${antes.serviceName ?? antes.campaignShortname} ${antes.unidad} @${antes.precioUnitario ?? "s/p"}`,
+    ip: await ipPeticion(),
+  });
+  volverCon(RUTA_ARTICULOS, "borrado");
+}
+
+// ---------- Cargos puntuales: base de datos y preparación (19/10/2026) ----------
+
+const esquemaCargo = z.object({
+  servicio: z.string().trim().min(1),
+  mes: z.string().regex(/^\d{4}-(0[1-9]|1[0-2])$/, "Mes no válido"),
+  campania: z.string().trim().min(1, "Elige la campaña"),
+  unidad: z.enum(UNIDADES_CARGO),
+  cantidad: z.coerce.number().positive("La cantidad tiene que ser mayor que cero").max(1_000_000),
+  precio: z.coerce.number().nonnegative().nullable().catch(null),
+  concepto: z.string().trim().min(3, "Pon un concepto (qué se cobra)").max(200),
+});
+
+/** Apunta un cargo puntual en una campaña y un mes (no cerrado) de un cliente. */
+export async function crearCargoPuntual(formData: FormData): Promise<void> {
+  const usuario = await requireRol(...ROLES_OPERACIONES_EDICION);
+  const datos = esquemaCargo.safeParse({ ...Object.fromEntries(formData), precio: formData.get("precio") || null });
+  const servicio = String(formData.get("servicio") ?? "");
+  const mes = String(formData.get("mes") ?? "");
+  const ruta = /^\d{4}-\d{2}$/.test(mes) && servicio ? rutaMes(servicio, mes) : "/operaciones";
+  const volver = (msg: string, detalle?: string): never => {
+    revalidatePath("/operaciones");
+    redirect(`${ruta}${ruta.includes("?") ? "&" : "?"}msg=${msg}${detalle ? `&detalle=${encodeURIComponent(detalle)}` : ""}`);
+  };
+  if (!datos.success) return volver("error_datos", datos.error.issues[0]?.message);
+  const d = datos.data;
+  const delCliente = (await listaServicios()).find((s) => s.servicio === d.servicio)?.campanias ?? [];
+  if (!delCliente.includes(d.campania)) volver("error_datos", `${d.campania} no es una campaña de ${d.servicio}.`);
+  if (cierreVigente(d.mes, d.servicio)) {
+    volver("error_existe", `${d.mes} de ${d.servicio} está cerrado: para añadir un cargo hay que reabrirlo (administrador).`);
+  }
+  crearCargo({
+    mes: d.mes,
+    servicio: d.servicio,
+    campania: d.campania,
+    unidad: d.unidad,
+    cantidad: d.cantidad,
+    precioUnitario: d.precio,
+    concepto: d.concepto,
+    autor: usuario.username,
+  });
+  registrarAuditoria({
+    accion: "facturacion_maestros",
+    userId: usuario.id,
+    username: usuario.username,
+    detalle: `cargo ${d.mes} ${d.campania} ${d.unidad} ×${d.cantidad} @${d.precio ?? "tarifa"} «${d.concepto}»`,
+    ip: await ipPeticion(),
+  });
+  volver("creado");
+}
+
+export async function borrarCargoPuntual(formData: FormData): Promise<void> {
+  const usuario = await requireRol(...ROLES_OPERACIONES_EDICION);
+  const cargo = obtenerCargo(Number(formData.get("id")));
+  if (!cargo) volverCon("/operaciones", "error_datos", "Ese cargo ya no existe.");
+  const ruta = rutaMes(cargo.servicio, cargo.mes);
+  const volver = (msg: string, detalle?: string): never => {
+    revalidatePath("/operaciones");
+    redirect(`${ruta}&msg=${msg}${detalle ? `&detalle=${encodeURIComponent(detalle)}` : ""}`);
+  };
+  if (cierreVigente(cargo.mes, cargo.servicio)) {
+    volver("error_existe", `${cargo.mes} de ${cargo.servicio} está cerrado: el cargo ya está facturado.`);
+  }
+  borrarCargo(cargo.id);
+  registrarAuditoria({
+    accion: "facturacion_maestros",
+    userId: usuario.id,
+    username: usuario.username,
+    detalle: `-cargo ${cargo.mes} ${cargo.campaignShortname} ${cargo.unidad} ×${cargo.cantidad} «${cargo.concepto}»`,
+    ip: await ipPeticion(),
+  });
+  volver("borrado");
+}
+

@@ -4,8 +4,6 @@ import type { UnidadesCampania, VolumenCampania } from "@/lib/rdb/types";
 import {
   agruparPorTipo,
   filasCampaniaDireccion,
-  formatearMetrica,
-  mejorDeDos,
   resumenPorCliente,
   sumarCampanias,
 } from "./direccion";
@@ -26,7 +24,7 @@ function vol(campania: string, p: Partial<VolumenCampania> = {}): VolumenCampani
 }
 
 function uni(campania: string, p: Partial<UnidadesCampania> = {}): UnidadesCampania {
-  return { campania, horasProductivas: 0, interacciones: 0, atendidas: 0, exitos: 0, leadsFinalizados: 0, ...p };
+  return { campania, horasProductivas: 0, interacciones: 0, atendidas: 0, exitos: 0, leadsFinalizados: 0, sesiones: 0, exitosFinalizados: 0, ...p };
 }
 
 function rat(campania: string, p: Partial<RatiosCampania> = {}): RatiosCampania {
@@ -142,23 +140,5 @@ describe("grupos por tipo de campaña", () => {
     expect(agruparPorTipo(filas, []).map((x) => [x.nombre, x.filas.length])).toEqual([[null, 4]]);
     const soloCartera = filas.filter((f) => /^Bol_\d+$/.test(f.campania));
     expect(agruparPorTipo(soloCartera, [cartera]).map((x) => x.nombre)).toEqual(["Cartera"]);
-  });
-});
-
-describe("comparador", () => {
-  it("formatea cada tipo de métrica y las diferencias con signo", () => {
-    expect(formatearMetrica(12345, "entero")).toBe("12.345");
-    expect(formatearMetrica(7.5, "pct")).toBe("7,50 %");
-    expect(formatearMetrica(2.25, "pct", true)).toBe("+2,25 p.p.");
-    expect(formatearMetrica(-30, "seg", true)).toBe("-30,00 s");
-    expect(formatearMetrica(null, "horas")).toBe("—");
-  });
-
-  it("decide cuál es mejor según la métrica", () => {
-    expect(mejorDeDos(10, 20, "alto")).toBe("b");
-    expect(mejorDeDos(10, 20, "bajo")).toBe("a");
-    expect(mejorDeDos(10, 20, null)).toBeNull();
-    expect(mejorDeDos(10, 10, "alto")).toBeNull();
-    expect(mejorDeDos(null, 10, "alto")).toBeNull();
   });
 });
