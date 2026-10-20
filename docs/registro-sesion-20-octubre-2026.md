@@ -95,9 +95,10 @@ consultas de `/direccion` tardan de 0,1 a 1,0 s (los ratios, 0,9 s y 1,0 s).
     detrás de cualquier escritura de la replicación. Hoy no fue eso.
   - Las estadísticas de `ixscript_session_start_time` son del 10/09/2026. Las
     demás de `script_session` son del 01/10 y las de `itr_thread`, del 14/10.
-  - El usuario `tms` no tiene `VIEW SERVER STATE` ni `SHOWPLAN`: no puede ver
-    planes, bloqueos ni las consultas en curso. Darle esos permisos (de solo
-    lectura) facilitaría el próximo diagnóstico. Lo decide Christian.
+  - El usuario SQL del dashboard (`DashTmsystem`) no tiene `VIEW SERVER
+    STATE` ni `SHOWPLAN`: no puede ver planes, bloqueos ni las consultas en
+    curso. Darle esos permisos (de solo lectura) facilitaría el próximo
+    diagnóstico. Lo decide Christian.
 - Las consultas de prueba se copiaron a `tareas` con `docker compose cp`, que
   deja los ficheros como root: para borrarlos hace falta `exec -u root`. Se
   borraron todas.

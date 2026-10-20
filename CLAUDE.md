@@ -1177,7 +1177,7 @@ Registro completo en `docs/registro-sesion-20-octubre-2026.md`.
 - [ ] El timeout de 120 s de mssql no saltó con esa consulta (terminó
       sin error a los 392 s y a los 438 s): cada recarga dejaba otra en
       marcha. Va con la mejora 3.
-- [ ] El usuario `tms` no puede ver planes ni bloqueos (`VIEW SERVER
+- [ ] El usuario SQL `DashTmsystem` no puede ver planes ni bloqueos (`VIEW SERVER
       STATE`, `SHOWPLAN`). RDBv2: SQL Server 2019 RTM sin CU, nivel de
       compatibilidad 100, RCSI desactivado y estadísticas de
       `ixscript_session_start_time` del 10/09. Lo decide Christian.

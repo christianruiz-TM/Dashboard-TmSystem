@@ -193,5 +193,5 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Causa: `tiemposExitos` (ratios de éxito, del despliegue del 19/10) tardaba 390-440 s para el mes en curso de todos los clientes con el plan que SQL Server tenía en caché; el mismo SQL con otro texto, 0,5 s. Sin bloqueos en RDBv2 (comprobado con `LOCK_TIMEOUT` mientras tanto).
 - Arreglo: `OPTION (HASH JOIN)` en esa consulta. Septiembre igual que lo verificado (5.430 éxitos; GH 323,56 s y 451,54 s; Bolsas 302,05 s y 471,22 s).
 - Desplegado a las 09:12 (`52329c1`, solo ese fichero, sin migraciones; backup `dashboard_20261020_0911.db`). Las 9 consultas de `/direccion`, en 0,1-1,0 s.
-- Pendiente: el timeout de 120 s de mssql no saltó con esa consulta (mejora 3), y los permisos del usuario `tms` para ver planes y bloqueos.
+- Pendiente: el timeout de 120 s de mssql no saltó con esa consulta (mejora 3), y los permisos del usuario SQL `DashTmsystem` para ver planes y bloqueos.
 - Registro completo en `registro-sesion-20-octubre-2026.md`.
