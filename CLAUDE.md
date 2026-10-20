@@ -1235,8 +1235,13 @@ Peticiones de Christian del 19/10/2026 (reglas 17, 18 y 20).
       backup `dashboard_20261019_1342.db`), tarifas en Operaciones y columnas
       nuevas en el fichero de GS. 248 tests, verificado contra RDBv2 y en el
       `next dev`.
-- [ ] Sin commit ni despliegue (Supervisión, CSV y artículos). Al desplegar
-      entra la migración 0011: el backup del §3 va ANTES de `up -d`.
+- [x] Commit `df434d8`, desplegado el 20/10/2026 a las 13:15 (imagen
+      `4bca496a994f`, migración 0011, backup `dashboard_20261020_1313.db`).
+      Antes, `OPTION (RECOMPILE)` en las consultas nuevas o cambiadas por
+      rango (sesiones y finalizados de `unidadesPorCampania`, leads
+      recibidos, horas por cliente), por la incidencia del 20/10/2026.
+- [ ] Operaciones: dar de alta en «Artículos y tarifas» los artículos nuevos
+      de cada cliente con su precio (hoy ninguno los tiene).
 - [ ] Confirmar con GS las cabeceras de las columnas nuevas del fichero de
       albaranes antes del primer cliente que las use.
 - [ ] Visto al medir (ya pasaba antes): los ratios de Bolsas tardan ~4,5 s

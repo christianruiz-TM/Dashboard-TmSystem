@@ -39,7 +39,7 @@ histórico de git.
 | 14 | 13-14/10/2026 | Opus 5.5 | Resultados de actividad (ratio bruto y neto) y tipos de campaña | `d9d70fb` `9b9e080` `708da22` `a49c856` | `registro-sesion-13-octubre-2026.md`; CLAUDE.md regla 18 |
 | 15 | 14-16/10/2026 | Opus 5.5 | Tarificación desde Operaciones (sustituye al Excel de facturación), Operaciones más rápida y totales por cliente | `87f7b63` `2d564d0` (+ histórico de despliegues) | `registro-sesion-14-octubre-2026.md`; `facturacion-tarificacion.md`; CLAUDE.md reglas 16 y 19 |
 | 16 | 16/10/2026 | Opus 5.5 | Alerta de Ávolo: llamadas por devolver | `1783cb3` (+ histórico de despliegues) | CLAUDE.md «Planificación → Alertas» y «Campañas IVR» |
-| 17 | 19/10/2026 | Opus 5.5 | Dirección por cliente, comparador y filtro de origen en Resultados | `90b1192` `cf283cf` `7f1d014` | `registro-sesion-19-octubre-2026.md`; CLAUDE.md reglas 17, 18 y 20 |
+| 17 | 19-20/10/2026 | Opus 5.5 | Dirección por cliente, comparador y filtro de origen; Supervisión por tipo de campaña; CSV de contactos de GH; artículos de GS en Operaciones (migración 0011) | `90b1192` `cf283cf` `7f1d014` `df434d8` (+ documentación) | `registro-sesion-19-octubre-2026.md`; CLAUDE.md reglas 17-20; `facturacion-tarificacion.md` §5 |
 | 18 | 20/10/2026 | Opus 5.5 | Incidencia: Dirección no cargaba tras el login (plan en caché de `tiemposExitos`) | `52329c1` (+ documentación) | `registro-sesion-20-octubre-2026.md`; CLAUDE.md regla 17 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
@@ -178,7 +178,7 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Texto nuevo: «Ávolo: N llamadas por devolver (la más antigua, de las HH:MM)…», también en la ayuda de supervisión.
 - Desplegado el 19/10/2026 a las 08:56 (`1783cb3`, sin migraciones; backup `dashboard_20261019_0854.db`). Al momento salían 2 por devolver de esa mañana, comprobadas en RDBv2.
 
-### 17 · 19/10/2026 · Dirección por cliente, comparador y filtro de origen (Opus 5.5)
+### 17 · 19-20/10/2026 · Dirección por cliente, comparador, filtro de origen, CSV de GH y artículos de GS (Opus 5.5)
 
 - Dirección: tabla «Por cliente» sin cliente elegido (interacciones, atendidas, % abandono, horas logadas, éxitos, finalizados y AHT; horas con `horasLogadasPorServicio`, una consulta), tarjeta «Finalizados» (contactos cerrados, como en facturación), detalle agrupado por los tipos de campaña del cliente con total por grupo (Bolsas: cartera `Bol_` + 3-4 cifras y resto) y «Comparar dos campañas». Lógica pura en `lib/direccion.ts`, con tests.
 - «Tiempo por éxito» → «Conversación por éxito» (llamadas atendidas de cada éxito) y «Gestión por éxito» (`script_session.duration`, en décimas). GH septiembre: 323,56 s y 451,54 s.
@@ -186,7 +186,7 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Verificado contra RDBv2 y en el `next dev`. Desplegado el 19/10/2026 a las 12:18 (`90b1192`, sin migraciones; backup `dashboard_20261019_1216.db`).
 - 12:24: dados de alta en producción el tipo «Cartera» de Bolsas y el dato «Origen» de GrupoHuertas (backup `dashboard_20261019_1224.db`, con su línea en `audit_log`).
 - Después: lo mismo en Supervisión (Tiempo real e Histórico): tabla de campañas agrupada por tipo con total por grupo (SLA, cola y abandono desde los recuentos) y «Comparar dos campañas»; comparador y reparto por tipo comunes a los dos paneles.
-- Después: CSV de contactos finalizados de GH en Resultados (mismos filtros que la pestaña) y artículos facturables de GS en Operaciones (encuestas, 90X, DDIs geográficos y móviles, leads recibidos, finalizados en éxito y cargos puntuales de base de datos y preparación; tarifas en `/operaciones/articulos`; migración 0011). Sin commit ni despliegue todavía.
+- Después: CSV de contactos finalizados de GH en Resultados (mismos filtros que la pestaña) y artículos facturables de GS en Operaciones (encuestas, 90X, DDIs geográficos y móviles, leads recibidos, finalizados en éxito y cargos puntuales de base de datos y preparación; tarifas en `/operaciones/articulos`; migración 0011). Desplegado el 20/10/2026 a las 13:15 (`df434d8`, backup `dashboard_20261020_1313.db`), con `OPTION (RECOMPILE)` en las consultas nuevas por la incidencia de la mañana (sesión 18).
 - Registro completo en `registro-sesion-19-octubre-2026.md`.
 
 ### 18 · 20/10/2026 · Incidencia: Dirección no cargaba (Opus 5.5)

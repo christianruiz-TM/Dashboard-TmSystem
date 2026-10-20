@@ -1,4 +1,4 @@
-# Registro de la sesión del 19/10/2026 (Opus 5.5): Dirección por cliente y filtro de origen
+# Registro de la sesión del 19-20/10/2026 (Opus 5.5): Dirección, Supervisión, CSV de GH y artículos de GS
 
 Christian pasó una lista de cambios para el panel de Dirección y para la
 pestaña Resultados de Supervisión. Se hicieron todos, se comprobaron contra
@@ -163,6 +163,42 @@ de su listado, y la lista de artículos facturables de GS («Nombre Artículo»,
   (`/operaciones/articulos`) y columnas nuevas en el fichero de GS.
 - Comprobado: 248 tests; GH septiembre sigue en 33.764,64 €; las páginas en
   el `next dev`; un cargo de prueba entró en la factura (+150 €) y se borró.
+
+## Segundo despliegue (20/10/2026)
+
+Entre medias, otra sesión arregló una incidencia (Dirección no cargaba,
+`docs/registro-sesion-20-octubre-2026.md`): el plan en caché de
+`tiemposExitos`, compilado para un día, tardaba más de 6 minutos con un mes.
+Se arregló con `OPTION (HASH JOIN)` (`52329c1`, desplegado a las 09:12). Esa
+sesión trabajó en la misma carpeta y solo hizo commit de lo suyo; lo de esta
+quedó intacto sin commit.
+
+Como esta versión cambia el texto de consultas que dependen del rango, se les
+puso `OPTION (RECOMPILE)` antes de subirla: sesiones y finalizados de
+`unidadesPorCampania` (las usa Dirección), leads recibidos y horas por
+cliente. El PC y producción comparten el mismo RDBv2 y, por tanto, los planes.
+Medido con el plan de «hoy» ya compilado y todos los clientes: hoy 0,1-0,6 s;
+mes en curso, mes anterior y septiembre 0,2-2,9 s.
+
+- Commit `df434d8`, desplegado el 20/10/2026 a las 13:15 con el §3
+  (backup `dashboard_20261020_1313.db`, imagen `4bca496a994f`, migración
+  0011; vuelta atrás a `dashboard-app:anterior` = `613c535186f9`).
+- Desde la imagen nueva, antes de cambiar: GH septiembre 8.696 finalizados,
+  2.597 en éxito, 20.796 sesiones y 6.478 leads recibidos; CSV «granada» 454
+  filas; Supervisión BBDD 470 recibidas y SLA 56,1 %, resto 4.230 y 60,5 %.
+  Todo igual que en el PC.
+- Después: la 0011 aplicada (tabla `facturacion_cargos`), contenedores sanos
+  y las rutas nuevas mandan al login sin sesión.
+
+### Pendiente
+
+- Operaciones: dar de alta en «Artículos y tarifas» los artículos nuevos de
+  cada cliente con su precio (hoy ninguno los tiene, así que las facturas no
+  cambian).
+- Confirmar con GS las cabeceras de las columnas nuevas del fichero de
+  albaranes antes del primer cliente que las use.
+- Ideas propuestas sin hacer: partir los códigos de origen de GH
+  (concesionario, marca/propia, VN/VO) y una tabla «Por origen» en Resultados.
 
 ## Visto de paso, sin tocar (ya pasaba antes)
 
