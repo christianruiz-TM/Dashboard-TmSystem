@@ -217,7 +217,14 @@ async function tiemposExitos(
     INNER JOIN ph_e_user   u ON u.code = ex.e_user AND u.type = 1
     INNER JOIN ph_campaign c ON c.code = ex.campaign
     LEFT JOIN conv ON conv.script_session = ex.code
-    GROUP BY RTRIM(u.usr_name), RTRIM(c.shortname);
+    GROUP BY RTRIM(u.usr_name), RTRIM(c.shortname)
+    -- HASH JOIN obligatorio (20/10/2026): SQL Server cachea el plan por
+    -- texto, y el texto es el mismo para un día (Supervisión en vivo, cada
+    -- 60 s) que para un mes. Con el plan que tenía en caché, el mes en curso
+    -- de todos los clientes tardaba 390-440 s (sin que saltase el timeout de
+    -- 120 s) y Dirección no llegaba a cargar; el mismo SQL con un plan
+    -- nuevo, 0,5 s.
+    OPTION (HASH JOIN);
   `);
   return new Map(
     (r.recordset as (TiemposExitos & { agente: string; campania: string })[]).map((f) => [
