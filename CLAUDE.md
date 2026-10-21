@@ -1423,6 +1423,8 @@ aprobada antes de tocar producción (los KPIs van también a Dirección).
       finalizados por éxito, llamadas por éxito, finalizados por hora).
 - [x] 263 tests, `tsc` y ESLint en verde; verificado contra RDBv2 y en el
       `next dev` con capturas.
+- [x] Commit `c9c5d27`, desplegado el 21/10/2026 a las 15:08 (imagen
+      `6cf0b1bc7d0b`, sin migraciones, backup `dashboard_20261021_1503.db`).
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
