@@ -14,7 +14,7 @@ import { puedeEditarPlan, requireRol, ROLES_PLAN_LECTURA } from "@/lib/auth/rbac
 import { horasLegibles } from "@/lib/fechas";
 import { bolsasDelMes } from "@/lib/planificacion/bolsas";
 import { estimacionesFin } from "@/lib/planificacion/estimaciones";
-import { fechasDelMes, lunesDe, semanasDelMes, type ObjetivoSemana } from "@/lib/planificacion/motor";
+import { CALENDARIO_PLANTILLA, fechasDelMes, lunesDe, semanasDelMes, type ObjetivoSemana } from "@/lib/planificacion/motor";
 import { leerParametrosPlan } from "@/lib/planificacion/parametros";
 import * as repo from "@/lib/planificacion/repositorio";
 import { barrasBolsa, fechaDiaMes, horasPorCliente, nombreMes } from "@/lib/planificacion/tablero";
@@ -22,7 +22,7 @@ import { cargarTablero } from "@/lib/planificacion/vistas";
 import { confirmarBolsaAccion, guardarObjetivosAccion } from "../acciones";
 import { PuntoAyuda } from "@/components/planificacion/punto-ayuda";
 
-export const metadata: Metadata = { title: "Bolsas y objetivos" };
+export const metadata: Metadata = { title: "Cupos y objetivos" };
 export const dynamic = "force-dynamic";
 
 const MESES_CORTOS = ["ene", "feb", "mar", "abr", "may", "jun", "jul", "ago", "sep", "oct", "nov", "dic"];
@@ -65,7 +65,7 @@ export default async function PaginaBolsas({
 
   const p = leerParametrosPlan();
   const clientes = repo.leerClientes(p.equipo);
-  const { laborablesMes, filas } = await bolsasDelMes(mes);
+  const { filas } = await bolsasDelMes(mes);
   const datos = cargarTablero(mes);
   const manuales = repo.leerObjetivosManuales(mes);
   const estimaciones = estimacionesFin(datos?.entrada ?? null);
@@ -91,11 +91,11 @@ export default async function PaginaBolsas({
         nombreMes={nombreMes(mes)}
         ayuda="bolsas"
         seccion="/bolsas"
-        titulo="Bolsas y objetivos"
+        titulo="Cupos y objetivos"
         descripcion={
           <>
-            Aquí se confirman las horas del mes de cada cliente (la bolsa). Mientras no se confirme, vale la del último mes
-            confirmado, ajustada a los días laborables ({nombreMes(mes)} tiene {laborablesMes}). Los objetivos de cada semana
+            Aquí se confirman las horas del mes de cada cliente (el cupo). Mientras no se confirme, vale el del último mes
+            confirmado, ajustado a los días laborables del calendario del cliente (o de la plantilla, si no tiene). Los objetivos de cada semana
             salen de lo que queda por llamar en cada lista; si escribes otro, vale el tuyo. Todo entra en el plan al volver a
             generar el borrador{v ? `; lo «usado» y lo «planificado» son de la ${v}` : ""}.
           </>
@@ -106,11 +106,11 @@ export default async function PaginaBolsas({
       <Card>
         <CardHeader>
           <CardTitle className="text-base">
-            Bolsas de horas
+            Cupos de horas
             <PuntoAyuda id="bolsa" />
           </CardTitle>
           <CardDescription>
-            Los clientes que «cuentan como» otro (BD y LX con GH) comparten su bolsa: lo planificado de la cabeza es el del grupo.
+            Los clientes que «cuentan como» otro (BD y LX con GH) comparten su cupo: lo planificado de la cabeza es el del grupo.
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -119,8 +119,8 @@ export default async function PaginaBolsas({
               <TableRow>
                 <TableHead>Cliente</TableHead>
                 <TableHead>Por defecto (prorrateo)</TableHead>
-                <TableHead>Confirmada</TableHead>
-                {v ? <TableHead className="text-right">Usada en la {v}</TableHead> : null}
+                <TableHead>Confirmado</TableHead>
+                {v ? <TableHead className="text-right">Usado en la {v}</TableHead> : null}
                 {v ? <TableHead className="text-right">Planificado en la {v}</TableHead> : null}
                 {editar ? <TableHead>Confirmar</TableHead> : null}
               </TableRow>
@@ -141,12 +141,14 @@ export default async function PaginaBolsas({
                     </TableCell>
                     <TableCell className="tabular-nums">
                       {f?.prorrateo ? (
-                        <span title={`Bolsa de ${mesCorto(f.prorrateo.baseMes)} × laborables de ${nombreMes(mes)} ÷ laborables de ${mesCorto(f.prorrateo.baseMes)}`}>
+                        <span
+                          title={`Cupo de ${mesCorto(f.prorrateo.baseMes)} × laborables de ${nombreMes(mes)} ÷ laborables de ${mesCorto(f.prorrateo.baseMes)}, en el calendario ${f.prorrateo.calendario === CALENDARIO_PLANTILLA ? "laboral de la plantilla" : f.prorrateo.calendario}`}
+                        >
                           {horasLegibles(f.prorrateo.baseHoras)} ({mesCorto(f.prorrateo.baseMes)}) × {f.prorrateo.laborablesMes}/
                           {f.prorrateo.laborablesBase} = <strong>{horasLegibles(f.prorrateo.horas)}</strong>
                         </span>
                       ) : (
-                        <span className="text-muted-foreground">sin bolsa anterior</span>
+                        <span className="text-muted-foreground">sin cupo anterior</span>
                       )}
                     </TableCell>
                     <TableCell className="tabular-nums">
@@ -185,7 +187,7 @@ export default async function PaginaBolsas({
                           <input type="hidden" name="mes" value={mes} />
                           <input type="hidden" name="clienteCodigo" value={c.codigo} />
                           <label className="sr-only" htmlFor={`bolsa-${c.codigo}`}>
-                            Horas de la bolsa de {c.codigo}
+                            Horas del cupo de {c.codigo}
                           </label>
                           <Input
                             id={`bolsa-${c.codigo}`}

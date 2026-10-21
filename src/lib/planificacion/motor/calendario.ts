@@ -8,7 +8,7 @@ import {
   startOfISOWeek,
 } from "date-fns";
 import { rangoCorto } from "./franjas";
-import type { AusenciaMotor, DiaMotor, SemanaResumen, Tramo } from "./tipos";
+import type { AusenciaMotor, ClienteMotor, DiaMotor, EntradaMotor, SemanaResumen, Tramo } from "./tipos";
 
 // ============================================================
 // Calendario del mes: días, semanas, rotación A/B, festivos, turnos y
@@ -61,19 +61,84 @@ export interface FestivoLike {
 }
 
 /**
+ * Nombre del calendario laboral de la plantilla en `DiaMotor.festivos` y en
+ * `EntradaMotor.servicioCalendario` (21/10/2026). Antes era el de GH
+ * («GrupoHuertas»): las fotos de versiones viejas lo siguen llevando.
+ */
+export const CALENDARIO_PLANTILLA = "Plantilla";
+
+export interface ExcepcionCalendarioLike {
+  calendario: string;
+  fecha: string;
+  tipo: "abre" | "cierra" | "horario";
+  tramos: readonly Tramo[] | null;
+}
+
+export interface DiaLaboralLike {
+  fecha: string;
+  tipo: "festivo" | "cierre";
+}
+
+export interface CalendarioEfectivo {
+  /** Festivos de cada calendario de cliente y los días sin trabajo de la plantilla. */
+  festivos: FestivoLike[];
+  /** Días de cierre de empresa de la plantilla (también están en `festivos`). */
+  cierresPlantilla: string[];
+  /** calendario → fecha → tramos del horario especial de ese día. */
+  especiales: Record<string, Record<string, Tramo[]>>;
+}
+
+/**
+ * Calendario con el que se planifica: la copia de festivos_servicio de
+ * Altitude con los cambios a mano encima, y el calendario laboral de la
+ * plantilla como un calendario más (CALENDARIO_PLANTILLA). Un día que «abre»
+ * o lleva horario especial deja de ser festivo de su cliente; uno que
+ * «cierra» pasa a serlo.
+ */
+export function calendarioEfectivo(opciones: {
+  festivosAltitude: readonly FestivoLike[];
+  excepciones: readonly ExcepcionCalendarioLike[];
+  laboral: readonly DiaLaboralLike[];
+}): CalendarioEfectivo {
+  const clave = (c: string, f: string) => `${c}|${f}`;
+  const excepcion = new Map(opciones.excepciones.map((e) => [clave(e.calendario, e.fecha), e]));
+  const festivos = new Map<string, FestivoLike>();
+  for (const f of opciones.festivosAltitude) {
+    if (excepcion.has(clave(f.servicio, f.fecha))) continue;
+    festivos.set(clave(f.servicio, f.fecha), { fecha: f.fecha, servicio: f.servicio });
+  }
+  const especiales: Record<string, Record<string, Tramo[]>> = {};
+  for (const e of opciones.excepciones) {
+    if (e.tipo === "cierra") festivos.set(clave(e.calendario, e.fecha), { fecha: e.fecha, servicio: e.calendario });
+    if (e.tipo === "horario") (especiales[e.calendario] ??= {})[e.fecha] = normalizarTramos(e.tramos ?? []);
+  }
+  for (const d of opciones.laboral) {
+    festivos.set(clave(CALENDARIO_PLANTILLA, d.fecha), { fecha: d.fecha, servicio: CALENDARIO_PLANTILLA });
+  }
+  return {
+    festivos: [...festivos.values()].sort((a, b) => a.fecha.localeCompare(b.fecha) || a.servicio.localeCompare(b.servicio)),
+    cierresPlantilla: opciones.laboral.filter((d) => d.tipo === "cierre").map((d) => d.fecha).sort(),
+    especiales,
+  };
+}
+
+/**
  * Días del mes con su semana, rotación y festivos. `festivos` puede traer
  * fechas fuera del mes (hace falta el día anterior al 1 para el «día
  * equivalente»). Laborable = de lunes a viernes y no festivo en el
  * calendario del equipo. El día siguiente a un festivo entre semana se
  * dimensiona como lunes (recibe la carga acumulada: medido en el prototipo
- * con el martes 13/10/2026).
+ * con el martes 13/10/2026). `cierresEquipo`: días de cierre de empresa (no
+ * se trabaja, pero quien trabaje no genera FEST).
  */
 export function construirDias(opciones: {
   mes: string;
   semanaA: string;
   servicioCalendario: string;
   festivos: readonly FestivoLike[];
+  cierresEquipo?: readonly string[];
 }): DiaMotor[] {
+  const cierres = new Set(opciones.cierresEquipo ?? []);
   const porFecha = new Map<string, string[]>();
   for (const f of opciones.festivos) {
     const lista = porFecha.get(f.fecha) ?? [];
@@ -88,7 +153,7 @@ export function construirDias(opciones: {
     const anterior = sumarDias(fecha, -1);
     const anteriorFestivoEntreSemana = diaSemana(anterior) < 5 && esFestivoEquipo(anterior);
     const laborable = ds < 5 && !esFestivoEquipo(fecha);
-    return {
+    const dia: DiaMotor = {
       fecha,
       diaSemana: ds,
       lunes: lunesDe(fecha),
@@ -97,7 +162,29 @@ export function construirDias(opciones: {
       festivos: [...(porFecha.get(fecha) ?? [])].sort(),
       diaEquivalente: laborable && anteriorFestivoEntreSemana ? 0 : ds,
     };
+    // Solo cuando lo es: las fotos guardadas y el fixture del motor no lo llevan
+    if (cierres.has(fecha) && esFestivoEquipo(fecha)) dia.cierreEmpresa = true;
+    return dia;
   });
+}
+
+/**
+ * Días del mes SIN trabajo de la plantilla (festivos laborales y cierres de
+ * empresa): no se planifican, justifican el turno en el saldo y no cuentan
+ * en la capacidad.
+ */
+export function diasSinTrabajoEquipo(entrada: { dias: readonly DiaMotor[]; servicioCalendario: string }): Set<string> {
+  return new Set(entrada.dias.filter((d) => d.festivos.includes(entrada.servicioCalendario)).map((d) => d.fecha));
+}
+
+/**
+ * Festivos LABORALES de la plantilla: trabajarlos se compensa con FEST (art.
+ * 49.1 del convenio). Los cierres de empresa no (art. 30 ET).
+ */
+export function festivosLaboralesEquipo(entrada: { dias: readonly DiaMotor[]; servicioCalendario: string }): Set<string> {
+  return new Set(
+    entrada.dias.filter((d) => d.festivos.includes(entrada.servicioCalendario) && !d.cierreEmpresa).map((d) => d.fecha),
+  );
 }
 
 /**
@@ -293,6 +380,8 @@ export function horarioPorFecha(
   horarios: readonly HorarioLike[],
   calendario: string | null,
   dias: readonly DiaMotor[],
+  /** fecha → horario especial de ese día (cambios a mano del calendario). */
+  especiales: Readonly<Record<string, readonly Tramo[]>> = {},
 ): Record<string, Tramo[]> | null {
   if (!calendario) return null;
   const filas = horarios.filter((h) => h.servicio === calendario);
@@ -301,6 +390,10 @@ export function horarioPorFecha(
   const primerDesde = filas.reduce((m, h) => (h.desde < m ? h.desde : m), filas[0].desde);
   const resultado: Record<string, Tramo[]> = {};
   for (const d of dias) {
+    if (especiales[d.fecha]) {
+      resultado[d.fecha] = normalizarTramos(especiales[d.fecha]);
+      continue;
+    }
     if (d.festivos.includes(calendario)) {
       resultado[d.fecha] = [];
       continue;
@@ -315,4 +408,50 @@ export function horarioPorFecha(
     );
   }
   return resultado;
+}
+
+/**
+ * La foto de una versión con el calendario de AHORA (tablero, guardar y
+ * seguimiento): días sin trabajo de la plantilla, cierres, festivos y horario
+ * de cada cliente. La semana, el día y la rotación se quedan los de la foto.
+ * `cambiadas`: días en que el calendario ya no es el del momento de generar
+ * (las validaciones lo tienen en cuenta al momento; recolocar bloques pide
+ * regenerar). Las fotos anteriores al 21/10/2026 usan el calendario de GH
+ * como el de la plantilla; aquí pasan al de la plantilla.
+ */
+export function aplicarCalendario(
+  foto: Pick<EntradaMotor, "dias" | "servicioCalendario" | "clientes">,
+  cal: Pick<CalendarioEfectivo, "festivos" | "cierresPlantilla" | "especiales"> & { horarios: readonly HorarioLike[] },
+): { dias: DiaMotor[]; servicioCalendario: string; clientes: ClienteMotor[]; cambiadas: string[] } {
+  if (foto.dias.length === 0) return { dias: [], servicioCalendario: CALENDARIO_PLANTILLA, clientes: [...foto.clientes], cambiadas: [] };
+  const mes = foto.dias[0].fecha.slice(0, 7);
+  const rotacion = new Map(foto.dias.map((d) => [d.fecha, d.rotacion]));
+  const dias = construirDias({
+    mes,
+    semanaA: lunesDe(foto.dias[0].fecha),
+    servicioCalendario: CALENDARIO_PLANTILLA,
+    festivos: cal.festivos,
+    cierresEquipo: cal.cierresPlantilla,
+  }).map((d) => ({ ...d, rotacion: rotacion.get(d.fecha) ?? d.rotacion }));
+  const clientes = foto.clientes.map((c) => {
+    const calendario = c.parametros.calendario;
+    return { ...c, horario: horarioPorFecha(cal.horarios, calendario, dias, calendario ? cal.especiales[calendario] : {}) };
+  });
+
+  const antes = new Map(foto.dias.map((d) => [d.fecha, d]));
+  const cambiadas = dias
+    .filter((d) => {
+      const a = antes.get(d.fecha);
+      if (!a) return false;
+      const sinTrabajoAntes = a.festivos.includes(foto.servicioCalendario);
+      const sinTrabajoAhora = d.festivos.includes(CALENDARIO_PLANTILLA);
+      if (sinTrabajoAntes !== sinTrabajoAhora || (sinTrabajoAhora && !!a.cierreEmpresa !== !!d.cierreEmpresa)) return true;
+      return foto.clientes.some((c, i) => {
+        const viejo = c.horario?.[d.fecha] ?? null;
+        const nuevo = clientes[i].horario?.[d.fecha] ?? null;
+        return JSON.stringify(viejo) !== JSON.stringify(nuevo);
+      });
+    })
+    .map((d) => d.fecha);
+  return { dias, servicioCalendario: CALENDARIO_PLANTILLA, clientes, cambiadas };
 }

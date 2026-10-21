@@ -44,7 +44,7 @@ export function BarrasBolsa({
         const dif = diferencia(b.horas, b.referencia);
         const referencia =
           b.tipoReferencia === "bolsa"
-            ? `bolsa${b.origenBolsa === "prorrateo" ? " prorrateada" : ""}`
+            ? `cupo${b.origenBolsa === "prorrateo" ? " prorrateado" : ""}`
             : b.tipoReferencia === "objetivo"
               ? "objetivo"
               : "sin referencia";
@@ -56,7 +56,7 @@ export function BarrasBolsa({
           <div key={`${b.cliente}-${b.tipo}`} className={cn("grid grid-cols-[9rem_1fr] items-center gap-2 text-xs", b.miembroDe && "pl-4")}>
             <div
               className="flex min-w-0 items-center gap-1.5 font-medium"
-              title={b.segmentos.length > 1 ? `${etiqueta}: comparten la bolsa de ${b.cliente}` : c?.nombre}
+              title={b.segmentos.length > 1 ? `${etiqueta}: comparten el cupo de ${b.cliente}` : c?.nombre}
             >
               <span
                 className="inline-block size-3 shrink-0 rounded-[3px] border border-black/15"
@@ -68,7 +68,7 @@ export function BarrasBolsa({
             {b.tipo === "a_demanda" ? (
               <div className="text-muted-foreground">
                 A demanda: sin bloques planificados
-                {b.referencia != null ? ` · bolsa ${horasTexto(b.referencia)} (informativa)` : ""}
+                {b.referencia != null ? ` · cupo ${horasTexto(b.referencia)} (informativo)` : ""}
               </div>
             ) : (
               <div className="min-w-0">

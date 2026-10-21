@@ -35,10 +35,10 @@ export async function GET(peticion: NextRequest) {
         columnas: [
           { cabecera: "Cliente", clave: "cliente", ancho: 12 },
           { cabecera: "Nombre", clave: "nombre", ancho: 32 },
-          { cabecera: "Bolsa (h)", clave: "bolsa", ...h },
+          { cabecera: "Cupo (h)", clave: "bolsa", ...h },
           { cabecera: "Planificado (h)", clave: "planificado", ...h },
           { cabecera: "Real logado (h)", clave: "real", ...h },
-          { cabecera: "Real − bolsa (h)", clave: "difBolsa", ...h },
+          { cabecera: "Real − cupo (h)", clave: "difBolsa", ...h },
           { cabecera: "Real − planificado (h)", clave: "difPlan", ...h },
         ],
         filas: [
@@ -46,7 +46,7 @@ export async function GET(peticion: NextRequest) {
             const conGrupo = d.grupos.some((g) => g.cabeza === f.cliente);
             return {
               cliente: f.cliente,
-              nombre: f.cuentaComo ? `${f.nombre} (bolsa de ${f.cuentaComo})` : f.nombre,
+              nombre: f.cuentaComo ? `${f.nombre} (cupo de ${f.cuentaComo})` : f.nombre,
               bolsa: f.bolsaH,
               planificado: f.planificadoH,
               real: f.realH,

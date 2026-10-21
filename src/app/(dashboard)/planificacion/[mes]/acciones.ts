@@ -327,7 +327,7 @@ export async function borrarAusenciaAccion(formData: FormData): Promise<void> {
   volver(mes.data, "ausencias", "borrado");
 }
 
-// ---------- Bolsas y objetivos ----------
+// ---------- Cupos y objetivos (ruta /bolsas) ----------
 
 export async function confirmarBolsaAccion(formData: FormData): Promise<void> {
   const usuario = await autorizar();
@@ -342,13 +342,13 @@ export async function confirmarBolsaAccion(formData: FormData): Promise<void> {
   if (texto(formData, "accion") === "quitar") {
     const borrada = repo.borrarBolsa(m, cliente);
     if (borrada) {
-      await auditar(usuario, "plan_bolsa", `mes=${m} bolsa ${cliente}: quitada la confirmada (${borrada.horas} h); vuelve al prorrateo`);
+      await auditar(usuario, "plan_bolsa", `mes=${m} cupo ${cliente}: quitado el confirmado (${borrada.horas} h); vuelve al prorrateo`);
     }
-    volver(m, "bolsas", "borrado", `${cliente} vuelve a la bolsa por defecto.`);
+    volver(m, "bolsas", "borrado", `${cliente} vuelve al cupo por defecto.`);
   }
 
   const horas = numeroEs(texto(formData, "horas"));
-  if (horas == null || horas < 0 || horas > 100_000) volver(m, "bolsas", "error_datos", "Horas de la bolsa no válidas.");
+  if (horas == null || horas < 0 || horas > 100_000) volver(m, "bolsas", "error_datos", "Horas del cupo no válidas.");
   const redondeadas = Math.round(horas * 100) / 100;
   // Si confirma justo el prorrateo, queda como prorrateo (confirmado)
   const origen = fila.prorrateo && Math.abs(fila.prorrateo.horas - redondeadas) < 0.005 ? "prorrateo" : "manual";
@@ -363,10 +363,10 @@ export async function confirmarBolsaAccion(formData: FormData): Promise<void> {
   await auditar(
     usuario,
     "plan_bolsa",
-    `mes=${m} bolsa ${cliente}: ${fila.confirmada ? `${fila.confirmada.horas} → ` : ""}${redondeadas} h (${origen})` +
+    `mes=${m} cupo ${cliente}: ${fila.confirmada ? `${fila.confirmada.horas} → ` : ""}${redondeadas} h (${origen})` +
       (fila.prorrateo ? `; prorrateo ${fila.prorrateo.horas} h` : ""),
   );
-  volver(m, "bolsas", "guardado", `Bolsa de ${cliente}: ${redondeadas.toLocaleString("es-ES")} h.`);
+  volver(m, "bolsas", "guardado", `Cupo de ${cliente}: ${redondeadas.toLocaleString("es-ES")} h.`);
 }
 
 export async function guardarObjetivosAccion(formData: FormData): Promise<void> {

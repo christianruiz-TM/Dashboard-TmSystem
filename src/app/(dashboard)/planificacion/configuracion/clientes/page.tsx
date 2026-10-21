@@ -21,10 +21,10 @@ import {
   textoHorario,
   type FormularioCliente,
 } from "@/lib/planificacion/formulario-cliente";
-import { MODOS_CLIENTE, sumarDias, type ModoCliente } from "@/lib/planificacion/motor";
+import { MODOS_CLIENTE, type ModoCliente } from "@/lib/planificacion/motor";
 import { leerParametrosPlan } from "@/lib/planificacion/parametros";
 import * as repo from "@/lib/planificacion/repositorio";
-import { festivosServicio, horariosServicio } from "@/lib/rdb/queries/planificacion";
+import { asegurarCalendarios, calendarioPlan, nombresCalendarios } from "@/lib/planificacion/calendarios";
 import { borrarPrefijoPlan, guardarClientePlan, guardarPrefijoPlan } from "../acciones";
 
 export const metadata: Metadata = { title: "Clientes de planificación" };
@@ -45,26 +45,28 @@ interface Calendario {
 }
 
 /**
- * Calendarios de atención de RDBv2 (horarios_servicio y festivos_servicio,
- * cacheados 24 h). Si RDBv2 no responde, la página se ve igual, sin la lista.
+ * Calendarios de atención: la copia en SQLite de horarios_servicio y
+ * festivos_servicio de Altitude, con los cambios a mano (Configuración →
+ * Calendarios). Solo consulta RDBv2 si nunca se han copiado; si entonces no
+ * responde, la página se ve igual, sin la lista.
  */
 async function leerCalendarios(hoy: string): Promise<{ calendarios: Calendario[]; error: string | null }> {
   try {
-    const [horarios, festivos] = await Promise.all([horariosServicio(), festivosServicio(hoy, sumarDias(hoy, 365))]);
-    const nombres = [...new Set([...horarios.map((h) => h.servicio), ...Object.keys(festivos.ultimaFechaPorServicio)])].sort();
-    return {
-      calendarios: nombres.map((nombre) => ({
-        nombre,
-        horario: textoHorario(horarios, nombre, hoy),
-        festivosHasta: festivos.ultimaFechaPorServicio[nombre] ?? null,
-        proximoFestivo: festivos.festivos.find((f) => f.servicio === nombre)?.fecha ?? null,
-      })),
-      error: null,
-    };
+    await asegurarCalendarios("si-falta");
   } catch (e) {
     console.error("[planificacion] calendarios de RDBv2:", e);
-    return { calendarios: [], error: "No se han podido leer los horarios de Altitude (RDBv2). Prueba a recargar en un rato." };
+    return { calendarios: [], error: "Aún no hay copia de los horarios de Altitude y RDBv2 no responde. Prueba a recargar en un rato." };
   }
+  const cal = calendarioPlan();
+  return {
+    calendarios: nombresCalendarios().map((nombre) => ({
+      nombre,
+      horario: textoHorario(cal.horarios, nombre, hoy),
+      festivosHasta: cal.vigenciaFestivos[nombre] ?? null,
+      proximoFestivo: cal.festivos.find((f) => f.servicio === nombre && f.fecha >= hoy)?.fecha ?? null,
+    })),
+    error: null,
+  };
 }
 
 /**
@@ -247,7 +249,7 @@ export default async function PaginaClientesPlan({
           <CardTitle className="text-base">{enEdicion ? `Editar ${enEdicion.codigo}` : "Nuevo cliente"}</CardTitle>
           <CardDescription>
             {enEdicion
-              ? "El código no se puede cambiar: lo usan los bloques, los prefijos y las bolsas. Para retirarlo, desmárcalo como activo."
+              ? "El código no se puede cambiar: lo usan los bloques, los prefijos y los cupos. Para retirarlo, desmárcalo como activo."
               : "Después, asígnale los prefijos de usuario de Altitude más abajo."}
           </CardDescription>
         </CardHeader>
@@ -286,7 +288,7 @@ export default async function PaginaClientesPlan({
               <Campo etiqueta="Orden en pantalla" htmlFor="orden">
                 <Input id="orden" name="orden" type="number" min={0} max={1000} defaultValue={enEdicion?.orden ?? clientes.length + 1} />
               </Campo>
-              <Campo etiqueta="Cuenta como" ayuda="Cuenta en la cobertura (y la bolsa) de otro cliente: BD y LX → GH.">
+              <Campo etiqueta="Cuenta como" ayuda="Cuenta en la cobertura (y el cupo) de otro cliente: BD y LX → GH.">
                 {selectorCliente("cuentaComo", enEdicion?.cuentaComo, "— (ninguno)")}
               </Campo>
               <Campo etiqueta="Servicio de Altitude" htmlFor="servicioAltitude" ayuda="ph_service.name (demanda por franja).">
@@ -334,7 +336,7 @@ export default async function PaginaClientesPlan({
               <Apartado
                 titulo="Horario de atención"
                 ayuda={<PuntoAyuda id="cliente-horario" />}
-                descripcion="Las horas en que la línea del cliente está abierta y sus festivos. No se cambian aquí: salen de las tablas de horarios y festivos de los servicios en Altitude. Aquí solo se elige cuál es la de este cliente."
+                descripcion="Las horas en que la línea del cliente está abierta y sus festivos. No se cambian aquí: salen de las tablas de horarios y festivos de Altitude (se copian al generar un borrador) y de los cambios de «Calendarios». Aquí solo se elige cuál es el de este cliente."
               >
                 <Campo
                   etiqueta="Calendario"
@@ -397,7 +399,7 @@ export default async function PaginaClientesPlan({
                 titulo="Contrato y fin de campaña"
                 ayuda={<PuntoAyuda id="cliente-contrato" />}
                 modos={["objetivo"]}
-                descripcion="Para que el plan no ponga más horas de las contratadas y para estimar cuándo se acaban (se ve en «Bolsas y objetivos»)."
+                descripcion="Para que el plan no ponga más horas de las contratadas y para estimar cuándo se acaban (se ve en «Cupos y objetivos»)."
               >
                 <div className="grid gap-3 sm:grid-cols-2">
                   <Texto

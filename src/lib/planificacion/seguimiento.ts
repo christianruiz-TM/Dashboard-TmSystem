@@ -20,7 +20,7 @@ import {
 } from "./adherencia";
 import { evaluarAlertas, type Alerta } from "./alertas";
 import { leerEquipo, nombresAgentes } from "./equipo";
-import { calcularMinimos, desplazarMes, fechasDelMes, lunesDe, sumarDias } from "./motor";
+import { calcularMinimos, desplazarMes, diasSinTrabajoEquipo, fechasDelMes, lunesDe, sumarDias } from "./motor";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
 import { horasCubiertas, saldoAgente, type DiaSaldo, type TotalesSaldo } from "./saldo";
@@ -195,6 +195,7 @@ async function saldoDelMes(mes: string, fechaDatos: string, inicioSaldo: string)
   const t = cargarTablero(mes, version.id);
   if (!t) return null;
   const dias = t.entrada.dias.filter((d) => d.fecha >= inicioSaldo);
+  const sinTrabajo = diasSinTrabajoEquipo(t.entrada);
   if (dias.length === 0) return { version, t, dias, porAgente: new Map<string, ReturnType<typeof saldoAgente>>(), ajustes: [] };
   const desde = dias[0].fecha;
   const hasta = dias[dias.length - 1].fecha;
@@ -233,7 +234,7 @@ async function saldoDelMes(mes: string, fechaDatos: string, inicioSaldo: string)
       saldoAgente({
         contratoSemanalH: a.contratoSemanalH,
         fechaDatos,
-        dias: dias.map((d) => ({ fecha: d.fecha, entreSemana: d.diaSemana < 5, festivo: d.festivos.includes(t.entrada.servicioCalendario) })),
+        dias: dias.map((d) => ({ fecha: d.fecha, entreSemana: d.diaSemana < 5, festivo: sinTrabajo.has(d.fecha) })),
         planH: porDia(plan),
         realH: porDia(reales),
         justificadasH,

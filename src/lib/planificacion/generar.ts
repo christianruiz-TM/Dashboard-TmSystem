@@ -49,7 +49,8 @@ export async function generarBorrador(opciones: {
   const fijados: BloqueEntrada[] =
     existente && opciones.modo === "respetar" ? repo.bloquesConservables(existente.id).map(comoFijado) : [];
 
-  const entrada = await cargarEntradaMotor(opciones.mes, { hastaDatos: opciones.hastaDatos, fijados });
+  // Generar es cuando se renueva la copia de los calendarios de Altitude
+  const entrada = await cargarEntradaMotor(opciones.mes, { hastaDatos: opciones.hastaDatos, fijados, sincronizar: "siempre" });
   const salida = generarPlan(entrada);
   const v = repo.crearBorrador({
     mes: opciones.mes,
@@ -132,6 +133,7 @@ export async function recalcularDesde(opciones: {
     hastaDatos: opciones.hastaDatos,
     fijados,
     desde: opciones.desde,
+    sincronizar: opciones.guardar ? "siempre" : "nunca",
   });
   const salida = generarPlan(entrada);
   const { conservados, nuevos } = componerRecalculo(bloquesBase, salida.bloques, opciones.desde);

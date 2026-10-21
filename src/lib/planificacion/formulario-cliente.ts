@@ -483,7 +483,7 @@ export function resumenParametros(guardado: unknown): string[] {
 export interface FilaHorario {
   servicio: string;
   /** dias[0] = lunes … dias[6] = domingo. */
-  dias: boolean[];
+  dias: readonly boolean[];
   entradaMin: number;
   salidaMin: number;
   desde: string;

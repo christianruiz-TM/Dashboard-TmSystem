@@ -47,7 +47,7 @@ export default async function PaginaCierre({ params }: { params: Promise<{ mes: 
         titulo="Cierre de mes"
         descripcion={
           <>
-            Por cliente: la bolsa, lo planificado y lo real, que son las horas conectadas con los usuarios de cada cliente,
+            Por cliente: el cupo, lo planificado y lo real, que son las horas conectadas con los usuarios de cada cliente,
             estén o no en el equipo: lo mismo que se factura (GH_nnnn para GH; los GH_nnnn_BD son de BD). En un cliente a demanda (Ávolo) solo cuenta el tiempo con su usuario: la espera
             en GH es de GH.
           </>
@@ -82,13 +82,13 @@ export default async function PaginaCierre({ params }: { params: Promise<{ mes: 
                 <TableHeader>
                   <TableRow>
                     <TableHead>Cliente</TableHead>
-                    <TableHead className="text-right">Bolsa</TableHead>
+                    <TableHead className="text-right">Cupo</TableHead>
                     <TableHead className="text-right">Planificado</TableHead>
                     <TableHead className="text-right">
                       Real (logado)
                       <PuntoAyuda id="cierre-real" />
                     </TableHead>
-                    <TableHead className="text-right">Real − bolsa</TableHead>
+                    <TableHead className="text-right">Real − cupo</TableHead>
                     <TableHead className="text-right">Real − planificado</TableHead>
                   </TableRow>
                 </TableHeader>
@@ -99,7 +99,7 @@ export default async function PaginaCierre({ params }: { params: Promise<{ mes: 
                         <span className="inline-flex items-center gap-2">
                           <Muestra color={f.color} />
                           {f.nombre}
-                          {f.cuentaComo ? <span className="text-xs text-muted-foreground">(bolsa de {f.cuentaComo})</span> : null}
+                          {f.cuentaComo ? <span className="text-xs text-muted-foreground">(cupo de {f.cuentaComo})</span> : null}
                         </span>
                       </TableCell>
                       <TableCell className="text-right tabular-nums">{f.bolsaH != null ? horasLegibles(f.bolsaH) : "—"}</TableCell>

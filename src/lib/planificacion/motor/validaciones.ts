@@ -1,3 +1,4 @@
+import { festivosLaboralesEquipo } from "./calendario";
 import { generarFranjas, horasTexto, minutosFuera, rangoCorto, solapan } from "./franjas";
 import type { Aviso, BloqueBasico, EntradaMotor, MinimosDia, Tramo } from "./tipos";
 
@@ -91,9 +92,8 @@ export function construirContexto(entrada: EntradaMotor, minimos: readonly Minim
     clienteBase: entrada.clienteBase,
     clientes,
     agentes,
-    festivos: new Set(
-      entrada.dias.filter((d) => d.festivos.includes(entrada.servicioCalendario)).map((d) => d.fecha),
-    ),
+    // Solo festivos LABORALES: el cierre de empresa no se compensa con FEST
+    festivos: festivosLaboralesEquipo(entrada),
     semanaDe: Object.fromEntries(entrada.dias.map((d) => [d.fecha, d.lunes])),
     minimos: minimosBase,
   };

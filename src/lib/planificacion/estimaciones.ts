@@ -9,6 +9,7 @@ import {
   campaniasDesdeCierres,
   cierresNecesarios,
   coincideLike,
+  diasSinTrabajoEquipo,
   esquemaParametrosCliente,
   estimarFinCampania,
   laborablesEntre,
@@ -50,9 +51,7 @@ export function estimacionesFin(entrada: EntradaMotor | null): EstimacionCliente
   const ultimo = repo.ultimoAgregado();
   const ayer = ayerISO();
   const fechaDatos = ultimo && ultimo < ayer ? ultimo : ayer;
-  const festivos = new Set(
-    (entrada?.dias ?? []).filter((d) => d.festivos.includes(p.servicioCalendario)).map((d) => d.fecha),
-  );
+  const festivos = entrada ? diasSinTrabajoEquipo(entrada) : new Set<string>();
   const filas = repo.leerClientes(p.equipo);
   const reparto = asignarCampanias(
     repo.campaniasConocidas(),

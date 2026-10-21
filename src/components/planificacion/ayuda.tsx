@@ -12,6 +12,7 @@ import {
   buscarAyuda,
   GLOSARIO_AYUDA,
   TAREAS_AYUDA,
+  TECLAS_AYUDA as TECLAS,
   TEMA_DE,
   TEMAS_AYUDA,
   type PantallaAyuda,
@@ -43,17 +44,6 @@ const TEMAS = [
   { id: "palabras", etiqueta: "Palabras" },
 ];
 
-const TECLAS: [string, string][] = [
-  ["← →", "Mover una hora"],
-  ["Mayús + ← →", "Acortar o alargar el final"],
-  ["Alt + ← →", "Mover el principio"],
-  ["↑ ↓", "Pasarlo a la persona de arriba o de abajo"],
-  ["Supr", "Eliminarlo"],
-  ["Intro", "Abrir su menú"],
-  ["Ctrl + Z / Ctrl + Y", "Deshacer / rehacer"],
-  ["Ctrl + S", "Guardar"],
-  ["?", "Abrir esta ayuda"],
-];
 
 /** Círculo amarillo con un número: el mismo en la captura y en la lista. */
 function Numero({ n, className, style }: { n: number; className?: string; style?: React.CSSProperties }) {

@@ -1,9 +1,12 @@
-// NOTA: solo servidor. Bolsas de horas del mes: la confirmada por supervisión
-// o, si no la hay, la última anterior prorrateada por días laborables
-// (1.324 h × 21/22 = 1.263,82 h). La usan el cargador del motor y la página
-// /planificacion/[mes]/bolsas, así que las dos dan siempre la misma cifra.
-import { festivosServicio } from "@/lib/rdb/queries/planificacion";
-import { construirDias, fechasDelMes, laborablesDelMes, prorratearBolsa, sumarDias, type BolsaMotor } from "./motor";
+// NOTA: solo servidor. Bolsas de horas del mes (en pantalla, «cupos»): la
+// confirmada por supervisión o, si no la hay, la última anterior prorrateada
+// por días laborables (1.324 h × 21/22 = 1.263,82 h). Los laborables son los
+// del calendario del CLIENTE (si tiene y plan.cupoLaborablesCliente, decidido
+// el 21/10/2026) o los de la plantilla. La usan el cargador del motor y la
+// página /planificacion/[mes]/bolsas, así que las dos dan siempre la misma
+// cifra.
+import { asegurarCalendarios, calendarioDelCupo, calendarioPlan, laborablesEnCalendario } from "./calendarios";
+import { esquemaParametrosCliente, prorratearBolsa, type BolsaMotor, type CalendarioEfectivo } from "./motor";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
 
@@ -13,37 +16,51 @@ export interface DetalleBolsa {
   bolsa: BolsaMotor | null;
   confirmada: { horas: number; origen: "prorrateo" | "manual"; por: string | null; at: Date | null } | null;
   /** El prorrateo por defecto (aunque haya confirmada, para comparar). */
-  prorrateo: { horas: number; baseMes: string; baseHoras: number; laborablesBase: number; laborablesMes: number } | null;
+  prorrateo: {
+    horas: number;
+    baseMes: string;
+    baseHoras: number;
+    laborablesBase: number;
+    laborablesMes: number;
+    /** Calendario con el que se cuentan los laborables. */
+    calendario: string;
+  } | null;
 }
 
 /**
- * Bolsas de `clientes` en `mes`. `laborablesDe` da los laborables de otro mes
- * (el de la bolsa de partida): el cargador reaprovecha los festivos que ya
- * ha leído.
+ * Bolsas de `clientes` en `mes`. `calendarioDe` da el calendario con que se
+ * cuentan los laborables de cada cliente; `cal`, el calendario ya leído.
  */
-export async function resolverBolsas(opciones: {
+export function resolverBolsas(opciones: {
   mes: string;
   clientes: readonly string[];
-  laborablesMes: number;
-  laborablesDe: (mes: string) => Promise<number>;
-}): Promise<DetalleBolsa[]> {
+  calendarioDe: (cliente: string) => string;
+  cal: CalendarioEfectivo;
+}): DetalleBolsa[] {
   const delMes = repo.leerBolsas(opciones.mes);
   const previas = repo.ultimasBolsasAnteriores(opciones.mes);
   const cache = new Map<string, number>();
+  const laborables = (mes: string, calendario: string) => {
+    const k = `${mes}|${calendario}`;
+    if (!cache.has(k)) cache.set(k, laborablesEnCalendario(mes, calendario, opciones.cal));
+    return cache.get(k)!;
+  };
   const detalle: DetalleBolsa[] = [];
   for (const cliente of opciones.clientes) {
     const propia = delMes.find((b) => b.clienteCodigo === cliente);
     const previa = previas.find((b) => b.clienteCodigo === cliente);
     let prorrateo: DetalleBolsa["prorrateo"] = null;
     if (previa) {
-      if (!cache.has(previa.mes)) cache.set(previa.mes, await opciones.laborablesDe(previa.mes));
-      const laborablesBase = cache.get(previa.mes)!;
+      const calendario = opciones.calendarioDe(cliente);
+      const laborablesBase = laborables(previa.mes, calendario);
+      const laborablesMes = laborables(opciones.mes, calendario);
       prorrateo = {
-        horas: prorratearBolsa(previa.horas, laborablesBase, opciones.laborablesMes),
+        horas: prorratearBolsa(previa.horas, laborablesBase, laborablesMes),
         baseMes: previa.mes,
         baseHoras: previa.horas,
         laborablesBase,
-        laborablesMes: opciones.laborablesMes,
+        laborablesMes,
+        calendario,
       };
     }
     detalle.push({
@@ -62,23 +79,28 @@ export async function resolverBolsas(opciones: {
   return detalle;
 }
 
-/** Laborables de un mes en el calendario del equipo (festivos de RDBv2, cacheados 24 h). */
-export async function laborablesDeMes(mes: string): Promise<number> {
+/** Calendario del cupo de cada cliente del equipo (su `parametros.calendario` o el de la plantilla). */
+export function calendariosCupo(filas: readonly { codigo: string; parametros: unknown }[]): (cliente: string) => string {
   const p = leerParametrosPlan();
-  const fechas = fechasDelMes(mes);
-  const { festivos } = await festivosServicio(sumarDias(fechas[0], -1), fechas[fechas.length - 1]);
-  return laborablesDelMes(construirDias({ mes, semanaA: p.semanaA, servicioCalendario: p.servicioCalendario, festivos }));
+  const porCliente = new Map(
+    filas.map((c) => {
+      const r = esquemaParametrosCliente.safeParse(c.parametros ?? {});
+      return [c.codigo, calendarioDelCupo(r.success ? r.data.calendario : null, p.cupoLaborablesCliente)];
+    }),
+  );
+  return (cliente) => porCliente.get(cliente) ?? calendarioDelCupo(null, false);
 }
 
-/** Bolsas del mes de los clientes activos del equipo (página de bolsas). */
-export async function bolsasDelMes(mes: string): Promise<{ laborablesMes: number; filas: DetalleBolsa[] }> {
+/** Bolsas del mes de los clientes activos del equipo (página de cupos). */
+export async function bolsasDelMes(mes: string): Promise<{ filas: DetalleBolsa[] }> {
   const p = leerParametrosPlan();
-  const laborablesMes = await laborablesDeMes(mes);
-  const filas = await resolverBolsas({
+  await asegurarCalendarios("si-falta");
+  const clientes = repo.leerClientes(p.equipo);
+  const filas = resolverBolsas({
     mes,
-    clientes: repo.leerClientes(p.equipo).map((c) => c.codigo),
-    laborablesMes,
-    laborablesDe: laborablesDeMes,
+    clientes: clientes.map((c) => c.codigo),
+    calendarioDe: calendariosCupo(clientes),
+    cal: calendarioPlan(),
   });
-  return { laborablesMes, filas };
+  return { filas };
 }

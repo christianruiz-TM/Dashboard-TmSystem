@@ -149,6 +149,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       31/12/2026 (el módulo avisa al salirse). `TipoDia` solo vale `FESTIVO`.
       `ServicioDirectorio` NO siempre es `ph_service.name`: GrupoHuertas sí,
       pero Ávolo es `GrupoAvolo` → cada cliente lleva `parametros.calendario`.
+      **Las lee también un Power BI: el dashboard NUNCA escribe en ellas**
+      (decidido 21/10/2026): las copia a SQLite y los cambios van aparte
+      (ver «Calendarios» en Planificación de turnos).
     - Los hilos de 2 h o más se descartan de la gestión (CEFF tiene duraciones
       imposibles): `t.duration < @maxSeg * 10`, con `plan.maxSegHilo` = 7200.
     - El SQL de las islas es común (`queries/islas.ts`) a `horasAgenteReales` y
@@ -667,6 +670,38 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     (`UGR[_]EGRE26`, `CajaR[_]Autonomos[_]26`): las antiguas conservan vivos
     que ya nadie llama y inflan el objetivo.
   - Todo en minutos; `plan.pasoMin` = 60 (pasar a 30 min es cambiar el parámetro).
+  - **Calendarios** (21/10/2026, decidido con Christian; migración 0012,
+    `planificacion/calendarios.ts`, pantalla
+    `/planificacion/configuracion/calendarios`, supervisión y admin):
+    - Calendario de cada CLIENTE (cuándo atiende) = COPIA en SQLite de
+      `festivos_servicio`/`horarios_servicio` (`plan_calendario_*_rdb`, se
+      sustituye entera) + cambios a mano de un día (`plan_calendario_excepciones`:
+      abre / cierra / horario especial), que la copia no pisa. Se copia al
+      GENERAR o recalcular un borrador que se guarda (a mano, script o tarea
+      nocturna; `OpcionesCarga.sincronizar`) y con «Copiar ahora de Altitude»;
+      las simulaciones no escriben. Si RDBv2 no responde, sigue con la copia
+      anterior y avisa (`calendario_sin_copia`).
+    - Calendario LABORAL de la plantilla (`plan_calendario_laboral`, solo
+      SQLite): `festivo` (art. 37.2 ET; trabajarlo → FEST, art. 49.1 del III
+      Convenio de Contact Center) o `cierre` de empresa (art. 30 ET: justifica
+      el turno, sin FEST). Sustituye a `plan.servicioCalendario` (el de GH):
+      en el motor es el calendario `CALENDARIO_PLANTILLA` («Plantilla») y
+      `DiaMotor.cierreEmpresa`. La primera copia lo rellena con los festivos
+      de GH SIN el 24 ni el 31/12 (art. 49.2: festivo especial solo desde las
+      20:00, sin descanso). Faltan los 2 festivos locales.
+    - 24 y 31/12: la empresa trabaja y GH no. Donde el cliente base está
+      cerrado, el motor deja el turno LIBRE (no pone GH): lo usan los clientes
+      `objetivo` y lo que sobra sale en el aviso `base_cerrada` (otro trabajo o
+      la ausencia `CIERRE`, que cuenta como trabajada; está en la semilla). La
+      edición del tablero tampoco devuelve el hueco a GH si está cerrado.
+    - Cupo prorrateado con los laborables del calendario del CLIENTE
+      (`plan.cupoLaborablesCliente`, por defecto sí; cambiarlo si lo revisa
+      RR. HH.). La λ de Erlang usa los días que abre cada cliente.
+    - El tablero (y guardar y seguimiento) aplica el calendario de AHORA sobre
+      la foto (`aplicarCalendario`, puro) y avisa de los días que cambiaron
+      desde que se generó (`calendario_cambiado`). Verificado 21/10/2026:
+      octubre y noviembre salen idénticos al criterio anterior; diciembre sin
+      avisos duros, +18 h de salientes el 24 y el 31.
   - **Rutas y permisos** (`ROLES_PLAN_LECTURA` / `ROLES_PLAN_EDICION` en
     `rbac.ts`): `/planificacion` (meses y avisos de entrada) y
     `/planificacion/[mes]?vista=agente|cliente|dia&semana=&dia=&version=` y
@@ -758,8 +793,19 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     (`ayuda.tsx`, tecla «?» en el tablero: buscador, «Cómo hago…», y por
     pantalla «¿Qué veo aquí?» con captura numerada, «¿Qué tengo que hacer?» y
     «Si pasa esto, haz esto»); los «?» junto a las partes confusas
-    (`<PuntoAyuda id="…" />`, textos en `PUNTOS_AYUDA`); y la pestaña «Guía
-    sencilla» de la guía de Claude Docs (la «Guía detallada» es la de antes).
+    (`<PuntoAyuda id="…" />`, textos en `PUNTOS_AYUDA`); y la guía de Claude
+    Docs. Desde el 20/10/2026 la guía va en pestañas por momento del mes:
+    «Empieza aquí» (dibujo del mes, «¿Qué quieres hacer?» y rutina, con
+    enlaces), «1 · Preparar el mes» (inicio, bolsas, tablero, editar),
+    «2 · Avisos y publicar», «3 · Ausencias», «4 · Cada día» (hoy),
+    «5 · Fin de mes» (adherencia, saldos, cierre), «6 · Configuración»,
+    «Palabras» y la «Guía detallada» de antes. Cada tarea de `TAREAS_AYUDA`
+    va en la pestaña de su `tema`. Para las supervisoras sin cuenta de
+    claude.ai hay además un HTML único (capturas dentro, sin internet, con
+    buscador) para una carpeta compartida: `npm run guia:html [-- --salida
+    <ruta>]` (`scripts/guia-supervision-html.ts`, mismas pestañas en
+    `GRUPOS`; falla si un tema nuevo no está en ninguna). El fichero
+    `guia-supervision.html` no va al repo: se regenera tras cambiar la ayuda.
     Las capturas (`public/ayuda/*.webp` + `ayuda-capturas.json`) se hacen en
     MODO DEMO con `node scripts/ayuda-capturas.mjs --sqlite <demo.db>` (se
     niega con `dashboard.db`); el JSON entra en el build, así que hay que
@@ -875,6 +921,8 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   ^22, el mínimo del servidor, para que no se cuele ninguna API exclusiva de
   Node 24. El test del motor usa un fixture real sin nombres y un snapshot:
   si cambia a propósito, `npx vitest -u` y explicarlo en el commit.
+- `npm run guia:html [-- --salida <ruta>]` — guía de planificación para
+  supervisión en un solo HTML (de `ayuda-contenido.ts` y las capturas).
 - `npm run planificacion:semilla` — clientes, prefijos, patrones, contratos y
   parámetros de planificación. Idempotente: nunca pisa lo ya configurado.
 - `npm run planificacion:agregados [-- --desde 2025-06-01 --hasta 2026-09-29]`
@@ -1264,6 +1312,36 @@ Registro completo en `docs/registro-sesion-20-octubre-2026.md`.
       STATE`, `SHOWPLAN`). RDBv2: SQL Server 2019 RTM sin CU, nivel de
       compatibilidad 100, RCSI desactivado y estadísticas de
       `ixscript_session_start_time` del 10/09. Lo decide Christian.
+
+## Sesión 20-21/10/2026 (Opus 5.5): guía de supervisión
+
+Registro completo en `docs/registro-sesion-20-21-octubre-2026.md`.
+
+- [x] Guía de Claude Docs al día (la alerta de Ávolo seguía siendo
+      «entrantes sin atender») y en pestañas por momento del mes, con
+      portada, dibujo del mes y enlaces entre pestañas.
+- [x] HTML único para la carpeta compartida (`npm run guia:html`): las
+      supervisoras no tienen cuenta de claude.ai. Probado en Chrome sin
+      ventana, sin errores de JavaScript.
+- [ ] Commit; dejar el HTML en la carpeta compartida.
+- [ ] ¿Guía también del panel de Supervisión? Hoy solo es de Planificación.
+
+## Sesión 21/10/2026 (Opus 5.5): cupos y calendarios de planificación
+
+- [x] «Bolsas y objetivos» pasa a «Cupos y objetivos» en todo lo que se ve
+      (ruta y nombres internos, iguales: `/bolsas`, `plan_bolsas`).
+- [x] Calendarios en SQLite (ver «Calendarios» en Planificación de turnos;
+      migración 0012). Christian dio a `DashTmsystem` INSERT/UPDATE/DELETE
+      sobre las dos tablas de RDBv2 y luego se decidió no escribir en ellas:
+      **hay que quitarle esos permisos** (`REVOKE`).
+- [x] Verificado contra RDBv2 en una copia de la SQLite y en el `next dev`
+      (SQLite de desarrollo migrada a la 0012 con backup
+      `dashboard_20261021_0847.db`; las pruebas de la pantalla se deshicieron).
+- [ ] Commit y despliegue (migración 0012: backup antes de `up -d`; después,
+      `docker compose exec tareas npm run planificacion:semilla` para el tipo
+      CIERRE).
+- [ ] Añadir los 2 festivos locales en el calendario laboral; captura de la
+      ayuda de «Cupos» (aún dice «Bolsas»); guía de Claude Docs y HTML.
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 

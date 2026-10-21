@@ -1,9 +1,12 @@
 // NOTA: solo servidor. Reúne la entrada del motor desde SQLite (config y
-// agregados propios) y RDBv2 solo para lo cacheado 24 h (festivos y
-// horarios). El motor y el tablero no consultan RDBv2 en caliente.
+// agregados propios). Los festivos y horarios de los clientes son la COPIA en
+// SQLite de las tablas de RDBv2 (se renueva al generar, ver calendarios.ts) y
+// el calendario de la plantilla es el laboral de SQLite. El motor y el
+// tablero no consultan RDBv2 en caliente.
 import { ayerISO } from "@/lib/fechas";
-import { festivosServicio, horariosServicio } from "@/lib/rdb/queries/planificacion";
+import { asegurarCalendarios, calendarioPlan } from "./calendarios";
 import {
+  CALENDARIO_PLANTILLA,
   ahtMedido,
   asignarCampanias,
   calcularLambda,
@@ -20,7 +23,6 @@ import {
   fechasDelMes,
   generarFranjas,
   horarioPorFecha,
-  laborablesDelMes,
   semanasDelMes,
   sumarDias,
   ultimoDomingo,
@@ -33,7 +35,7 @@ import {
   type EntradaMotor,
   type ObjetivoSemana,
 } from "./motor";
-import { resolverBolsas } from "./bolsas";
+import { calendariosCupo, resolverBolsas } from "./bolsas";
 import { fueraDePlantilla, leerEquipo, prefijosSinCliente, ultimaSesionAgente } from "./equipo";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
@@ -49,6 +51,13 @@ export interface OpcionesCarga {
    * versión de partida. Por defecto, el día 1 del mes.
    */
   desde?: string;
+  /**
+   * Copiar antes los calendarios de Altitude (festivos_servicio y
+   * horarios_servicio) a SQLite: `siempre` al generar o recalcular un
+   * borrador que se guarda; `si-falta` (por defecto) solo si nunca se han
+   * copiado; `nunca` en las simulaciones, que no escriben nada.
+   */
+  sincronizar?: "siempre" | "si-falta" | "nunca";
 }
 
 const r4 = (x: number) => Math.round(x * 10_000) / 10_000;
@@ -61,7 +70,6 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
   const fechasMes = fechasDelMes(mes);
   const inicioMes = fechasMes[0];
   const finMes = fechasMes[fechasMes.length - 1];
-  const mesAnterior = desplazarMes(mes, -1);
   if (opciones.desde != null && (opciones.desde < inicioMes || opciones.desde > finMes)) {
     throw new Error(`El primer día a planificar (${opciones.desde}) no es de ${mes}`);
   }
@@ -70,14 +78,16 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
   // Ventanas de datos: semanas COMPLETAS que acaban en el último domingo
   const finVentana = ultimoDomingo(fechaDatos);
   const inicioDemanda = sumarDias(finVentana, -7 * p.semanasDemanda + 1);
-  const desdeFestivos = [inicioDemanda, sumarDias(`${mesAnterior}-01`, -1)].sort()[0];
-  const [festivos, horarios] = await Promise.all([festivosServicio(desdeFestivos, finMes), horariosServicio()]);
+  const avisoCopia = await asegurarCalendarios(opciones.sincronizar ?? "si-falta");
+  if (avisoCopia) avisosCarga.push({ codigo: "calendario_sin_copia", gravedad: "info", mensaje: avisoCopia });
+  const cal = calendarioPlan();
 
   const dias = construirDias({
     mes,
     semanaA: p.semanaA,
-    servicioCalendario: p.servicioCalendario,
-    festivos: festivos.festivos,
+    servicioCalendario: CALENDARIO_PLANTILLA,
+    festivos: cal.festivos,
+    cierresEquipo: cal.cierresPlantilla,
   });
   const semanas = semanasDelMes(dias);
   const franjas = generarFranjas(p.inicioDiaMin, p.finDiaMin, p.pasoMin);
@@ -97,7 +107,7 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
       prioridad: c.prioridad,
       cuentaComo: c.cuentaComo,
       parametros: r.data,
-      horario: horarioPorFecha(horarios, r.data.calendario, dias),
+      horario: horarioPorFecha(cal.horarios, r.data.calendario, dias, r.data.calendario ? cal.especiales[r.data.calendario] : {}),
     };
   });
   const bases = clientes.filter((c) => c.modo === "resto");
@@ -139,7 +149,10 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
   };
 
   // ---------- Demanda (Erlang) y tasa de contacto ----------
-  const ventanaDemanda = diasRango(inicioDemanda, finVentana, p.servicioCalendario, festivos.festivos);
+  // Los días que cuentan para la λ son los que abre CADA cliente (su
+  // calendario; sin calendario, el de la plantilla)
+  const ventanaDemanda = (calendario: string | null) =>
+    diasRango(inicioDemanda, finVentana, calendario ?? CALENDARIO_PLANTILLA, cal.festivos);
   const demanda: DemandaMotor[] = [];
   const tasaContacto: EntradaMotor["tasaContacto"] = [];
   for (const c of clientes) {
@@ -171,7 +184,7 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
         : null;
     demanda.push({
       cliente: c.codigo,
-      lambda: calcularLambda(filas, ventanaDemanda, franjas, p.pasoMin).map((l) => ({ ...l, llamadasHora: r4(l.llamadasHora) })),
+      lambda: calcularLambda(filas, ventanaDemanda(c.parametros.calendario), franjas, p.pasoMin).map((l) => ({ ...l, llamadasHora: r4(l.llamadasHora) })),
       ahtSeg: Math.round(aht * 100) / 100,
       slaPct: erlang.slaPct,
       umbralSeg: erlang.umbralSeg,
@@ -344,23 +357,13 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
     }
   }
 
-  // ---------- Bolsas: la confirmada o la última anterior prorrateada ----------
+  // ---------- Bolsas (cupos): la confirmada o la última anterior prorrateada ----------
   // Por laborables: 1.324 h de septiembre (22) → octubre (21) = 1.263,82 h
-  const detalleBolsas = await resolverBolsas({
+  const detalleBolsas = resolverBolsas({
     mes,
     clientes: clientes.map((c) => c.codigo),
-    laborablesMes: laborablesDelMes(dias),
-    laborablesDe: async (otro) => {
-      const fechas = fechasDelMes(otro);
-      // Los festivos ya leídos valen si cubren ese mes entero (y su víspera)
-      const fest =
-        sumarDias(fechas[0], -1) >= desdeFestivos
-          ? festivos.festivos
-          : (await festivosServicio(sumarDias(fechas[0], -1), fechas[fechas.length - 1])).festivos;
-      return laborablesDelMes(
-        construirDias({ mes: otro, semanaA: p.semanaA, servicioCalendario: p.servicioCalendario, festivos: fest }),
-      );
-    },
+    calendarioDe: calendariosCupo(filasClientes),
+    cal,
   });
   const bolsas: BolsaMotor[] = detalleBolsas.flatMap((d) => (d.bolsa ? [d.bolsa] : []));
 
@@ -374,12 +377,6 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
     experiencia.set(k, (experiencia.get(k) ?? 0) + f.segundos / 3600);
   }
 
-  // ---------- Meta: avisos de la entrada ----------
-  const vigenciaHorarios: Record<string, string> = {};
-  for (const h of horarios) {
-    if (!vigenciaHorarios[h.servicio] || h.hasta > vigenciaHorarios[h.servicio]) vigenciaHorarios[h.servicio] = h.hasta;
-  }
-
   return {
     version: 1,
     mes,
@@ -388,7 +385,7 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
     finDiaMin: p.finDiaMin,
     fechaDatos,
     clienteBase: bases[0].codigo,
-    servicioCalendario: p.servicioCalendario,
+    servicioCalendario: CALENDARIO_PLANTILLA,
     diasInactividad: p.diasInactividad,
     dias,
     agentes: agentes.sort((a, b) => a.numero.localeCompare(b.numero)),
@@ -408,8 +405,8 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
       prefijosSinCliente: prefijosSinCliente(eq, p.diasInactividad),
       fueraDePlantilla: fueraDePlantilla(eq, p.diasInactividad, codigos),
       ultimoAgregado: repo.ultimoAgregado(),
-      vigenciaFestivos: festivos.ultimaFechaPorServicio,
-      vigenciaHorarios,
+      vigenciaFestivos: cal.vigenciaFestivos,
+      vigenciaHorarios: cal.vigenciaHorarios,
       avisosCarga,
     },
   };

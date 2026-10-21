@@ -6,7 +6,7 @@ histórico de git.
 
 **De dónde sale cada sesión:**
 
-- Seis tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10, 14-16/10, 19/10 y 20/10).
+- Siete tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10, 14-16/10, 19/10, 20/10 y 20-21/10).
 - Las demás se han reconstruido el 14/10/2026 a partir de los commits, los apartados con fecha
   de CLAUDE.md, los «Estado de F…» de `docs/plan-planificacion.md` y el histórico de
   `docs/despliegue-linux.md`. De esas no hay transcripción.
@@ -41,6 +41,7 @@ histórico de git.
 | 16 | 16/10/2026 | Opus 5.5 | Alerta de Ávolo: llamadas por devolver | `1783cb3` (+ histórico de despliegues) | CLAUDE.md «Planificación → Alertas» y «Campañas IVR» |
 | 17 | 19-20/10/2026 | Opus 5.5 | Dirección por cliente, comparador y filtro de origen; Supervisión por tipo de campaña; CSV de contactos de GH; artículos de GS en Operaciones (migración 0011) | `90b1192` `cf283cf` `7f1d014` `df434d8` (+ documentación) | `registro-sesion-19-octubre-2026.md`; CLAUDE.md reglas 17-20; `facturacion-tarificacion.md` §5 |
 | 18 | 20/10/2026 | Opus 5.5 | Incidencia: Dirección no cargaba tras el login (plan en caché de `tiemposExitos`) | `52329c1` (+ documentación) | `registro-sesion-20-octubre-2026.md`; CLAUDE.md regla 17 |
+| 19 | 20-21/10/2026 | Opus 5.5 | Guía de supervisión: al día, en pestañas por momento del mes y en un HTML único para la carpeta compartida | sin commit | `registro-sesion-20-21-octubre-2026.md`; CLAUDE.md «Planificación → Ayuda para supervisión» |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -197,3 +198,21 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Desplegado a las 09:12 (`52329c1`, solo ese fichero, sin migraciones; backup `dashboard_20261020_0911.db`). Las 9 consultas de `/direccion`, en 0,1-1,0 s.
 - Pendiente: el timeout de 120 s de mssql no saltó con esa consulta (mejora 3), y los permisos del usuario SQL `DashTmsystem` para ver planes y bloqueos.
 - Registro completo en `registro-sesion-20-octubre-2026.md`.
+
+### 19 · 20-21/10/2026 · Guía de supervisión (Opus 5.5)
+
+- La guía de Claude Docs no estaba del todo al día: la alerta de Ávolo seguía siendo «entrantes sin atender» (cambió el 19/10, sesión 16), en las dos pestañas. Corregida.
+- Reorganizada en pestañas por momento del mes: «Empieza aquí» (dibujo del mes, «¿Qué quieres hacer?» y rutina), 1 Preparar, 2 Avisos y publicar, 3 Ausencias, 4 Cada día, 5 Fin de mes, 6 Configuración, Palabras y la Guía detallada. Cada tarea va junto a su pantalla. La «Guía sencilla» antigua se borró.
+- Las supervisoras no tienen cuenta de claude.ai: HTML único (1,2 MB, capturas dentro, buscador, sin internet) para una carpeta compartida, con `npm run guia:html`, generado desde `ayuda-contenido.ts`. `TECLAS_AYUDA` pasa a esa fuente única.
+- Probado en Chrome sin ventana (sin errores de JavaScript); `tsc`, ESLint y tests en verde.
+- Pendiente: commit, dejar el HTML en la carpeta compartida y decidir si la guía cubre también el panel de Supervisión.
+- Registro completo en `registro-sesion-20-21-octubre-2026.md`.
+
+### 20 · 21/10/2026 · Cupos y calendarios de planificación (Opus 5.5)
+
+- «Bolsas y objetivos» → «Cupos y objetivos» en pantalla, ayuda, cierre y su Excel (para no confundir con el servicio Bolsas). La ruta `/bolsas` y los nombres internos no cambian.
+- Calendarios, todo en SQLite para no tocar lo que lee el Power BI: copia de `festivos_servicio`/`horarios_servicio` al generar un borrador, cambios a mano de un día por cliente (abre, cierra, horario especial) y calendario laboral de la plantilla (festivo laboral o cierre de empresa), en `/planificacion/configuracion/calendarios`. Migración 0012.
+- Revisado el III Convenio de Contact Center (BOE 09/06/2023, vigente hasta el 31/12/2026): el 24 y el 31/12 no son festivos laborales (festivo especial desde las 20:00, sin descanso), así que salen del calendario de la plantilla; GH sigue cerrado esos días. El motor deja libre el turno donde el cliente base está cerrado y avisa (`base_cerrada`); tipo de ausencia CIERRE.
+- Cupo prorrateado con los laborables del calendario de cada cliente (`plan.cupoLaborablesCliente`).
+- Verificado contra RDBv2 en una copia de la SQLite: octubre y noviembre, plan y avisos idénticos; diciembre sin avisos duros. 253 tests, `tsc` y ESLint en verde. Probado en el `next dev`.
+- Pendiente: commit y despliegue, quitar a `DashTmsystem` los permisos de escritura que se le dieron, festivos locales, captura y guías.

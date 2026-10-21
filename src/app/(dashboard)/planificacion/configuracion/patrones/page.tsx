@@ -25,7 +25,7 @@ import {
 } from "@/lib/planificacion/motor";
 import { leerParametrosPlan } from "@/lib/planificacion/parametros";
 import * as repo from "@/lib/planificacion/repositorio";
-import { festivosServicio } from "@/lib/rdb/queries/planificacion";
+import { leerCalendarioLaboral } from "@/lib/planificacion/calendarios";
 import { cn } from "@/lib/utils";
 import { aceptarPatronAprendido, asignarTurnoPlan, guardarPatronPlan } from "../acciones";
 
@@ -131,15 +131,12 @@ export default async function PaginaPatronesPlan({
     const hasta = ultimoDomingo(ayerISO());
     const desde = sumarDias(hasta, -7 * SEMANAS_APRENDER + 1);
     const semanas = Array.from({ length: SEMANAS_APRENDER }, (_, i) => sumarDias(desde, 7 * i));
-    let festivos = new Set<string>();
-    let avisoFestivos: string | null = null;
-    try {
-      const f = await festivosServicio(desde, hasta);
-      festivos = new Set(f.festivos.filter((x) => x.servicio === p.servicioCalendario).map((x) => x.fecha));
-    } catch (error) {
-      console.error("[planificacion] festivos para aprender patrones:", error);
-      avisoFestivos = "No se pudieron leer los festivos de RDBv2: los días festivos cuentan como días sin trabajo.";
-    }
+    // Días sin trabajo de la plantilla (calendario laboral, festivos y cierres)
+    const festivos = new Set(leerCalendarioLaboral(desde, hasta).map((d) => d.fecha));
+    const avisoFestivos =
+      leerCalendarioLaboral().length === 0
+        ? "El calendario laboral de la plantilla está vacío (Configuración → Calendarios): los festivos cuentan como días sin trabajo."
+        : null;
     ventana = { desde, hasta, avisoFestivos };
     const agenteDe = new Map(eq.usuarios.map((u) => [u.usrName, u.agenteNumero]));
     const sesiones = new Map<string, SesionDia[]>();

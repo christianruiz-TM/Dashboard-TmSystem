@@ -135,12 +135,15 @@ const PREFIJOS: [string, string, string][] = [
 
 // computaComoTrabajada = justifica horas en el saldo. RTO es «retribución de
 // tiempo por objetivos» (Christian, 02/10/2026): tiempo libre retribuido, cuenta
-// como VAC y FEST. AUS (médico, asuntos propios...) no.
+// como VAC y FEST. AUS (médico, asuntos propios...) no. CIERRE (21/10/2026):
+// el cliente no trabaja ese día y no hay otro trabajo para el agente; como la
+// empresa no le da trabajo, las horas se justifican (art. 30 ET).
 const TIPOS_AUSENCIA: [string, string, string, boolean][] = [
   ["VAC", "Vacaciones", "#FF00FF", true],
   ["FEST", "Libranza por festivo", "#FF0000", true],
   ["AUS", "Ausencia", "#BFBFBF", false],
   ["RTO", "Retribución de tiempo por objetivos", "#FFC000", true],
+  ["CIERRE", "Cierre del cliente sin otro trabajo", "#8E7CC3", true],
 ];
 
 /** «Horas iniciales» de la plantilla de septiembre (Septiembre V1.xlsx, CZ168 y DB168). */

@@ -26,8 +26,14 @@ export const esquemaParametrosPlan = z.object({
   finDiaMin: z.number().int().min(0).max(1440).default(1200),
   /** Lunes de una semana A: la rotación alterna desde aquí. */
   semanaA: esquemaFecha.default("2026-08-31"),
-  /** Calendario de festivos del equipo (ServicioDirectorio de festivos_servicio). */
-  servicioCalendario: z.string().min(1).default("GrupoHuertas"),
+  /**
+   * Repartir el cupo prorrateado con los laborables del calendario de cada
+   * cliente (true, decidido el 21/10/2026) o con los del calendario laboral de
+   * la plantilla (false; se puede cambiar si lo revisa RR. HH.). Sustituye a
+   * plan.servicioCalendario: el calendario de la plantilla ya no es el de GH,
+   * sino el suyo propio (Configuración → Calendarios).
+   */
+  cupoLaborablesCliente: z.boolean().default(true),
   /** Equipo que se planifica (plan_clientes.equipo / plan_agentes.equipo). */
   equipo: z.string().min(1).default("multicliente"),
   /** Sin sesión en tantos días → inactivo (no se planifica salvo que se fuerce). */
@@ -66,7 +72,7 @@ export const CLAVES_PARAMETROS: Record<ClaveParametroPlan, string> = {
   inicioDiaMin: "plan.inicioDiaMin",
   finDiaMin: "plan.finDiaMin",
   semanaA: "plan.semanaA",
-  servicioCalendario: "plan.servicioCalendario",
+  cupoLaborablesCliente: "plan.cupoLaborablesCliente",
   equipo: "plan.equipo",
   diasInactividad: "plan.diasInactividad",
   maxSegHilo: "plan.maxSegHilo",
@@ -104,11 +110,12 @@ export const DESCRIPCION_PARAMETROS: Record<
     ayuda: "La rotación A/B de los turnos alterna desde esta semana. Tiene que ser lunes.",
     tipo: "fecha",
   },
-  servicioCalendario: {
+  cupoLaborablesCliente: {
     grupo: "Calendario",
-    etiqueta: "Calendario de festivos del equipo",
-    ayuda: "ServicioDirectorio de festivos_servicio cuyos festivos no se trabajan.",
-    tipo: "texto",
+    etiqueta: "Cupo con los laborables del cliente",
+    ayuda:
+      "Marcado: el cupo que no se confirma se ajusta con los días que trabaja el cliente (su calendario). Desmarcado: con los días laborables de la plantilla. Cambiarlo solo si lo revisa RR. HH.",
+    tipo: "booleano",
   },
   equipo: {
     grupo: "Calendario",

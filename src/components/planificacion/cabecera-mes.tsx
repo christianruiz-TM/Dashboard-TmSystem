@@ -5,7 +5,7 @@ import { BotonAyuda, type PantallaAyuda } from "./ayuda";
 const SECCIONES = [
   { ruta: "", texto: "Tablero" },
   { ruta: "/ausencias", texto: "Ausencias" },
-  { ruta: "/bolsas", texto: "Bolsas y objetivos" },
+  { ruta: "/bolsas", texto: "Cupos y objetivos" },
   { ruta: "/versiones", texto: "Versiones y cambios" },
   { ruta: "/adherencia", texto: "Adherencia" },
   { ruta: "/saldos", texto: "Saldos" },

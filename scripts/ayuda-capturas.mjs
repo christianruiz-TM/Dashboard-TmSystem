@@ -72,7 +72,7 @@ const PANTALLAS = [
     puntos: [
       { css: "h1" },
       { t: "Agente", sel: "button,a,[role=tab],[role=radio]" },
-      { t: "Horas del mes frente a bolsas" },
+      { t: "Horas del mes frente a cupos" },
       { t: "Agentes en" },
       { css: "[data-bloque-id]" },
     ],
@@ -93,7 +93,7 @@ const PANTALLAS = [
     id: "bolsas",
     ruta: `/planificacion/${MES}/bolsas`,
     alto: 1350,
-    puntos: [{ t: "Bolsas de horas", sel: TITULO }, { t: "Confirmar", sel: "button", arriba: true }, { t: "Objetivos semanales de", sel: TITULO }, { t: "Fin estimado" }],
+    puntos: [{ t: "Cupos de horas", sel: TITULO }, { t: "Confirmar", sel: "button", arriba: true }, { t: "Objetivos semanales de", sel: TITULO }, { t: "Fin estimado" }],
   },
   {
     id: "hoy",

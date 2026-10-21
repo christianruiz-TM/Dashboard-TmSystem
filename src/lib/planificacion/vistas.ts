@@ -1,11 +1,13 @@
 // NOTA: solo servidor. Lo que leen las pantallas de /planificacion. Todo sale
 // de SQLite: el tablero no consulta RDBv2 (solo «Generar», vía el cargador,
-// lee festivos y horarios, cacheados 24 h).
+// copia los festivos y horarios de Altitude a SQLite: calendarios.ts).
 import { format } from "date-fns";
 import { ayerISO, hoyISO } from "@/lib/fechas";
 import type { PlanBloqueRow, PlanVersionRow } from "@/lib/db/schema";
+import { calendarioPlan, estadoCopia } from "./calendarios";
 import { fueraDePlantilla, leerEquipo, nombresAgentes, prefijosSinCliente, ultimaSesionAgente } from "./equipo";
 import {
+  aplicarCalendario,
   balanceCambios,
   CODIGOS_VALIDACION,
   desplazarMes,
@@ -226,7 +228,9 @@ export function estadoEntrada(): EstadoEntrada {
  *
  * La entrada es la FOTO guardada con la versión (explica el plan aunque
  * cambien los datos), con lo vivo encima: nombre, color y orden de los
- * clientes, contrato de los agentes y ausencias.
+ * clientes, contrato de los agentes, ausencias y, desde el 21/10/2026, el
+ * calendario (festivos y horarios de los clientes y calendario laboral de la
+ * plantilla), con un aviso de los días que han cambiado desde que se generó.
  */
 export function cargarTablero(mes: string, versionId?: number): DatosTablero | null {
   const versiones = repo.versionesMes(mes);
@@ -247,15 +251,21 @@ export function cargarTablero(mes: string, versionId?: number): DatosTablero | n
   const ausencias = expandirAusencias(repo.leerAusencias(fechas[0], fechas[fechas.length - 1]), foto.dias);
   const orden = (codigo: string) => clientesVivos.get(codigo)?.orden ?? Number.MAX_SAFE_INTEGER;
 
+  // Calendario de ahora (si ya se ha copiado alguna vez de Altitude)
+  const calendario = estadoCopia() ? aplicarCalendario(foto, calendarioPlan()) : null;
+  const base: EntradaMotor = calendario
+    ? { ...foto, dias: calendario.dias, servicioCalendario: calendario.servicioCalendario, clientes: calendario.clientes }
+    : foto;
+
   const entrada: EntradaMotor = {
-    ...foto,
-    clientes: foto.clientes
+    ...base,
+    clientes: base.clientes
       .map((c) => {
         const vivo = clientesVivos.get(c.codigo);
         return vivo ? { ...c, nombre: vivo.nombre, color: vivo.color } : c;
       })
       .sort((a, b) => orden(a.codigo) - orden(b.codigo) || a.codigo.localeCompare(b.codigo)),
-    agentes: foto.agentes.map((a) => ({
+    agentes: base.agentes.map((a) => ({
       ...a,
       contratoSemanalH: porNumero.has(a.numero) ? porNumero.get(a.numero)!.contratoSemanalH : a.contratoSemanalH,
       ausencias: ausencias[a.numero] ?? [],
@@ -289,12 +299,28 @@ export function cargarTablero(mes: string, versionId?: number): DatosTablero | n
     activos: resumen?.agentes.filter((a) => a.activo).map((a) => a.numero) ?? entrada.agentes.map((a) => a.numero),
     capacidadH: resumen?.capacidadH ?? null,
     bloques,
-    avisosGeneracion: ((version.avisos as Aviso[] | null) ?? []).filter((a) => !CODIGOS_VALIDACION.has(a.codigo)),
+    avisosGeneracion: [
+      ...((version.avisos as Aviso[] | null) ?? []).filter((a) => !CODIGOS_VALIDACION.has(a.codigo)),
+      ...(calendario && calendario.cambiadas.length > 0 ? [avisoCalendarioCambiado(calendario.cambiadas, version.estado)] : []),
+    ],
     tiposAusencia: Object.fromEntries(
       repo
         .leerTiposAusencia()
         .map((t) => [t.codigo, { nombre: t.nombre, color: t.color, computaComoTrabajada: t.computaComoTrabajada }]),
     ),
+  };
+}
+
+/** Aviso del tablero: el calendario de unos días ha cambiado después de generar la versión. */
+function avisoCalendarioCambiado(fechas: readonly string[], estado: PlanVersionRow["estado"]): Aviso {
+  const lista = fechas.slice(0, 8).map(fechaDiaMes).join(", ") + (fechas.length > 8 ? ` y ${fechas.length - 8} más` : "");
+  return {
+    codigo: "calendario_cambiado",
+    gravedad: "info",
+    mensaje:
+      `El calendario ha cambiado desde que se generó esta versión (${lista}): los avisos y el saldo ya lo tienen en cuenta.` +
+      (estado === "borrador" ? " Para que el plan recoloque los bloques, vuelve a generar el borrador respetando tus cambios." : ""),
+    datos: { fechas },
   };
 }
 

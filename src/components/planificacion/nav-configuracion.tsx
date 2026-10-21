@@ -10,6 +10,7 @@ const SECCIONES = [
   { ruta: "/planificacion/configuracion/patrones", etiqueta: "Patrones y turnos" },
   { ruta: "/planificacion/configuracion/parametros", etiqueta: "Parámetros" },
   { ruta: "/planificacion/configuracion/ausencias", etiqueta: "Tipos de ausencia" },
+  { ruta: "/planificacion/configuracion/calendarios", etiqueta: "Calendarios" },
 ];
 
 /** Pestañas de la configuración de planificación (marca la sección actual). */

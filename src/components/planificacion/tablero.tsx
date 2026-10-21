@@ -883,7 +883,7 @@ export function Tablero({
                 <CalendarOff className="size-3" /> Ausencias
               </Link>
               <Link href={`/planificacion/${version.mes}/bolsas`} className="inline-flex items-center gap-1 underline">
-                <Wallet className="size-3" /> Bolsas y objetivos
+                <Wallet className="size-3" /> Cupos y objetivos
               </Link>
               <Link href={`/planificacion/${version.mes}/versiones`} className="inline-flex items-center gap-1 underline">
                 <GitCompare className="size-3" /> Versiones y cambios ({datos.versiones.length})
@@ -1081,11 +1081,11 @@ export function Tablero({
           </a>
         </div>
 
-        {/* Bolsas y objetivos del mes */}
+        {/* Cupos y objetivos del mes */}
         <Card size="sm">
           <CardHeader>
             <CardTitle className="text-sm">
-              Horas del mes frente a bolsas y objetivos
+              Horas del mes frente a cupos y objetivos
               <PuntoAyuda id="barras-horas" />
             </CardTitle>
           </CardHeader>

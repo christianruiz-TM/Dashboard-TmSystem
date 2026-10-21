@@ -110,6 +110,12 @@ export interface DiaMotor {
   festivos: string[];
   /** Día de la semana con que se dimensiona: el siguiente a un festivo, como lunes. */
   diaEquivalente: number;
+  /**
+   * El día sin trabajo de la plantilla es un CIERRE de empresa, no un festivo
+   * laboral: justifica el turno igual, pero trabajarlo no genera FEST. Solo
+   * aparece cuando es true.
+   */
+  cierreEmpresa?: boolean;
 }
 
 export interface AusenciaMotor {
@@ -219,7 +225,11 @@ export interface EntradaMotor {
   fechaDatos: string;
   /** Código del cliente de modo `resto` (GH): se queda las horas sobrantes. */
   clienteBase: string;
-  /** Calendario de festivos del equipo (plan.servicioCalendario). */
+  /**
+   * Calendario de los días sin trabajo de la plantilla en `dias[].festivos`:
+   * CALENDARIO_PLANTILLA desde el 21/10/2026 (antes plan.servicioCalendario,
+   * el de GH; las fotos viejas lo llevan).
+   */
   servicioCalendario: string;
   diasInactividad: number;
   dias: DiaMotor[];

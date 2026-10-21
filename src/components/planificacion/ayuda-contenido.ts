@@ -259,7 +259,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       "Las versiones del mes: borrador (en preparación), publicada (la que vale), sustituida (una publicada anterior) y descartada (un borrador que se rehízo).",
       "Quién la hizo y cuándo. Si se publicó con avisos, el motivo.",
       "«Cambios»: qué cambió entre dos versiones, persona a persona.",
-      "«Historial»: quién generó, guardó o publicó, y quién cambió ausencias, bolsas o saldos.",
+      "«Historial»: quién generó, guardó o publicó, y quién cambió ausencias, cupos o saldos.",
     ],
     queHacer: [
       "En el tablero, guarda los cambios.",
@@ -311,7 +311,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     siPasa: [
       {
         caso: "No sé qué tipo poner.",
-        haz: "VAC: vacaciones. FEST: libranza por un festivo trabajado. RTO: retribución de tiempo por objetivos. AUS: otras (médico, asuntos propios…). VAC, FEST y RTO cuentan como horas trabajadas en el saldo; AUS no.",
+        haz: "VAC: vacaciones. FEST: libranza por un festivo trabajado. RTO: retribución de tiempo por objetivos. CIERRE: su cliente no trabaja ese día y no hay otro trabajo para él. AUS: otras (médico, asuntos propios…). VAC, FEST, RTO y CIERRE cuentan como horas trabajadas en el saldo; AUS no.",
       },
       {
         caso: "Sale «Se solapa con…».",
@@ -329,25 +329,25 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
   },
   {
     id: "bolsas",
-    etiqueta: "Bolsas y objetivos",
-    titulo: "Bolsas, objetivos y fin de campaña",
+    etiqueta: "Cupos y objetivos",
+    titulo: "Cupos, objetivos y fin de campaña",
     intro: "Aquí se dice cuántas horas tiene cada cliente al mes y cuántas hay que hacer cada semana en las campañas de llamadas.",
     captura: "bolsas",
     queVeo: [
-      "«Bolsas de horas»: las horas del mes de cada cliente. La de GH es para GH, BD y LX juntas.",
-      "«Confirmar»: guarda la bolsa del mes.",
+      "«Cupos de horas»: las horas del mes de cada cliente. El de GH es para GH, BD y LX juntas.",
+      "«Confirmar»: guarda el cupo del mes.",
       "Los objetivos de cada semana de cada campaña (UGR, BD, Caja Rural…).",
       "«Fin estimado»: cuándo se calcula que acabará la campaña.",
     ],
     queHacer: [
-      "Al empezar a preparar el mes, confirma la bolsa de GH.",
+      "Al empezar a preparar el mes, confirma el cupo de GH.",
       "Revisa los objetivos de cada semana. Si quieres otro, escríbelo y guarda.",
       "Vuelve a generar el borrador para que los cambios entren en el plan.",
     ],
     siPasa: [
       {
-        caso: "No sé cuál es la bolsa de este mes.",
-        haz: "Mientras no la confirmes, se usa la del último mes confirmado, ajustada a los días laborables.",
+        caso: "No sé cuál es el cupo de este mes.",
+        haz: "Mientras no lo confirmes, se usa el del último mes confirmado, ajustado a los días laborables.",
       },
       {
         caso: "Un objetivo me parece mal.",
@@ -468,7 +468,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       },
       {
         caso: "¿Qué pasa con un festivo?",
-        haz: "Cuenta como trabajadas las horas de su turno de ese día (no se recuperan). Si se trabaja el festivo, cuentan las horas trabajadas y luego se da una libranza FEST.",
+        haz: "Cuenta como trabajadas las horas de su turno de ese día (no se recuperan). Si se trabaja el festivo, cuentan las horas trabajadas y luego se da una libranza FEST. Un «cierre de empresa» también cuenta su turno, pero si alguien trabaja no hay FEST. Los festivos son los del calendario laboral (Configuración → Calendarios).",
       },
       {
         caso: "Una persona no sale en la lista.",
@@ -487,9 +487,9 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     intro: "El resumen del mes por cliente: las horas que tenía, las que se planificaron y las que se hicieron.",
     captura: "cierre",
     queVeo: [
-      "La tabla por cliente: bolsa, planificado y real.",
+      "La tabla por cliente: cupo, planificado y real.",
       "«Real»: horas conectadas con los usuarios de ese cliente. Es lo mismo que se factura.",
-      "La fila «Grupo GH + BD + LX»: comparten la bolsa de GH; mira ahí si sobran o faltan horas.",
+      "La fila «Grupo GH + BD + LX»: comparten el cupo de GH; mira ahí si sobran o faltan horas.",
       "«XLSX»: descarga el cierre en Excel.",
       "«Por usuario»: las horas de cada usuario, para cuadrar con el Excel de operaciones.",
     ],
@@ -516,7 +516,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     intro: "Aquí se cambia lo que usa el plan: clientes, agentes, turnos y otros datos. Solo supervisión. Cada cambio queda apuntado.",
     captura: "configuracion",
     queVeo: [
-      "Los apartados: Clientes, Agentes, Patrones (turnos), Parámetros y Tipos de ausencia.",
+      "Los apartados: Clientes, Agentes, Patrones (turnos), Parámetros, Tipos de ausencia y Calendarios.",
       "Cada persona: su contrato semanal, si está en el equipo y «Forzar activo».",
       "Su turno de la semana A y de la semana B.",
     ],
@@ -547,7 +547,11 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       },
       {
         caso: "Cambia el horario de atención de un cliente.",
-        haz: "Se cambia donde siempre, en la tabla de horarios de los servicios de Altitude. En Clientes solo se elige qué calendario usa cada cliente.",
+        haz: "El de siempre se cambia en la tabla de horarios de los servicios de Altitude (la lee también el Power BI). Un día suelto (un festivo que se trabaja, un día que no o un horario especial) se cambia en «Calendarios», sin tocar Altitude.",
+      },
+      {
+        caso: "Falta un festivo de la plantilla (por ejemplo, uno local).",
+        haz: "En «Calendarios», elige «Plantilla (laboral)», pulsa el día y marca «Festivo laboral».",
       },
     ],
   },
@@ -563,8 +567,8 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
     pasos: [
       "En Planificación, mira que «Estado de los datos» esté en verde.",
       "Apunta las ausencias del mes (vacaciones, libranzas, RTO…).",
-      "En «Bolsas y objetivos», confirma la bolsa de GH y revisa los objetivos.",
-      "Vuelve a Planificación y pulsa «Generar borrador» en la fila del mes. (Desde el día 20, el del mes siguiente ya está hecho: si cambiaste ausencias o bolsas, vuelve a generarlo con «Respetar mis cambios».)",
+      "En «Cupos y objetivos», confirma el cupo de GH y revisa los objetivos.",
+      "Vuelve a Planificación y pulsa «Generar borrador» en la fila del mes. (Desde el día 20, el del mes siguiente ya está hecho: si cambiaste ausencias o cupos, vuelve a generarlo con «Respetar mis cambios».)",
       "Revisa el tablero y cambia lo que haga falta. Pulsa «Guardar cambios».",
       "Pulsa «Publicar…».",
     ],
@@ -687,11 +691,11 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
   },
   {
     id: "bolsa",
-    pregunta: "Confirmar la bolsa de horas del mes",
+    pregunta: "Confirmar el cupo de horas del mes",
     tema: "bolsas",
-    palabras: "horas mes cliente gh contrato",
+    palabras: "horas mes cliente gh contrato cupo bolsa",
     pasos: [
-      "Abre el mes y entra en «Bolsas y objetivos».",
+      "Abre el mes y entra en «Cupos y objetivos».",
       "Escribe las horas del cliente (o deja las que propone) y pulsa «Confirmar».",
       "Vuelve a generar el borrador para que cuenten.",
     ],
@@ -765,6 +769,19 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
     pasos: ["En Configuración, entra en «Agentes».", "Cambia sus horas semanales y guarda."],
   },
   {
+    id: "calendario-dia",
+    pregunta: "Marcar un festivo que se trabaja o un día que no se trabaja",
+    tema: "configuracion",
+    palabras: "calendario festivo trabajado cierre cerrado abre horario especial 24 31 diciembre local navidad",
+    pasos: [
+      "En Configuración, entra en «Calendarios».",
+      "Arriba elige de quién es el cambio: «Plantilla (laboral)» si los agentes no trabajan ese día (un festivo o un cierre de la empresa), o el cliente (GrupoHuertas, GrupoAvolo…) si es él quien abre o cierra.",
+      "Pulsa el día, elige qué pasa («Se trabaja», «No se trabaja», «Horario especial»…), escribe el motivo y pulsa «Guardar».",
+      "El tablero lo tiene en cuenta al momento. Para que el plan recoloque a la gente, vuelve a generar el borrador respetando tus cambios.",
+      "Si un cliente cierra y alguien se queda sin trabajo, ponle la ausencia «CIERRE».",
+    ],
+  },
+  {
     id: "config-cliente",
     pregunta: "Cambiar las horas contratadas o las horas de un cliente",
     tema: "configuracion",
@@ -788,9 +805,9 @@ export const GLOSARIO_AYUDA: [string, string][] = [
   ["Turno", "El horario de trabajo de cada persona."],
   ["Semana A / B", "Los turnos se alternan: una semana uno y la siguiente otro."],
   ["Cliente base", "GH: se queda las horas del turno que no van a otro cliente."],
-  ["Cuenta como", "BD y LX cuentan como GH: comparten su bolsa y cubren sus llamadas."],
+  ["Cuenta como", "BD y LX cuentan como GH: comparten su cupo y cubren sus llamadas."],
   ["Mínimo", "Cuánta gente hace falta en GH a cada hora para atender las llamadas."],
-  ["Bolsa", "Las horas del mes de un cliente."],
+  ["Cupo", "Las horas del mes de un cliente (antes «bolsa»)."],
   ["Objetivo", "Las horas de la semana de una campaña de llamadas salientes."],
   ["Ritmo", "Contactos cerrados por cada hora de trabajo."],
   ["A demanda", "Ávolo: se entra con su usuario solo cuando hay una llamada."],
@@ -803,6 +820,19 @@ export const GLOSARIO_AYUDA: [string, string][] = [
   ["Adherencia", "Si se cumplió el plan: conectada cuando y donde tocaba."],
   ["Cubierto por otro", "Conectada con un usuario que cubre ese cliente sin ser el suyo (BD o LX en GH; en GH esperando a Ávolo)."],
   ["Real", "Horas conectadas de verdad, las mismas que se facturan."],
+];
+
+/** Teclas del tablero (tema «editar», `extra: "teclas"`). */
+export const TECLAS_AYUDA: [string, string][] = [
+  ["← →", "Mover una hora"],
+  ["Mayús + ← →", "Acortar o alargar el final"],
+  ["Alt + ← →", "Mover el principio"],
+  ["↑ ↓", "Pasarlo a la persona de arriba o de abajo"],
+  ["Supr", "Eliminarlo"],
+  ["Intro", "Abrir su menú"],
+  ["Ctrl + Z / Ctrl + Y", "Deshacer / rehacer"],
+  ["Ctrl + S", "Guardar"],
+  ["?", "Abrir esta ayuda"],
 ];
 
 /** Explicaciones cortas de los «?» que hay junto a cada parte de las pantallas. */
@@ -822,7 +852,7 @@ export const PUNTOS_AYUDA = {
   },
   "barras-horas": {
     titulo: "Horas del mes",
-    texto: "Cada barra son las horas planificadas de un cliente frente a las que tiene (su bolsa o su objetivo). La raya es la meta.",
+    texto: "Cada barra son las horas planificadas de un cliente frente a las que tiene (su cupo o su objetivo). La raya es la meta.",
   },
   incidencias: {
     titulo: "Incidencias y avisos",
@@ -833,7 +863,7 @@ export const PUNTOS_AYUDA = {
     texto: "Los avisos amarillos se pueden aceptar. Escribe por qué (por ejemplo, «esos jueves no hay más gente») y marca la casilla.",
   },
   bolsa: {
-    titulo: "Bolsa de horas",
+    titulo: "Cupo de horas",
     texto: "Las horas que tiene el cliente este mes. Mientras no se confirme, se usa la del último mes confirmado, ajustada a los días laborables.",
   },
   objetivos: {
@@ -894,12 +924,12 @@ export const PUNTOS_AYUDA = {
   },
   "cierre-grupo": {
     titulo: "Grupo GH + BD + LX",
-    texto: "Los tres comparten la bolsa de GH: mira en esta fila si sobran o faltan horas.",
+    texto: "Los tres comparten el cupo de GH: mira en esta fila si sobran o faltan horas.",
   },
   "cliente-horario": {
     titulo: "Horario de atención",
     texto:
-      "Cuándo está abierta la línea del cliente. El plan no le pone entrantes fuera de ese horario ni en sus festivos. Se cambia en las tablas de horarios de Altitude, no aquí.",
+      "Cuándo está abierta la línea del cliente. El plan no le pone entrantes fuera de ese horario ni en sus festivos. El de siempre se cambia en las tablas de horarios de Altitude; un día suelto, en «Calendarios».",
   },
   "cliente-bloques": {
     titulo: "Cuándo se le puede planificar",
@@ -909,7 +939,7 @@ export const PUNTOS_AYUDA = {
   "cliente-contrato": {
     titulo: "Contrato",
     texto:
-      "Con las horas contratadas y la fecha de inicio, el plan no pone más horas de las que quedan y en «Bolsas y objetivos» se ve cuándo se acaban.",
+      "Con las horas contratadas y la fecha de inicio, el plan no pone más horas de las que quedan y en «Cupos y objetivos» se ve cuándo se acaban.",
   },
   "cliente-entrantes": {
     titulo: "Llamadas entrantes",

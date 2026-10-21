@@ -1,4 +1,5 @@
 import {
+  diasSinTrabajoEquipo,
   franjaDentro,
   generarFranjas,
   horasTexto,
@@ -269,10 +270,8 @@ export function barrasBolsa(
 
 type AgenteCapacidad = Pick<AgenteMotor, "numero" | "contratoSemanalH" | "turnos" | "ausencias">;
 
-/** Festivos del calendario del equipo (en ellos no se trabaja ni cuenta el contrato). */
-function festivosEquipo(entrada: Pick<EntradaMotor, "dias" | "servicioCalendario">): Set<string> {
-  return new Set(entrada.dias.filter((d) => d.festivos.includes(entrada.servicioCalendario)).map((d) => d.fecha));
-}
+/** Días sin trabajo de la plantilla: festivos y cierres (no se trabaja ni cuenta el contrato). */
+const festivosEquipo = (entrada: Pick<EntradaMotor, "dias" | "servicioCalendario">) => diasSinTrabajoEquipo(entrada);
 
 /**
  * Capacidad del mes en horas: turno − ausencias − festivos de los agentes
@@ -437,6 +436,9 @@ export const TITULOS_AVISO: Record<string, string> = {
   prefijo_sin_cliente: "Prefijos de usuario sin cliente",
   fuera_de_plantilla: "Agentes fuera de plantilla con horas recientes",
   festivos_sin_vigencia: "Festivos u horarios sin vigencia",
+  calendario_sin_copia: "Calendarios de Altitude sin actualizar",
+  calendario_cambiado: "Calendario cambiado después de generar",
+  base_cerrada: "Turno sin cliente (el cliente base no trabaja)",
   estacionalidad: "Estacionalidad",
   demanda_sin_datos: "Demanda sin datos",
   lista_sin_datos: "Lista sin datos",

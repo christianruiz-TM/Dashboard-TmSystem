@@ -863,6 +863,77 @@ export const planListasEstado = sqliteTable(
   (t) => [uniqueIndex("uq_plan_listas").on(t.fecha, t.campania)],
 );
 
+// ------------------------------------------------------------
+// Calendarios de la planificación (21/10/2026). El dashboard NO escribe en
+// RDBv2: festivos_servicio y horarios_servicio (las lee también un Power BI)
+// se COPIAN aquí al generar un borrador (a mano o en la tarea nocturna) o con
+// «Copiar ahora de Altitude», y los cambios a mano van aparte, para que la
+// copia no los pise. El calendario laboral de la plantilla es solo de aquí.
+// ------------------------------------------------------------
+
+/** Copia de festivos_servicio. Se sustituye entera en cada copia. */
+export const planCalendarioFestivosRdb = sqliteTable(
+  "plan_calendario_festivos_rdb",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    calendario: text("calendario").notNull(), // ServicioDirectorio: 'GrupoHuertas', 'GrupoAvolo'
+    fecha: text("fecha").notNull(), // YYYY-MM-DD
+    tipo: text("tipo").notNull(), // TipoDia (hoy solo 'FESTIVO')
+  },
+  (t) => [uniqueIndex("uq_plan_cal_festivos_rdb").on(t.calendario, t.fecha)],
+);
+
+/** Copia de horarios_servicio. Se sustituye entera en cada copia. */
+export const planCalendarioHorariosRdb = sqliteTable("plan_calendario_horarios_rdb", {
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  calendario: text("calendario").notNull(),
+  /** Días de la semana, de lunes a domingo: '1111100'. */
+  dias: text("dias").notNull(),
+  entradaMin: integer("entrada_min").notNull(),
+  salidaMin: integer("salida_min").notNull(),
+  desde: text("desde").notNull(),
+  hasta: text("hasta").notNull(),
+});
+
+/**
+ * Cambio a mano de un día en el calendario de un cliente, encima de la copia
+ * de Altitude: 'abre' (un festivo que se trabaja con su horario de siempre),
+ * 'cierra' (un día que no se trabaja) u 'horario' (horario especial ese día).
+ */
+export const planCalendarioExcepciones = sqliteTable(
+  "plan_calendario_excepciones",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    calendario: text("calendario").notNull(),
+    fecha: text("fecha").notNull(),
+    tipo: text("tipo", { enum: ["abre", "cierra", "horario"] }).notNull(),
+    /** Solo 'horario': tramos del día ([{inicioMin, finMin}]). */
+    tramos: text("tramos", { mode: "json" }).$type<{ inicioMin: number; finMin: number }[]>(),
+    motivo: text("motivo"),
+    autor: text("autor").notNull(),
+    actualizadoAt: integer("actualizado_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [uniqueIndex("uq_plan_cal_excepciones").on(t.calendario, t.fecha)],
+);
+
+/**
+ * Calendario laboral de la plantilla (igual para todos los agentes, sea cual
+ * sea su cliente): 'festivo' = fiesta laboral (art. 37.2 ET; si se trabaja, se
+ * compensa con FEST, art. 49.1 del convenio) y 'cierre' = la empresa cierra
+ * (art. 30 ET: justifica el turno y, si alguien trabaja, no hay FEST).
+ */
+export const planCalendarioLaboral = sqliteTable("plan_calendario_laboral", {
+  fecha: text("fecha").primaryKey(),
+  tipo: text("tipo", { enum: ["festivo", "cierre"] }).notNull(),
+  nombre: text("nombre"),
+  autor: text("autor").notNull(),
+  actualizadoAt: integer("actualizado_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
 // Tipos inferidos de uso frecuente
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

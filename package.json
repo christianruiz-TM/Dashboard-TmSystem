@@ -22,7 +22,8 @@
     "planificacion:fixture": "tsx scripts/planificacion-fixture.ts",
     "planificacion:importar-excel": "tsx scripts/planificacion-importar-excel.ts",
     "facturacion:importar-excel": "tsx scripts/facturacion-importar-excel.ts",
-    "facturacion:comparar": "tsx scripts/facturacion-comparar.ts"
+    "facturacion:comparar": "tsx scripts/facturacion-comparar.ts",
+    "guia:html": "tsx scripts/guia-supervision-html.ts"
   },
   "dependencies": {
     "@base-ui/react": "^1.5.0",

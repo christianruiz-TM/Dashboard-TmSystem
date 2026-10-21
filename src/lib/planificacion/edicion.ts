@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  diasSinTrabajoEquipo,
   horaCorta,
   normalizarTramos,
   rangoCorto,
@@ -27,7 +28,7 @@ import type { BloqueTablero } from "./tablero";
 //     recorta (no se solapan nunca). Un bloque FIJADO no se pisa: hay que
 //     desfijarlo antes.
 //   - Al mover o encoger un bloque de otro cliente, el hueco que deja dentro
-//     del turno (sin ausencias ni festivos) vuelve al cliente base (GH), como
+//     del turno (sin ausencias ni festivos, y con GH abierto) vuelve al cliente base (GH), como
 //     hace el motor. Si el bloque es del propio cliente base, el hueco queda
 //     libre. Eliminar deja siempre el hueco libre; «Devolver a GH» es
 //     cambiar de cliente.
@@ -80,7 +81,11 @@ export interface ContextoEdicion {
   /** Agentes con fila en el tablero (se les puede poner bloques). */
   agentes: ReadonlySet<string>;
   clientes: ReadonlySet<string>;
-  /** `${agente}|${fecha}` → tramos a los que vuelve el cliente base: turno − ausencias (nada en festivo). */
+  /**
+   * `${agente}|${fecha}` → tramos a los que vuelve el cliente base: turno −
+   * ausencias, dentro del horario del cliente base (nada en festivo ni con el
+   * cliente base cerrado, como el motor).
+   */
   libre: ReadonlyMap<string, readonly Tramo[]>;
   /** `${agente}|${fecha}` → sus ausencias de ese día. */
   ausencias: ReadonlyMap<string, readonly Tramo[]>;
@@ -122,9 +127,8 @@ export function construirContextoEdicion(
   agentes: Iterable<string>,
   validacion: ContextoValidacion | null,
 ): ContextoEdicion {
-  const festivos = new Set(
-    entrada.dias.filter((d) => d.festivos.includes(entrada.servicioCalendario)).map((d) => d.fecha),
-  );
+  const festivos = diasSinTrabajoEquipo(entrada);
+  const horarioBase = entrada.clientes.find((c) => c.codigo === entrada.clienteBase)?.horario ?? null;
   const libre = new Map<string, Tramo[]>();
   const ausencias = new Map<string, Tramo[]>();
   for (const a of entrada.agentes) {
@@ -135,7 +139,15 @@ export function construirContextoEdicion(
     for (const d of entrada.dias) {
       const turno = a.turnos[d.fecha] ?? [];
       if (turno.length === 0 || festivos.has(d.fecha)) continue;
-      const tramos = restarTramos(turno, ausencias.get(clave(a.numero, d.fecha)) ?? []);
+      let tramos = restarTramos(turno, ausencias.get(clave(a.numero, d.fecha)) ?? []);
+      if (horarioBase) {
+        const abierto = horarioBase[d.fecha] ?? [];
+        tramos = tramos.flatMap((t) =>
+          abierto.flatMap((h) =>
+            solapan(t, h) ? [{ inicioMin: Math.max(t.inicioMin, h.inicioMin), finMin: Math.min(t.finMin, h.finMin) }] : [],
+          ),
+        );
+      }
       if (tramos.length > 0) libre.set(clave(a.numero, d.fecha), tramos);
     }
   }

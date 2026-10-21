@@ -15,7 +15,7 @@ import type {
   CierresDia,
   DemandaFranja,
   EstadoLista,
-  FestivosServicio,
+  FestivoServicio,
   HorarioServicio,
   IslaSesion,
   LlamadasPorDevolver,
@@ -348,78 +348,57 @@ export async function estadoListas(patrones: string[]): Promise<EstadoLista[]> {
 }
 
 /**
- * festivos_servicio (tabla propia que mantiene supervisión) en el rango, y la
- * última fecha cargada por servicio para avisar cuando el mes planificado se
- * sale de su vigencia. Verificado 30/09/2026: TipoDia solo vale 'FESTIVO' y
- * ServicioDirectorio es 'GrupoHuertas' (= ph_service.name) y 'GrupoAvolo'
- * (en ph_service es 'Avolo'): cada cliente guarda su nombre de calendario.
+ * festivos_servicio y horarios_servicio ENTERAS (tablas propias que mantiene
+ * supervisión y lee también un Power BI; 63 y 5 filas el 21/10/2026), SIN
+ * caché: es la copia a SQLite de la planificación (planificacion/calendarios.ts),
+ * que se hace al generar un borrador o a mano. El dashboard NUNCA escribe en
+ * ellas. Verificado 30/09/2026: TipoDia solo vale 'FESTIVO' y
+ * ServicioDirectorio es 'GrupoHuertas' (= ph_service.name) y 'GrupoAvolo' (en
+ * ph_service es 'Avolo'): cada cliente guarda su nombre de calendario. Las
+ * horas se convierten a texto HH:MM en el SQL para no pasar por fechas del
+ * driver.
  */
-export async function festivosServicio(desdeISO: string, hastaISO: string): Promise<FestivosServicio> {
-  if (esMock()) return mockFestivosServicio(desdeISO, hastaISO);
-  return conCache(`rdb:plan:festivos:${desdeISO}:${hastaISO}`, TTL.maestros, async () => {
-    const pool = await obtenerPool();
-    const request = pool.request();
-    const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
-    request.input("desde", sql.DateTime, desde);
-    request.input("hastaExcl", sql.DateTime, hastaExcl);
-    const r = await request.query(`
-      SELECT CONVERT(varchar(10), Fecha, 23) AS fecha,
-             RTRIM(ServicioDirectorio)       AS servicio,
-             RTRIM(TipoDia)                  AS tipo
-      FROM festivos_servicio
-      WHERE Fecha >= @desde AND Fecha < @hastaExcl
-      ORDER BY Fecha, ServicioDirectorio;
+export async function calendariosAltitude(): Promise<{ festivos: FestivoServicio[]; horarios: HorarioServicio[] }> {
+  if (esMock()) return { festivos: mockFestivosServicio("2000-01-01", "2100-12-31").festivos, horarios: mockHorariosServicio() };
+  const pool = await obtenerPool();
+  const r = await pool.request().query(`
+    SELECT CONVERT(varchar(10), Fecha, 23) AS fecha,
+           RTRIM(ServicioDirectorio)       AS servicio,
+           RTRIM(TipoDia)                  AS tipo
+    FROM festivos_servicio
+    WHERE Fecha IS NOT NULL AND ServicioDirectorio IS NOT NULL
+    ORDER BY Fecha, ServicioDirectorio;
 
-      SELECT RTRIM(ServicioDirectorio) AS servicio, CONVERT(varchar(10), MAX(Fecha), 23) AS ultima
-      FROM festivos_servicio
-      GROUP BY ServicioDirectorio;
-    `);
-    const recordsets = r.recordsets as unknown as [
-      FestivosServicio["festivos"],
-      { servicio: string; ultima: string }[],
-    ];
-    return {
-      festivos: recordsets[0],
-      ultimaFechaPorServicio: Object.fromEntries(recordsets[1].map((f) => [f.servicio, f.ultima])),
-    };
-  });
-}
-
-/**
- * horarios_servicio (tabla propia): tramos de atención por servicio y día de
- * la semana, con su vigencia. Las horas se convierten a texto HH:MM en el SQL
- * para no pasar por fechas del driver.
- */
-export async function horariosServicio(): Promise<HorarioServicio[]> {
-  if (esMock()) return mockHorariosServicio();
-  return conCache("rdb:plan:horarios", TTL.maestros, async () => {
-    const pool = await obtenerPool();
-    const r = await pool.request().query(`
-      SELECT RTRIM(Servicio) AS servicio,
-             CAST(Lunes AS int) AS l, CAST(Martes AS int) AS m, CAST(Miercoles AS int) AS x,
-             CAST(Jueves AS int) AS j, CAST(Viernes AS int) AS v, CAST(Sabado AS int) AS s,
-             CAST(Domingo AS int) AS d,
-             CONVERT(varchar(5), Entrada, 108) AS entrada,
-             CONVERT(varchar(5), Salida, 108)  AS salida,
-             CONVERT(varchar(10), Desde, 23)   AS desde,
-             CONVERT(varchar(10), Hasta, 23)   AS hasta
-      FROM horarios_servicio
-      ORDER BY Servicio, Desde, Entrada;
-    `);
-    type Fila = {
-      servicio: string; l: number; m: number; x: number; j: number; v: number; s: number; d: number;
-      entrada: string; salida: string; desde: string; hasta: string;
-    };
-    const aMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
-    return (r.recordset as Fila[]).map((f) => ({
+    SELECT RTRIM(Servicio) AS servicio,
+           CAST(Lunes AS int) AS l, CAST(Martes AS int) AS m, CAST(Miercoles AS int) AS x,
+           CAST(Jueves AS int) AS j, CAST(Viernes AS int) AS v, CAST(Sabado AS int) AS s,
+           CAST(Domingo AS int) AS d,
+           CONVERT(varchar(5), Entrada, 108) AS entrada,
+           CONVERT(varchar(5), Salida, 108)  AS salida,
+           CONVERT(varchar(10), Desde, 23)   AS desde,
+           CONVERT(varchar(10), Hasta, 23)   AS hasta
+    FROM horarios_servicio
+    WHERE Servicio IS NOT NULL AND Entrada IS NOT NULL AND Salida IS NOT NULL
+      AND Desde IS NOT NULL AND Hasta IS NOT NULL
+    ORDER BY Servicio, Desde, Entrada;
+  `);
+  type Fila = {
+    servicio: string; l: number; m: number; x: number; j: number; v: number; s: number; d: number;
+    entrada: string; salida: string; desde: string; hasta: string;
+  };
+  const [festivos, horarios] = r.recordsets as unknown as [FestivoServicio[], Fila[]];
+  const aMin = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
+  return {
+    festivos,
+    horarios: horarios.map((f) => ({
       servicio: f.servicio,
       dias: [f.l, f.m, f.x, f.j, f.v, f.s, f.d].map((b) => b === 1),
       entradaMin: aMin(f.entrada),
       salidaMin: aMin(f.salida),
       desde: f.desde,
       hasta: f.hasta,
-    }));
-  });
+    })),
+  };
 }
 
 /**

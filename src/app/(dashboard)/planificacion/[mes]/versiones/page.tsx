@@ -39,7 +39,7 @@ const ACCION: Record<string, string> = {
   plan_publicar: "Publicar",
   plan_importar: "Importar Excel",
   plan_ausencia: "Ausencia",
-  plan_bolsa: "Bolsa / objetivo",
+  plan_bolsa: "Cupo / objetivo",
   plan_saldo_ajuste: "Ajuste de saldo",
 };
 const MAX_CAMBIOS = 400;

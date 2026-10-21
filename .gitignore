@@ -52,3 +52,6 @@ next-env.d.ts
 
 # Material de trabajo con nombres reales (Excel de supervisión, prototipo): nunca al repo
 /temp/
+
+# Guía de supervisión en HTML (se genera con npm run guia:html)
+/guia-supervision.html

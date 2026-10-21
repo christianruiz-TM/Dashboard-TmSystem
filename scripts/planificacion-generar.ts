@@ -34,7 +34,11 @@ async function main() {
   const { esMock } = await import("../src/lib/rdb/pool");
 
   let t = Date.now();
-  const entrada = await cargarEntradaMotor(mes, { hastaDatos: argumento("hasta-datos") });
+  // Sin --guardar no escribe nada, tampoco la copia de los calendarios
+  const entrada = await cargarEntradaMotor(mes, {
+    hastaDatos: argumento("hasta-datos"),
+    sincronizar: process.argv.includes("--guardar") ? "siempre" : "nunca",
+  });
   const tCarga = Date.now() - t;
   t = Date.now();
   const salida = generarPlan(entrada);

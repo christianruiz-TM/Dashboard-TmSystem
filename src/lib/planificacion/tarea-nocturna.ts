@@ -89,7 +89,7 @@ export async function ejecutarTareaNocturna(opciones: {
     const t = Date.now();
     try {
       if (opciones.simular) {
-        const salida = generarPlan(await cargarEntradaMotor(mes, { hastaDatos: fechaDatos }));
+        const salida = generarPlan(await cargarEntradaMotor(mes, { hastaDatos: fechaDatos, sincronizar: "nunca" }));
         const g = contarGravedades(salida.avisos);
         paso(
           "generar",

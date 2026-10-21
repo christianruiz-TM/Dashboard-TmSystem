@@ -15,6 +15,17 @@ import {
   type FormularioCliente,
 } from "@/lib/planificacion/formulario-cliente";
 import {
+  copiarCalendariosAltitude,
+  copiarFestivosALaboral,
+  guardarDiaLaboral,
+  guardarExcepcion,
+  leerFestivosAltitude,
+  nombresCalendarios,
+  quitarDiaLaboral,
+  quitarExcepcion,
+} from "@/lib/planificacion/calendarios";
+import {
+  CALENDARIO_PLANTILLA,
   diaSemana,
   MODOS_CLIENTE,
   normalizarTramos,
@@ -34,7 +45,7 @@ import * as repo from "@/lib/planificacion/repositorio";
 
 // ============================================================
 // Configuración del módulo de planificación: clientes, prefijos, agentes,
-// patrones y turnos, parámetros y tipos de ausencia. Todo vive en SQLite
+// patrones y turnos, parámetros, tipos de ausencia y calendarios. Todo vive en SQLite
 // (nada de clientes, colores ni agentes en el código). Solo supervisión
 // (admin siempre pasa): cada acción lo comprueba, porque se pueden invocar
 // con un POST a mano. Cada cambio deja rastro en audit_log (plan_config).
@@ -471,4 +482,97 @@ export async function guardarTipoAusenciaPlan(formData: FormData): Promise<void>
   repo.guardarTipoAusencia(datos.data, crear);
   await auditar(usuario, `tipo de ausencia ${datos.data.codigo}: ${cambios(antes, datos.data) || "sin cambios"}`);
   volver("ausencias", crear ? "creado" : "guardado");
+}
+
+// ---------- Calendarios (21/10/2026) ----------
+// Todo en SQLite: festivos_servicio y horarios_servicio de RDBv2 (los lee
+// también un Power BI) solo se COPIAN; los cambios a mano van aparte
+// (planificacion/calendarios.ts). El plan y el tablero los usan al momento.
+
+function volverCalendario(msg: string, detalle: string | undefined, calendario: string, anio: string, dia?: string): never {
+  revalidatePath("/planificacion", "layout");
+  volver("calendarios", msg, detalle, { cal: calendario, anio, ...(dia ? { dia } : {}) });
+}
+
+export async function copiarCalendariosAccion(formData: FormData): Promise<void> {
+  const usuario = await autorizar();
+  const calendario = texto(formData, "cal") || CALENDARIO_PLANTILLA;
+  const anio = texto(formData, "anio");
+  let detalle: string;
+  try {
+    const r = await copiarCalendariosAltitude();
+    detalle =
+      `Copiados de Altitude ${r.festivos} festivos y ${r.horarios} horarios.` +
+      (r.laboralInicial !== undefined ? ` El calendario laboral estaba vacío: se ha rellenado con ${r.laboralInicial} festivos.` : "");
+    await auditar(usuario, `calendarios: copia de Altitude (${r.festivos} festivos, ${r.horarios} horarios)`);
+  } catch (e) {
+    console.error("[planificacion] copia de calendarios:", e);
+    volverCalendario("error_datos", "No se ha podido leer Altitude (RDBv2). Prueba en un rato.", calendario, anio);
+  }
+  volverCalendario("guardado", detalle, calendario, anio);
+}
+
+const OPCIONES_DIA_CLIENTE = ["altitude", "abre", "cierra", "horario"] as const;
+const OPCIONES_DIA_PLANTILLA = ["laborable", "festivo", "cierre"] as const;
+
+export async function guardarDiaCalendarioAccion(formData: FormData): Promise<void> {
+  const usuario = await autorizar();
+  const calendario = texto(formData, "cal");
+  const anio = texto(formData, "anio");
+  const fecha = esquemaFechaISO.safeParse(texto(formData, "fecha"));
+  const error = (detalle: string): never => volverCalendario("error_datos", detalle, calendario, anio, fecha.success ? fecha.data : undefined);
+  if (!fecha.success) error("La fecha no es válida.");
+  const dia = fecha.data!;
+  const opcion = texto(formData, "opcion");
+  const motivo = texto(formData, "motivo").trim().slice(0, 200) || null;
+
+  if (calendario === CALENDARIO_PLANTILLA) {
+    if (!(OPCIONES_DIA_PLANTILLA as readonly string[]).includes(opcion)) error("Elige qué pasa ese día.");
+    if (opcion === "laborable") {
+      const habia = quitarDiaLaboral(dia);
+      if (habia) await auditar(usuario, `calendario laboral ${dia}: laborable`);
+    } else {
+      guardarDiaLaboral({ fecha: dia, tipo: opcion as "festivo" | "cierre", nombre: motivo, autor: usuario.username });
+      await auditar(usuario, `calendario laboral ${dia}: ${opcion === "festivo" ? "festivo laboral" : "cierre de empresa"}${motivo ? ` (${motivo})` : ""}`);
+    }
+    volverCalendario("guardado", undefined, calendario, anio);
+  }
+
+  if (!nombresCalendarios().includes(calendario)) error(`No hay ningún calendario «${calendario}» copiado de Altitude.`);
+  if (!(OPCIONES_DIA_CLIENTE as readonly string[]).includes(opcion)) error("Elige qué pasa ese día.");
+  const festivoAltitude = leerFestivosAltitude(dia, dia).some((f) => f.servicio === calendario);
+  if (opcion === "altitude") {
+    if (quitarExcepcion(calendario, dia)) await auditar(usuario, `calendario ${calendario} ${dia}: como dice Altitude`);
+    volverCalendario("guardado", undefined, calendario, anio);
+  }
+  if (opcion === "abre" && !festivoAltitude) error("Ese día no es festivo en Altitude: ya se trabaja.");
+  if (opcion === "cierra" && festivoAltitude) error("Ese día ya es festivo en Altitude: no hace falta cerrarlo.");
+  let tramos: { inicioMin: number; finMin: number }[] | null = null;
+  if (opcion === "horario") {
+    const t = parsearTramos(texto(formData, "tramos"));
+    if (!t || t.length === 0) error("Escribe el horario como «9-14» o «9-14, 16-18».");
+    tramos = t;
+  }
+  guardarExcepcion({ calendario, fecha: dia, tipo: opcion as "abre" | "cierra" | "horario", tramos, motivo, autor: usuario.username });
+  const descripcion = opcion === "horario" ? `horario especial ${textoTramos(tramos!)}` : opcion === "abre" ? "abre (festivo que se trabaja)" : "cierra";
+  await auditar(usuario, `calendario ${calendario} ${dia}: ${descripcion}${motivo ? ` (${motivo})` : ""}`);
+  volverCalendario("guardado", undefined, calendario, anio);
+}
+
+export async function copiarFestivosLaboralAccion(formData: FormData): Promise<void> {
+  const usuario = await autorizar();
+  const origen = texto(formData, "origen");
+  const anio = texto(formData, "anio");
+  if (!/^\d{4}$/.test(anio)) volverCalendario("error_datos", "El año no es válido.", CALENDARIO_PLANTILLA, anio);
+  if (!nombresCalendarios().includes(origen)) volverCalendario("error_datos", "Elige un calendario de cliente.", CALENDARIO_PLANTILLA, anio);
+  const nuevos = copiarFestivosALaboral(origen, Number(anio), usuario.username);
+  if (nuevos.length > 0) await auditar(usuario, `calendario laboral: copiados ${nuevos.length} festivos de ${origen} en ${anio} (${nuevos.join(", ")})`);
+  volverCalendario(
+    "guardado",
+    nuevos.length > 0
+      ? `Añadidos ${nuevos.length} festivos de ${origen}. Revisa que estén los dos festivos locales.`
+      : `No había festivos nuevos de ${origen} en ${anio}.`,
+    CALENDARIO_PLANTILLA,
+    anio,
+  );
 }

@@ -1,5 +1,5 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
-import { semanasDelMes } from "./calendario";
+import { CALENDARIO_PLANTILLA, diasSinTrabajoEquipo, semanasDelMes } from "./calendario";
 import { franjaDentro, generarFranjas, horasTexto, rangoCorto, redondear2, solapan } from "./franjas";
 import { calcularMinimos } from "./minimos";
 import type {
@@ -24,7 +24,10 @@ import { construirContexto, validarPlan } from "./validaciones";
 // Orden de las reglas:
 //   1. Capacidad: turno A/B − ausencias − festivos del equipo. Fuera los
 //      agentes sin sesión en plan.diasInactividad días (salvo forzados).
-//   2. Base: todo el turno queda en el cliente `resto` (GH).
+//   2. Base: todo el turno queda en el cliente `resto` (GH), salvo donde su
+//      horario está cerrado (24/12, 31/12: la plantilla trabaja y GH no):
+//      ahí el turno queda libre para los clientes `objetivo` y, lo que sobre,
+//      se avisa (otro trabajo o la ausencia CIERRE).
 //   3. Mínimos: Erlang C por franja, solo dentro del horario del servicio.
 //   4. Fijados: los bloques congelados se aplican tal cual.
 //   5. Clientes `objetivo`, por prioridad: se coloca el (día, bloque) de mayor
@@ -138,8 +141,12 @@ export function generarPlan(entrada: EntradaMotor): SalidaMotor {
     sumar(celda.cliente, agente, fecha, 1);
   };
 
-  const festivoEquipo = (fecha: string) =>
-    diaPorFecha.get(fecha)?.festivos.includes(entrada.servicioCalendario) ?? false;
+  const sinTrabajoEquipo = diasSinTrabajoEquipo(entrada);
+  const festivoEquipo = (fecha: string) => sinTrabajoEquipo.has(fecha);
+  // Turno libre porque el cliente base está cerrado: `${fecha}|${agente}|${i}`
+  const huecos = new Set<string>();
+  const horarioBase = clientes.get(base)!.horario;
+  const baseCerrada = (fecha: string, i: number) => horarioBase != null && !franjaDentro(franjas[i], paso, horarioBase[fecha] ?? []);
   const capacidadAgente = new Map<string, number>(); // franjas
 
   // ---------- 2. Base ----------
@@ -152,13 +159,18 @@ export function generarPlan(entrada: EntradaMotor): SalidaMotor {
       franjas.forEach((f, i) => {
         if (!franjaDentro(f, paso, tramos)) return;
         if (ausencias.some((x) => solapan(x, { inicioMin: f, finMin: f + paso }))) return;
+        total++;
+        if (baseCerrada(d.fecha, i)) {
+          obtenerFila(d.fecha, a.numero);
+          huecos.add(`${d.fecha}|${a.numero}|${i}`);
+          return;
+        }
         poner(d.fecha, a.numero, i, {
           cliente: base,
           regla: "base_turno",
           datos: { rotacion: d.rotacion },
           fijado: false,
         });
-        total++;
       });
     }
     capacidadAgente.set(a.numero, total);
@@ -202,14 +214,20 @@ export function generarPlan(entrada: EntradaMotor): SalidaMotor {
     return n;
   };
   const minimoBase = (fecha: string, i: number) => minimosCliente.get(base)?.get(fecha)?.[i] ?? 0;
-  const holgura = (fecha: string, i: number) => cobertura(base, fecha, i) - minimoBase(fecha, i);
+  /** Agentes con el turno libre (cliente base cerrado) en una franja. */
+  const enHueco = (fecha: string, i: number) =>
+    (filasPorFecha.get(fecha) ?? []).filter((a) => plan.get(clave(fecha, a))![i] == null && huecos.has(`${fecha}|${a}|${i}`)).length;
+  // Con el cliente base cerrado no hay mínimo que guardar: la holgura son los libres
+  const holgura = (fecha: string, i: number) =>
+    baseCerrada(fecha, i) ? enHueco(fecha, i) : cobertura(base, fecha, i) - minimoBase(fecha, i);
 
   const experiencia = new Map(entrada.experiencia.map((e) => [`${e.agente}|${e.cliente}`, e.horas]));
   const tasa = new Map(entrada.tasaContacto.map((t) => [`${t.cliente}|${t.inicioMin}`, t.tasa]));
   const conHabilidad = (cliente: string) => activos.filter((a) => a.habilidades.includes(cliente));
   const esBaseLibre = (fecha: string, agente: string, i: number) => {
     const celda = plan.get(clave(fecha, agente))?.[i];
-    return celda != null && celda.cliente === base && !celda.fijado;
+    if (celda == null) return huecos.has(`${fecha}|${agente}|${i}`);
+    return celda.cliente === base && !celda.fijado;
   };
 
   // ---------- 3b. Clientes `erlang` que no son la base: cubrir su mínimo ----------
@@ -408,6 +426,30 @@ export function generarPlan(entrada: EntradaMotor): SalidaMotor {
   }
 
   // ---------- 8. Comprobación ----------
+  // Turno que se queda sin cliente porque el base está cerrado
+  const sinCliente = new Map<string, Map<string, number>>(); // fecha → agente → franjas
+  for (const h of huecos) {
+    const [fecha, agente, i] = h.split("|");
+    if (plan.get(clave(fecha, agente))![Number(i)] != null) continue;
+    const porAgente = sinCliente.get(fecha) ?? new Map<string, number>();
+    porAgente.set(agente, (porAgente.get(agente) ?? 0) + 1);
+    sinCliente.set(fecha, porAgente);
+  }
+  for (const fecha of [...sinCliente.keys()].sort()) {
+    const porAgente = sinCliente.get(fecha)!;
+    const horas = [...porAgente.values()].reduce((x, n) => x + n, 0) * horasFranja;
+    avisos.push({
+      codigo: "base_cerrada",
+      gravedad: "info",
+      fecha,
+      cliente: base,
+      mensaje:
+        `${fecha.slice(8, 10)}/${fecha.slice(5, 7)}: ${base} no trabaja y la plantilla sí; ` +
+        `${porAgente.size} ${porAgente.size === 1 ? "persona" : "personas"} con ${horasTexto(horas)} de turno sin cliente ` +
+        "(dales trabajo de otro cliente o pon la ausencia CIERRE)",
+      datos: { agentes: [...porAgente.keys()].sort(), horas },
+    });
+  }
   avisos.push(...avisosEntrada(entrada));
   avisos.push(...validarPlan(bloques, construirContexto(entrada, minimos)));
 
@@ -484,7 +526,7 @@ function avisosEntrada(entrada: EntradaMotor): Aviso[] {
       avisos.push({
         codigo: "festivos_sin_vigencia",
         gravedad: "info",
-        mensaje: `${cal}: ${problemas.join(" y ")}; el mes se sale de la vigencia de las tablas de supervisión`,
+        mensaje: `${cal === CALENDARIO_PLANTILLA ? "Calendario laboral de la plantilla" : cal}: ${problemas.join(" y ")}; el mes se sale de lo cargado (revísalo en Configuración → Calendarios)`,
         datos: { calendario: cal, festivosHasta: fest, horariosHasta: hor },
       });
     }
@@ -513,7 +555,7 @@ function construirResumen(
   const semanas = semanasDelMes(entrada.dias);
   const semanaDe = new Map(entrada.dias.map((d) => [d.fecha, d.lunes]));
   const entreSemana = entrada.dias.filter((d) => d.diaSemana < 5).length;
-  const festivosEquipo = new Set(entrada.dias.filter((d) => d.festivos.includes(entrada.servicioCalendario)).map((d) => d.fecha));
+  const festivosEquipo = diasSinTrabajoEquipo(entrada);
   const turnoFestivosH = (a: AgenteMotor) =>
     [...festivosEquipo].reduce((h, f) => h + (a.turnos[f] ?? []).reduce((x, t) => x + (t.finMin - t.inicioMin) / 60, 0), 0);
   const horas = (b: BloqueMotor) => (b.finMin - b.inicioMin) / 60;
