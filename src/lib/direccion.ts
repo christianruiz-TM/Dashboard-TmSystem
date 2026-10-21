@@ -35,9 +35,12 @@ export type FilaCampaniaDireccion = {
   convContactosPct: number | null;
   convAtendidasPct: number | null;
   efectividadPct: number | null;
-  exitosHoraProductiva: number | null;
+  /** Por hora con el script abierto: por campaña no hay horas logadas (regla 11). */
+  llamadasHoraGuion: number | null;
+  exitosHoraGuion: number | null;
   conversacionPorExitoSeg: number | null;
   gestionPorExitoSeg: number | null;
+  gestionPorNoExitoSeg: number | null;
 };
 
 /** Sumas de un conjunto de campañas (cliente, grupo o total). Sin redondear. */
@@ -102,9 +105,11 @@ export function filasCampaniaDireccion(
         convContactosPct: r?.convContactosPct ?? null,
         convAtendidasPct: r?.convAtendidasPct ?? null,
         efectividadPct: r?.efectividadPct ?? null,
-        exitosHoraProductiva: r?.exitosHoraProductiva ?? null,
+        llamadasHoraGuion: r?.llamadasHoraGuion ?? null,
+        exitosHoraGuion: r?.exitosHoraGuion ?? null,
         conversacionPorExitoSeg: r?.conversacionPorExitoSeg ?? null,
         gestionPorExitoSeg: r?.gestionPorExitoSeg ?? null,
+        gestionPorNoExitoSeg: r?.gestionPorNoExitoSeg ?? null,
       };
     })
     .sort((a, b) => b.interacciones - a.interacciones || a.campania.localeCompare(b.campania));
@@ -193,7 +198,7 @@ export const METRICAS_COMPARACION: SeccionComparable[] = [
       { clave: "interacciones", titulo: "Interacciones", formato: "entero", mejor: null },
       { clave: "inbound", titulo: "Entrantes", formato: "entero", mejor: null },
       { clave: "outbound", titulo: "Salientes", formato: "entero", mejor: null },
-      { clave: "atendidas", titulo: "Atendidas", formato: "entero", mejor: null },
+      { clave: "atendidas", titulo: "Llamadas gestionadas", formato: "entero", mejor: null },
       { clave: "abandonadasInbound", titulo: "Abandonadas (entrantes)", formato: "entero", mejor: null },
       { clave: "pctAbandono", titulo: "% abandono (entrantes)", formato: "pct", mejor: "bajo" },
       { clave: "finalizados", titulo: "Finalizados", formato: "entero", mejor: null },
@@ -206,17 +211,19 @@ export const METRICAS_COMPARACION: SeccionComparable[] = [
       { clave: "horasProductivas", titulo: "Horas productivas", formato: "horas", mejor: null },
       { clave: "conversacionPorExitoSeg", titulo: "Conversación por éxito", formato: "seg", mejor: null },
       { clave: "gestionPorExitoSeg", titulo: "Gestión por éxito", formato: "seg", mejor: null },
+      { clave: "gestionPorNoExitoSeg", titulo: "Gestión sin éxito", formato: "seg", mejor: null },
     ],
   },
   {
     seccion: "Éxitos",
     metricas: [
-      { clave: "contactos", titulo: "Contactos gestionados", formato: "entero", mejor: null },
+      { clave: "contactos", titulo: "Contactos trabajados", formato: "entero", mejor: null },
       { clave: "exitos", titulo: "Éxitos", formato: "entero", mejor: "alto" },
       { clave: "convContactosPct", titulo: "Conversión (contactos)", formato: "pct", mejor: "alto" },
-      { clave: "convAtendidasPct", titulo: "Conversión (atendidas)", formato: "pct", mejor: "alto" },
+      { clave: "convAtendidasPct", titulo: "% éxito por llamada", formato: "pct", mejor: "alto" },
       { clave: "efectividadPct", titulo: "Efectividad de cierre", formato: "pct", mejor: "alto" },
-      { clave: "exitosHoraProductiva", titulo: "Éxitos por hora productiva", formato: "decimal", mejor: "alto" },
+      { clave: "llamadasHoraGuion", titulo: "Llamadas por hora (script abierto)", formato: "decimal", mejor: null },
+      { clave: "exitosHoraGuion", titulo: "Éxitos por hora (script abierto)", formato: "decimal", mejor: "alto" },
     ],
   },
 ];

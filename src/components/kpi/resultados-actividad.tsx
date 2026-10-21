@@ -15,6 +15,7 @@ import {
 } from "@/components/ui/table";
 import { GraficaLineas, type ReferenciaLinea } from "@/components/graficas/grafica-lineas";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
+import { Tiempo } from "@/components/kpi/tiempo";
 import {
   MIN_FINALIZADOS,
   UMBRAL_DESVIACION_PP,
@@ -27,9 +28,11 @@ import {
 import { cn } from "@/lib/utils";
 
 // ============================================================
-// Supervisión → Resultados: ratios bruto y neto de los contactos
-// cerrados, por agente, campaña y fecha, con el desglose de la
-// tipificación (regla 18). Los cálculos vienen hechos
+// Supervisión → Resultados: aprovechamiento (bruto) y ratio neto de los
+// contactos cerrados, por agente, campaña y fecha, con el desglose de la
+// tipificación (regla 18), y desde el 21/10/2026 finalizados por éxito,
+// llamadas por éxito y finalizados por hora (logada en el agente y el
+// total; con el script abierto por campaña). Los cálculos vienen hechos
 // (lib/resultados-actividad.ts); aquí solo se ordena y se pinta.
 // ============================================================
 
@@ -46,6 +49,10 @@ function pp(v: number | null): string {
 
 function entero(v: number): string {
   return v.toLocaleString("es-ES");
+}
+
+function num2(v: number | null): string {
+  return v == null ? "—" : v.toLocaleString("es-ES", DOS);
 }
 
 function fechaCortaSinAnio(iso: string): string {
@@ -95,9 +102,10 @@ const objMin = (v: number | null | undefined) => (v == null ? null : `≥ ${v.to
 const objMax = (v: number | null | undefined) => (v == null ? null : `≤ ${v.toLocaleString("es-ES")} %`);
 
 /** Celdas de ratios comunes a agente, agente×campaña y campaña. */
-function CeldasRatios({ r }: { r: RatiosResultado }) {
+function CeldasRatios({ r, baseHoras }: { r: RatiosResultado; baseHoras: "logada" | "guion" }) {
   const at = r.muestraPequenia;
   const o = r.objetivo;
+  const ayudaHoras = baseHoras === "logada" ? "Horas logadas en el período" : "Horas con el script abierto en la campaña";
   return (
     <>
       <TableCell className="text-right tabular-nums">{entero(r.finalizados)}</TableCell>
@@ -117,19 +125,62 @@ function CeldasRatios({ r }: { r: RatiosResultado }) {
         {pct(r.noValidosPct)}
         <Semaforo color={r.semaforo.noValidos} objetivo={objMax(o?.maxPctNoValidos) ?? undefined} />
       </TableCell>
+      <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")}>
+        {num2(r.finalizadosPorExito)}
+      </TableCell>
+      <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")}>
+        {num2(r.llamadasPorExito)}
+      </TableCell>
+      <TableCell className="text-right tabular-nums" title={ayudaHoras}>
+        {r.horas == null ? "—" : <Tiempo horas={r.horas} />}
+      </TableCell>
+      <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")} title={ayudaHoras}>
+        {num2(r.finalizadosHora)}
+      </TableCell>
     </>
   );
 }
 
-type ClaveOrden = "nombre" | "finalizados" | "exitos" | "noValidos" | "brutoPct" | "netoPct" | "noValidosPct";
+type ClaveOrden =
+  | "nombre"
+  | "finalizados"
+  | "exitos"
+  | "noValidos"
+  | "brutoPct"
+  | "netoPct"
+  | "noValidosPct"
+  | "finalizadosPorExito"
+  | "llamadasPorExito"
+  | "horas"
+  | "finalizadosHora";
 
 const COLUMNAS: { clave: ClaveOrden; titulo: string; ayuda: string }[] = [
   { clave: "finalizados", titulo: "Finalizados", ayuda: "Contactos cerrados que tipificó el agente" },
   { clave: "exitos", titulo: "Éxitos", ayuda: "Contactos cerrados con éxito" },
   { clave: "noValidos", titulo: "No válidos", ayuda: "Finalizados con un resultado marcado como no válido" },
-  { clave: "brutoPct", titulo: "Ratio bruto", ayuda: "Éxitos ÷ finalizados" },
+  { clave: "brutoPct", titulo: "Aprovechamiento (bruto)", ayuda: "Éxitos ÷ finalizados" },
   { clave: "netoPct", titulo: "Ratio neto", ayuda: "Éxitos ÷ (finalizados − no válidos)" },
   { clave: "noValidosPct", titulo: "% no válidos", ayuda: "No válidos ÷ finalizados" },
+  {
+    clave: "finalizadosPorExito",
+    titulo: "Finalizados por éxito",
+    ayuda: "Finalizados ÷ éxitos: cuántos contactos se cierran para conseguir un éxito",
+  },
+  {
+    clave: "llamadasPorExito",
+    titulo: "Llamadas por éxito",
+    ayuda: "Llamadas de media a cada contacto que acabó en éxito (intentos de salida en los 90 días antes de cerrarlo)",
+  },
+  {
+    clave: "horas",
+    titulo: "Horas",
+    ayuda: "Agente: horas logadas en el período. Detalle por campaña y campañas: horas con el script abierto",
+  },
+  {
+    clave: "finalizadosHora",
+    titulo: "Finalizados/h",
+    ayuda: "Finalizados por hora (logada en el agente; con script abierto por campaña)",
+  },
 ];
 
 // ------------------------------------------------------------
@@ -167,12 +218,13 @@ function VistaAgentes({ agentes, periodo }: { agentes: RatiosAgenteRes[]; period
     const activa = orden?.clave === clave || (!orden && clave === "finalizados");
     const desc = orden ? orden.desc : true;
     return (
-      <TableHead key={clave} className={cn(clave !== "nombre" && "text-right")} title={ayuda}>
+      <TableHead key={clave} className={cn("whitespace-normal align-bottom", clave !== "nombre" && "text-right")} title={ayuda}>
         <button
           type="button"
           onClick={() => ordenarPor(clave)}
           className={cn(
-            "inline-flex items-center gap-1 whitespace-nowrap hover:text-foreground",
+            "inline-flex items-end gap-1 text-balance hover:text-foreground",
+            clave !== "nombre" && "text-right",
             activa && "text-foreground",
           )}
         >
@@ -225,13 +277,13 @@ function VistaAgentes({ agentes, periodo }: { agentes: RatiosAgenteRes[]; period
                         </div>
                       </div>
                     </TableCell>
-                    <CeldasRatios r={a} />
+                    <CeldasRatios r={a} baseHoras="logada" />
                   </TableRow>
                   {abierto
                     ? a.campanias.map((c) => (
                         <TableRow key={`${a.agente}|${c.campania}`} className="bg-muted/40 text-xs">
                           <TableCell className="pl-10">{c.campania}</TableCell>
-                          <CeldasRatios r={c} />
+                          <CeldasRatios r={c} baseHoras="guion" />
                         </TableRow>
                       ))
                     : null}
@@ -261,7 +313,7 @@ function VistaCampanias({ r, periodo }: { r: ResultadoResultados; periodo: strin
             Cierres admin.
           </TableHead>
           {COLUMNAS.map((c) => (
-            <TableHead key={c.clave} className="text-right" title={c.ayuda}>
+            <TableHead key={c.clave} className="whitespace-normal text-right align-bottom" title={c.ayuda}>
               {c.titulo}
             </TableHead>
           ))}
@@ -290,7 +342,7 @@ function VistaCampanias({ r, periodo }: { r: ResultadoResultados; periodo: strin
               <TableCell className="text-right tabular-nums text-muted-foreground">
                 {entero(c.administrativos)}
               </TableCell>
-              <CeldasRatios r={c} />
+              <CeldasRatios r={c} baseHoras="guion" />
             </TableRow>
           ))
         )}
@@ -452,8 +504,8 @@ function VistaComparacion({ r }: { r: ResultadoResultados }) {
               % no válidos
             </TableHead>
             <TableHead className="text-right">Diferencia</TableHead>
-            <TableHead className="text-right" title="Ratio bruto del agente / del resto">
-              Ratio bruto
+            <TableHead className="text-right" title="Aprovechamiento (bruto) del agente / del resto">
+              Aprovechamiento
             </TableHead>
             <TableHead className="text-right">Diferencia</TableHead>
             <TableHead title="El resultado (primer nivel) en el que más se separa del resto">
@@ -536,7 +588,7 @@ function VistaEvolucion({ r }: { r: ResultadoResultados }) {
   }));
   const o = r.total.objetivo;
   const referencias: ReferenciaLinea[] = [];
-  if (o?.brutoMin != null) referencias.push({ valor: o.brutoMin, etiqueta: `Objetivo bruto ${o.brutoMin} %`, color: "var(--chart-1)" });
+  if (o?.brutoMin != null) referencias.push({ valor: o.brutoMin, etiqueta: `Objetivo aprovechamiento ${o.brutoMin} %`, color: "var(--chart-1)" });
   if (o?.netoMin != null) referencias.push({ valor: o.netoMin, etiqueta: `Objetivo neto ${o.netoMin} %`, color: "var(--chart-3)" });
   return (
     <div className="space-y-3">
@@ -551,7 +603,7 @@ function VistaEvolucion({ r }: { r: ResultadoResultados }) {
         sufijo=" %"
         referencias={referencias}
         series={[
-          { clave: "bruto", nombre: "Ratio bruto", color: "var(--chart-1)" },
+          { clave: "bruto", nombre: "Aprovechamiento (bruto)", color: "var(--chart-1)" },
           { clave: "neto", nombre: "Ratio neto", color: "var(--chart-3)" },
           { clave: "noValidos", nombre: "% no válidos", color: "var(--chart-4)", discontinua: true },
         ]}
@@ -565,7 +617,7 @@ function VistaEvolucion({ r }: { r: ResultadoResultados }) {
               <TableHead className="text-right">Finalizados</TableHead>
               <TableHead className="text-right">Éxitos</TableHead>
               <TableHead className="text-right">No válidos</TableHead>
-              <TableHead className="text-right">Ratio bruto</TableHead>
+              <TableHead className="text-right">Aprovechamiento</TableHead>
               <TableHead className="text-right">Ratio neto</TableHead>
               <TableHead className="text-right">% no válidos</TableHead>
             </TableRow>
@@ -599,14 +651,14 @@ export function ResultadosActividad({ r, periodo }: { r: ResultadoResultados; pe
   const parcial = r.serviciosSinConfigurar.length > 0 && t.finalizadosConfigurados > 0;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <TarjetaKpi
           titulo="Finalizados"
           valor={entero(t.finalizados)}
           sub={`${entero(t.cerrados)} cerrados · ${entero(t.sinTocar)} sin tocar · ${entero(t.administrativos)} cierres admin.`}
         />
         <TarjetaKpi
-          titulo="Ratio bruto"
+          titulo="Aprovechamiento (bruto)"
           valor={pct(t.brutoPct)}
           sub={`${entero(t.exitos)} éxitos de ${entero(t.finalizados)} finalizados`}
           extra={<SemaforoTarjeta color={t.semaforo.bruto} objetivo={objMin(o?.brutoMin)} />}
@@ -627,6 +679,21 @@ export function ResultadosActividad({ r, periodo }: { r: ResultadoResultados; pe
           sub={`${entero(t.noValidos)} contactos no válidos`}
           extra={<SemaforoTarjeta color={t.semaforo.noValidos} objetivo={objMax(o?.maxPctNoValidos)} />}
         />
+        <TarjetaKpi
+          titulo="Finalizados por éxito"
+          valor={num2(t.finalizadosPorExito)}
+          sub="Contactos cerrados por cada éxito"
+        />
+        <TarjetaKpi
+          titulo="Llamadas por éxito"
+          valor={num2(t.llamadasPorExito)}
+          sub="De media, a cada contacto que acabó en éxito"
+        />
+        <TarjetaKpi
+          titulo="Finalizados por hora logada"
+          valor={num2(t.finalizadosHora)}
+          sub={t.horas == null ? "Sin horas logadas" : `${num2(t.horas)} h logadas`}
+        />
       </div>
 
       <Card>
@@ -634,9 +701,10 @@ export function ResultadosActividad({ r, periodo }: { r: ResultadoResultados; pe
           <CardTitle className="text-base">Resultados de actividad {periodo}</CardTitle>
           <p className="text-sm text-muted-foreground">
             Contactos cerrados que tipificó un agente, por la fecha de cierre y del agente que lo
-            cerró. Ratio bruto = éxitos ÷ finalizados; ratio neto = éxitos ÷ (finalizados − no
-            válidos). Con menos de {MIN_FINALIZADOS} finalizados los ratios salen en gris: la
-            muestra es pequeña.
+            cerró. Aprovechamiento (bruto) = éxitos ÷ finalizados; ratio neto = éxitos ÷
+            (finalizados − no válidos). Finalizados por hora: el agente y el total, por hora
+            logada; por campaña, por hora con el script abierto. Con menos de {MIN_FINALIZADOS}{" "}
+            finalizados los ratios salen en gris: la muestra es pequeña.
           </p>
         </CardHeader>
         <CardContent>

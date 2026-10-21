@@ -44,7 +44,7 @@ export function TablaClientes({
               <tr className="border-b text-left text-xs uppercase tracking-wide text-muted-foreground">
                 <th className="py-2 pr-4">Cliente</th>
                 <th className={TH}>Interacciones</th>
-                <th className={TH}>Atendidas</th>
+                <th className={TH} title="Llamadas que pasaron por el puesto de un agente (antes «Atendidas»)">Llamadas gestionadas</th>
                 <th className={TH}>% abandono</th>
                 <th className={TH}>Horas logadas</th>
                 <th className={TH}>Éxitos</th>
@@ -133,7 +133,7 @@ export function TablaCampanias({ grupos }: { grupos: GrupoCampanias[] }) {
                 <th className="py-2 pr-4">Campaña</th>
                 <th className="py-2 pr-4">Tipo</th>
                 <th className={TH}>Interacciones</th>
-                <th className={TH}>Atendidas</th>
+                <th className={TH} title="Llamadas que pasaron por el puesto de un agente (antes «Atendidas»)">Llamadas gestionadas</th>
                 <th className={TH}>Abandonadas (entrantes)</th>
                 <th className={TH}>Éxitos</th>
                 <th className={TH}>Conv. contactos</th>

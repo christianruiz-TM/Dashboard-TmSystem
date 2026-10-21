@@ -20,8 +20,15 @@ import type { BaseRatiosExito, FilaBaseRatios } from "@/lib/rdb/types";
 //   donde esperados = Σ contactos del agente en cada campaña × conversión
 //   (por contactos) de esa campaña. 100 = la media; corrige que unas
 //   campañas conviertan mucho más que otras.
-// - Éxitos por hora LOGADA solo por agente (user_log de su usuario, regla
-//   16): por campaña no existe (regla 11). Por campaña, por hora PRODUCTIVA.
+// - Llamadas y éxitos por hora (21/10/2026, decidido con Christian): en lo
+//   AGRUPADO (cada agente y el total) por hora LOGADA (user_log de su
+//   usuario, regla 16); en lo separado por campaña (la campaña y el detalle
+//   del agente en cada una), por hora con el SCRIPT ABIERTO
+//   (script_session.duration): por campaña no hay horas logadas (regla 11).
+//   «Llamadas» = llamadas gestionadas (atendidas, termination_state = 1).
+// - Duración media de los éxitos y de los NO éxitos = tiempo con el script
+//   abierto de cada sesión, de media (familia «actividad»: sesiones fechadas
+//   por la llamada, no contactos cerrados; esos van en Resultados).
 // - Tiempos de los éxitos (19/10/2026, sustituyen al «tiempo por éxito» =
 //   gestión de TODAS las atendidas ÷ éxitos): conversación de las llamadas
 //   atendidas de cada éxito y tiempo con el script abierto, de media por
@@ -43,11 +50,17 @@ export interface RatiosBasicos {
   convAtendidasPct: number | null;
   /** null si ninguna de sus campañas usa la calificación «sin éxito». */
   efectividadPct: number | null;
-  exitosHoraProductiva: number | null;
+  /** Horas con el script abierto (sesiones de menos de 2 h ya cerradas). */
+  horasGuion: number;
+  /** Llamadas gestionadas y éxitos por hora con el script abierto (por campaña). */
+  llamadasHoraGuion: number | null;
+  exitosHoraGuion: number | null;
   /** Conversación media de las llamadas atendidas de cada éxito, en segundos. */
   conversacionPorExitoSeg: number | null;
   /** Tiempo medio con el script abierto de cada éxito, en segundos. */
   gestionPorExitoSeg: number | null;
+  /** Tiempo medio con el script abierto de cada sesión SIN éxito, en segundos. */
+  gestionPorNoExitoSeg: number | null;
   muestraPequenia: boolean;
 }
 
@@ -68,6 +81,7 @@ export interface RatiosAgente extends RatiosBasicos {
   nombre: string;
   /** Tiempo logado del usuario (user_log); null si no tiene sesión en el rango. */
   horasLogadas: number | null;
+  llamadasHoraLogada: number | null;
   exitosHoraLogada: number | null;
   exitosEsperados: number;
   indice: number | null;
@@ -77,7 +91,11 @@ export interface RatiosAgente extends RatiosBasicos {
 export interface ResultadoRatios {
   agentes: RatiosAgente[];
   campanias: RatiosCampania[];
-  total: RatiosBasicos & { horasLogadas: number; exitosHoraLogada: number | null };
+  total: RatiosBasicos & {
+    horasLogadas: number;
+    llamadasHoraLogada: number | null;
+    exitosHoraLogada: number | null;
+  };
 }
 
 /** Redondeo del valor FINAL (2 decimales); los parciales se suman sin redondear. */
@@ -93,11 +111,13 @@ interface Acumulado {
   contactos: number;
   atendidas: number;
   exitos: number;
-  productivoSeg: number;
+  guionSeg: number;
   exitosConConversacion: number;
   conversacionExitosSeg: number;
   exitosConGestion: number;
   gestionExitosSeg: number;
+  noExitosConGestion: number;
+  gestionNoExitosSeg: number;
   /** Solo de las filas de campañas que marcan «sin éxito». */
   exitosCalificables: number;
   sinExitoCalificables: number;
@@ -109,11 +129,13 @@ function vacio(): Acumulado {
     contactos: 0,
     atendidas: 0,
     exitos: 0,
-    productivoSeg: 0,
+    guionSeg: 0,
     exitosConConversacion: 0,
     conversacionExitosSeg: 0,
     exitosConGestion: 0,
     gestionExitosSeg: 0,
+    noExitosConGestion: 0,
+    gestionNoExitosSeg: 0,
     exitosCalificables: 0,
     sinExitoCalificables: 0,
     hayCalificables: false,
@@ -124,11 +146,13 @@ function acumular(a: Acumulado, f: FilaBaseRatios, marcaSinExito: boolean): void
   a.contactos += f.sesiones;
   a.atendidas += f.atendidas;
   a.exitos += f.exitos;
-  a.productivoSeg += f.productivoSeg;
+  a.guionSeg += f.guionSeg;
   a.exitosConConversacion += f.exitosConConversacion;
   a.conversacionExitosSeg += f.conversacionExitosSeg;
   a.exitosConGestion += f.exitosConGestion;
   a.gestionExitosSeg += f.gestionExitosSeg;
+  a.noExitosConGestion += f.noExitosConGestion;
+  a.gestionNoExitosSeg += f.gestionNoExitosSeg;
   if (marcaSinExito) {
     a.hayCalificables = true;
     a.exitosCalificables += f.exitos;
@@ -146,9 +170,12 @@ function ratios(a: Acumulado): RatiosBasicos {
     efectividadPct: a.hayCalificables
       ? r2(cociente(a.exitosCalificables, a.exitosCalificables + a.sinExitoCalificables, 100))
       : null,
-    exitosHoraProductiva: r2(cociente(a.exitos, a.productivoSeg / 3600)),
+    horasGuion: r2(a.guionSeg / 3600) ?? 0,
+    llamadasHoraGuion: r2(cociente(a.atendidas, a.guionSeg / 3600)),
+    exitosHoraGuion: r2(cociente(a.exitos, a.guionSeg / 3600)),
     conversacionPorExitoSeg: r2(cociente(a.conversacionExitosSeg, a.exitosConConversacion)),
     gestionPorExitoSeg: r2(cociente(a.gestionExitosSeg, a.exitosConGestion)),
+    gestionPorNoExitoSeg: r2(cociente(a.gestionNoExitosSeg, a.noExitosConGestion)),
     muestraPequenia: a.contactos < MIN_CONTACTOS_RATIO,
   };
 }
@@ -214,6 +241,7 @@ export function calcularRatiosExito(base: BaseRatiosExito): ResultadoRatios {
       nombre: filas[0].nombre,
       ...ratios(acum),
       horasLogadas: r2(horasLogadas),
+      llamadasHoraLogada: horasLogadas != null ? r2(cociente(acum.atendidas, horasLogadas)) : null,
       exitosHoraLogada: horasLogadas != null ? r2(cociente(acum.exitos, horasLogadas)) : null,
       exitosEsperados: r2(esperados) ?? 0,
       indice: esperados > 0 ? r2((acum.exitos / esperados) * 100) : null,
@@ -234,6 +262,7 @@ export function calcularRatiosExito(base: BaseRatiosExito): ResultadoRatios {
     total: {
       ...ratios(total),
       horasLogadas: r2(horasTotal) ?? 0,
+      llamadasHoraLogada: r2(cociente(total.atendidas, horasTotal)),
       exitosHoraLogada: r2(cociente(total.exitos, horasTotal)),
     },
   };

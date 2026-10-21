@@ -5,7 +5,7 @@ import { GraficaBarras } from "@/components/graficas/grafica-barras";
 import { GraficaLineas } from "@/components/graficas/grafica-lineas";
 import { AvisoRango } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
-import { SelectorServicio } from "@/components/filtros/selector-servicio";
+import { SelectorServicioActividad } from "@/components/filtros/selector-servicio-actividad";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
@@ -14,6 +14,9 @@ import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { requireRol } from "@/lib/auth/rbac";
 import { estadoAgregados, tendenciaConversionMensual, tendenciaMensual } from "@/lib/db/agregados";
 import { tiposCampaniaDe } from "@/lib/db/resultados";
+import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
+import { calidadBaseDatos } from "@/lib/calidad-bd";
+import { calidadBaseDatosRango } from "@/lib/rdb/queries/calidad-bd";
 import {
   METRICAS_COMPARACION,
   agruparPorTipo,
@@ -96,6 +99,7 @@ export default async function PaginaDireccion({
     ratios,
     ratiosAnt,
     horasPorServicio,
+    intentos,
   ] = await Promise.all([
     volumenPorCampania(desde, hasta, camp),
     volumenPorCampania(anterior.desde, anterior.hasta, camp),
@@ -107,6 +111,7 @@ export default async function PaginaDireccion({
     ratiosExitoRango(desde, hasta, camp),
     ratiosExitoRango(anterior.desde, anterior.hasta, camp),
     servicioElegido ? null : horasLogadasPorServicio(desde, hasta, camp),
+    calidadBaseDatosRango(desde, hasta, camp),
   ]);
   const tendencia = tendenciaMensual(12, camp);
   // Conversión mensual desde agg_daily_agent_campaign (hasta ayer)
@@ -175,7 +180,7 @@ export default async function PaginaDireccion({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SelectorRango desde={desde} hasta={hasta} presets={presets} />
         <div className="flex flex-wrap items-center gap-4">
-          <SelectorServicio servicios={servicios.map((s) => s.servicio)} valor={params.servicio} />
+          <SelectorServicioActividad servicios={servicios.map((s) => s.servicio)} valor={params.servicio} />
           <SelectorIvr incluir={incluirIvr} />
         </div>
       </div>
@@ -188,7 +193,7 @@ export default async function PaginaDireccion({
           variacionPct={variacion(total, totalAnt)}
         />
         <TarjetaKpi
-          titulo="Atendidas"
+          titulo="Llamadas gestionadas"
           valor={atendidas.toLocaleString("es-ES")}
           sub={total > 0 ? `${((atendidas / total) * 100).toFixed(1)} % del total` : undefined}
         />
@@ -260,7 +265,7 @@ export default async function PaginaDireccion({
               ejeX="mes"
               series={[
                 { clave: "interacciones", nombre: "Interacciones", color: "var(--chart-1)" },
-                { clave: "atendidas", nombre: "Atendidas", color: "var(--chart-3)" },
+                { clave: "atendidas", nombre: "Llamadas gestionadas", color: "var(--chart-3)" },
                 {
                   clave: "abandonadasInbound",
                   nombre: "Abandonadas (entrantes)",
@@ -287,7 +292,7 @@ export default async function PaginaDireccion({
               sufijo=" %"
               series={[
                 { clave: "convContactosPct", nombre: "Conv. contactos", color: "var(--chart-1)" },
-                { clave: "convAtendidasPct", nombre: "Conv. atendidas", color: "var(--chart-3)" },
+                { clave: "convAtendidasPct", nombre: "% éxito por llamada", color: "var(--chart-3)" },
               ]}
             />
           </CardContent>
@@ -319,6 +324,11 @@ export default async function PaginaDireccion({
 
       <TablaCampanias grupos={grupos} />
 
+      <CalidadBaseDatos
+        datos={calidadBaseDatos(intentos.filas, intentos.contactos, servicioElegido ? tiposCampaniaDe(servicioElegido) : [])}
+        periodo="en el período"
+      />
+
       <ComparadorCampanias
         // Remonta al cambiar de cliente o de rango: las campañas elegidas pueden no estar
         key={`${servicioElegido ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}`}
@@ -333,6 +343,7 @@ export default async function PaginaDireccion({
           "visionPorCliente",
           "interacciones",
           "atendidas",
+          "calidadBd",
           "abandonadas",
           "abandono",
           "aht",

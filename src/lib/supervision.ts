@@ -40,6 +40,8 @@ export function sumarKpis(kpis: KpiCampaniaHoy[], nombre: string): KpiCampaniaHo
     tipo: "",
     recibidas: s((k) => k.recibidas),
     atendidas: s((k) => k.atendidas),
+    conversaciones: s((k) => k.conversaciones),
+    contactos: s((k) => k.contactos),
     abandonadas: s((k) => k.abandonadas),
     atendidasInbound,
     abandonadasInbound,
@@ -97,9 +99,12 @@ export type FilaCampaniaSupervision = {
   convContactosPct: number | null;
   convAtendidasPct: number | null;
   efectividadPct: number | null;
-  exitosHoraProductiva: number | null;
+  /** Por hora con el script abierto: por campaña no hay horas logadas (regla 11). */
+  llamadasHoraGuion: number | null;
+  exitosHoraGuion: number | null;
   conversacionPorExitoSeg: number | null;
   gestionPorExitoSeg: number | null;
+  gestionPorNoExitoSeg: number | null;
 };
 
 /**
@@ -138,9 +143,11 @@ export function filasCampaniaSupervision(
         convContactosPct: r?.convContactosPct ?? null,
         convAtendidasPct: r?.convAtendidasPct ?? null,
         efectividadPct: r?.efectividadPct ?? null,
-        exitosHoraProductiva: r?.exitosHoraProductiva ?? null,
+        llamadasHoraGuion: r?.llamadasHoraGuion ?? null,
+        exitosHoraGuion: r?.exitosHoraGuion ?? null,
         conversacionPorExitoSeg: r?.conversacionPorExitoSeg ?? null,
         gestionPorExitoSeg: r?.gestionPorExitoSeg ?? null,
+        gestionPorNoExitoSeg: r?.gestionPorNoExitoSeg ?? null,
       };
     })
     .sort(
@@ -153,7 +160,7 @@ export const METRICAS_SUPERVISION: SeccionComparable[] = [
     seccion: "Volumen",
     metricas: [
       { clave: "recibidas", titulo: "Recibidas (entrantes)", formato: "entero", mejor: null },
-      { clave: "atendidas", titulo: "Atendidas", formato: "entero", mejor: null },
+      { clave: "atendidas", titulo: "Llamadas gestionadas", formato: "entero", mejor: null },
       { clave: "atendidasInbound", titulo: "Atendidas entrantes", formato: "entero", mejor: null },
       { clave: "abandonadasInbound", titulo: "Abandonadas (entrantes)", formato: "entero", mejor: null },
     ],
@@ -173,13 +180,15 @@ export const METRICAS_SUPERVISION: SeccionComparable[] = [
     seccion: "Éxitos",
     metricas: [
       { clave: "exitos", titulo: "Éxitos", formato: "entero", mejor: "alto" },
-      { clave: "contactos", titulo: "Contactos gestionados", formato: "entero", mejor: null },
+      { clave: "contactos", titulo: "Contactos trabajados", formato: "entero", mejor: null },
       { clave: "convContactosPct", titulo: "Conversión (contactos)", formato: "pct", mejor: "alto" },
-      { clave: "convAtendidasPct", titulo: "Conversión (atendidas)", formato: "pct", mejor: "alto" },
+      { clave: "convAtendidasPct", titulo: "% éxito por llamada", formato: "pct", mejor: "alto" },
       { clave: "efectividadPct", titulo: "Efectividad de cierre", formato: "pct", mejor: "alto" },
-      { clave: "exitosHoraProductiva", titulo: "Éxitos por hora productiva", formato: "decimal", mejor: "alto" },
+      { clave: "llamadasHoraGuion", titulo: "Llamadas por hora (script abierto)", formato: "decimal", mejor: null },
+      { clave: "exitosHoraGuion", titulo: "Éxitos por hora (script abierto)", formato: "decimal", mejor: "alto" },
       { clave: "conversacionPorExitoSeg", titulo: "Conversación por éxito", formato: "seg", mejor: null },
       { clave: "gestionPorExitoSeg", titulo: "Gestión por éxito", formato: "seg", mejor: null },
+      { clave: "gestionPorNoExitoSeg", titulo: "Gestión sin éxito", formato: "seg", mejor: null },
     ],
   },
 ];

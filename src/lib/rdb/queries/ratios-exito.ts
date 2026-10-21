@@ -1,7 +1,7 @@
 import { conCache, TTL, ttlSegunRango } from "../cache";
 import { mockBaseRatiosExito, mockRatiosDiarios } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
-import type { BaseRatiosExito, FilaBaseRatios, FilaDiariaRatios } from "../types";
+import type { BaseRatiosExito, FilaBaseRatios, FilaDiariaRatios, TiemposSesionesRatios } from "../types";
 import { calcularRatiosExito, type ResultadoRatios } from "@/lib/ratios-exito";
 import { hoyISO } from "@/lib/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
@@ -66,7 +66,7 @@ async function filasAgenteCampania(
   hastaISO: string,
   campanias: string[] | undefined,
   porDia: boolean,
-): Promise<FilaDiariaRatios[]> {
+): Promise<(FilaDiariaRatios & TiemposSesionesRatios)[]> {
   const pool = await obtenerPool();
   const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
   const nueva = () => {
@@ -82,6 +82,7 @@ async function filasAgenteCampania(
 
   // --- Q1: sesiones de script (contactos y éxitos) ---
   const reqSesiones = nueva();
+  reqSesiones.input("maxDecimas", sql.Int, MAX_SEG_HILO * 10);
   const filtroSesiones = filtroCampanias(reqSesiones, campanias, "c.shortname");
   const sesiones = reqSesiones.query(`
     -- business_status: 1=NonQualified · 2=Qualified · 3=Success · 4=Unsuccessful
@@ -91,7 +92,15 @@ async function filasAgenteCampania(
            RTRIM(c.shortname) AS campania,
            COUNT(*)           AS sesiones,
            SUM(CASE WHEN s.business_status = 3 THEN 1 ELSE 0 END) AS exitos,
-           SUM(CASE WHEN s.business_status = 4 THEN 1 ELSE 0 END) AS sinExito
+           SUM(CASE WHEN s.business_status = 4 THEN 1 ELSE 0 END) AS sinExito,
+           -- Script abierto (DÉCIMAS → segundos), sin las de 2 h o más ni las
+           -- aún abiertas (duration NULL): la hora de la campaña (21/10/2026)
+           SUM(CASE WHEN s.duration < @maxDecimas
+                    THEN CAST(s.duration AS BIGINT) ELSE 0 END) / 10.0 AS guionSeg,
+           SUM(CASE WHEN ISNULL(s.business_status, 0) <> 3 AND s.duration < @maxDecimas
+                    THEN 1 ELSE 0 END) AS noExitosConGestion,
+           SUM(CASE WHEN ISNULL(s.business_status, 0) <> 3 AND s.duration < @maxDecimas
+                    THEN CAST(s.duration AS BIGINT) ELSE 0 END) / 10.0 AS gestionNoExitosSeg
     FROM script_session s
     INNER JOIN ph_e_user   u ON s.e_user   = u.code AND u.type = 1
     INNER JOIN ph_campaign c ON s.campaign = c.code
@@ -124,7 +133,7 @@ async function filasAgenteCampania(
   `);
 
   const [rSesiones, rHilos] = await Promise.all([sesiones, hilos]);
-  const filas = new Map<string, FilaDiariaRatios>();
+  const filas = new Map<string, FilaDiariaRatios & TiemposSesionesRatios>();
   const obtener = (f: { fecha: string; agente: string; nombre: string; campania: string }) => {
     const clave = `${f.fecha}|${f.agente}|${f.campania}`;
     let fila = filas.get(clave);
@@ -139,13 +148,23 @@ async function filasAgenteCampania(
         sinExito: 0,
         atendidas: 0,
         productivoSeg: 0,
+        guionSeg: 0,
+        noExitosConGestion: 0,
+        gestionNoExitosSeg: 0,
       };
       filas.set(clave, fila);
     }
     return fila;
   };
-  for (const f of rSesiones.recordset as FilaDiariaRatios[]) {
-    Object.assign(obtener(f), { sesiones: f.sesiones, exitos: f.exitos, sinExito: f.sinExito });
+  for (const f of rSesiones.recordset as (FilaDiariaRatios & TiemposSesionesRatios)[]) {
+    Object.assign(obtener(f), {
+      sesiones: f.sesiones,
+      exitos: f.exitos,
+      sinExito: f.sinExito,
+      guionSeg: Number(f.guionSeg),
+      noExitosConGestion: f.noExitosConGestion,
+      gestionNoExitosSeg: Number(f.gestionNoExitosSeg),
+    });
   }
   for (const f of rHilos.recordset as FilaDiariaRatios[]) {
     Object.assign(obtener(f), { atendidas: f.atendidas, productivoSeg: Number(f.productivoSeg) });
@@ -321,18 +340,28 @@ export async function ratiosExitoHoy(campanias?: string[]): Promise<ResultadoRat
   return calcularRatiosExito(base);
 }
 
+/**
+ * Base de los ratios de un rango, cacheada. La usan los ratios del Histórico
+ * y Dirección y, para sus horas, «finalizados por hora» de Resultados.
+ */
+export async function baseRatiosRango(
+  desdeISO: string,
+  hastaISO: string,
+  campanias?: string[],
+): Promise<BaseRatiosExito> {
+  if (esMock()) return mockBaseRatiosExito(desdeISO, hastaISO, campanias);
+  return conCache(
+    `rdb:ratios:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}`,
+    ttlSegunRango(hastaISO),
+    () => baseRatiosCore(desdeISO, hastaISO, campanias),
+  );
+}
+
 /** Ratios de éxito de un rango (pestaña Histórico de Supervisión). */
 export async function ratiosExitoRango(
   desdeISO: string,
   hastaISO: string,
   campanias?: string[],
 ): Promise<ResultadoRatios> {
-  const base = esMock()
-    ? mockBaseRatiosExito(desdeISO, hastaISO, campanias)
-    : await conCache(
-        `rdb:ratios:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}`,
-        ttlSegunRango(hastaISO),
-        () => baseRatiosCore(desdeISO, hastaISO, campanias),
-      );
-  return calcularRatiosExito(base);
+  return calcularRatiosExito(await baseRatiosRango(desdeISO, hastaISO, campanias));
 }

@@ -47,6 +47,14 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
    - Cola media = media sobre entrantes ATENDIDAS (0 s si no esperaron); la
      espera de las abandonadas se muestra APARTE, nunca mezclada
    - Interacciones gestionadas (unidad facturable) = atendidas, no todos los hilos
+   - En pantalla, «atendidas» se llama **«Llamadas gestionadas»** (21/10/2026:
+     la supervisión no entendía 466 «atendidas» en 7 h). En salientes,
+     `termination_state = 1` es que pasó por el puesto del agente, no que
+     contestaran (Bol_0516, 01/10: 651 gestionadas, 239 con segmento
+     `state = 6` Connected, 356 sesiones de script, 228 de menos de 10 s).
+     Por eso van al lado **«Conversaciones»** (gestionadas con algún segmento
+     Connected) y **«Contactos»** (sesiones de script de agente humano; puede
+     haber más que conversaciones: la ficha se abre aunque no contesten).
    - Origen: `origin` 1=Inbound · 2=Outbound · 3=Workflow
 6.b **SLA, cola y % abandono SOLO sobre `origin = 1`** (entrantes). Verificado
    09/09/2026 con datos reales: de 4.894 atendidas de un día, 4.322 eran
@@ -234,11 +242,27 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     - **Índice** = éxitos reales ÷ esperados × 100, siendo esperados = Σ
       contactos del agente por campaña × conversión de la campaña en el mismo
       rango y alcance. Con menos de 30 contactos, «muestra pequeña».
-    - Éxitos por hora LOGADA solo por agente (`user_log` de su usuario, regla
-      16); por campaña, por hora PRODUCTIVA, que **descarta los hilos de 2 h o
-      más**: 6 hilos de CEFF sumaban 1.766 h de las 3.871 h productivas de
-      septiembre. Ojo: la tabla de productividad de Supervisión y las horas
-      productivas de facturación NO aplican aún ese corte.
+    - **Llamadas y éxitos por hora** (21/10/2026, decidido con Christian):
+      en lo AGRUPADO (cada agente y el total) por hora LOGADA (`user_log` de
+      su usuario, regla 16); en lo separado por CAMPAÑA (la campaña y el
+      detalle del agente en cada una) por hora con el SCRIPT ABIERTO
+      (Σ `script_session.duration` de sus sesiones, sin las de 2 h o más ni
+      las abiertas: `guionSeg` en la Q1 de `filasAgenteCampania`). Sustituye
+      a «éxitos por hora productiva» (gestión de las atendidas). «Llamadas» =
+      llamadas gestionadas. GH septiembre: 15,02 llamadas y 1,83 éxitos por
+      hora logada (1.384,22 h); 979,57 h de script.
+    - «Conv. llamadas» se llama **«% éxito por llamada»** (éxitos ÷ llamadas
+      gestionadas, en %). **«Gestión sin éxito»** = tiempo medio con el
+      script abierto de las sesiones que NO son éxito (GH septiembre:
+      130,54 s, frente a 451,54 s de los éxitos).
+    - Estos ratios son la familia **ACTIVIDAD** (sesiones y llamadas, por la
+      fecha de la llamada). Los de contactos CERRADOS (aprovechamiento y
+      demás) son la familia RESULTADOS y van SOLO en Supervisión →
+      Resultados (regla 18): no mezclarlos (decidido 21/10/2026).
+    - Los hilos de 2 h o más **no cuentan como tiempo**: 6 hilos de CEFF
+      sumaban 1.766 h de las 3.871 h productivas de septiembre. Ojo: la tabla
+      de productividad de Supervisión y las horas productivas de facturación
+      NO aplican aún ese corte.
     - **Dirección** (09/10/2026): la misma sección, en vivo para el rango
       elegido y con variación frente al mes anterior; «Éxitos» y «Conv.
       contactos» en «Detalle por campaña»; y la gráfica «Conversión 12 meses»
@@ -295,6 +319,24 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       válidos). «No válido» = algún valor de las columnas configuradas
       marcado en el admin; sin configurar no hay neto, y en totales mixtos el
       neto se calcula solo con los servicios configurados.
+    - **El bruto se llama «Aprovechamiento (bruto)»** en pantalla y en el
+      admin desde el 21/10/2026 (campos internos igual: `brutoPct`,
+      `brutoMin`). Con él, solo en esta pestaña (familia RESULTADOS):
+      - **Finalizados por éxito** = finalizados ÷ éxitos (GH septiembre: 3,33).
+      - **Llamadas por éxito** = intentos de SALIDA (`origin = 2`) a cada
+        contacto de éxito en los 90 días anteriores a su cierre, conteste o
+        no, sin los estados que no cuentan en la calidad de la base de datos
+        (NULL, -1, 6, 11, 17, 18), de media entre los éxitos que tienen
+        alguno (`itr_thread.contact = activity.code`; tabla `#lla` con
+        `OPTION (HASH JOIN)`). GH septiembre: 2,52; gh_gra_pre_mer 2,93
+        (571 llamadas para 195 éxitos, igual que una consulta independiente).
+        Bolsas, 01-20/10: 11,27.
+      - **Finalizados por hora**: hora logada en el agente y el total (los
+        agentes con finalizados); por campaña, hora con el script abierto.
+        Las horas salen de la base de los ratios de éxito (`baseRatiosRango`,
+        cacheada); si fallan, la pestaña sale sin esa columna. GH septiembre:
+        6,08 (1.384,16 h).
+      - La pestaña de un mes sigue en 1,1-1,2 s.
     - Verificado en septiembre 2026: GH 8.417 finalizados, 2.526 éxitos,
       2.973 «No valido» → **bruto 30,01 %** (el objetivo de `RATIOS_RF` es
       30) y **neto 46,40 %** (`RATIOS_RF` dice 70: allí se calculaba de otra
@@ -1351,6 +1393,36 @@ Registro completo en `docs/registro-sesion-20-21-octubre-2026.md`.
 - [ ] Añadir los 2 festivos locales en el calendario laboral (supervisión).
 - [ ] Decidir qué hacen el 24 y el 31/12 las 13 personas con turno sin
       cliente (otro trabajo o CIERRE).
+
+## Sesión 21/10/2026, tarde (Opus 5.5): calidad de la base de datos y KPIs
+
+Peticiones de Christian y de supervisión del 21/10/2026, con propuesta
+aprobada antes de tocar producción (los KPIs van también a Dirección).
+
+- [x] «Atendidas» → «Llamadas gestionadas», con «Conversaciones» y
+      «Contactos» en las tablas de campañas y agentes (regla 6). Tabla de
+      agentes común a Tiempo real e Histórico (`tabla-agentes-supervision.tsx`).
+- [x] **Calidad de la base de datos** (Supervisión y Dirección): intentos
+      de salida por `termination_state`, como el gráfico de Altitude, sin
+      sin resultado (NULL, -1), abandonadas (6), redirigidas (11),
+      canceladas (17) ni reencoladas (18). Grupos: contactable, para
+      reintentar, no útil, rechazo, red (10 = «sin líneas troncales
+      disponibles»). Puro en `lib/calidad-bd.ts`, SQL en
+      `queries/calidad-bd.ts`. Socios 20/10: 1.031 intentos, igual que
+      Altitude (solo 2 llamadas cambian de grupo: Altitude las cuenta como
+      rechazadas). Un mes de todos los clientes, 0,9 s.
+- [x] Tiempos con «reloj» debajo («60,63 s» / «1 min 01 s»):
+      `relojDesdeSegundos`/`relojDesdeHoras` y `<Tiempo>`.
+- [x] Selector de clientes por actividad: arriba los que tienen llamadas en
+      los últimos 7 días, abajo «Parados» con su última llamada
+      (`actividadServicios`, caché 1 h; `SelectorServicioActividad` en
+      Operaciones y Dirección, con Suspense para no frenar la página).
+- [x] KPIs nuevos (reglas 17 y 18): familia actividad en «Rendimiento por
+      éxitos» (llamadas y éxitos por hora, % éxito por llamada, gestión sin
+      éxito) y familia resultados solo en Resultados (aprovechamiento,
+      finalizados por éxito, llamadas por éxito, finalizados por hora).
+- [x] 263 tests, `tsc` y ESLint en verde; verificado contra RDBv2 y en el
+      `next dev` con capturas.
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 

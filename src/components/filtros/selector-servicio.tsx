@@ -2,6 +2,7 @@
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Users } from "lucide-react";
+import { fechaCortaActividad, type ServicioOrdenado } from "@/lib/actividad-servicios";
 import { TODOS_SERVICIOS } from "@/lib/servicio-todos";
 
 /**
@@ -14,17 +15,22 @@ import { TODOS_SERVICIOS } from "@/lib/servicio-todos";
  * `todosExplicito`: empieza en blanco («Elige un cliente…») y «Todos los
  * clientes» es una opción más, con `?servicio=todos` (Operaciones: cargar
  * todos los clientes de entrada era lo más lento).
+ * `orden`: los clientes por actividad (21/10/2026), calculado en el servidor
+ * con `ordenarPorActividad`: arriba los que tienen llamadas recientes y
+ * abajo, en otro grupo, los parados. Sin él, en el orden de `servicios`.
  */
 export function SelectorServicio({
   servicios,
   valor,
   obligatorio = false,
   todosExplicito = false,
+  orden,
 }: {
   servicios: string[];
   valor?: string;
   obligatorio?: boolean;
   todosExplicito?: boolean;
+  orden?: { activos: ServicioOrdenado[]; parados: ServicioOrdenado[] };
 }) {
   const router = useRouter();
   const ruta = usePathname();
@@ -57,11 +63,34 @@ export function SelectorServicio({
           <option value="">Todos</option>
         )}
         {todosExplicito && <option value={TODOS_SERVICIOS}>Todos los clientes</option>}
-        {servicios.map((s) => (
-          <option key={s} value={s}>
-            {s}
-          </option>
-        ))}
+        {orden ? (
+          <>
+            {orden.activos.length > 0 ? (
+              <optgroup label="Con llamadas en los últimos días">
+                {orden.activos.map((s) => (
+                  <option key={s.servicio} value={s.servicio}>
+                    {s.servicio}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+            {orden.parados.length > 0 ? (
+              <optgroup label="Parados">
+                {orden.parados.map((s) => (
+                  <option key={s.servicio} value={s.servicio}>
+                    {s.servicio} · {s.ultima ? `última llamada ${fechaCortaActividad(s.ultima)}` : "sin llamadas en 90 días"}
+                  </option>
+                ))}
+              </optgroup>
+            ) : null}
+          </>
+        ) : (
+          servicios.map((s) => (
+            <option key={s} value={s}>
+              {s}
+            </option>
+          ))
+        )}
       </select>
     </label>
   );

@@ -198,16 +198,42 @@ async function kpisCampaniasCore(
     reqExitos.input("hastaExcl", sql.DateTime, hastaExcl);
     const filtroExitos = filtroCampanias(reqExitos, campanias, "c.shortname");
     const exitos = reqExitos.query(`
-      -- Sesiones de script calificadas como Success por campaña
-      SELECT RTRIM(c.shortname) AS campania, COUNT(*) AS exitos
+      -- Sesiones de script por campaña: las calificadas Success (éxitos, de
+      -- cualquier usuario, como siempre) y las de agente humano (contactos
+      -- trabajados, la misma cuenta que los ratios de éxito)
+      SELECT RTRIM(c.shortname) AS campania,
+             SUM(CASE WHEN s.business_status = 3 THEN 1 ELSE 0 END) AS exitos,
+             SUM(CASE WHEN u.type = 1 THEN 1 ELSE 0 END)            AS contactos
       FROM script_session s
       INNER JOIN ph_campaign c ON s.campaign = c.code
-      WHERE s.start_time >= @desde AND s.start_time < @hastaExcl
-        AND s.business_status = 3${filtroExitos}
+      LEFT JOIN ph_e_user u ON s.e_user = u.code
+      WHERE s.start_time >= @desde AND s.start_time < @hastaExcl${filtroExitos}
       GROUP BY RTRIM(c.shortname);
     `);
 
-    const [rHilos, rColas, rExitos] = await Promise.all([hilos, colas, exitos]);
+    // --- Q4: conversaciones (llamadas gestionadas con algún segmento Connected) ---
+    // Mismo patrón que Q2: primero los segmentos por start_time, después el
+    // join por PK de itr_thread.
+    const reqConv = pool.request();
+    reqConv.input("desde", sql.DateTime, desde);
+    reqConv.input("hastaExcl", sql.DateTime, hastaExcl);
+    const filtroConv = filtroCampanias(reqConv, campanias, "c.shortname");
+    const conversaciones = reqConv.query(`
+      SELECT RTRIM(c.shortname) AS campania, COUNT(*) AS conversaciones
+      FROM (
+          SELECT DISTINCT s.itr_thread
+          FROM itr_segment s
+          WHERE s.start_time >= @desde AND s.start_time < @hastaExcl AND s.state = 6
+      ) q
+      INNER JOIN itr_thread t ON t.code = q.itr_thread
+      INNER JOIN ph_campaign c ON t.campaign = c.code
+      WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+        AND t.termination_state = 1${filtroConv}
+      GROUP BY RTRIM(c.shortname)
+      OPTION (FORCE ORDER);
+    `);
+
+    const [rHilos, rColas, rExitos, rConv] = await Promise.all([hilos, colas, exitos, conversaciones]);
     const porCampania = new Map(
       (rColas.recordset as {
         campania: string;
@@ -216,11 +242,11 @@ async function kpisCampaniasCore(
         atendidasFueraSla: number;
       }[]).map((f) => [f.campania, f]),
     );
-    const exitosPorCampania = new Map(
-      (rExitos.recordset as { campania: string; exitos: number }[]).map((f) => [
-        f.campania,
-        f.exitos,
-      ]),
+    const sesionesPorCampania = new Map(
+      (rExitos.recordset as { campania: string; exitos: number; contactos: number }[]).map((f) => [f.campania, f]),
+    );
+    const conversacionesPorCampania = new Map(
+      (rConv.recordset as { campania: string; conversaciones: number }[]).map((f) => [f.campania, f.conversaciones]),
     );
     const enums = await obtenerEnums();
 
@@ -234,6 +260,8 @@ async function kpisCampaniasCore(
       | "slaPct"
       | "atendidasFueraSla"
       | "exitos"
+      | "contactos"
+      | "conversaciones"
     > & { tipoCodigo: number };
     return (rHilos.recordset as FilaHilos[]).map(({ tipoCodigo, ...fila }) => {
       const cola = porCampania.get(fila.campania);
@@ -250,7 +278,9 @@ async function kpisCampaniasCore(
           : null;
       return {
         ...fila,
-        exitos: exitosPorCampania.get(fila.campania) ?? 0,
+        exitos: sesionesPorCampania.get(fila.campania)?.exitos ?? 0,
+        contactos: sesionesPorCampania.get(fila.campania)?.contactos ?? 0,
+        conversaciones: conversacionesPorCampania.get(fila.campania) ?? 0,
         ahtSeg: redondear2(fila.ahtSeg),
         acwSeg: redondear2(fila.acwSeg),
         colaMediaSeg:
@@ -328,8 +358,49 @@ async function agentesCore(
       GROUP BY RTRIM(u.usr_name), RTRIM(u.fullname)
       ORDER BY atendidas DESC;
     `);
-    return (r.recordset as AgenteHoy[]).map((f) => ({
+
+    // Conversaciones (gestionadas con segmento Connected) y contactos
+    // trabajados (sesiones de script) por agente, aparte: el mismo patrón que
+    // las colas (segmentos por start_time y join por PK)
+    const reqConv = pool.request();
+    reqConv.input("desde", sql.DateTime, desde);
+    reqConv.input("hastaExcl", sql.DateTime, hastaExcl);
+    const filtroConv = filtroCampanias(reqConv, campanias, "c.shortname");
+    const reqSes = pool.request();
+    reqSes.input("desde", sql.DateTime, desde);
+    reqSes.input("hastaExcl", sql.DateTime, hastaExcl);
+    const filtroSes = filtroCampanias(reqSes, campanias, "c.shortname");
+    const [rConv, rSes] = await Promise.all([
+      reqConv.query(`
+        SELECT RTRIM(u.usr_name) AS agente, COUNT(*) AS conversaciones
+        FROM (
+            SELECT DISTINCT s.itr_thread
+            FROM itr_segment s
+            WHERE s.start_time >= @desde AND s.start_time < @hastaExcl AND s.state = 6
+        ) q
+        INNER JOIN itr_thread t ON t.code = q.itr_thread
+        INNER JOIN ph_e_user  u ON t.e_user   = u.code AND u.type = 1
+        INNER JOIN ph_campaign c ON t.campaign = c.code
+        WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+          AND t.termination_state = 1${filtroConv}
+        GROUP BY RTRIM(u.usr_name)
+        OPTION (FORCE ORDER);
+      `),
+      reqSes.query(`
+        SELECT RTRIM(u.usr_name) AS agente, COUNT(*) AS contactos
+        FROM script_session s
+        INNER JOIN ph_e_user   u ON s.e_user   = u.code AND u.type = 1
+        INNER JOIN ph_campaign c ON s.campaign = c.code
+        WHERE s.start_time >= @desde AND s.start_time < @hastaExcl${filtroSes}
+        GROUP BY RTRIM(u.usr_name);
+      `),
+    ]);
+    const conv = new Map((rConv.recordset as { agente: string; conversaciones: number }[]).map((f) => [f.agente, f.conversaciones]));
+    const ses = new Map((rSes.recordset as { agente: string; contactos: number }[]).map((f) => [f.agente, f.contactos]));
+    return (r.recordset as Omit<AgenteHoy, "conversaciones" | "contactos">[]).map((f) => ({
       ...f,
+      conversaciones: conv.get(f.agente) ?? 0,
+      contactos: ses.get(f.agente) ?? 0,
       talkMedioSeg: redondear2(f.talkMedioSeg),
       acwMedioSeg: redondear2(f.acwMedioSeg),
       ahtMedioSeg: redondear2(f.ahtMedioSeg),

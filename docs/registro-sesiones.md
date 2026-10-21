@@ -217,3 +217,11 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Verificado contra RDBv2 en una copia de la SQLite: octubre y noviembre, plan y avisos idénticos; diciembre sin avisos duros. 253 tests, `tsc` y ESLint en verde. Probado en el `next dev`.
 - Desplegado el 21/10/2026 a las 09:10 (`0ac0f0f`, migración 0012, backup `dashboard_20261021_0908.db`); tipo CIERRE dado de alta y primera copia de calendarios hecha en producción. Permisos de escritura de `DashTmsystem` retirados por Christian. Capturas de la ayuda, guía HTML y guía de Claude Docs al día.
 - Pendiente: los 2 festivos locales y qué hacen el 24 y el 31/12 las 13 personas con turno sin cliente.
+
+### 21 · 21/10/2026 · Calidad de la base de datos y KPIs de supervisión (Opus 5.5)
+
+- «Atendidas» pasa a «Llamadas gestionadas» (en salientes no quiere decir que contestaran), con «Conversaciones» (con segmento Connected) y «Contactos» (sesiones de script) al lado.
+- Bloque «Calidad de la base de datos» en Supervisión y Dirección: intentos de salida por resultado, como el gráfico de Altitude (Socios 20/10: 1.031 intentos, igual), por tipo de campaña y evolución diaria. Fuera: sin resultado, abandonadas, redirigidas, canceladas y reencoladas.
+- Tiempos con reloj debajo; selector de clientes con los activos arriba y los parados abajo.
+- KPIs nuevos sin mezclar familias: en «Rendimiento por éxitos» (actividad), llamadas y éxitos por hora (logada en lo agrupado, script abierto por campaña), «% éxito por llamada» y gestión sin éxito; en Resultados (contactos cerrados), «Aprovechamiento (bruto)», finalizados por éxito, llamadas por éxito (intentos a cada contacto de éxito en los 90 días antes de cerrarlo) y finalizados por hora.
+- Verificado contra RDBv2 (GH septiembre: 2.529 éxitos, 1.384,22 h logadas, aprovechamiento 30,01 %, 2,52 llamadas por éxito; comprobación independiente en gh_gra_pre_mer) y en el `next dev`. 263 tests.

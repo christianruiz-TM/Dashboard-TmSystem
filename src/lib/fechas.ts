@@ -135,3 +135,26 @@ export function horasDesdeSegundos(segundos: number | null | undefined): string 
   if (segundos == null || Number.isNaN(segundos)) return "—";
   return horasLegibles(segundos / 3600);
 }
+
+/**
+ * Segundos → reloj legible, para enseñarlo en pequeño DEBAJO del valor con
+ * decimales (Supervisión, 21/10/2026): 192,35 → «3 min 12 s», 30.701 → «8 h
+ * 31 min 41 s», 45 → «45 s». Redondea al segundo; solo para leer (el valor
+ * con decimales sigue siendo el que se suma y se exporta). null si no hay dato.
+ */
+export function relojDesdeSegundos(segundos: number | null | undefined): string | null {
+  if (segundos == null || Number.isNaN(segundos)) return null;
+  const total = Math.round(Math.abs(segundos));
+  const h = Math.floor(total / 3600);
+  const m = Math.floor((total % 3600) / 60);
+  const s = total % 60;
+  const signo = segundos < 0 ? "−" : "";
+  if (h > 0) return `${signo}${h} h ${String(m).padStart(2, "0")} min ${String(s).padStart(2, "0")} s`;
+  if (m > 0) return `${signo}${m} min ${String(s).padStart(2, "0")} s`;
+  return `${signo}${s} s`;
+}
+
+/** Horas decimales → reloj legible (8,53 → «8 h 31 min 48 s»). */
+export function relojDesdeHoras(horas: number | null | undefined): string | null {
+  return horas == null || Number.isNaN(horas) ? null : relojDesdeSegundos(horas * 3600);
+}

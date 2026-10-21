@@ -62,7 +62,17 @@ export interface KpiCampaniaHoy {
   campania: string;
   tipo: string;
   recibidas: number; // entrantes (origin = 1)
-  atendidas: number; // TODAS las atendidas, cualquier origen
+  /**
+   * «Llamadas gestionadas» en pantalla (antes «Atendidas»): hilos con
+   * termination_state = 1, de cualquier origen. En una saliente solo dice que
+   * la llamada pasó por el puesto del agente, no que contestara alguien
+   * (21/10/2026: Bol_0516 tuvo 651 un día, 239 con conversación).
+   */
+  atendidas: number;
+  /** Llamadas gestionadas con conversación: algún segmento Connected (state 6). */
+  conversaciones: number;
+  /** Contactos trabajados: sesiones de script de agente humano (como los ratios). */
+  contactos: number;
   abandonadas: number; // TODAS las abandonadas, cualquier origen
   /**
    * Atendidas y abandonadas SOLO de entrada (origin = 1). Son el único
@@ -120,7 +130,12 @@ export interface MetricasIvr {
 export interface AgenteHoy {
   agente: string;
   nombre: string;
+  /** Llamadas gestionadas (termination_state = 1); ver KpiCampaniaHoy.atendidas. */
   atendidas: number;
+  /** Las que tuvieron conversación (segmento Connected). */
+  conversaciones: number;
+  /** Contactos trabajados: sesiones de script del agente. */
+  contactos: number;
   talkMedioSeg: number | null;
   acwMedioSeg: number | null;
   ahtMedioSeg: number | null;
@@ -156,13 +171,26 @@ export interface FilaConteosRatios {
  * Cada tiempo lleva su propio número de éxitos: no todos los éxitos tienen
  * llamada atendida ligada y los de 2 h o más no cuentan (regla 15).
  */
-export interface FilaBaseRatios extends FilaConteosRatios {
+export interface FilaBaseRatios extends FilaConteosRatios, TiemposSesionesRatios {
   /** Éxitos con alguna llamada atendida y la conversación de esas llamadas. */
   exitosConConversacion: number;
   conversacionExitosSeg: number;
   /** Éxitos con su tiempo de script abierto (script_session.duration). */
   exitosConGestion: number;
   gestionExitosSeg: number;
+}
+
+/**
+ * Tiempo con el script abierto (script_session.duration, en segundos y sin
+ * redondear) de las sesiones del agente en la campaña (21/10/2026): es la
+ * hora de la campaña en «llamadas por hora» y «éxitos por hora» (por campaña
+ * no hay horas logadas, regla 11), y la de las sesiones SIN éxito da su
+ * duración media. Fuera las sesiones de 2 h o más y las aún abiertas.
+ */
+export interface TiemposSesionesRatios {
+  guionSeg: number;
+  noExitosConGestion: number;
+  gestionNoExitosSeg: number;
 }
 
 /** Fila de ratios de un día (agg_daily_agent_campaign): solo los conteos. */
@@ -439,6 +467,25 @@ export interface FilaBaseResultados {
   exitos: number;
   /** Contactos con algún código marcado como «no válido» en su servicio. */
   noValidos: number;
+  /**
+   * Llamadas a los contactos de ÉXITO (21/10/2026): intentos de salida a cada
+   * uno en los 90 días anteriores a su cierre, sin los estados que no cuentan
+   * en la calidad de la base de datos. Y cuántos éxitos tienen alguna.
+   */
+  llamadasExitos: number;
+  exitosConLlamadas: number;
+}
+
+/**
+ * Horas de «finalizados por hora» en Resultados (21/10/2026), sin redondear:
+ * las logadas (user_log) por usuario para lo agrupado (agente, total) y las
+ * de script abierto por campaña y por `agente|campania` para lo separado por
+ * campaña (por campaña no hay horas logadas, regla 11).
+ */
+export interface HorasResultados {
+  logadas: Record<string, number>;
+  guionCampania: Record<string, number>;
+  guionAgenteCampania: Record<string, number>;
 }
 
 export interface BaseResultados {
@@ -453,6 +500,8 @@ export interface BaseResultados {
   serviciosConfigurados: string[];
   /** Valores del campo del contacto configurado (antes del filtro), si lo hay. */
   valoresCampo?: { valor: string | null; finalizados: number }[];
+  /** Horas del período para «finalizados por hora»; sin ellas, no se calcula. */
+  horas?: HorasResultados;
 }
 
 /**

@@ -1,6 +1,6 @@
 import { conCache, TTL } from "../cache";
 import { mockServicios } from "../mock";
-import { esMock, obtenerPool } from "../pool";
+import { esMock, obtenerPool, sql } from "../pool";
 import type { ServicioConCampanias } from "../types";
 import { listadoCampanias } from "./campanias";
 
@@ -103,4 +103,39 @@ export function mapaCampaniaServicio(servicios: ServicioConCampanias[]): Map<str
     for (const c of s.campanias) if (!mapa.has(c)) mapa.set(c, s.servicio);
   }
   return mapa;
+}
+
+/**
+ * Última llamada de cada servicio (cliente) en los últimos 90 días, en hora
+ * local ('YYYY-MM-DD HH:mm'); null si no tuvo ninguna. Ordena el selector de
+ * clientes: los que tienen actividad arriba y los parados abajo (pedido el
+ * 21/10/2026). Rango acotado (regla 3) y caché de 1 h.
+ */
+export async function actividadServicios(): Promise<Record<string, string | null>> {
+  const servicios = await listaServicios();
+  if (esMock()) {
+    return Object.fromEntries(servicios.map((s, i) => [s.servicio, i % 4 === 3 ? null : `2026-10-${String(20 - i).padStart(2, "0")} 12:00`]));
+  }
+  const porCampania = await conCache("rdb:actividadCampanias", 60 * 60_000, async () => {
+    const pool = await obtenerPool();
+    const r = pool.request();
+    const desde = new Date();
+    desde.setHours(0, 0, 0, 0);
+    desde.setDate(desde.getDate() - 90);
+    r.input("desde", sql.DateTime, desde);
+    const res = await r.query(`
+      SELECT RTRIM(c.shortname) AS campania, CONVERT(varchar(16), MAX(t.start_time), 120) AS ultima
+      FROM itr_thread t
+      INNER JOIN ph_campaign c ON t.campaign = c.code
+      WHERE t.start_time >= @desde
+      GROUP BY RTRIM(c.shortname);
+    `);
+    return Object.fromEntries((res.recordset as { campania: string; ultima: string }[]).map((f) => [f.campania, f.ultima]));
+  });
+  return Object.fromEntries(
+    servicios.map((s) => {
+      const fechas = s.campanias.map((c) => porCampania[c]).filter((x): x is string => !!x);
+      return [s.servicio, fechas.length > 0 ? fechas.sort().at(-1)! : null];
+    }),
+  );
 }

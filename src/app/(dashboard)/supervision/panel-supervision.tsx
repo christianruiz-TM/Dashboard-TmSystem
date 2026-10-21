@@ -14,6 +14,7 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
+import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
@@ -31,7 +32,10 @@ import {
 import { TarjetaAlertasPlan } from "@/components/planificacion/alertas-plan";
 import type { Alerta } from "@/lib/planificacion/alertas";
 import type { PendienteRevision } from "@/lib/planificacion/vistas";
-import { horasDesdeSegundos, segundosLegibles } from "@/lib/fechas";
+import { TablaAgentesSupervision } from "@/components/kpi/tabla-agentes-supervision";
+import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
+import type { ResultadoCalidadBd } from "@/lib/calidad-bd";
+import { relojDesdeSegundos, segundosLegibles } from "@/lib/fechas";
 import type { AgenteEstado, AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
 import { cn } from "@/lib/utils";
 
@@ -43,6 +47,7 @@ interface DatosSupervision {
   /** Alertas de planificación (equipo multicliente), independientes del servicio elegido. */
   plan: { alertas: Alerta[]; error: string | null; revisar?: PendienteRevision[] };
   ratios: ResultadoRatios;
+  calidad: ResultadoCalidadBd;
   umbral: number;
   actualizado: string;
 }
@@ -59,6 +64,7 @@ const COLOR_ESTADO: Record<string, string> = {
 export function PanelSupervision({
   inicial,
   servicios,
+  ordenServicios,
   servicio,
   incluirIvr,
   tipos,
@@ -66,6 +72,8 @@ export function PanelSupervision({
 }: {
   inicial: DatosSupervision;
   servicios: string[];
+  /** Clientes por actividad para el selector (null: en el orden de `servicios`). */
+  ordenServicios?: { activos: ServicioOrdenado[]; parados: ServicioOrdenado[] };
   servicio?: string;
   incluirIvr: boolean;
   /** Tipos de campaña del cliente (Bolsas: cartera; GH: BBDD): agrupan la tabla. */
@@ -106,6 +114,7 @@ export function PanelSupervision({
   const enEstado = (estado: string) => datos.agentes.filter((a) => a.estado === estado).length;
   const recibidas = datos.kpis.reduce((acc, k) => acc + k.recibidas, 0);
   const atendidas = datos.kpis.reduce((acc, k) => acc + k.atendidas, 0);
+  const conversaciones = datos.kpis.reduce((acc, k) => acc + k.conversaciones, 0);
   const abandonadas = datos.kpis.reduce((acc, k) => acc + k.abandonadas, 0);
   const exitos = datos.kpis.reduce((acc, k) => acc + k.exitos, 0);
   // Abandono y SLA se calculan SOLO sobre entrantes: las salientes no hacen
@@ -143,7 +152,7 @@ export function PanelSupervision({
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-3">
-          <SelectorServicio servicios={servicios} valor={servicio} />
+          <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} />
           <SelectorIvr incluir={incluirIvr} />
           <Button variant="outline" size="sm" onClick={refrescar} disabled={cargando}>
             <RefreshCw className={cn("h-4 w-4", cargando && "animate-spin")} />
@@ -183,9 +192,14 @@ export function PanelSupervision({
         <TarjetaKpi
           titulo="Cola media (atendidas)"
           valor={segundosLegibles(colaGlobal)}
+          reloj={relojDesdeSegundos(colaGlobal)}
           sub={`Abandonadas: ${segundosLegibles(esperaAbandGlobal)} de espera antes de colgar`}
         />
-        <TarjetaKpi titulo="Atendidas hoy" valor={atendidas.toLocaleString("es-ES")} />
+        <TarjetaKpi
+          titulo="Llamadas gestionadas hoy"
+          valor={atendidas.toLocaleString("es-ES")}
+          sub={`${conversaciones.toLocaleString("es-ES")} con conversación`}
+        />
         <TarjetaKpi
           titulo="Éxitos hoy"
           valor={exitos.toLocaleString("es-ES")}
@@ -268,53 +282,13 @@ export function PanelSupervision({
           <CardTitle className="text-base">Productividad de agentes hoy</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Agente</TableHead>
-                <TableHead className="text-right">Atendidas</TableHead>
-                <TableHead className="text-right">Talk medio</TableHead>
-                <TableHead className="text-right">ACW medio</TableHead>
-                <TableHead className="text-right">AHT</TableHead>
-                <TableHead className="text-right">Tiempo productivo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {datos.top.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    Sin llamadas atendidas todavía
-                  </TableCell>
-                </TableRow>
-              ) : (
-                datos.top.map((a) => (
-                  <TableRow key={a.agente}>
-                    <TableCell>
-                      <div className="font-medium">{a.nombre}</div>
-                      <div className="text-xs text-muted-foreground">{a.agente}</div>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{a.atendidas}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {segundosLegibles(a.talkMedioSeg)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {segundosLegibles(a.acwMedioSeg)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {segundosLegibles(a.ahtMedioSeg)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {horasDesdeSegundos(a.productivoSeg)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          <TablaAgentesSupervision agentes={datos.top} vacio="Sin llamadas gestionadas todavía" />
         </CardContent>
       </Card>
 
       <RatiosExito ratios={datos.ratios} periodo="hoy" />
+
+      <CalidadBaseDatos datos={datos.calidad} periodo="hoy" />
 
       {/* Se recalcula con cada refresco; las campañas elegidas se mantienen */}
       <ComparadorCampanias
@@ -332,6 +306,9 @@ export function PanelSupervision({
           "pausas",
           "recibidas",
           "atendidas",
+          "calidadBd",
+          "conversaciones",
+          "tiempoReloj",
           "exitos",
           "contactosGestionados",
           "conversion",

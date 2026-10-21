@@ -20,8 +20,24 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     definicion: "Llamadas entrantes (inbound) que llegaron a la campaña.",
   },
   atendidas: {
-    termino: "Atendidas",
-    definicion: "Interacciones que un agente llegó a atender (no abandonadas).",
+    termino: "Llamadas gestionadas (antes «Atendidas»)",
+    definicion:
+      "Llamadas que pasaron por el puesto de un agente: lo que Altitude llama «gestionadas». En una entrante es que la cogió un agente. En una saliente NO quiere decir que contestara alguien: cuentan también las marcaciones que el agente cerró sin conversación (sonó y no lo cogieron, saltó un contestador…). Por eso un agente de Bolsas puede tener más de 600 en un día: el 01/10/2026, una agente tuvo 651, de las que 239 fueron conversaciones con 356 contactos.",
+  },
+  conversaciones: {
+    termino: "Conversaciones",
+    definicion:
+      "Llamadas gestionadas en las que hubo alguien al otro lado (la llamada llegó a estar conectada). Es la cifra que se parece a «llamadas habladas».",
+  },
+  calidadBd: {
+    termino: "Calidad de la base de datos",
+    definicion:
+      "Cómo acaban las llamadas salientes, como el gráfico del supervisor de Altitude: gestionadas, sin respuesta, ocupado, contestador, números inválidos, fax, módem, rechazadas, molestia, sin líneas troncales… No cuentan las que se quedan sin resultado, las abandonadas ni las redirigidas. «Contactable» = gestionadas ÷ intentos; «Para reintentar» = ocupado, sin respuesta y contestador; «No sirven» = números inválidos, fax y módem (lo que dice que la base de datos es mala); «Red» = sin líneas troncales y desbordadas (un problema de líneas, no de la base de datos); «Intentos por contacto» = intentos ÷ contactos distintos llamados.",
+  },
+  tiempoReloj: {
+    termino: "Tiempos en reloj",
+    definicion:
+      "Debajo de cada tiempo sale, en pequeño, lo mismo en horas, minutos y segundos (192,35 s = 3 min 12 s). El valor de arriba, con dos decimales, es el que se suma y el que sale en los Excel.",
   },
   abandonadas: {
     termino: "Abandonadas",
@@ -126,14 +142,14 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "Contactos que el agente cerró en el guion con resultado de éxito (venta, cita u objetivo conseguido). Se cuentan por contacto, no por llamada: si un contacto llevó dos llamadas, es un solo éxito.",
   },
   contactosGestionados: {
-    termino: "Contactos (gestionados)",
+    termino: "Contactos (trabajados)",
     definicion:
-      "Contactos que un agente ha trabajado con el guion (cada sesión de script es un contacto, se califique como se califique). Un contacto puede llevar varias llamadas atendidas: en Bolsas, por ejemplo, el agente suele llamar a un teléfono y después a otro del mismo contacto, así que hay casi el doble de atendidas que de contactos.",
+      "Contactos que un agente ha trabajado con el guion (cada sesión de script es un contacto, se califique como se califique y aunque no contestara: la ficha se abre al llamar, por eso puede haber más contactos que conversaciones). Un contacto puede llevar varias llamadas gestionadas: en Bolsas, por ejemplo, el agente suele llamar a un teléfono y después a otro del mismo contacto, así que hay casi el doble de llamadas que de contactos.",
   },
   conversion: {
-    termino: "Conversión (contactos / atendidas)",
+    termino: "Conversión (contactos / llamadas)",
     definicion:
-      "Qué parte acaba en éxito. «Conv. contactos» = éxitos ÷ contactos gestionados: es la que sirve para comparar todas las campañas. «Conv. atendidas» = éxitos ÷ llamadas atendidas: en campañas con una llamada por contacto, como las de GrupoHuertas, sale prácticamente igual.",
+      "Qué parte acaba en éxito. «Conv. contactos» = éxitos ÷ contactos trabajados: es la que sirve para comparar todas las campañas. «% éxito por llamada» = éxitos ÷ llamadas gestionadas: en campañas con una llamada por contacto, como las de GrupoHuertas, sale prácticamente igual.",
   },
   efectividadCierre: {
     termino: "Efectividad de cierre",
@@ -141,14 +157,14 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "De los contactos que se han cerrado con un resultado (éxito o sin éxito), qué parte es éxito. Solo se calcula en las campañas que usan la calificación «sin éxito» (en los últimos 90 días): Bolsas y algunas de Socios no la usan y saldrían siempre al 100 %, así que ahí aparece «—».",
   },
   exitosHora: {
-    termino: "Éxitos por hora (logada / productiva)",
+    termino: "Llamadas y éxitos por hora",
     definicion:
-      "Éxitos ÷ horas. «Logada»: todo el tiempo conectado del usuario del agente (de login a logout), por eso solo existe por agente y no por campaña. «Productiva»: el tiempo de gestión de sus llamadas atendidas; las llamadas de 2 horas o más no cuentan como tiempo, porque son errores de registro.",
+      "Llamadas gestionadas ÷ horas y éxitos ÷ horas. Para cada agente y para el total se divide entre las horas LOGADAS (todo el tiempo conectado de su usuario, de login a logout). Por campaña no hay horas logadas (un agente está en muchas campañas a la vez), así que en la tabla de campañas y en el detalle de cada agente por campaña se divide entre las horas con el SCRIPT ABIERTO en esa campaña. Las sesiones de 2 horas o más no cuentan, porque son errores de registro.",
   },
   tiempoPorExito: {
     termino: "Conversación y gestión por éxito",
     definicion:
-      "Solo con los contactos que acabaron en éxito. «Conversación»: lo que se habló, de media, en las llamadas atendidas de cada éxito (si un éxito necesitó dos llamadas, cuentan las dos). «Gestión»: el tiempo medio que el agente tuvo abierto el script de cada éxito, que incluye también lo que tarda en rellenarlo. Las llamadas de 2 horas o más no cuentan, porque son errores de registro.",
+      "Solo con los contactos que acabaron en éxito. «Conversación»: lo que se habló, de media, en las llamadas atendidas de cada éxito (si un éxito necesitó dos llamadas, cuentan las dos). «Gestión»: el tiempo medio que el agente tuvo abierto el script de cada éxito, que incluye también lo que tarda en rellenarlo. «Gestión sin éxito»: lo mismo con las sesiones que NO acabaron en éxito, para comparar. Las llamadas y sesiones de 2 horas o más no cuentan, porque son errores de registro.",
   },
   indiceExito: {
     termino: "Índice (frente a la campaña)",
@@ -161,8 +177,23 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "Contactos que se cerraron en el período y que cerró un agente poniéndoles un resultado en el script. Cada contacto cuenta una vez, el día en que se cerró y para el agente de su última llamada. No cuentan los cerrados sin que nadie hablara con ellos ni los cierres administrativos.",
   },
   ratioBruto: {
-    termino: "Ratio bruto",
+    termino: "Aprovechamiento (bruto)",
     definicion: "Éxitos ÷ finalizados. De cada 100 contactos que se cierran, cuántos acaban en éxito.",
+  },
+  finalizadosPorExito: {
+    termino: "Finalizados por éxito",
+    definicion:
+      "Cuántos contactos hay que cerrar para conseguir un éxito (finalizados ÷ éxitos; es la otra cara del aprovechamiento: 30 % = 3,33 finalizados por éxito).",
+  },
+  finalizadosHora: {
+    termino: "Finalizados por hora",
+    definicion:
+      "Finalizados ÷ horas. Para cada agente y para el total, horas LOGADAS en el período; por campaña (y en el detalle del agente por campaña), horas con el script abierto en esa campaña. Ojo: los finalizados cuentan el día del cierre y las horas son las del período, así que con rangos cortos puede bailar.",
+  },
+  llamadasPorExito: {
+    termino: "Llamadas por éxito",
+    definicion:
+      "De media, cuántas llamadas se le hicieron a cada contacto que acabó en éxito, desde 90 días antes de cerrarlo: todos los intentos de salida a ese contacto, contestara o no (ocupado, sin respuesta, contestador…), del marcador o del agente. Mide cuánto cuesta cada éxito. No cuentan las abandonadas, redirigidas, canceladas ni reencoladas (como en la calidad de la base de datos).",
   },
   ratioNeto: {
     termino: "Ratio neto",

@@ -39,6 +39,8 @@ function fila(p: Partial<FilaBaseResultados> & Pick<FilaBaseResultados, "campani
     contactos: 0,
     exitos: 0,
     noValidos: 0,
+    llamadasExitos: 0,
+    exitosConLlamadas: 0,
     ...p,
   };
 }
@@ -407,5 +409,75 @@ describe("filtro por un dato del contacto", () => {
     expect(esquemaCampoContacto.safeParse(ok).success).toBe(true);
     expect(esquemaCampoContacto.safeParse({ ...ok, columna: "x]; DROP TABLE y--" }).success).toBe(false);
     expect(esquemaCampoContacto.safeParse({ ...ok, etiqueta: " " }).success).toBe(false);
+  });
+});
+
+describe("aprovechamiento, llamadas y finalizados por hora (21/10/2026)", () => {
+  const horas = {
+    logadas: { GH_0851: 7.5, GH_0900: 4 },
+    guionCampania: { gh_x: 6, gh_y: 2 },
+    guionAgenteCampania: { "GH_0851|gh_x": 4, "GH_0851|gh_y": 2, "GH_0900|gh_x": 2 },
+  };
+
+  it("finalizados por éxito es la inversa del aprovechamiento", () => {
+    const r = calcularResultados(
+      base([fila({ campania: "gh_x", codigos: [EXITO, null, null], contactos: 100, exitos: 30 })]),
+      [],
+      "2026-09-01",
+      "2026-09-30",
+    );
+    expect(r.total.brutoPct).toBe(30);
+    expect(r.total.finalizadosPorExito).toBe(3.33);
+  });
+
+  it("llamadas por éxito: media de los éxitos que tienen alguna llamada", () => {
+    const r = calcularResultados(
+      base([
+        // 571 llamadas para 195 éxitos con llamada (gh_gra_pre_mer, septiembre 2026)
+        fila({ campania: "gh_x", codigos: [EXITO, null, null], contactos: 238, exitos: 238, llamadasExitos: 571, exitosConLlamadas: 195 }),
+        fila({ campania: "gh_x", codigos: [NO_INTERESA, null, null], contactos: 357 }),
+      ]),
+      [],
+      "2026-09-01",
+      "2026-09-30",
+    );
+    expect(r.total.llamadasPorExito).toBe(2.93);
+    expect(r.campanias[0].llamadasPorExito).toBe(2.93);
+    // Sin éxitos con llamada: null, no 0
+    const sin = calcularResultados(base([fila({ campania: "gh_x", contactos: 10 })]), [], "2026-09-01", "2026-09-30");
+    expect(sin.total.llamadasPorExito).toBeNull();
+  });
+
+  it("por hora logada el agente y el total; con script abierto por campaña", () => {
+    const r = calcularResultados(
+      base(
+        [
+          fila({ campania: "gh_x", contactos: 40 }),
+          fila({ campania: "gh_y", contactos: 20 }),
+          fila({ agente: "GH_0900", nombre: "Otra", campania: "gh_x", contactos: 12 }),
+          fila({ agente: "GH_0999", nombre: "Sin horas", campania: "gh_x", contactos: 5 }),
+        ],
+        { horas },
+      ),
+      [],
+      "2026-09-01",
+      "2026-09-30",
+    );
+    const a = r.agentes.find((x) => x.agente === "GH_0851")!;
+    expect(a.horas).toBe(7.5);
+    expect(a.finalizadosHora).toBe(8); // 60 / 7,5
+    expect(a.campanias.find((c) => c.campania === "gh_x")!.finalizadosHora).toBe(10); // 40 / 4 h de script
+    expect(r.campanias.find((c) => c.campania === "gh_x")!.finalizadosHora).toBe(9.5); // 57 / 6 h
+    expect(r.agentes.find((x) => x.agente === "GH_0999")!.finalizadosHora).toBeNull();
+    // Total: horas logadas de los agentes con finalizados (7,5 + 4)
+    expect(r.total.horas).toBe(11.5);
+    expect(r.total.finalizadosHora).toBe(6.7); // 77 / 11,5
+  });
+
+  it("sin horas (no llegaron), sin finalizados por hora", () => {
+    const r = calcularResultados(base([fila({ campania: "gh_x", contactos: 40 })]), [], "2026-09-01", "2026-09-30");
+    expect(r.total.horas).toBeNull();
+    expect(r.total.finalizadosHora).toBeNull();
+    expect(r.agentes[0].finalizadosHora).toBeNull();
   });
 });

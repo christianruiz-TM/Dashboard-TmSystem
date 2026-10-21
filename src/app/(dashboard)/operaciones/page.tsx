@@ -5,7 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { AvisoRango } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
-import { SelectorServicio } from "@/components/filtros/selector-servicio";
+import { SelectorServicioActividad } from "@/components/filtros/selector-servicio-actividad";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
@@ -144,7 +144,7 @@ export default async function PaginaOperaciones({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SelectorRango desde={desde} hasta={hasta} presets={presets} />
         <div className="flex flex-wrap items-center gap-4">
-          <SelectorServicio
+          <SelectorServicioActividad
             servicios={servicios.map((s) => s.servicio)}
             valor={todos ? TODOS_SERVICIOS : (servicio ?? "")}
             todosExplicito

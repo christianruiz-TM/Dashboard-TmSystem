@@ -32,7 +32,7 @@ const MENSAJES: Record<string, { texto: string; error: boolean }> = {
     error: true,
   },
   error_objetivo: {
-    texto: "El objetivo necesita al menos un umbral (bruto, neto o % no válidos) y fechas válidas.",
+    texto: "El objetivo necesita al menos un umbral (aprovechamiento, neto o % no válidos) y fechas válidas.",
     error: true,
   },
   error_horas_logadas: {

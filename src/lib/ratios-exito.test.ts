@@ -14,6 +14,9 @@ function fila(p: Partial<FilaBaseRatios> & Pick<FilaBaseRatios, "agente" | "camp
     conversacionExitosSeg: 0,
     exitosConGestion: 0,
     gestionExitosSeg: 0,
+    guionSeg: 0,
+    noExitosConGestion: 0,
+    gestionNoExitosSeg: 0,
     ...p,
   };
 }
@@ -109,13 +112,13 @@ describe("índice frente a la campaña", () => {
 });
 
 describe("horas y totales", () => {
-  it("éxitos por hora logada solo por agente, desde user_log", () => {
+  it("por hora logada en lo agrupado (agente, total) y con script abierto por campaña", () => {
     const r = calcularRatiosExito(
       base(
         [
-          fila({ agente: "GH_0851", campania: "gh_a", sesiones: 60, exitos: 9, atendidas: 60, productivoSeg: 3 * 3600 }),
-          fila({ agente: "GH_0851", campania: "gh_b", sesiones: 40, exitos: 3, atendidas: 40, productivoSeg: 3600 }),
-          fila({ agente: "GH_0925", campania: "gh_a", sesiones: 10, exitos: 1, atendidas: 10, productivoSeg: 900 }),
+          fila({ agente: "GH_0851", campania: "gh_a", sesiones: 60, exitos: 9, atendidas: 60, guionSeg: 3 * 3600 }),
+          fila({ agente: "GH_0851", campania: "gh_b", sesiones: 40, exitos: 3, atendidas: 40, guionSeg: 3600 }),
+          fila({ agente: "GH_0925", campania: "gh_a", sesiones: 10, exitos: 1, atendidas: 10, guionSeg: 900 }),
         ],
         { horasLogadas: [{ agente: "GH_0851", horas: 7.5 }, { agente: "Otro_0001", horas: 8 }] },
       ),
@@ -123,11 +126,21 @@ describe("horas y totales", () => {
     const a = r.agentes.find((x) => x.agente === "GH_0851")!;
     expect(a.horasLogadas).toBe(7.5);
     expect(a.exitosHoraLogada).toBe(1.6); // 12 / 7,5
-    expect(a.exitosHoraProductiva).toBe(3); // 12 / 4 h
+    expect(a.llamadasHoraLogada).toBe(13.33); // 100 / 7,5
+    // Su detalle por campaña, por hora con el script abierto
+    const ga = a.campanias.find((c) => c.campania === "gh_a")!;
+    expect(ga.horasGuion).toBe(3);
+    expect(ga.exitosHoraGuion).toBe(3); // 9 / 3 h
+    expect(ga.llamadasHoraGuion).toBe(20); // 60 / 3 h
+    // La campaña suma el script de todos sus agentes: 10 / 3,25 h
+    expect(r.campanias.find((c) => c.campania === "gh_a")!.exitosHoraGuion).toBe(3.08);
     // Sin sesión en user_log: null, no 0
-    expect(r.agentes.find((x) => x.agente === "GH_0925")!.exitosHoraLogada).toBeNull();
+    const sinLog = r.agentes.find((x) => x.agente === "GH_0925")!;
+    expect(sinLog.exitosHoraLogada).toBeNull();
+    expect(sinLog.llamadasHoraLogada).toBeNull();
     // El total solo suma las horas de quien trabajó en el alcance (no Otro_0001)
     expect(r.total.horasLogadas).toBe(7.5);
+    expect(r.total.llamadasHoraLogada).toBe(14.67); // 110 / 7,5
     expect(r.total.exitos).toBe(13);
     expect(r.total.contactos).toBe(110);
   });
@@ -205,5 +218,19 @@ describe("tiempos de los éxitos", () => {
     );
     expect(r.agentes[0].conversacionPorExitoSeg).toBeNull();
     expect(r.agentes[0].gestionPorExitoSeg).toBe(60);
+    expect(r.agentes[0].gestionPorNoExitoSeg).toBeNull();
+    expect(r.agentes[0].exitosHoraGuion).toBeNull();
+  });
+
+  it("duración media de las sesiones sin éxito, aparte de la de los éxitos", () => {
+    const r = calcularRatiosExito(
+      base([
+        fila({ agente: "A", campania: "x", sesiones: 30, exitos: 2, exitosConGestion: 2, gestionExitosSeg: 900, noExitosConGestion: 27, gestionNoExitosSeg: 27 * 95 }),
+        fila({ agente: "B", campania: "x", sesiones: 10, noExitosConGestion: 10, gestionNoExitosSeg: 10 * 135 }),
+      ]),
+    );
+    // (2.565 + 1.350) / 37 = 105,81
+    expect(r.total.gestionPorNoExitoSeg).toBe(105.81);
+    expect(r.total.gestionPorExitoSeg).toBe(450);
   });
 });

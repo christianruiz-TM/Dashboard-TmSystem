@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
+import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { FiltroCampo } from "@/components/filtros/filtro-campo";
 import { Glosario } from "@/components/glosario";
@@ -24,6 +25,7 @@ export function PanelResultados({
   hasta,
   presets,
   servicios,
+  ordenServicios,
   servicio,
   incluirIvr,
   esAdmin,
@@ -40,6 +42,8 @@ export function PanelResultados({
   hasta: string;
   presets: { etiqueta: string; desde: string; hasta: string }[];
   servicios: string[];
+  /** Clientes por actividad para el selector (null: en el orden de `servicios`). */
+  ordenServicios?: { activos: ServicioOrdenado[]; parados: ServicioOrdenado[] };
   servicio?: string;
   incluirIvr: boolean;
   esAdmin: boolean;
@@ -72,15 +76,15 @@ export function PanelResultados({
       <div>
         <h1 className="text-xl font-semibold">Supervisión · resultados de actividad</h1>
         <p className="text-sm text-muted-foreground">
-          Ratios bruto y neto de los contactos cerrados del {desde} al {hasta}, por agente, campaña
-          y fecha
+          Aprovechamiento y ratio neto de los contactos cerrados del {desde} al {hasta}, por agente,
+          campaña y fecha
         </p>
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SelectorRango desde={desde} hasta={hasta} presets={presets} />
         <div className="flex flex-wrap items-center gap-4">
-          <SelectorServicio servicios={servicios} valor={servicio} obligatorio />
+          <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} obligatorio />
           <SelectorIvr incluir={incluirIvr} />
           {urlCsv && resultado ? (
             <Button
@@ -130,7 +134,7 @@ export function PanelResultados({
               {sinConfigurar.length === 1 ? "El servicio " : "Los servicios "}
               <strong>{sinConfigurar.join(", ")}</strong>{" "}
               {sinConfigurar.length === 1 ? "no tiene" : "no tienen"} configurado qué resultados son
-              «no válidos»: sale su ratio bruto, pero no el neto ni el desglose.{" "}
+              «no válidos»: sale su aprovechamiento (bruto), pero no el neto ni el desglose.{" "}
               {esAdmin ? (
                 <Link href="/admin/resultados" className="font-medium underline underline-offset-2">
                   Configurarlo en Administración
@@ -173,6 +177,9 @@ export function PanelResultados({
           "finalizadosTipificados",
           "ratioBruto",
           "ratioNeto",
+          "finalizadosPorExito",
+          "llamadasPorExito",
+          "finalizadosHora",
           "noValidos",
           "sinTocar",
           "cierresAdministrativos",

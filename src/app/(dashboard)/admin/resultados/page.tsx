@@ -119,7 +119,7 @@ export default async function PaginaResultadosAdmin({
             centralita, con columnas propias (resultado, subresultado, motivo…). Aquí se elige qué
             columnas se analizan en Supervisión → Resultados (en orden: el primer nivel es el
             resultado y el segundo, su detalle) y qué valores son «no válidos» para el ratio
-            neto. Sin configurar, el servicio solo tiene ratio bruto.
+            neto. Sin configurar, el servicio solo tiene aprovechamiento (bruto).
           </CardDescription>
         </CardHeader>
         <CardContent>
@@ -391,7 +391,7 @@ export default async function PaginaResultadosAdmin({
                     </dd>
                   </div>
                   <div>
-                    <dt className="text-muted-foreground">Ratio bruto</dt>
+                    <dt className="text-muted-foreground">Aprovechamiento (bruto)</dt>
                     <dd className="tabular-nums">{pct(previa.total.brutoPct)}</dd>
                   </div>
                   <div>
@@ -448,7 +448,7 @@ export default async function PaginaResultadosAdmin({
               </SelectNativo>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="brutoMin">Bruto ≥ %</Label>
+              <Label htmlFor="brutoMin">Aprovechamiento ≥ %</Label>
               <Input id="brutoMin" name="brutoMin" type="number" step="0.01" min="0" max="100" />
             </div>
             <div className="space-y-1.5">
@@ -479,7 +479,7 @@ export default async function PaginaResultadosAdmin({
               <TableRow>
                 <TableHead>Ámbito</TableHead>
                 <TableHead>Servicio / Campaña</TableHead>
-                <TableHead className="text-right">Bruto ≥</TableHead>
+                <TableHead className="text-right">Aprovechamiento ≥</TableHead>
                 <TableHead className="text-right">Neto ≥</TableHead>
                 <TableHead className="text-right">No válidos ≤</TableHead>
                 <TableHead>Vigencia</TableHead>

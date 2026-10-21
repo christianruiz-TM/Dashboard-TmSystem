@@ -17,6 +17,7 @@ import type {
   CategoriaCierre,
   DirectorioServicio,
   FilaBaseResultados,
+  HorasResultados,
   TablaResultados,
   ValorColumnaResultado,
 } from "../types";
@@ -34,6 +35,7 @@ import {
 import type { ColumnaExport, ContactoExport } from "@/lib/export-contactos";
 import { claveCampanias, filtroCampanias, limitesRango } from "./util";
 import { listaServicios, mapaCampaniaServicio } from "./servicios";
+import { baseRatiosRango } from "./ratios-exito";
 
 // ============================================================
 // Resultados de actividad (regla 18): la tipificación que el agente pone
@@ -443,6 +445,30 @@ async function baseResultadosCore(
   };
 
   const r = await request.query(`${cerrados}
+    -- 2b) Llamadas a cada contacto de ÉXITO tipificado (21/10/2026): todos
+    --     los intentos de SALIDA a ese contacto en los 90 días anteriores a
+    --     su cierre, conteste o no, del marcador o del agente. Sin los estados
+    --     que tampoco cuentan en la calidad de la base de datos: sin
+    --     resultado (NULL, -1), abandonadas (6), redirigidas (11), canceladas
+    --     (17) y reencoladas (18). itr_thread.contact = activity.code.
+    IF OBJECT_ID('tempdb..#lla') IS NOT NULL DROP TABLE #lla;
+    CREATE TABLE #lla (activity int PRIMARY KEY, llamadas int NOT NULL);
+    INSERT INTO #lla (activity, llamadas)
+    SELECT k.activity, COUNT(*)
+    FROM itr_thread t
+    INNER JOIN #cerr k ON k.activity = t.contact
+           AND t.start_time <= k.cierre
+           AND t.start_time >= DATEADD(day, -@diasSesion, k.cierre)
+    INNER JOIN #ses s ON s.contact = k.activity
+    WHERE t.start_time >= @desdeSes AND t.start_time < @hastaExcl
+      AND t.origin = 2
+      AND t.termination_state IS NOT NULL AND t.termination_state >= 0
+      AND t.termination_state NOT IN (6, 11, 17, 18)
+      AND k.estado IN (${exito})
+    GROUP BY k.activity
+    -- Como #ses: hash para no caer en bucles anidados sobre itr_thread
+    OPTION (HASH JOIN);
+
     -- 3) Categoría, resultado (niveles configurados) y agente de cada
     --    contacto, agrupado por día de cierre, campaña y agente.
     WITH base AS (
@@ -455,9 +481,11 @@ async function baseResultadosCore(
                ${nivel(0)} AS c1,
                ${nivel(1)} AS c2,
                ${nivel(2)} AS c3,
-               CASE WHEN k.estado IN (${exito}) THEN 1 ELSE 0 END AS exito
+               CASE WHEN k.estado IN (${exito}) THEN 1 ELSE 0 END AS exito,
+               ISNULL(l.llamadas, 0) AS llamadas
         FROM #cerr k
         LEFT JOIN #ses s ON s.contact = k.activity
+        LEFT JOIN #lla l ON l.activity = k.activity
         ${joins}
     ),
     marcada AS (
@@ -473,7 +501,9 @@ async function baseResultadosCore(
            CASE WHEN m.categoria = 'tipificado' THEN m.c1 END AS c1,
            CASE WHEN m.categoria = 'tipificado' THEN m.c2 END AS c2,
            CASE WHEN m.categoria = 'tipificado' THEN m.c3 END AS c3,
-           COUNT(*) AS contactos, SUM(m.exito) AS exitos, SUM(m.noValido) AS noValidos
+           COUNT(*) AS contactos, SUM(m.exito) AS exitos, SUM(m.noValido) AS noValidos,
+           SUM(m.llamadas) AS llamadasExitos,
+           SUM(CASE WHEN m.llamadas > 0 THEN 1 ELSE 0 END) AS exitosConLlamadas
     FROM marcada m
     LEFT JOIN ph_e_user u ON u.code = m.e_user
     GROUP BY m.fecha, m.campania, m.categoria,
@@ -483,6 +513,7 @@ async function baseResultadosCore(
              CASE WHEN m.categoria = 'tipificado' THEN m.c2 END,
              CASE WHEN m.categoria = 'tipificado' THEN m.c3 END;
 
+    DROP TABLE #lla;
     DROP TABLE #ses;
     DROP TABLE #cerr;
   `);
@@ -505,6 +536,8 @@ async function baseResultadosCore(
       contactos: number;
       exitos: number;
       noValidos: number;
+      llamadasExitos: number;
+      exitosConLlamadas: number;
     }[]
   ).map((f) => ({
     fecha: f.fecha,
@@ -516,6 +549,8 @@ async function baseResultadosCore(
     contactos: f.contactos,
     exitos: f.exitos,
     noValidos: f.noValidos,
+    llamadasExitos: f.llamadasExitos,
+    exitosConLlamadas: f.exitosConLlamadas,
   }));
   return { ...montarBase(filas, textos, mapaCampaniaServicio(servicios), validas), valoresCampo };
 }
@@ -554,6 +589,31 @@ function claveConfigs(configs: ConfigResultados[]): string {
     .map((c) => `${c.serviceName}=${c.tablaAo}:${c.columnas.join("+")}:${[...c.codigosNoValidos].sort().join("+")}`)
     .sort()
     .join("|");
+}
+
+/**
+ * Horas de «finalizados por hora» (21/10/2026), de la misma base que los
+ * ratios de éxito (cacheada): logadas por usuario (user_log, regla 16) y
+ * script abierto por campaña y por usuario y campaña, sin redondear.
+ */
+async function horasResultados(
+  desdeISO: string,
+  hastaISO: string,
+  campanias: string[] | undefined,
+): Promise<HorasResultados> {
+  const base = await baseRatiosRango(desdeISO, hastaISO, campanias);
+  const horas: HorasResultados = {
+    logadas: Object.fromEntries(base.horasLogadas.map((h) => [h.agente, h.horas])),
+    guionCampania: {},
+    guionAgenteCampania: {},
+  };
+  for (const f of base.filas) {
+    const h = f.guionSeg / 3600;
+    horas.guionCampania[f.campania] = (horas.guionCampania[f.campania] ?? 0) + h;
+    const clave = `${f.agente}|${f.campania}`;
+    horas.guionAgenteCampania[clave] = (horas.guionAgenteCampania[clave] ?? 0) + h;
+  }
+  return horas;
 }
 
 /** Clave de cache del campo y su filtro. */
@@ -608,6 +668,14 @@ export async function resultadosActividadRango(
       ttlSegunRango(hastaISO),
       () => baseResultadosCore(desdeISO, hastaISO, campanias, configs, campo),
     );
+  }
+  if (!campanias || campanias.length > 0) {
+    // Si las horas fallan, Resultados sale igual, sin «finalizados por hora»
+    try {
+      base = { ...base, horas: await horasResultados(desdeISO, hastaISO, campanias) };
+    } catch (e) {
+      console.error("[resultados] horas para finalizados por hora:", e);
+    }
   }
   return calcularResultados(base, objetivos, desdeISO, hastaISO);
 }

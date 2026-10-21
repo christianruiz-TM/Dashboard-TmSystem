@@ -1,14 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
+import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
@@ -23,7 +16,10 @@ import {
   agruparKpisPorTipo,
   filasCampaniaSupervision,
 } from "@/lib/supervision";
-import { horasDesdeSegundos, segundosLegibles } from "@/lib/fechas";
+import { TablaAgentesSupervision } from "@/components/kpi/tabla-agentes-supervision";
+import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
+import type { ResultadoCalidadBd } from "@/lib/calidad-bd";
+import { relojDesdeSegundos, segundosLegibles } from "@/lib/fechas";
 import type { AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
 
 /**
@@ -37,11 +33,13 @@ export function PanelHistorico({
   agentes,
   ivr,
   ratios,
+  calidad,
   umbral,
   desde,
   hasta,
   presets,
   servicios,
+  ordenServicios,
   servicio,
   incluirIvr,
   tipos,
@@ -51,11 +49,14 @@ export function PanelHistorico({
   agentes: AgenteHoy[];
   ivr: MetricasIvr;
   ratios: ResultadoRatios;
+  calidad: ResultadoCalidadBd;
   umbral: number;
   desde: string;
   hasta: string;
   presets: { etiqueta: string; desde: string; hasta: string }[];
   servicios: string[];
+  /** Clientes por actividad para el selector (null: en el orden de `servicios`). */
+  ordenServicios?: { activos: ServicioOrdenado[]; parados: ServicioOrdenado[] };
   servicio?: string;
   incluirIvr: boolean;
   /** Tipos de campaña del cliente (Bolsas: cartera; GH: BBDD): agrupan la tabla. */
@@ -65,6 +66,7 @@ export function PanelHistorico({
 }) {
   const recibidas = kpis.reduce((acc, k) => acc + k.recibidas, 0);
   const atendidas = kpis.reduce((acc, k) => acc + k.atendidas, 0);
+  const conversaciones = kpis.reduce((acc, k) => acc + k.conversaciones, 0);
   const exitos = kpis.reduce((acc, k) => acc + k.exitos, 0);
   // Abandono y SLA solo sobre entrantes (las salientes no hacen cola)
   const atendidasIn = kpis.reduce((acc, k) => acc + k.atendidasInbound, 0);
@@ -100,14 +102,18 @@ export function PanelHistorico({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SelectorRango desde={desde} hasta={hasta} presets={presets} />
         <div className="flex flex-wrap items-center gap-4">
-          <SelectorServicio servicios={servicios} valor={servicio} />
+          <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} />
           <SelectorIvr incluir={incluirIvr} />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
         <TarjetaKpi titulo="Recibidas" valor={recibidas.toLocaleString("es-ES")} />
-        <TarjetaKpi titulo="Atendidas" valor={atendidas.toLocaleString("es-ES")} />
+        <TarjetaKpi
+          titulo="Llamadas gestionadas"
+          valor={atendidas.toLocaleString("es-ES")}
+          sub={`${conversaciones.toLocaleString("es-ES")} con conversación`}
+        />
         <TarjetaKpi
           titulo="Éxitos"
           valor={exitos.toLocaleString("es-ES")}
@@ -127,9 +133,10 @@ export function PanelHistorico({
         <TarjetaKpi
           titulo="Cola media (atendidas)"
           valor={segundosLegibles(colaGlobal)}
+          reloj={relojDesdeSegundos(colaGlobal)}
           sub={`Abandonadas: ${segundosLegibles(esperaAbandGlobal)} de espera antes de colgar`}
         />
-        <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} />
+        <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} reloj={relojDesdeSegundos(ahtMedio)} />
       </div>
 
       <TarjetaIvr ivr={ivr} />
@@ -151,53 +158,13 @@ export function PanelHistorico({
           <CardTitle className="text-base">Productividad de agentes en el período</CardTitle>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>Agente</TableHead>
-                <TableHead className="text-right">Atendidas</TableHead>
-                <TableHead className="text-right">Talk medio</TableHead>
-                <TableHead className="text-right">ACW medio</TableHead>
-                <TableHead className="text-right">AHT</TableHead>
-                <TableHead className="text-right">Tiempo productivo</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {agentes.length === 0 ? (
-                <TableRow>
-                  <TableCell colSpan={6} className="text-center text-muted-foreground">
-                    Sin llamadas atendidas en el período
-                  </TableCell>
-                </TableRow>
-              ) : (
-                agentes.map((a) => (
-                  <TableRow key={a.agente}>
-                    <TableCell>
-                      <div className="font-medium">{a.nombre}</div>
-                      <div className="text-xs text-muted-foreground">{a.agente}</div>
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">{a.atendidas}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {segundosLegibles(a.talkMedioSeg)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {segundosLegibles(a.acwMedioSeg)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {segundosLegibles(a.ahtMedioSeg)}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {horasDesdeSegundos(a.productivoSeg)}
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
+          <TablaAgentesSupervision agentes={agentes} vacio="Sin llamadas gestionadas en el período" />
         </CardContent>
       </Card>
 
       <RatiosExito ratios={ratios} periodo="en el período" />
+
+      <CalidadBaseDatos datos={calidad} periodo="en el período" />
 
       <ComparadorCampanias
         // Remonta al cambiar de cliente o de rango: las campañas elegidas pueden no estar
@@ -214,6 +181,9 @@ export function PanelHistorico({
           "comparadorCampanias",
           "recibidas",
           "atendidas",
+          "calidadBd",
+          "conversaciones",
+          "tiempoReloj",
           "exitos",
           "contactosGestionados",
           "conversion",

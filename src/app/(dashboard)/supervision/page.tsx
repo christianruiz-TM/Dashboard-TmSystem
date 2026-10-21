@@ -12,6 +12,8 @@ import {
   metricasIvr,
 } from "@/lib/rdb/queries/supervision";
 import { ratiosExitoHoy, ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
+import { calidadBaseDatosRango } from "@/lib/rdb/queries/calidad-bd";
+import { calidadBaseDatos } from "@/lib/calidad-bd";
 import { resultadosActividadRango } from "@/lib/rdb/queries/resultados-actividad";
 import {
   campoContactoDe,
@@ -32,6 +34,7 @@ import {
   listaServicios,
   mapaCampaniaServicio,
 } from "@/lib/rdb/queries/servicios";
+import { ordenServicios } from "@/components/filtros/selector-servicio-actividad";
 import { PanelHistorico } from "./panel-historico";
 import { PanelResultados } from "./panel-resultados";
 import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
@@ -62,6 +65,8 @@ export default async function PaginaSupervision({
   const umbral = umbralSlaSeg();
   const servicios = await listaServicios();
   const nombresServicios = servicios.map((s) => s.servicio);
+  // Clientes con actividad arriba y los parados abajo en el selector (caché de 1 h)
+  const orden = await ordenServicios(nombresServicios);
   // Métricas principales: IVR excluido salvo check. La tarjeta IVR usa siempre
   // las campañas del servicio (incluidas las IVR), va aparte del toggle.
   const incluirIvr = params.ivr === "1";
@@ -129,6 +134,7 @@ export default async function PaginaSupervision({
           hasta={hasta}
           presets={presets}
           servicios={nombresServicios}
+          ordenServicios={orden}
           servicio={servicioElegido}
           incluirIvr={incluirIvr}
           esAdmin={usuario.rol === "admin"}
@@ -149,11 +155,12 @@ export default async function PaginaSupervision({
       hasta: params.hasta ?? ayer.hasta,
     });
     const { desde, hasta } = rango.success ? rango.data : ayer;
-    const [kpis, agentes, ivr, ratios] = await Promise.all([
+    const [kpis, agentes, ivr, ratios, intentos] = await Promise.all([
       kpisCampaniasRango(desde, hasta, umbral, camp),
       agentesProductividadRango(desde, hasta, camp),
       metricasIvr(desde, hasta, campServicio),
       ratiosExitoRango(desde, hasta, camp),
+      calidadBaseDatosRango(desde, hasta, camp),
     ]);
     return (
       <div className="space-y-6">
@@ -170,11 +177,13 @@ export default async function PaginaSupervision({
           agentes={agentes}
           ivr={ivr}
           ratios={ratios}
+          calidad={calidadBaseDatos(intentos.filas, intentos.contactos, tiposCliente)}
           umbral={umbral}
           desde={desde}
           hasta={hasta}
           presets={presets}
           servicios={nombresServicios}
+          ordenServicios={orden}
           servicio={params.servicio}
           incluirIvr={incluirIvr}
           tipos={tiposCliente}
@@ -185,13 +194,14 @@ export default async function PaginaSupervision({
   }
 
   // Tiempo real (hoy, en vivo con polling)
-  const [agentes, kpis, top, ivr, plan, ratios] = await Promise.all([
+  const [agentes, kpis, top, ivr, plan, ratios, intentos] = await Promise.all([
     estadoAgentes(camp),
     kpisCampaniasHoy(umbral, camp),
     agentesHoy(camp),
     metricasIvr(hoyISO(), hoyISO(), campServicio),
     alertasPlanificacion(),
     ratiosExitoHoy(camp),
+    calidadBaseDatosRango(hoyISO(), hoyISO(), camp),
   ]);
   return (
     <div className="space-y-6">
@@ -200,6 +210,7 @@ export default async function PaginaSupervision({
         // Remonta al cambiar de servicio o de toggle IVR
         key={`${params.servicio ?? "todos"}|${incluirIvr ? "ivr" : "noivr"}`}
         servicios={nombresServicios}
+        ordenServicios={orden}
         servicio={params.servicio}
         incluirIvr={incluirIvr}
         tipos={tiposCliente}
@@ -211,6 +222,7 @@ export default async function PaginaSupervision({
           ivr,
           plan,
           ratios,
+          calidad: calidadBaseDatos(intentos.filas, intentos.contactos, tiposCliente),
           umbral,
           actualizado: new Date().toISOString(),
         }}

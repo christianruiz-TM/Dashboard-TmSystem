@@ -7,7 +7,7 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { segundosLegibles } from "@/lib/fechas";
+import { Tiempo } from "@/components/kpi/tiempo";
 import type { GrupoKpis } from "@/lib/supervision";
 import type { KpiCampaniaHoy } from "@/lib/rdb/types";
 import { cn } from "@/lib/utils";
@@ -26,7 +26,7 @@ function colorSla(pct: number | null): string {
   return "text-red-600 font-semibold";
 }
 
-const COLUMNAS = 9;
+const COLUMNAS = 11;
 
 function Celdas({ k }: { k: KpiCampaniaHoy }) {
   // Abandono: entrantes abandonadas / entrantes recibidas (regla 6.b)
@@ -35,13 +35,21 @@ function Celdas({ k }: { k: KpiCampaniaHoy }) {
     <>
       <TableCell className="text-right tabular-nums">{k.recibidas.toLocaleString("es-ES")}</TableCell>
       <TableCell className="text-right tabular-nums">{k.atendidas.toLocaleString("es-ES")}</TableCell>
+      <TableCell className="text-right tabular-nums">{k.conversaciones.toLocaleString("es-ES")}</TableCell>
+      <TableCell className="text-right tabular-nums">{k.contactos.toLocaleString("es-ES")}</TableCell>
       <TableCell className="text-right tabular-nums text-emerald-700">{k.exitos.toLocaleString("es-ES")}</TableCell>
       <TableCell className={cn("text-right tabular-nums", pctAb >= 10 && "font-semibold text-red-600")}>
         {pctAb.toFixed(1)} %
       </TableCell>
-      <TableCell className="text-right tabular-nums">{segundosLegibles(k.colaMediaSeg)}</TableCell>
-      <TableCell className="text-right tabular-nums">{segundosLegibles(k.esperaAbandonadasSeg)}</TableCell>
-      <TableCell className="text-right tabular-nums">{segundosLegibles(k.ahtSeg)}</TableCell>
+      <TableCell className="text-right tabular-nums">
+        <Tiempo segundos={k.colaMediaSeg} />
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        <Tiempo segundos={k.esperaAbandonadasSeg} />
+      </TableCell>
+      <TableCell className="text-right tabular-nums">
+        <Tiempo segundos={k.ahtSeg} />
+      </TableCell>
       <TableCell className={cn("text-right tabular-nums", colorSla(k.slaPct))}>
         {k.slaPct != null ? `${k.slaPct.toFixed(1)} %` : "—"}
       </TableCell>
@@ -58,7 +66,15 @@ export function TablaKpisCampania({ grupos, vacio }: { grupos: GrupoKpis[]; vaci
         <TableRow>
           <TableHead>Campaña</TableHead>
           <TableHead className="text-right">Recibidas</TableHead>
-          <TableHead className="text-right">Atendidas</TableHead>
+          <TableHead className="text-right" title="Llamadas que pasaron por el puesto de un agente (lo que Altitude llama «gestionadas»). En una saliente no quiere decir que contestara alguien.">
+            Llamadas gestionadas
+          </TableHead>
+          <TableHead className="text-right" title="Llamadas gestionadas en las que hubo conversación (alguien al otro lado)">
+            Conversaciones
+          </TableHead>
+          <TableHead className="text-right" title="Contactos trabajados: sesiones de guion (una por cada contacto al que se abrió la ficha, conteste o no). Por eso puede haber más contactos que conversaciones.">
+            Contactos
+          </TableHead>
           <TableHead className="text-right">Éxitos</TableHead>
           <TableHead className="text-right">Abandono</TableHead>
           <TableHead className="text-right">Cola media</TableHead>

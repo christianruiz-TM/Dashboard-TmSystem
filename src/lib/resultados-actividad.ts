@@ -11,7 +11,14 @@ import type { BaseResultados, FilaBaseResultados } from "@/lib/rdb/types";
 //   agente, fechado por su cierre y asignado al agente de su última
 //   sesión. Los cerrados sin tocar y los cierres administrativos (listas
 //   cerradas en bloque) se enseñan aparte, nunca en los ratios.
-// - Ratio bruto = éxitos ÷ finalizados.
+// - Aprovechamiento (bruto, «ratio bruto» hasta el 21/10/2026) = éxitos ÷
+//   finalizados. Con él (21/10/2026): finalizados por éxito (su inversa),
+//   llamadas por éxito (intentos de salida a cada contacto de éxito en los 90
+//   días anteriores a su cierre, de media) y finalizados por hora (hora
+//   logada en lo agrupado; con el script abierto por campaña). Son la familia
+//   «resultados» (contactos cerrados): no se mezclan con la de «actividad»
+//   (sesiones y llamadas, lib/ratios-exito.ts), que va por la fecha de la
+//   llamada.
 // - Ratio neto  = éxitos ÷ (finalizados − no válidos). Qué es «no válido»
 //   lo decide cada servicio en /admin/resultados; en los servicios sin
 //   configurar no hay neto, y en los totales mixtos el neto (y el % de no
@@ -61,7 +68,15 @@ export interface RatiosResultado {
   noValidos: number;
   /** Finalizados de servicios configurados: base del neto y del % de no válidos. */
   finalizadosConfigurados: number;
+  /** Aprovechamiento (bruto) = éxitos ÷ finalizados. */
   brutoPct: number | null;
+  /** Finalizados ÷ éxitos: cuántos cierres cuesta un éxito. */
+  finalizadosPorExito: number | null;
+  /** Llamadas de media a cada contacto de éxito (de los que tienen alguna). */
+  llamadasPorExito: number | null;
+  /** Horas del período: logadas (agente, total) o con script abierto (campaña). */
+  horas: number | null;
+  finalizadosHora: number | null;
   netoPct: number | null;
   noValidosPct: number | null;
   muestraPequenia: boolean;
@@ -424,16 +439,28 @@ interface Acumulado {
   finalizadosConf: number;
   exitosConf: number;
   noValidos: number;
+  llamadasExitos: number;
+  exitosConLlamadas: number;
 }
 
 function vacio(): Acumulado {
-  return { finalizados: 0, exitos: 0, finalizadosConf: 0, exitosConf: 0, noValidos: 0 };
+  return {
+    finalizados: 0,
+    exitos: 0,
+    finalizadosConf: 0,
+    exitosConf: 0,
+    noValidos: 0,
+    llamadasExitos: 0,
+    exitosConLlamadas: 0,
+  };
 }
 
 /** Suma una fila TIPIFICADA (las demás no entran en los ratios). */
 function acumular(a: Acumulado, f: FilaBaseResultados, configurado: boolean): void {
   a.finalizados += f.contactos;
   a.exitos += f.exitos;
+  a.llamadasExitos += f.llamadasExitos;
+  a.exitosConLlamadas += f.exitosConLlamadas;
   if (configurado) {
     a.finalizadosConf += f.contactos;
     a.exitosConf += f.exitos;
@@ -441,7 +468,7 @@ function acumular(a: Acumulado, f: FilaBaseResultados, configurado: boolean): vo
   }
 }
 
-function ratios(a: Acumulado, objetivo: ObjetivoResultados | null): RatiosResultado {
+function ratios(a: Acumulado, objetivo: ObjetivoResultados | null, horas: number | null = null): RatiosResultado {
   const brutoPct = r2(cociente(a.exitos, a.finalizados, 100));
   const netoPct = r2(cociente(a.exitosConf, a.finalizadosConf - a.noValidos, 100));
   const noValidosPct = r2(cociente(a.noValidos, a.finalizadosConf, 100));
@@ -454,6 +481,10 @@ function ratios(a: Acumulado, objetivo: ObjetivoResultados | null): RatiosResult
     noValidos: a.noValidos,
     finalizadosConfigurados: a.finalizadosConf,
     brutoPct,
+    finalizadosPorExito: r2(cociente(a.finalizados, a.exitos)),
+    llamadasPorExito: r2(cociente(a.llamadasExitos, a.exitosConLlamadas)),
+    horas: r2(horas),
+    finalizadosHora: horas != null ? r2(cociente(a.finalizados, horas)) : null,
     netoPct,
     noValidosPct,
     muestraPequenia,
@@ -703,6 +734,11 @@ export function calcularResultados(
   };
 
   const tipificadas = base.filas.filter((f) => f.categoria === "tipificado" && f.agente != null);
+  // Horas de «finalizados por hora»: null si no llegaron o el agente no tiene
+  const h = base.horas;
+  const horasLogadas = (agente: string) => h?.logadas[agente] ?? null;
+  const horasGuion = (campania: string, agente?: string) =>
+    h ? ((agente ? h.guionAgenteCampania[`${agente}|${campania}`] : h.guionCampania[campania]) ?? null) : null;
 
   // 1) Campañas (con los cerrados que no entran en los ratios)
   const porCampania = new Map<string, { a: Acumulado; fr: FueraDeRatios }>();
@@ -723,7 +759,7 @@ export function calcularResultados(
       campania,
       servicio: servicioDe(campania),
       configurado: esConfigurada(campania),
-      ...ratios(a, objetivoDeCampania(campania)),
+      ...ratios(a, objetivoDeCampania(campania), horasGuion(campania)),
       ...fr,
     }))
     .sort((x, y) => y.finalizados - x.finalizados || x.campania.localeCompare(y.campania));
@@ -749,12 +785,12 @@ export function calcularResultados(
     return {
       agente,
       nombre: filas.find((f) => f.nombre)?.nombre ?? agente,
-      ...ratios(acum, objetivoComun(campsAgente.map(objetivoDeCampania))),
+      ...ratios(acum, objetivoComun(campsAgente.map(objetivoDeCampania)), horasLogadas(agente)),
       campanias: [...porCamp]
         .map(([campania, a]) => ({
           campania,
           servicio: servicioDe(campania),
-          ...ratios(a, objetivoDeCampania(campania)),
+          ...ratios(a, objetivoDeCampania(campania), horasGuion(campania, agente)),
         }))
         .sort((x, y) => y.finalizados - x.finalizados || x.campania.localeCompare(y.campania)),
     };
@@ -827,9 +863,12 @@ export function calcularResultados(
     ...new Set(conCerrados.map(servicioDe).filter((s): s is string => s != null && !configurados.has(s))),
   ].sort();
 
+  // Horas del total: las logadas de los agentes con finalizados
+  const conHoras = [...porAgente.keys()].map(horasLogadas).filter((x): x is number => x != null);
+  const horasTotal = conHoras.length > 0 ? conHoras.reduce((s, x) => s + x, 0) : null;
   return {
     total: {
-      ...ratios(total, objetivoComun(conCerrados.map(objetivoDeCampania))),
+      ...ratios(total, objetivoComun(conCerrados.map(objetivoDeCampania)), horasTotal),
       ...frTotal,
     },
     agentes,

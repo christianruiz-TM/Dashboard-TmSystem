@@ -16,10 +16,13 @@ export function TarjetaKpi({
   variacionPct,
   invertirColor = false,
   extra,
+  reloj,
 }: {
   titulo: string;
   valor: string;
   sub?: string;
+  /** El valor en reloj («3 min 12 s»), en pequeño debajo (tiempos de Supervisión). */
+  reloj?: string | null;
   variacionPct?: number | null;
   invertirColor?: boolean;
   extra?: ReactNode;
@@ -52,6 +55,7 @@ export function TarjetaKpi({
             </span>
           ) : null}
         </div>
+        {reloj ? <div className="text-[11px] leading-tight text-muted-foreground tabular-nums">{reloj}</div> : null}
         {sub ? <div className="mt-1 text-xs text-muted-foreground">{sub}</div> : null}
         {extra ? <div className="mt-1">{extra}</div> : null}
       </CardContent>

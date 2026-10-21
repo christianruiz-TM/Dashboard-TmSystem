@@ -304,6 +304,8 @@ export function mockKpisCampaniasHoy(umbralSeg: number, campanias?: string[]): K
         tipo: c.tipo,
         recibidas,
         atendidas: atendidasInbound,
+        conversaciones: Math.round(atendidasInbound * 0.9),
+        contactos: Math.round(atendidasInbound * 0.8),
         abandonadas,
         atendidasInbound,
         abandonadasInbound: abandonadas,
@@ -332,6 +334,8 @@ export function mockAgentesHoy(campanias?: string[]): AgenteHoy[] {
       agente,
       nombre: `Agente ${agente.charAt(0).toUpperCase()}${agente.slice(1)}`,
       atendidas,
+      conversaciones: Math.round(atendidas * 0.6),
+      contactos: Math.round(atendidas * 0.55),
       talkMedioSeg: Math.round(talk),
       acwMedioSeg: Math.round(acw),
       ahtMedioSeg: Math.round(talk + acw),
@@ -354,6 +358,8 @@ export function mockKpisCampaniasRango(
       tipo: m.tipo ?? "—",
       recibidas: 0,
       atendidas: 0,
+      conversaciones: 0,
+      contactos: 0,
       abandonadas: 0,
       atendidasInbound: 0,
       abandonadasInbound: 0,
@@ -369,6 +375,8 @@ export function mockKpisCampaniasRango(
     };
     k.recibidas += m.inbound;
     k.atendidas += m.atendidas;
+    k.conversaciones += Math.round(m.atendidas * 0.9);
+    k.contactos += Math.round(m.atendidas * 0.8);
     k.abandonadas += m.abandonadas;
     // En el mock se reparte proporcionalmente lo entrante sobre el total
     k.atendidasInbound += Math.round(
@@ -406,6 +414,8 @@ export function mockAgentesRango(desde: string, hasta: string, campanias?: strin
         agente,
         nombre: `Agente ${agente.charAt(0).toUpperCase()}${agente.slice(1)}`,
         atendidas,
+        conversaciones: Math.round(atendidas * 0.6),
+        contactos: Math.round(atendidas * 0.55),
         talkMedioSeg: Math.round(talk),
         acwMedioSeg: Math.round(acw),
         ahtMedioSeg: Math.round(talk + acw),
@@ -458,6 +468,10 @@ export function mockBaseRatiosExito(
       horas += productivoSeg / 3600;
       // Como en la real: algún éxito sin llamada atendida ligada (GH: 5 %)
       const exitosConConversacion = Math.round(exitos * (0.9 + r() * 0.1));
+      // Script abierto: los éxitos duran más que las sesiones sin éxito
+      const gestionExitosSeg = Math.round(exitos * (200 + r() * 300));
+      const noExitosConGestion = sesiones - exitos;
+      const gestionNoExitosSeg = Math.round(noExitosConGestion * (60 + r() * 120));
       filas.push({
         agente,
         nombre: `Agente ${agente.charAt(0).toUpperCase()}${agente.slice(1)}`,
@@ -470,7 +484,10 @@ export function mockBaseRatiosExito(
         exitosConConversacion,
         conversacionExitosSeg: Math.round(exitosConConversacion * (150 + r() * 200) * llamadasPorSesion),
         exitosConGestion: exitos,
-        gestionExitosSeg: Math.round(exitos * (200 + r() * 300)),
+        gestionExitosSeg,
+        guionSeg: gestionExitosSeg + gestionNoExitosSeg,
+        noExitosConGestion,
+        gestionNoExitosSeg,
       });
     }
     // Logado ≈ productivo + pausas y espera en Ready
@@ -1171,9 +1188,16 @@ export function mockBaseResultados(
               contactos: 0,
               exitos: 0,
               noValidos: 0,
+              llamadasExitos: 0,
+              exitosConLlamadas: 0,
             } satisfies FilaBaseResultados);
           f.contactos += 1;
-          if (res.codigo === 9001) f.exitos += 1;
+          if (res.codigo === 9001) {
+            f.exitos += 1;
+            // Intentos hasta el éxito: casi siempre 1-4, alguno mucho más
+            f.llamadasExitos += entre(r, 1, r() < 0.1 ? 12 : 4);
+            f.exitosConLlamadas += 1;
+          }
           if (codigos.some((x) => x != null && nv.has(x))) f.noValidos += 1;
           porCodigo.set(clave, f);
         }
@@ -1191,6 +1215,8 @@ export function mockBaseResultados(
           contactos: sinTocar,
           exitos: 0,
           noValidos: 0,
+          llamadasExitos: 0,
+          exitosConLlamadas: 0,
         });
       }
       if (r() < 0.05) {
@@ -1204,6 +1230,8 @@ export function mockBaseResultados(
           contactos: entre(r, 5, 40),
           exitos: 0,
           noValidos: 0,
+          llamadasExitos: 0,
+          exitosConLlamadas: 0,
         });
       }
     }

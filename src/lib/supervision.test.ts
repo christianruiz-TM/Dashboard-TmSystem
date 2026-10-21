@@ -9,6 +9,8 @@ function kpi(campania: string, p: Partial<KpiCampaniaHoy> = {}): KpiCampaniaHoy 
     tipo: "Outbound",
     recibidas: 0,
     atendidas: 0,
+    conversaciones: 0,
+    contactos: 0,
     abandonadas: 0,
     atendidasInbound: 0,
     abandonadasInbound: 0,
@@ -99,9 +101,12 @@ describe("filas del comparador", () => {
       convContactosPct: 2,
       convAtendidasPct: 1.07,
       efectividadPct: null,
-      exitosHoraProductiva: 0.5,
+      horasGuion: 12,
+      llamadasHoraGuion: 46.67,
+      exitosHoraGuion: 0.5,
       conversacionPorExitoSeg: 300,
       gestionPorExitoSeg: 470,
+      gestionPorNoExitoSeg: 140,
       muestraPequenia: false,
     };
     const filas = filasCampaniaSupervision(
