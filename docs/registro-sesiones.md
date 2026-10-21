@@ -215,4 +215,5 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 - Revisado el III Convenio de Contact Center (BOE 09/06/2023, vigente hasta el 31/12/2026): el 24 y el 31/12 no son festivos laborales (festivo especial desde las 20:00, sin descanso), así que salen del calendario de la plantilla; GH sigue cerrado esos días. El motor deja libre el turno donde el cliente base está cerrado y avisa (`base_cerrada`); tipo de ausencia CIERRE.
 - Cupo prorrateado con los laborables del calendario de cada cliente (`plan.cupoLaborablesCliente`).
 - Verificado contra RDBv2 en una copia de la SQLite: octubre y noviembre, plan y avisos idénticos; diciembre sin avisos duros. 253 tests, `tsc` y ESLint en verde. Probado en el `next dev`.
-- Pendiente: commit y despliegue, quitar a `DashTmsystem` los permisos de escritura que se le dieron, festivos locales, captura y guías.
+- Desplegado el 21/10/2026 a las 09:10 (`0ac0f0f`, migración 0012, backup `dashboard_20261021_0908.db`); tipo CIERRE dado de alta y primera copia de calendarios hecha en producción. Permisos de escritura de `DashTmsystem` retirados por Christian. Capturas de la ayuda, guía HTML y guía de Claude Docs al día.
+- Pendiente: los 2 festivos locales y qué hacen el 24 y el 31/12 las 13 personas con turno sin cliente.

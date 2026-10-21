@@ -1337,11 +1337,20 @@ Registro completo en `docs/registro-sesion-20-21-octubre-2026.md`.
 - [x] Verificado contra RDBv2 en una copia de la SQLite y en el `next dev`
       (SQLite de desarrollo migrada a la 0012 con backup
       `dashboard_20261021_0847.db`; las pruebas de la pantalla se deshicieron).
-- [ ] Commit y despliegue (migración 0012: backup antes de `up -d`; después,
-      `docker compose exec tareas npm run planificacion:semilla` para el tipo
-      CIERRE).
-- [ ] Añadir los 2 festivos locales en el calendario laboral; captura de la
-      ayuda de «Cupos» (aún dice «Bolsas»); guía de Claude Docs y HTML.
+- [x] Christian quitó a `DashTmsystem` los permisos de escritura (REVOKE).
+- [x] Commit `0ac0f0f`, desplegado el 21/10/2026 a las 09:10 (imagen
+      `d8b31595c7be`, migración 0012, backup `dashboard_20261021_0908.db`).
+      CIERRE dado de alta a mano en producción; primera copia de calendarios
+      hecha (34 días en el calendario laboral). Histórico en
+      `docs/despliegue-linux.md` §9.
+- [x] Capturas de la ayuda rehechas en modo demo (las diez: la pestaña de
+      cupos sale en todas las del mes) y guía HTML regenerada
+      (`guia-supervision.html`, fuera del repo). Guía de Claude Docs al día:
+      cupos, CIERRE, Calendarios, aviso de turno sin cliente y las diez
+      capturas con los números pintados.
+- [ ] Añadir los 2 festivos locales en el calendario laboral (supervisión).
+- [ ] Decidir qué hacen el 24 y el 31/12 las 13 personas con turno sin
+      cliente (otro trabajo o CIERRE).
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
