@@ -555,3 +555,77 @@ export interface ValorColumnaResultado {
   nombre: string;
   contactos: number;
 }
+
+// ------------------------------------------------------------
+// KPIs de salida (22/10/2026): queries/salientes.ts y lib/salientes.ts
+// ------------------------------------------------------------
+
+/** Intentos de salida por agente, campaña y hora del día (agente null = sin agente). */
+export interface FilaFranjaSalientes {
+  agente: string | null;
+  nombre: string | null;
+  campania: string;
+  /** Hora del día (0-23), hora local de la centralita. */
+  hora: number;
+  /** Intentos con número, sin los estados que no cuentan (NULL, -1, 6, 11, 17, 18). */
+  intentos: number;
+  /** De ellos, gestionados (alguien contestó y pasó por el agente). */
+  contestados: number;
+  /** Preparaciones de llamada manual (salientes sin número, regla 6) y su tiempo en segundos. */
+  preparaciones: number;
+  preparacionSeg: number;
+}
+
+/**
+ * Contactos llamados y alcanzados en el rango (no son sumables entre agentes
+ * o campañas: un contacto lo llaman varios, así que el SQL da cada nivel).
+ */
+export interface FilaAlcanceSalientes {
+  nivel: "agente" | "campania" | "total";
+  agente: string | null;
+  nombre: string | null;
+  campania: string | null;
+  contactos: number;
+  /** Con alguna llamada contestada en el rango. */
+  alcanzados: number;
+  /** Contactos cuya PRIMERA conversación cae en el rango, y la suma de sus intentos hasta ella. */
+  primeras: number;
+  intentosHastaHablar: number;
+}
+
+/** Éxitos según el número de intento en que llegaron (5 = cinco o más; 0 = sin llamada de salida). */
+export interface FilaIntentoExito {
+  agente: string;
+  nombre: string;
+  campania: string;
+  intento: number;
+  exitos: number;
+  /** Suma de los intentos de esos éxitos (para la media). */
+  intentosTotales: number;
+}
+
+/** Rellamadas por agente y campaña: agendadas en el rango y citas vigentes. */
+export interface FilaRellamadas {
+  agente: string | null;
+  nombre: string | null;
+  campania: string;
+  agendadas: number;
+  hechas: number;
+  /** Citas vencidas sin llamada ahora mismo (foto, no depende del rango). */
+  vencidas: number;
+  /** Citas del rango con llamada después y la suma de minutos de retraso (aproximado). */
+  conRetraso: number;
+  retrasoMin: number;
+}
+
+export interface BaseSalientes {
+  franjas: FilaFranjaSalientes[];
+  alcance: FilaAlcanceSalientes[];
+  intentos: FilaIntentoExito[];
+  rellamadas: FilaRellamadas[];
+  /**
+   * Por usuario de agente: horas en Ready (unión de intervalos, regla 11) y,
+   * de ellas, esperando llamada (sin ninguna ficha de script abierta).
+   */
+  ready: { agente: string; horas: number; esperando: number }[];
+}

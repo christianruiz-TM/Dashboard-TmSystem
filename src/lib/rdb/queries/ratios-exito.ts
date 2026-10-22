@@ -364,15 +364,18 @@ export async function ratiosDiariosAgenteCampania(
   return filasAgenteCampania(desdeISO, hastaISO, undefined, true);
 }
 
+/** Base de los ratios de HOY, cacheada 60 s (la usan los ratios y Salientes). */
+export async function baseRatiosHoy(campanias?: string[]): Promise<BaseRatiosExito> {
+  const hoy = hoyISO();
+  if (esMock()) return mockBaseRatiosExito(hoy, hoy, campanias);
+  return conCache(`rdb:ratios:hoy:${claveCampanias(campanias)}`, TTL.supervision, () =>
+    baseRatiosCore(hoy, hoy, campanias),
+  );
+}
+
 /** Ratios de éxito de HOY (Supervisión en vivo, cache 60 s). */
 export async function ratiosExitoHoy(campanias?: string[]): Promise<ResultadoRatios> {
-  const hoy = hoyISO();
-  const base = esMock()
-    ? mockBaseRatiosExito(hoy, hoy, campanias)
-    : await conCache(`rdb:ratios:hoy:${claveCampanias(campanias)}`, TTL.supervision, () =>
-        baseRatiosCore(hoy, hoy, campanias),
-      );
-  return calcularRatiosExito(base);
+  return calcularRatiosExito(await baseRatiosHoy(campanias));
 }
 
 /**

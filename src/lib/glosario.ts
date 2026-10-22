@@ -25,7 +25,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "Llamadas que pasaron por el puesto de un agente: lo que Altitude llama «gestionadas». En una entrante es que la cogió un agente. En una saliente NO quiere decir que contestara alguien: cuentan también las marcaciones que el agente cerró sin conversación (sonó y no lo cogieron, saltó un contestador…). No cuentan las «preparaciones» de las llamadas manuales (ver «Preparación»): así cuadra con el informe de Altitude (Socios, 21/10/2026: 334 gestionadas de 577 intentos).",
   },
   preparacion: {
-    termino: "Preparación (llamadas manuales)",
+    termino: "Preparación (tiempo preparado sin marcar)",
     definicion:
       "Cuando el agente llama a mano, Altitude graba dos cosas: primero el agente cogiendo el contacto y abriendo la ficha (sin número marcado, unos 36 segundos de media) y después la llamada de verdad. Lo primero es la preparación: NO es una llamada, así que no cuenta en las llamadas gestionadas, ni en los intentos, ni en el AHT; pero es trabajo, así que sí está dentro del tiempo productivo. Antes del 22/10/2026 el panel la contaba como otra llamada gestionada y por eso salían el doble (Socios, 21/10/2026: 873 en vez de 334).",
   },
@@ -81,6 +81,37 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     termino: "SLA (nivel de servicio)",
     definicion:
       "Service Level Agreement: porcentaje de llamadas ENTRANTES atendidas dentro del tiempo de cola objetivo (p. ej. ≤ 20 s). El objetivo habitual es 80/20. Se calcula solo sobre entrantes atendidas: incluir las salientes (que nunca hacen cola) infla el porcentaje hasta dejarlo casi siempre en 100 %.",
+  },
+  // --- Salientes (22/10/2026): por agente, por campaña y global ---
+  ocupacion: {
+    termino: "Ocupación",
+    definicion:
+      "Tiempo con la ficha del guion abierta ÷ horas logadas: qué parte del tiempo conectado está el agente trabajando un contacto. Por campaña no hay horas logadas (un agente tiene muchas campañas abiertas a la vez), así que por campaña se enseña su peso: qué parte del tiempo con ficha abierta se fue en esa campaña.",
+  },
+  contactabilidadFranja: {
+    termino: "Contactabilidad por franja horaria",
+    definicion:
+      "De los intentos de llamada (con número, sin preparaciones ni los que se quedan sin resultado), qué % contestan, por hora del día. Sirve para decidir a qué horas llamar cada lista. La «mejor franja» es la hora con más % contestado entre las que tienen al menos 20 intentos.",
+  },
+  contactosAlcanzados: {
+    termino: "Contactos alcanzados e intentos hasta hablar",
+    definicion:
+      "Contactos llamados en el período y, de ellos, con cuántos se llegó a hablar (alguna llamada contestada). «Intentos hasta hablar»: de media, cuántos intentos hicieron falta (contando los 90 días anteriores) hasta la primera conversación, de los contactos con los que se habló por primera vez en el período. Por agente, cuenta los contactos que llamó él; la primera conversación es del agente que la tuvo.",
+  },
+  rellamadas: {
+    termino: "Rellamadas agendadas",
+    definicion:
+      "Agendadas: veces que un agente dejó un contacto programado para volver a llamar en el período. Hechas: de ellas, las que tuvieron una llamada después. Vencidas ahora: contactos que siguen agendados, cuya cita pasó hace más de 15 minutos y nadie ha llamado desde entonces (es una foto de este momento, no depende de las fechas). Retraso medio: APROXIMADO, porque Altitude solo guarda la última cita de cada contacto; se mide desde esa cita hasta la llamada siguiente.",
+  },
+  conversionIntento: {
+    termino: "Conversión por número de intento",
+    definicion:
+      "En qué intento llega cada éxito: cuántas llamadas de salida se le habían hecho al contacto (en los 90 días anteriores) hasta la ficha de éxito. «1.º» es a la primera; «5+», cinco o más. «Sin llamada» son éxitos sin llamada de salida (por ejemplo, de una entrante) y no entran en los %. Dice a partir de qué intento ya no compensa insistir.",
+  },
+  tiempoEsperando: {
+    termino: "Tiempo esperando llamada",
+    definicion:
+      "Tiempo en Ready (disponible) sin ninguna ficha de guion abierta: el agente está libre esperando a que le entre trabajo. En las campañas de salida suele ser casi cero, porque Altitude le da el siguiente contacto con la ficha ya abierta; ese rato antes de marcar es la «preparación». Por campaña no existe (como las horas logadas).",
   },
   // --- Las 12 cajas principales de Supervisión y Dirección (22/10/2026) ---
   kpiHorasLogadas: {

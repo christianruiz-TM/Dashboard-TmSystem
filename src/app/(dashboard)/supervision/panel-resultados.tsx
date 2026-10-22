@@ -177,6 +177,23 @@ export function PanelResultados({
       <Glosario
         titulo="Supervisión · resultados"
         claves={[
+          "kpiHorasLogadas",
+          "kpiLlamadas",
+          "kpiFinalizados",
+          "kpiExitos",
+          "kpiLlamadasHora",
+          "kpiLlamadasPorExito",
+          "kpiFinalizadosHora",
+          "kpiFinalizadosPorExito",
+          "kpiDuracionNoExito",
+          "kpiDuracionExito",
+          "ocupacion",
+          "contactabilidadFranja",
+          "contactosAlcanzados",
+          "rellamadas",
+          "conversionIntento",
+          "tiempoEsperando",
+          "preparacion",
           "servicio",
           "finalizadosTipificados",
           "ratioBruto",

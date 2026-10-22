@@ -5,6 +5,7 @@ import type {
   AgenteEstado,
   AgenteHoy,
   BaseRatiosExito,
+  BaseSalientes,
   BaseRepartoHorasLogadas,
   CampaniaInfo,
   CierresDia,
@@ -1247,4 +1248,56 @@ export function mockBaseResultados(
     }
   }
   return filas;
+}
+
+/** KPIs de salida de demo: tres agentes por campaña, más contactable a media mañana. */
+export function mockBaseSalientes(desde: string, hasta: string, campanias?: string[]): BaseSalientes {
+  const camps = campaniasFiltradas(campanias).filter((c) => c.tipo !== "Inbound");
+  const dias = listaFechas(desde, hasta).length;
+  const base: BaseSalientes = { franjas: [], alcance: [], intentos: [], rellamadas: [], ready: [] };
+  const nombre = (a: string) => `Agente ${a.charAt(0).toUpperCase()}${a.slice(1)}`;
+  const agentesVistos = new Set<string>();
+  let totalContactos = 0;
+  let totalAlcanzados = 0;
+  for (const [ic, c] of camps.entries()) {
+    const agentes = [0, 1, 2].map((k) => AGENTES_DEMO[(ic * 3 + k) % AGENTES_DEMO.length]);
+    let contactosCamp = 0;
+    let alcanzadosCamp = 0;
+    for (const agente of agentes) {
+      agentesVistos.add(agente);
+      const r = rng(`salientes|${desde}|${hasta}|${c.shortname}|${agente}`);
+      let intentosAg = 0;
+      let contestadosAg = 0;
+      for (let hora = 9; hora <= 20; hora++) {
+        const intentos = Math.round(entre(r, 4, 14) * dias);
+        // Mejor contacto a media mañana y a primera hora de la tarde
+        const p = 0.35 + (hora >= 10 && hora <= 12 ? 0.2 : hora >= 16 && hora <= 18 ? 0.12 : 0) + r() * 0.1;
+        const contestados = Math.round(intentos * p);
+        intentosAg += intentos;
+        contestadosAg += contestados;
+        const preparaciones = Math.round(contestados * 0.6);
+        base.franjas.push({ agente, nombre: nombre(agente), campania: c.shortname, hora, intentos, contestados, preparaciones, preparacionSeg: preparaciones * 36 });
+      }
+      const contactos = Math.round(intentosAg / 2.2);
+      const alcanzados = Math.round(contestadosAg / 1.3);
+      contactosCamp += contactos;
+      alcanzadosCamp += alcanzados;
+      base.alcance.push({ nivel: "agente", agente, nombre: nombre(agente), campania: null, contactos, alcanzados, primeras: alcanzados, intentosHastaHablar: Math.round(alcanzados * 2.3) });
+      for (const [intento, peso] of [[1, 0.45], [2, 0.25], [3, 0.14], [4, 0.08], [5, 0.08]] as const) {
+        const exitos = Math.round(alcanzados * 0.15 * peso);
+        if (exitos > 0) base.intentos.push({ agente, nombre: nombre(agente), campania: c.shortname, intento, exitos, intentosTotales: exitos * (intento === 5 ? 7 : intento) });
+      }
+      const agendadas = Math.round(contactos * 0.25);
+      base.rellamadas.push({ agente, nombre: nombre(agente), campania: c.shortname, agendadas, hechas: Math.round(agendadas * 0.8), vencidas: entre(r, 0, 6), conRetraso: Math.round(agendadas * 0.5), retrasoMin: Math.round(agendadas * 0.5 * (20 + r() * 90)) });
+    }
+    totalContactos += contactosCamp;
+    totalAlcanzados += alcanzadosCamp;
+    base.alcance.push({ nivel: "campania", agente: null, nombre: null, campania: c.shortname, contactos: contactosCamp, alcanzados: alcanzadosCamp, primeras: alcanzadosCamp, intentosHastaHablar: Math.round(alcanzadosCamp * 2.3) });
+  }
+  base.alcance.push({ nivel: "total", agente: null, nombre: null, campania: null, contactos: totalContactos, alcanzados: totalAlcanzados, primeras: totalAlcanzados, intentosHastaHablar: Math.round(totalAlcanzados * 2.3) });
+  base.ready = [...agentesVistos].map((agente) => {
+    const horas = (5 + rng(`ready|${agente}`)() * 2) * dias;
+    return { agente, horas, esperando: horas * (0.01 + rng(`esp|${agente}`)() * 0.04) };
+  });
+  return base;
 }

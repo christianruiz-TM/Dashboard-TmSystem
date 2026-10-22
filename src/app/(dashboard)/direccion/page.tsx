@@ -12,6 +12,9 @@ import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { KpisPrincipales } from "@/components/kpi/kpis-principales";
 import { ayudaDe } from "@/lib/glosario";
 import { totalResultados } from "@/lib/resultados-cabecera";
+import { resumenSalientes } from "@/lib/rdb/queries/salientes";
+import { Salientes } from "@/components/kpi/salientes";
+import { Suspense } from "react";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { requireRol } from "@/lib/auth/rbac";
@@ -309,6 +312,11 @@ export default async function PaginaDireccion({
 
       <RatiosExito ratios={ratios} periodo="en el período" anterior={ratiosAnt.total} />
 
+      {/* Salientes: un mes de todos los clientes tarda ~4 s; sale cuando llega */}
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando los KPIs de salida…</p>}>
+        <SeccionSalientes desde={desde} hasta={hasta} campanias={camp} />
+      </Suspense>
+
       <TablaCampanias grupos={grupos} />
 
       <CalidadBaseDatos
@@ -326,6 +334,25 @@ export default async function PaginaDireccion({
       <Glosario
         titulo="Dirección"
         claves={[
+          "kpiHorasLogadas",
+          "kpiLlamadas",
+          "kpiFinalizados",
+          "kpiExitos",
+          "kpiLlamadasHora",
+          "kpiLlamadasPorExito",
+          "kpiFinalizadosHora",
+          "kpiFinalizadosPorExito",
+          "ratioBruto",
+          "ratioNeto",
+          "kpiDuracionNoExito",
+          "kpiDuracionExito",
+          "ocupacion",
+          "contactabilidadFranja",
+          "contactosAlcanzados",
+          "rellamadas",
+          "conversionIntento",
+          "tiempoEsperando",
+          "preparacion",
           "servicio",
           "visionPorCliente",
           "interacciones",
@@ -351,4 +378,9 @@ export default async function PaginaDireccion({
       />
     </div>
   );
+}
+
+async function SeccionSalientes({ desde, hasta, campanias }: { desde: string; hasta: string; campanias?: string[] }) {
+  const datos = await resumenSalientes(desde, hasta, campanias);
+  return datos ? <Salientes datos={datos} periodo="en el período" /> : null;
 }

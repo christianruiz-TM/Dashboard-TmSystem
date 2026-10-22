@@ -16,6 +16,7 @@ import { calidadBaseDatosRango } from "@/lib/rdb/queries/calidad-bd";
 import { calidadBaseDatos } from "@/lib/calidad-bd";
 import { tiposCampaniaDe } from "@/lib/db/resultados";
 import { totalResultados } from "@/lib/resultados-cabecera";
+import { resumenSalientes } from "@/lib/rdb/queries/salientes";
 
 /**
  * Datos de supervisión intradía (polling cada 60 s desde el panel).
@@ -33,7 +34,7 @@ export async function GET(peticion: NextRequest) {
     const incluirIvr = peticion.nextUrl.searchParams.get("ivr") === "1";
     const camp = await campaniasEfectivas(servicio, incluirIvr);
     const campServicio = await campaniasDeServicio(servicio);
-    const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados] = await Promise.all([
+    const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados, salientes] = await Promise.all([
       estadoAgentes(camp),
       kpisCampaniasHoy(umbral, camp),
       agentesHoy(camp),
@@ -42,6 +43,7 @@ export async function GET(peticion: NextRequest) {
       ratiosExitoHoy(camp),
       calidadBaseDatosRango(hoyISO(), hoyISO(), camp),
       totalResultados(hoyISO(), hoyISO(), camp),
+      resumenSalientes(hoyISO(), hoyISO(), camp),
     ]);
     // Los tipos de campaña del cliente agrupan la tabla, igual que en la página
     const tipos = servicio ? tiposCampaniaDe(servicio) : [];
@@ -53,6 +55,7 @@ export async function GET(peticion: NextRequest) {
       plan,
       ratios,
       resultados,
+      salientes,
       calidad: calidadBaseDatos(intentos.filas, intentos.contactos, tipos),
       umbral,
       actualizado: new Date().toISOString(),

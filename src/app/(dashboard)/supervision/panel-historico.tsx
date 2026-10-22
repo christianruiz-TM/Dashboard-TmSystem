@@ -18,6 +18,8 @@ import {
 } from "@/lib/supervision";
 import { TablaAgentesSupervision } from "@/components/kpi/tabla-agentes-supervision";
 import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
+import { Salientes } from "@/components/kpi/salientes";
+import type { ResultadoSalientes } from "@/lib/salientes";
 import type { ResultadoCalidadBd } from "@/lib/calidad-bd";
 import type { AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
 
@@ -33,6 +35,7 @@ export function PanelHistorico({
   ivr,
   ratios,
   resultados,
+  salientes,
   calidad,
   umbral,
   desde,
@@ -51,6 +54,8 @@ export function PanelHistorico({
   ratios: ResultadoRatios;
   /** Totales de Resultados del período (contactos cerrados), para las cajas principales. */
   resultados: ResultadoResultados["total"] | null;
+  /** KPIs de salida del período (global, por campaña y por agente). */
+  salientes: ResultadoSalientes | null;
   calidad: ResultadoCalidadBd;
   umbral: number;
   desde: string;
@@ -110,6 +115,8 @@ export function PanelHistorico({
 
       <RatiosExito ratios={ratios} periodo="en el período" sinTarjetas />
 
+      {salientes ? <Salientes datos={salientes} periodo="en el período" /> : null}
+
       <CalidadBaseDatos datos={calidad} periodo="en el período" />
 
       <ComparadorCampanias
@@ -122,6 +129,24 @@ export function PanelHistorico({
       <Glosario
         titulo="Supervisión · histórico"
         claves={[
+          "kpiHorasLogadas",
+          "kpiLlamadas",
+          "kpiFinalizados",
+          "kpiExitos",
+          "kpiLlamadasHora",
+          "kpiLlamadasPorExito",
+          "kpiFinalizadosHora",
+          "kpiFinalizadosPorExito",
+          "ratioBruto",
+          "ratioNeto",
+          "kpiDuracionNoExito",
+          "kpiDuracionExito",
+          "ocupacion",
+          "contactabilidadFranja",
+          "contactosAlcanzados",
+          "rellamadas",
+          "conversionIntento",
+          "tiempoEsperando",
           "servicio",
           "gruposCampania",
           "comparadorCampanias",

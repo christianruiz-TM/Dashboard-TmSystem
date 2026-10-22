@@ -1495,6 +1495,44 @@ Orden fijado por Christian, el MISMO en todas las vistas de Supervisión
 - Cada tarjeta lleva globo de ayuda (`TarjetaKpi ayuda`, texto de
   `ayudaDe(clave)` del glosario).
 
+## Sesión 22/10/2026, tarde (Opus 5.5): KPIs de salida («Salientes»)
+
+Sección «Salientes» (global, por campaña, por agente, franjas horarias y
+por intento) en Supervisión (Tiempo real e Histórico) y en Dirección (en
+`Suspense`). SQL en `queries/salientes.ts`, cálculo puro con tests en
+`lib/salientes.ts`, pantalla en `components/kpi/salientes.tsx`. Definiciones
+aprobadas por Christian:
+
+- **Ocupación** = script abierto ÷ horas logadas (agente y global). Por
+  campaña no hay horas logadas (regla 11): se da su PESO en el script.
+- **Contactabilidad por franja** = contestados ÷ intentos con número (sin
+  preparaciones ni NULL/-1/6/11/17/18) por hora; «mejor franja» con ≥ 20
+  intentos.
+- **Contactos alcanzados e intentos hasta hablar**: tabla temporal `#int`
+  con los intentos de los 90 días anteriores; los contactos no son sumables
+  entre agentes, así que SQL da cada nivel (GROUPING SETS). Sin
+  `ROW_NUMBER` (pasaba la creación de 0,8 a 4 s): se cuenta sobre el índice.
+- **Rellamadas**: eventos de `activity_history` de un agente que dejan el
+  contacto programado (`event_action` AutomaticOutboundAgentScript o
+  AgentUpdate y `schedule_status` Scheduled, por `rdb_enums`); hechas = con
+  una llamada con número después; vencidas AHORA = contactos abiertos
+  (`activity.status` 0/1) que siguen agendados tras un agente con
+  `man_sch_moment` pasada (> 15 min) y sin llamada desde entonces; retraso
+  APROXIMADO (Altitude solo guarda la última cita, `man_sch_moment`). Muestra
+  de 10 contactos pendiente de validar por supervisión.
+- **Conversión por intento**: intentos al contacto (90 días) hasta el fin
+  de la sesión de éxito; 0 = sin llamada de salida (entrante), fuera del %.
+- **Tiempo esperando llamada** = tramos Ready (islas, regla 11) SIN ninguna
+  ficha de script abierta. Ready a secas incluye el tiempo hablando (GH
+  septiembre: Ready ≈ logadas − pausas) y Ready − script daba negativo (la
+  ficha sigue abierta en pausa). GH septiembre: 150,56 h, igual que la
+  «espera en Ready ~150 h» de `docs/facturacion-horas-logadas.md`. En las
+  campañas de salida es casi cero: Altitude da el siguiente contacto con la
+  ficha abierta (ese rato es la preparación).
+- **Preparación** por campaña y global (regla 6).
+- Tiempos: un mes de todos los clientes ~4 s; GH un mes 1,7 s; hoy de todos
+  1,9 s (caché de 60 s en Tiempo real).
+
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
 Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:

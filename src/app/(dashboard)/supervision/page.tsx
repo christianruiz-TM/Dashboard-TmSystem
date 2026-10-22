@@ -16,6 +16,7 @@ import { calidadBaseDatosRango } from "@/lib/rdb/queries/calidad-bd";
 import { calidadBaseDatos } from "@/lib/calidad-bd";
 import { resultadosActividadRango } from "@/lib/rdb/queries/resultados-actividad";
 import { totalResultados } from "@/lib/resultados-cabecera";
+import { resumenSalientes } from "@/lib/rdb/queries/salientes";
 import {
   campoContactoDe,
   configsResultados,
@@ -163,13 +164,14 @@ export default async function PaginaSupervision({
       hasta: params.hasta ?? ayer.hasta,
     });
     const { desde, hasta } = rango.success ? rango.data : ayer;
-    const [kpis, agentes, ivr, ratios, intentos, resultados] = await Promise.all([
+    const [kpis, agentes, ivr, ratios, intentos, resultados, salientes] = await Promise.all([
       kpisCampaniasRango(desde, hasta, umbral, camp),
       agentesProductividadRango(desde, hasta, camp),
       metricasIvr(desde, hasta, campServicio),
       ratiosExitoRango(desde, hasta, camp),
       calidadBaseDatosRango(desde, hasta, camp),
       totalResultados(desde, hasta, camp),
+      resumenSalientes(desde, hasta, camp),
     ]);
     return (
       <div className="space-y-6">
@@ -187,6 +189,7 @@ export default async function PaginaSupervision({
           ivr={ivr}
           ratios={ratios}
           resultados={resultados}
+          salientes={salientes}
           calidad={calidadBaseDatos(intentos.filas, intentos.contactos, tiposCliente)}
           umbral={umbral}
           desde={desde}
@@ -204,7 +207,7 @@ export default async function PaginaSupervision({
   }
 
   // Tiempo real (hoy, en vivo con polling)
-  const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados] = await Promise.all([
+  const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados, salientes] = await Promise.all([
     estadoAgentes(camp),
     kpisCampaniasHoy(umbral, camp),
     agentesHoy(camp),
@@ -213,6 +216,7 @@ export default async function PaginaSupervision({
     ratiosExitoHoy(camp),
     calidadBaseDatosRango(hoyISO(), hoyISO(), camp),
     totalResultados(hoyISO(), hoyISO(), camp),
+    resumenSalientes(hoyISO(), hoyISO(), camp),
   ]);
   return (
     <div className="space-y-6">
@@ -234,6 +238,7 @@ export default async function PaginaSupervision({
           plan,
           ratios,
           resultados,
+          salientes,
           calidad: calidadBaseDatos(intentos.filas, intentos.contactos, tiposCliente),
           umbral,
           actualizado: new Date().toISOString(),

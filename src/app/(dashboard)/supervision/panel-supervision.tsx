@@ -35,6 +35,8 @@ import type { Alerta } from "@/lib/planificacion/alertas";
 import type { PendienteRevision } from "@/lib/planificacion/vistas";
 import { TablaAgentesSupervision } from "@/components/kpi/tabla-agentes-supervision";
 import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
+import { Salientes } from "@/components/kpi/salientes";
+import type { ResultadoSalientes } from "@/lib/salientes";
 import type { ResultadoCalidadBd } from "@/lib/calidad-bd";
 import type { AgenteEstado, AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
 import { cn } from "@/lib/utils";
@@ -49,6 +51,8 @@ interface DatosSupervision {
   ratios: ResultadoRatios;
   /** Totales de Resultados de hoy (contactos cerrados), para las cajas principales. */
   resultados: ResultadoResultados["total"] | null;
+  /** KPIs de salida de hoy (global, por campaña y por agente). */
+  salientes: ResultadoSalientes | null;
   calidad: ResultadoCalidadBd;
   umbral: number;
   actualizado: string;
@@ -236,6 +240,8 @@ export function PanelSupervision({
 
       <RatiosExito ratios={datos.ratios} periodo="hoy" sinTarjetas />
 
+      {datos.salientes ? <Salientes datos={datos.salientes} periodo="hoy" /> : null}
+
       <CalidadBaseDatos datos={datos.calidad} periodo="hoy" />
 
       {/* Se recalcula con cada refresco; las campañas elegidas se mantienen */}
@@ -247,6 +253,25 @@ export function PanelSupervision({
       <Glosario
         titulo="Supervisión · tiempo real"
         claves={[
+          "kpiHorasLogadas",
+          "kpiLlamadas",
+          "kpiFinalizados",
+          "kpiExitos",
+          "kpiLlamadasHora",
+          "kpiLlamadasPorExito",
+          "kpiFinalizadosHora",
+          "kpiFinalizadosPorExito",
+          "ratioBruto",
+          "ratioNeto",
+          "kpiDuracionNoExito",
+          "kpiDuracionExito",
+          "ocupacion",
+          "contactabilidadFranja",
+          "contactosAlcanzados",
+          "rellamadas",
+          "conversionIntento",
+          "tiempoEsperando",
+          "equipoAhora",
           "servicio",
           "gruposCampania",
           "comparadorCampanias",
