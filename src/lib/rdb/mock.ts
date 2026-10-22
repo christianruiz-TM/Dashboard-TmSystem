@@ -493,6 +493,11 @@ export function mockBaseRatiosExito(
         guionSeg: gestionExitosSeg + gestionNoExitosSeg,
         noExitosConGestion,
         gestionNoExitosSeg,
+        // Las llamadas de los éxitos duran más que las demás
+        llamadasExito: Math.round(exitos * llamadasPorSesion),
+        duracionLlamadasExitoSeg: Math.round(exitos * llamadasPorSesion * (220 + r() * 120)),
+        llamadasNoExito: atendidas - Math.round(exitos * llamadasPorSesion),
+        duracionLlamadasNoExitoSeg: Math.round((atendidas - Math.round(exitos * llamadasPorSesion)) * (70 + r() * 80)),
       });
     }
     // Logado ≈ productivo + pausas y espera en Ready

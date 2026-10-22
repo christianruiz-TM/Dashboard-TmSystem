@@ -9,6 +9,9 @@ import { SelectorServicioActividad } from "@/components/filtros/selector-servici
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
+import { KpisPrincipales } from "@/components/kpi/kpis-principales";
+import { ayudaDe } from "@/lib/glosario";
+import { totalResultados } from "@/lib/resultados-cabecera";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { requireRol } from "@/lib/auth/rbac";
@@ -27,7 +30,6 @@ import {
 import {
   segundosLegibles,
   esquemaRango,
-  horasLegibles,
   motivoRangoInvalido,
   presetsRango,
 } from "@/lib/fechas";
@@ -93,25 +95,26 @@ export default async function PaginaDireccion({
     campanias,
     campaniasAnt,
     unidades,
-    unidadesAnt,
     horasReales,
-    horasRealesAnt,
     ratios,
     ratiosAnt,
     horasPorServicio,
     intentos,
+    resultados,
+    resultadosAnt,
   ] = await Promise.all([
     volumenPorCampania(desde, hasta, camp),
     volumenPorCampania(anterior.desde, anterior.hasta, camp),
     unidadesPorCampania(desde, hasta, camp),
-    unidadesPorCampania(anterior.desde, anterior.hasta, camp),
     horasAgenteReales(desde, hasta, camp),
-    horasAgenteReales(anterior.desde, anterior.hasta, camp),
     // Ratios de éxito en vivo, la MISMA consulta que Supervisión (regla 17)
     ratiosExitoRango(desde, hasta, camp),
     ratiosExitoRango(anterior.desde, anterior.hasta, camp),
     servicioElegido ? null : horasLogadasPorServicio(desde, hasta, camp),
     calidadBaseDatosRango(desde, hasta, camp),
+    // Contactos cerrados (Resultados, regla 18): las cajas de finalizados y aprovechamiento
+    totalResultados(desde, hasta, camp),
+    totalResultados(anterior.desde, anterior.hasta, camp),
   ]);
   const tendencia = tendenciaMensual(12, camp);
   // Conversión mensual desde agg_daily_agent_campaign (hasta ayer)
@@ -146,14 +149,11 @@ export default async function PaginaDireccion({
   // Horas logadas REALES (unión de intervalos por agente, global). No se suma
   // por campaña: los agentes blended duplican el tiempo entre campañas.
   const horas = horasReales.horasLogadas;
-  const horasAnt = horasRealesAnt.horasLogadas;
   // Éxitos de las sesiones de agente (regla 17), los mismos que el detalle,
   // la visión por cliente y «Rendimiento por éxitos»
   const exitos = ratios.total.exitos;
-  const exitosAnt = ratiosAnt.total.exitos;
   // Contactos cerrados: los «contactos finalizados» de facturación
   const finalizados = suma(unidades, (u) => u.leadsFinalizados);
-  const finalizadosAnt = suma(unidadesAnt, (u) => u.leadsFinalizados);
   const ahtMedio = sumarCampanias(filas).ahtSeg;
   const hrefCliente = (servicio: string) => {
     const p = new URLSearchParams({ servicio, desde, hasta });
@@ -186,16 +186,19 @@ export default async function PaginaDireccion({
       </div>
       <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+      {/* Las 12 cajas principales (22/10/2026), las mismas que en Supervisión */}
+      <KpisPrincipales
+        ratios={ratios.total}
+        resultados={resultados}
+        anterior={{ ratios: ratiosAnt.total, resultados: resultadosAnt }}
+      />
+
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
         <TarjetaKpi
           titulo="Interacciones"
           valor={total.toLocaleString("es-ES")}
           variacionPct={variacion(total, totalAnt)}
-        />
-        <TarjetaKpi
-          titulo="Llamadas gestionadas"
-          valor={atendidas.toLocaleString("es-ES")}
-          sub={total > 0 ? `${((atendidas / total) * 100).toFixed(1)} % del total` : undefined}
+          ayuda={ayudaDe("interacciones")}
         />
         <TarjetaKpi
           titulo="% Abandono inbound"
@@ -206,25 +209,9 @@ export default async function PaginaDireccion({
               : null
           }
           invertirColor
+          ayuda={ayudaDe("abandono")}
         />
-        <TarjetaKpi
-          titulo="Horas logadas (reales)"
-          valor={horasLegibles(horas)}
-          variacionPct={variacion(horas, horasAnt)}
-          sub="Global, sin duplicar por campaña"
-        />
-        <TarjetaKpi
-          titulo="Éxitos"
-          valor={exitos.toLocaleString("es-ES")}
-          variacionPct={variacion(exitos, exitosAnt)}
-        />
-        <TarjetaKpi
-          titulo="Finalizados"
-          valor={finalizados.toLocaleString("es-ES")}
-          variacionPct={variacion(finalizados, finalizadosAnt)}
-          sub="Contactos cerrados"
-        />
-        <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} invertirColor />
+        <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} invertirColor ayuda={ayudaDe("aht")} />
       </div>
 
       {horasPorServicio ? (

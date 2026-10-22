@@ -17,6 +17,10 @@ function fila(p: Partial<FilaBaseRatios> & Pick<FilaBaseRatios, "agente" | "camp
     guionSeg: 0,
     noExitosConGestion: 0,
     gestionNoExitosSeg: 0,
+    llamadasExito: 0,
+    duracionLlamadasExitoSeg: 0,
+    llamadasNoExito: 0,
+    duracionLlamadasNoExitoSeg: 0,
     ...p,
   };
 }
@@ -232,5 +236,24 @@ describe("tiempos de los éxitos", () => {
     // (2.565 + 1.350) / 37 = 105,81
     expect(r.total.gestionPorNoExitoSeg).toBe(105.81);
     expect(r.total.gestionPorExitoSeg).toBe(450);
+  });
+});
+
+describe("llamadas por éxito y duración de las llamadas (22/10/2026)", () => {
+  it("llamadas ÷ éxitos y duración media de las llamadas de éxito y de no éxito", () => {
+    const r = calcularRatiosExito(
+      base([
+        fila({ agente: "A", campania: "x", sesiones: 50, atendidas: 60, exitos: 4, llamadasExito: 5, duracionLlamadasExitoSeg: 5 * 300, llamadasNoExito: 55, duracionLlamadasNoExitoSeg: 55 * 90 }),
+        fila({ agente: "B", campania: "x", sesiones: 30, atendidas: 40, exitos: 1, llamadasExito: 1, duracionLlamadasExitoSeg: 420, llamadasNoExito: 39, duracionLlamadasNoExitoSeg: 39 * 120 }),
+      ]),
+    );
+    expect(r.total.llamadasPorExito).toBe(20); // 100 / 5
+    expect(r.total.duracionLlamadaExitoSeg).toBe(320); // (1.500 + 420) / 6
+    expect(r.total.duracionLlamadaNoExitoSeg).toBe(102.45); // (4.950 + 4.680) / 94
+    expect(r.agentes.find((a) => a.agente === "A")!.llamadasPorExito).toBe(15);
+    // Sin éxitos: null, no infinito
+    const sin = calcularRatiosExito(base([fila({ agente: "C", campania: "x", sesiones: 5, atendidas: 9 })]));
+    expect(sin.total.llamadasPorExito).toBeNull();
+    expect(sin.total.duracionLlamadaExitoSeg).toBeNull();
   });
 });

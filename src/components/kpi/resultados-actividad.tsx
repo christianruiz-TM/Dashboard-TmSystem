@@ -16,6 +16,9 @@ import {
 import { GraficaLineas, type ReferenciaLinea } from "@/components/graficas/grafica-lineas";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { Tiempo } from "@/components/kpi/tiempo";
+import { KpisPrincipales } from "@/components/kpi/kpis-principales";
+import { ayudaDe } from "@/lib/glosario";
+import type { ResultadoRatios } from "@/lib/ratios-exito";
 import {
   MIN_FINALIZADOS,
   UMBRAL_DESVIACION_PP,
@@ -168,7 +171,7 @@ const COLUMNAS: { clave: ClaveOrden; titulo: string; ayuda: string }[] = [
   },
   {
     clave: "llamadasPorExito",
-    titulo: "Llamadas por éxito",
+    titulo: "Llamadas por contacto de éxito",
     ayuda: "Llamadas de media a cada contacto que acabó en éxito (intentos de salida en los 90 días antes de cerrarlo)",
   },
   {
@@ -645,64 +648,105 @@ function VistaEvolucion({ r }: { r: ResultadoResultados }) {
 // Componente principal
 // ------------------------------------------------------------
 
-export function ResultadosActividad({ r, periodo }: { r: ResultadoResultados; periodo: string }) {
+export function ResultadosActividad({
+  r,
+  ratios = null,
+  periodo,
+}: {
+  r: ResultadoResultados;
+  /** Ratios de éxito del mismo alcance: con ellos, la cabecera de las 12 cajas. */
+  ratios?: ResultadoRatios | null;
+  periodo: string;
+}) {
   const t = r.total;
   const o = t.objetivo;
   const parcial = r.serviciosSinConfigurar.length > 0 && t.finalizadosConfigurados > 0;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <TarjetaKpi
-          titulo="Finalizados"
-          valor={entero(t.finalizados)}
-          sub={`${entero(t.cerrados)} cerrados · ${entero(t.sinTocar)} sin tocar · ${entero(t.administrativos)} cierres admin.`}
-        />
-        <TarjetaKpi
-          titulo="Aprovechamiento (bruto)"
-          valor={pct(t.brutoPct)}
-          sub={`${entero(t.exitos)} éxitos de ${entero(t.finalizados)} finalizados`}
-          extra={<SemaforoTarjeta color={t.semaforo.bruto} objetivo={objMin(o?.brutoMin)} />}
-        />
-        <TarjetaKpi
-          titulo="Ratio neto"
-          valor={pct(t.netoPct)}
-          sub={
-            t.finalizadosConfigurados === 0
-              ? "Sin servicios configurados"
-              : `Sin los no válidos${parcial ? " · solo servicios configurados" : ""}`
-          }
-          extra={<SemaforoTarjeta color={t.semaforo.neto} objetivo={objMin(o?.netoMin)} />}
-        />
-        <TarjetaKpi
-          titulo="% no válidos"
-          valor={pct(t.noValidosPct)}
-          sub={`${entero(t.noValidos)} contactos no válidos`}
-          extra={<SemaforoTarjeta color={t.semaforo.noValidos} objetivo={objMax(o?.maxPctNoValidos)} />}
-        />
-      </div>
-      {/* Segunda fila (22/10/2026): coste del éxito y ritmo, con las horas logadas */}
-      <div className="-mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
-        <TarjetaKpi
-          titulo="Finalizados por éxito"
-          valor={num2(t.finalizadosPorExito)}
-          sub="Contactos cerrados por cada éxito"
-        />
-        <TarjetaKpi
-          titulo="Llamadas por éxito"
-          valor={num2(t.llamadasPorExito)}
-          sub="De media, a cada contacto que acabó en éxito"
-        />
-        <TarjetaKpi
-          titulo="Finalizados por hora logada"
-          valor={num2(t.finalizadosHora)}
-          sub="Finalizados ÷ horas logadas"
-        />
-        <TarjetaKpi
-          titulo="Horas logadas"
-          valor={t.horas == null ? "—" : `${num2(t.horas)} h`}
-          sub="De los agentes con finalizados"
-        />
-      </div>
+      {ratios ? (
+        // Las 12 cajas principales (22/10/2026), las mismas que en el resto de
+        // Supervisión y en Dirección, con el semáforo en el aprovechamiento
+        <div className="space-y-3">
+          <KpisPrincipales
+            ratios={ratios.total}
+            resultados={t}
+            extras={{
+              bruto: <SemaforoTarjeta color={t.semaforo.bruto} objetivo={objMin(o?.brutoMin)} />,
+              neto: <SemaforoTarjeta color={t.semaforo.neto} objetivo={objMin(o?.netoMin)} />,
+            }}
+          />
+          <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
+            <TarjetaKpi
+              titulo="% no válidos"
+              valor={pct(t.noValidosPct)}
+              sub={`${entero(t.noValidos)} contactos no válidos${parcial ? " · solo servicios configurados" : ""}`}
+              extra={<SemaforoTarjeta color={t.semaforo.noValidos} objetivo={objMax(o?.maxPctNoValidos)} />}
+              ayuda={ayudaDe("noValidos")}
+            />
+            <TarjetaKpi
+              titulo="Llamadas a cada contacto de éxito"
+              valor={num2(t.llamadasPorExito)}
+              sub="Intentos de media hasta cerrarlo (90 días)"
+              ayuda={ayudaDe("llamadasPorExito")}
+            />
+          </div>
+        </div>
+      ) : (
+        <>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          <TarjetaKpi
+            titulo="Finalizados"
+            valor={entero(t.finalizados)}
+            sub={`${entero(t.cerrados)} cerrados · ${entero(t.sinTocar)} sin tocar · ${entero(t.administrativos)} cierres admin.`}
+          />
+          <TarjetaKpi
+            titulo="Aprovechamiento (bruto)"
+            valor={pct(t.brutoPct)}
+            sub={`${entero(t.exitos)} éxitos de ${entero(t.finalizados)} finalizados`}
+            extra={<SemaforoTarjeta color={t.semaforo.bruto} objetivo={objMin(o?.brutoMin)} />}
+          />
+          <TarjetaKpi
+            titulo="Ratio neto"
+            valor={pct(t.netoPct)}
+            sub={
+              t.finalizadosConfigurados === 0
+                ? "Sin servicios configurados"
+                : `Sin los no válidos${parcial ? " · solo servicios configurados" : ""}`
+            }
+            extra={<SemaforoTarjeta color={t.semaforo.neto} objetivo={objMin(o?.netoMin)} />}
+          />
+          <TarjetaKpi
+            titulo="% no válidos"
+            valor={pct(t.noValidosPct)}
+            sub={`${entero(t.noValidos)} contactos no válidos`}
+            extra={<SemaforoTarjeta color={t.semaforo.noValidos} objetivo={objMax(o?.maxPctNoValidos)} />}
+          />
+        </div>
+        {/* Segunda fila (22/10/2026): coste del éxito y ritmo, con las horas logadas */}
+        <div className="-mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
+          <TarjetaKpi
+            titulo="Finalizados por éxito"
+            valor={num2(t.finalizadosPorExito)}
+            sub="Contactos cerrados por cada éxito"
+          />
+          <TarjetaKpi
+            titulo="Llamadas por éxito"
+            valor={num2(t.llamadasPorExito)}
+            sub="De media, a cada contacto que acabó en éxito"
+          />
+          <TarjetaKpi
+            titulo="Finalizados por hora logada"
+            valor={num2(t.finalizadosHora)}
+            sub="Finalizados ÷ horas logadas"
+          />
+          <TarjetaKpi
+            titulo="Horas logadas"
+            valor={t.horas == null ? "—" : `${num2(t.horas)} h`}
+            sub="De los agentes con finalizados"
+          />
+        </div>
+        </>
+      )}
 
       <Card>
         <CardHeader>

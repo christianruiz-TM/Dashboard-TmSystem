@@ -10,6 +10,7 @@ import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { FiltroCampo } from "@/components/filtros/filtro-campo";
 import { Glosario } from "@/components/glosario";
 import { ResultadosActividad } from "@/components/kpi/resultados-actividad";
+import type { ResultadoRatios } from "@/lib/ratios-exito";
 import type { FiltroCampo as Filtro, ResultadoResultados, SeleccionTipo } from "@/lib/resultados-actividad";
 import { cn } from "@/lib/utils";
 
@@ -21,6 +22,7 @@ import { cn } from "@/lib/utils";
  */
 export function PanelResultados({
   resultado,
+  ratios,
   desde,
   hasta,
   presets,
@@ -35,6 +37,8 @@ export function PanelResultados({
   urlCsv,
 }: {
   resultado: ResultadoResultados | null;
+  /** Ratios de éxito del mismo alcance: las cajas de actividad de la cabecera. */
+  ratios: ResultadoRatios | null;
   /** Opciones del selector de tipo de campaña (vacío si el cliente no tiene tipos). */
   tipos: { valor: SeleccionTipo; etiqueta: string }[];
   tipo: SeleccionTipo;
@@ -148,7 +152,7 @@ export function PanelResultados({
       ) : null}
 
       {resultado ? (
-        <ResultadosActividad r={resultado} periodo="en el período" />
+        <ResultadosActividad r={resultado} ratios={ratios} periodo="en el período" />
       ) : (
         <Card>
           <CardHeader>

@@ -10,7 +10,7 @@ import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { TablaKpisCampania } from "@/components/kpi/tabla-kpis-campania";
 import type { ResultadoRatios } from "@/lib/ratios-exito";
-import type { TipoCampania } from "@/lib/resultados-actividad";
+import type { ResultadoResultados, TipoCampania } from "@/lib/resultados-actividad";
 import {
   METRICAS_SUPERVISION,
   agruparKpisPorTipo,
@@ -32,6 +32,7 @@ export function PanelHistorico({
   agentes,
   ivr,
   ratios,
+  resultados,
   calidad,
   umbral,
   desde,
@@ -48,6 +49,8 @@ export function PanelHistorico({
   agentes: AgenteHoy[];
   ivr: MetricasIvr;
   ratios: ResultadoRatios;
+  /** Totales de Resultados del período (contactos cerrados), para las cajas principales. */
+  resultados: ResultadoResultados["total"] | null;
   calidad: ResultadoCalidadBd;
   umbral: number;
   desde: string;
@@ -80,7 +83,7 @@ export function PanelHistorico({
         </div>
       </div>
 
-      <CabeceraSupervision kpis={kpis} ratios={ratios} umbral={umbral} periodo="en el período" />
+      <CabeceraSupervision kpis={kpis} ratios={ratios} resultados={resultados} umbral={umbral} />
 
       <TarjetaIvr ivr={ivr} />
 

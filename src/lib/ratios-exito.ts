@@ -61,6 +61,11 @@ export interface RatiosBasicos {
   gestionPorExitoSeg: number | null;
   /** Tiempo medio con el script abierto de cada sesión SIN éxito, en segundos. */
   gestionPorNoExitoSeg: number | null;
+  /** Llamadas gestionadas ÷ éxitos: cuántas llamadas cuesta un éxito (22/10/2026). */
+  llamadasPorExito: number | null;
+  /** Duración media (conversación + ACW) de las llamadas cuya sesión fue éxito / no. */
+  duracionLlamadaExitoSeg: number | null;
+  duracionLlamadaNoExitoSeg: number | null;
   muestraPequenia: boolean;
 }
 
@@ -118,6 +123,10 @@ interface Acumulado {
   gestionExitosSeg: number;
   noExitosConGestion: number;
   gestionNoExitosSeg: number;
+  llamadasExito: number;
+  duracionLlamadasExitoSeg: number;
+  llamadasNoExito: number;
+  duracionLlamadasNoExitoSeg: number;
   /** Solo de las filas de campañas que marcan «sin éxito». */
   exitosCalificables: number;
   sinExitoCalificables: number;
@@ -136,6 +145,10 @@ function vacio(): Acumulado {
     gestionExitosSeg: 0,
     noExitosConGestion: 0,
     gestionNoExitosSeg: 0,
+    llamadasExito: 0,
+    duracionLlamadasExitoSeg: 0,
+    llamadasNoExito: 0,
+    duracionLlamadasNoExitoSeg: 0,
     exitosCalificables: 0,
     sinExitoCalificables: 0,
     hayCalificables: false,
@@ -153,6 +166,10 @@ function acumular(a: Acumulado, f: FilaBaseRatios, marcaSinExito: boolean): void
   a.gestionExitosSeg += f.gestionExitosSeg;
   a.noExitosConGestion += f.noExitosConGestion;
   a.gestionNoExitosSeg += f.gestionNoExitosSeg;
+  a.llamadasExito += f.llamadasExito;
+  a.duracionLlamadasExitoSeg += f.duracionLlamadasExitoSeg;
+  a.llamadasNoExito += f.llamadasNoExito;
+  a.duracionLlamadasNoExitoSeg += f.duracionLlamadasNoExitoSeg;
   if (marcaSinExito) {
     a.hayCalificables = true;
     a.exitosCalificables += f.exitos;
@@ -176,6 +193,9 @@ function ratios(a: Acumulado): RatiosBasicos {
     conversacionPorExitoSeg: r2(cociente(a.conversacionExitosSeg, a.exitosConConversacion)),
     gestionPorExitoSeg: r2(cociente(a.gestionExitosSeg, a.exitosConGestion)),
     gestionPorNoExitoSeg: r2(cociente(a.gestionNoExitosSeg, a.noExitosConGestion)),
+    llamadasPorExito: r2(cociente(a.atendidas, a.exitos)),
+    duracionLlamadaExitoSeg: r2(cociente(a.duracionLlamadasExitoSeg, a.llamadasExito)),
+    duracionLlamadaNoExitoSeg: r2(cociente(a.duracionLlamadasNoExitoSeg, a.llamadasNoExito)),
     muestraPequenia: a.contactos < MIN_CONTACTOS_RATIO,
   };
 }

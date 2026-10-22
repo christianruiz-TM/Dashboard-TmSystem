@@ -43,6 +43,9 @@ function rat(campania: string, p: Partial<RatiosCampania> = {}): RatiosCampania 
     conversacionPorExitoSeg: null,
     gestionPorExitoSeg: null,
     gestionPorNoExitoSeg: null,
+    llamadasPorExito: null,
+    duracionLlamadaExitoSeg: null,
+    duracionLlamadaNoExitoSeg: null,
     muestraPequenia: false,
     ...p,
   };

@@ -180,7 +180,7 @@ export interface FilaConteosRatios {
  * Cada tiempo lleva su propio número de éxitos: no todos los éxitos tienen
  * llamada atendida ligada y los de 2 h o más no cuentan (regla 15).
  */
-export interface FilaBaseRatios extends FilaConteosRatios, TiemposSesionesRatios {
+export interface FilaBaseRatios extends FilaConteosRatios, TiemposSesionesRatios, TiemposLlamadasRatios {
   /** Éxitos con alguna llamada atendida y la conversación de esas llamadas. */
   exitosConConversacion: number;
   conversacionExitosSeg: number;
@@ -200,6 +200,20 @@ export interface TiemposSesionesRatios {
   guionSeg: number;
   noExitosConGestion: number;
   gestionNoExitosSeg: number;
+}
+
+/**
+ * Duración de las LLAMADAS gestionadas (sin preparaciones, regla 6) según
+ * acabe en éxito su sesión de script (22/10/2026, cajas 11 y 12 de la
+ * cabecera): `itr_thread.duration` (conversación + ACW), en segundos y sin
+ * redondear. Una llamada sin sesión de script cuenta como «no éxito». Fuera
+ * las de 2 h o más (regla 15).
+ */
+export interface TiemposLlamadasRatios {
+  llamadasExito: number;
+  duracionLlamadasExitoSeg: number;
+  llamadasNoExito: number;
+  duracionLlamadasNoExitoSeg: number;
 }
 
 /** Fila de ratios de un día (agg_daily_agent_campaign): solo los conteos. */

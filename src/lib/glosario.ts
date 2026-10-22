@@ -82,6 +82,60 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     definicion:
       "Service Level Agreement: porcentaje de llamadas ENTRANTES atendidas dentro del tiempo de cola objetivo (p. ej. ≤ 20 s). El objetivo habitual es 80/20. Se calcula solo sobre entrantes atendidas: incluir las salientes (que nunca hacen cola) infla el porcentaje hasta dejarlo casi siempre en 100 %.",
   },
+  // --- Las 12 cajas principales de Supervisión y Dirección (22/10/2026) ---
+  kpiHorasLogadas: {
+    termino: "Horas logadas",
+    definicion:
+      "Todo el tiempo que estuvieron conectados (de login a logout) los usuarios de los agentes que han trabajado en el período, sumando a todos. Es la misma fuente que la facturación por horas logadas. Cada tramo cuenta una vez aunque el agente tenga varias campañas abiertas.",
+  },
+  kpiLlamadas: {
+    termino: "Llamadas",
+    definicion:
+      "Llamadas gestionadas por los agentes (entrantes atendidas y salientes que pasaron por su puesto), sin las preparaciones de las llamadas manuales. Debajo, los contactos trabajados (fichas de guion abiertas).",
+  },
+  kpiFinalizados: {
+    termino: "Finalizados",
+    definicion:
+      "Contactos que se cerraron en el período y que cerró un agente poniéndoles un resultado. Cada contacto cuenta una vez, el día en que se cerró. No cuentan los que se cerraron sin hablar con nadie ni los cierres en bloque (salen debajo, aparte). Es la base del aprovechamiento.",
+  },
+  kpiExitos: {
+    termino: "Éxitos",
+    definicion:
+      "Sesiones de guion marcadas como éxito (venta, cita u objetivo), el día de la llamada. Debajo, qué % de las llamadas acaba en éxito. Puede diferir en unos pocos de los éxitos del aprovechamiento, que cuenta contactos cerrados con éxito el día del cierre.",
+  },
+  kpiLlamadasHora: {
+    termino: "Llamadas por hora",
+    definicion: "Llamadas ÷ horas logadas, de todo el servicio (o de todos los servicios si no se elige ninguno).",
+  },
+  kpiLlamadasPorExito: {
+    termino: "Llamadas por éxito",
+    definicion:
+      "Llamadas ÷ éxitos: cuántas llamadas hacen falta para conseguir un éxito. Debajo, lo mismo al revés: qué % de las llamadas acaba en éxito.",
+  },
+  kpiFinalizadosHora: {
+    termino: "Finalizados por hora",
+    definicion: "Finalizados ÷ horas logadas de los agentes que los cerraron.",
+  },
+  kpiFinalizadosPorExito: {
+    termino: "Finalizados por éxito",
+    definicion:
+      "Finalizados ÷ éxitos: cuántos contactos hay que cerrar para conseguir un éxito. Es la otra cara del aprovechamiento (30 % = 3,33 finalizados por éxito).",
+  },
+  kpiDuracionNoExito: {
+    termino: "Duración media de las llamadas sin éxito",
+    definicion:
+      "Lo que dura de media cada llamada (conversación y lo que tarda el agente en cerrarla) cuando su ficha NO acabó en éxito. Las llamadas sin ficha cuentan aquí. No cuentan las de 2 horas o más (errores de registro).",
+  },
+  kpiDuracionExito: {
+    termino: "Duración media de las llamadas de éxito",
+    definicion:
+      "Lo mismo, de las llamadas cuya ficha acabó en éxito. Si un éxito necesitó dos llamadas, cuentan las dos, cada una con su duración.",
+  },
+  equipoAhora: {
+    termino: "Equipo ahora (Ready, no disponibles, conectados)",
+    definicion:
+      "Solo en tiempo real. Ready: agentes esperando llamada. No disponibles: en pausa (Not Ready). Conectados: agentes con la sesión abierta ahora mismo, estén como estén.",
+  },
   horasLogadas: {
     termino: "Horas logadas (reales)",
     definicion:
@@ -196,12 +250,12 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "Finalizados ÷ horas. Para cada agente y para el total, horas LOGADAS en el período; por campaña (y en el detalle del agente por campaña), horas con el script abierto en esa campaña. Ojo: los finalizados cuentan el día del cierre y las horas son las del período, así que con rangos cortos puede bailar.",
   },
   llamadasPorExito: {
-    termino: "Llamadas por éxito",
+    termino: "Llamadas a cada contacto de éxito (Resultados)",
     definicion:
       "De media, cuántas llamadas se le hicieron a cada contacto que acabó en éxito, desde 90 días antes de cerrarlo: todos los intentos de salida a ese contacto, contestara o no (ocupado, sin respuesta, contestador…), del marcador o del agente. Mide cuánto cuesta cada éxito. No cuentan las abandonadas, redirigidas, canceladas ni reencoladas (como en la calidad de la base de datos).",
   },
   ratioNeto: {
-    termino: "Ratio neto",
+    termino: "Aprovechamiento (neto)",
     definicion:
       "Éxitos ÷ (finalizados − no válidos). Lo mismo que el bruto, pero sin contar los contactos que no servían (teléfono erróneo, duplicado, ya tenía cita…): mide el trabajo del agente con los contactos aprovechables. Solo existe en los servicios que tienen configurado qué resultados son «no válidos».",
   },
@@ -319,4 +373,11 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     definicion:
       "Entrantes no atendidas que entraron mientras HABÍA agentes logados en las campañas del servicio (horario de producción, calculado dinámicamente). Son las accionables; las de fuera de horario es normal que no se atiendan.",
   },
+
 };
+
+/** Texto del globo de ayuda de una tarjeta: la definición del glosario. */
+export function ayudaDe(clave: string): string | undefined {
+  return GLOSARIO[clave]?.definicion;
+}
+

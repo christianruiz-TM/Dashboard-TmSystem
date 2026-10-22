@@ -107,6 +107,9 @@ describe("filas del comparador", () => {
       conversacionPorExitoSeg: 300,
       gestionPorExitoSeg: 470,
       gestionPorNoExitoSeg: 140,
+      llamadasPorExito: 93.33,
+      duracionLlamadaExitoSeg: 300,
+      duracionLlamadaNoExitoSeg: 110,
       muestraPequenia: false,
     };
     const filas = filasCampaniaSupervision(

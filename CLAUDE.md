@@ -1469,6 +1469,32 @@ aprobada antes de tocar producción (los KPIs van también a Dirección).
 - [ ] Planificación: decidir si su ritmo de salientes deja de contar las
       preparaciones (cambiaría los planes).
 
+## Sesión 22/10/2026, tarde (Opus 5.5): las 12 cajas principales
+
+Orden fijado por Christian, el MISMO en todas las vistas de Supervisión
+(Tiempo real, Histórico, Resultados) y en Dirección
+(`components/kpi/kpis-principales.tsx`): 1 horas logadas · 2 llamadas ·
+3 finalizados · 4 éxitos · 5 llamadas por hora · 6 llamadas por éxito ·
+7 finalizados por hora · 8 finalizados por éxito · 9 aprovechamiento bruto ·
+10 neto · 11 duración de las llamadas sin éxito · 12 de las de éxito.
+
+- Fuentes (confirmadas con Christian): 1, 2, 4, 5, 6, 11 y 12 de los
+  ratios de éxito (regla 17: horas de `user_log`, llamadas sin
+  preparaciones, éxitos de las sesiones por el día de la llamada); 3, 7, 8,
+  9 y 10 de Resultados (regla 18, contactos cerrados por un agente,
+  `totalResultados` en `lib/resultados-cabecera.ts`: misma consulta y caché
+  que la pestaña, un mes de todos los clientes 1,7-2,5 s).
+- 6 = llamadas ÷ éxitos (el % va debajo). 11 y 12 = `itr_thread.duration`
+  de las llamadas según su sesión de script sea éxito o no (sin sesión = no
+  éxito), Q2 de `filasAgenteCampania` con `LEFT JOIN script_session`.
+- Dirección: «Finalizados» pasa a ser el de Resultados (el de facturación,
+  con los cierres administrativos, sale debajo como «cerrados») y las horas,
+  las de `user_log`. Debajo, interacciones, % abandono y AHT.
+- La «llamadas por éxito» de Resultados (intentos a cada contacto de éxito)
+  se llama «Llamadas a cada contacto de éxito» para no confundirla con la 6.
+- Cada tarjeta lleva globo de ayuda (`TarjetaKpi ayuda`, texto de
+  `ayudaDe(clave)` del glosario).
+
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
 Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:

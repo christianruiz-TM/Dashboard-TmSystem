@@ -23,6 +23,7 @@ import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { TablaKpisCampania } from "@/components/kpi/tabla-kpis-campania";
 import type { ResultadoRatios } from "@/lib/ratios-exito";
+import type { ResultadoResultados } from "@/lib/resultados-actividad";
 import type { TipoCampania } from "@/lib/resultados-actividad";
 import {
   METRICAS_SUPERVISION,
@@ -46,6 +47,8 @@ interface DatosSupervision {
   /** Alertas de planificación (equipo multicliente), independientes del servicio elegido. */
   plan: { alertas: Alerta[]; error: string | null; revisar?: PendienteRevision[] };
   ratios: ResultadoRatios;
+  /** Totales de Resultados de hoy (contactos cerrados), para las cajas principales. */
+  resultados: ResultadoResultados["total"] | null;
   calidad: ResultadoCalidadBd;
   umbral: number;
   actualizado: string;
@@ -147,8 +150,8 @@ export function PanelSupervision({
       <CabeceraSupervision
         kpis={datos.kpis}
         ratios={datos.ratios}
+        resultados={datos.resultados}
         umbral={datos.umbral}
-        periodo="hoy"
         equipo={{ ready: enEstado("Ready"), noDisponibles: enEstado("NotReady"), conectados }}
       />
 

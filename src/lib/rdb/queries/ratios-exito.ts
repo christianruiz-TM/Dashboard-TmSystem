@@ -1,7 +1,13 @@
 import { conCache, TTL, ttlSegunRango } from "../cache";
 import { mockBaseRatiosExito, mockRatiosDiarios } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
-import type { BaseRatiosExito, FilaBaseRatios, FilaDiariaRatios, TiemposSesionesRatios } from "../types";
+import type {
+  BaseRatiosExito,
+  FilaBaseRatios,
+  FilaDiariaRatios,
+  TiemposLlamadasRatios,
+  TiemposSesionesRatios,
+} from "../types";
 import { calcularRatiosExito, type ResultadoRatios } from "@/lib/ratios-exito";
 import { hoyISO } from "@/lib/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
@@ -66,7 +72,7 @@ async function filasAgenteCampania(
   hastaISO: string,
   campanias: string[] | undefined,
   porDia: boolean,
-): Promise<(FilaDiariaRatios & TiemposSesionesRatios)[]> {
+): Promise<(FilaDiariaRatios & TiemposSesionesRatios & TiemposLlamadasRatios)[]> {
   const pool = await obtenerPool();
   const { desde, hastaExcl } = limitesRango(desdeISO, hastaISO);
   const nueva = () => {
@@ -125,18 +131,29 @@ async function filasAgenteCampania(
            -- llamadas, pero su tiempo sí es gestión (22/10/2026)
            SUM(CASE WHEN ${sqlLlamada()} THEN 1 ELSE 0 END) AS atendidas,
            SUM(CASE WHEN t.duration < @maxDecimas
-                    THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 10.0 AS productivoSeg
+                    THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 10.0 AS productivoSeg,
+           -- Duración de las llamadas según acabe en éxito su sesión de script
+           -- (22/10/2026); sin sesión cuenta como «no éxito»
+           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ss.business_status = 3
+                    THEN 1 ELSE 0 END) AS llamadasExito,
+           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ss.business_status = 3
+                    THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 10.0 AS duracionLlamadasExitoSeg,
+           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ISNULL(ss.business_status, 0) <> 3
+                    THEN 1 ELSE 0 END) AS llamadasNoExito,
+           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ISNULL(ss.business_status, 0) <> 3
+                    THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 10.0 AS duracionLlamadasNoExitoSeg
     FROM itr_thread t
     INNER JOIN ph_e_user   u ON t.e_user   = u.code AND u.type = 1
     INNER JOIN ph_campaign c ON t.campaign = c.code
     ${sqlJoinGlobal()}
+    LEFT JOIN script_session ss ON ss.code = t.script_session
     WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
       AND t.termination_state = 1${filtroHilos}
     GROUP BY ${grupoDia("t")}RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
   `);
 
   const [rSesiones, rHilos] = await Promise.all([sesiones, hilos]);
-  const filas = new Map<string, FilaDiariaRatios & TiemposSesionesRatios>();
+  const filas = new Map<string, FilaDiariaRatios & TiemposSesionesRatios & TiemposLlamadasRatios>();
   const obtener = (f: { fecha: string; agente: string; nombre: string; campania: string }) => {
     const clave = `${f.fecha}|${f.agente}|${f.campania}`;
     let fila = filas.get(clave);
@@ -154,6 +171,10 @@ async function filasAgenteCampania(
         guionSeg: 0,
         noExitosConGestion: 0,
         gestionNoExitosSeg: 0,
+        llamadasExito: 0,
+        duracionLlamadasExitoSeg: 0,
+        llamadasNoExito: 0,
+        duracionLlamadasNoExitoSeg: 0,
       };
       filas.set(clave, fila);
     }
@@ -169,8 +190,15 @@ async function filasAgenteCampania(
       gestionNoExitosSeg: Number(f.gestionNoExitosSeg),
     });
   }
-  for (const f of rHilos.recordset as FilaDiariaRatios[]) {
-    Object.assign(obtener(f), { atendidas: f.atendidas, productivoSeg: Number(f.productivoSeg) });
+  for (const f of rHilos.recordset as (FilaDiariaRatios & TiemposLlamadasRatios)[]) {
+    Object.assign(obtener(f), {
+      atendidas: f.atendidas,
+      productivoSeg: Number(f.productivoSeg),
+      llamadasExito: f.llamadasExito,
+      duracionLlamadasExitoSeg: Number(f.duracionLlamadasExitoSeg),
+      llamadasNoExito: f.llamadasNoExito,
+      duracionLlamadasNoExitoSeg: Number(f.duracionLlamadasNoExitoSeg),
+    });
   }
   return [...filas.values()];
 }
