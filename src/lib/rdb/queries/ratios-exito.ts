@@ -5,7 +5,7 @@ import type { BaseRatiosExito, FilaBaseRatios, FilaDiariaRatios, TiemposSesiones
 import { calcularRatiosExito, type ResultadoRatios } from "@/lib/ratios-exito";
 import { hoyISO } from "@/lib/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
-import { claveCampanias, filtroCampanias, limitesRango } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, sqlJoinGlobal, sqlLlamada } from "./util";
 
 // ============================================================
 // Base de los ratios de éxito por agente y campaña (Supervisión).
@@ -121,12 +121,15 @@ async function filasAgenteCampania(
            RTRIM(u.usr_name)  AS agente,
            RTRIM(u.fullname)  AS nombre,
            RTRIM(c.shortname) AS campania,
-           COUNT(*)           AS atendidas,
+           -- Las preparaciones de llamada manual (salientes sin número) no son
+           -- llamadas, pero su tiempo sí es gestión (22/10/2026)
+           SUM(CASE WHEN ${sqlLlamada()} THEN 1 ELSE 0 END) AS atendidas,
            SUM(CASE WHEN t.duration < @maxDecimas
                     THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 10.0 AS productivoSeg
     FROM itr_thread t
     INNER JOIN ph_e_user   u ON t.e_user   = u.code AND u.type = 1
     INNER JOIN ph_campaign c ON t.campaign = c.code
+    ${sqlJoinGlobal()}
     WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
       AND t.termination_state = 1${filtroHilos}
     GROUP BY ${grupoDia("t")}RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
@@ -217,12 +220,16 @@ async function tiemposExitos(
           AND s.business_status = 3${filtro}
     ),
     conv AS (
-        -- Conversación de las atendidas de cada éxito, en décimas
+        -- Conversación de las atendidas de cada éxito, en décimas. Sin las
+        -- preparaciones de llamada manual (salientes sin número, 22/10/2026):
+        -- son el agente abriendo la ficha, no conversación
         SELECT t.script_session, SUM(CAST(t.duration - t.wrapup_duration AS BIGINT)) AS talk
         FROM itr_thread t
         INNER JOIN ex ON ex.code = t.script_session
+        ${sqlJoinGlobal()}
         WHERE t.start_time >= @desdeHilos AND t.start_time < @hastaExcl
           AND t.termination_state = 1 AND t.duration < @maxDecimas
+          AND ${sqlLlamada()}
         GROUP BY t.script_session
     )
     SELECT RTRIM(u.usr_name)       AS agente,

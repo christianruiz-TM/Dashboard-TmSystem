@@ -59,3 +59,32 @@ export function redondear1(valor: number | null): number | null {
 export function redondear2(valor: number | null): number | null {
   return valor == null ? null : Math.round(valor * 100) / 100;
 }
+
+// ------------------------------------------------------------
+// Preparación de una llamada manual (decidido 22/10/2026 con Christian).
+// Cuando el agente llama a mano, Altitude graba DOS hilos salientes en dos
+// itr_global seguidos: el del agente cogiendo el contacto y abriendo la
+// ficha (sin número de destino, ~36 s, «gestionado», sin conversación ni
+// ACW) y la llamada de verdad al número. Socios 21/10/2026: 1.180 hilos
+// salientes = 577 con número (el informe «Socios_General» de Altitude, uno
+// a uno) + 603 sin número; 873 «gestionadas» = 334 llamadas + 539
+// preparaciones. Bolsas, ese día: 1.822 de 2.834. La preparación NO es una
+// llamada: fuera de interacciones, llamadas gestionadas, intentos y
+// medias por llamada (AHT, Talk, ACW). Su tiempo SÍ es trabajo del agente:
+// sigue en el tiempo y las horas productivas.
+// ------------------------------------------------------------
+
+/** JOIN de itr_global para las condiciones de abajo (LEFT: un hilo sin global sigue contando). */
+export function sqlJoinGlobal(t = "t", g = "g"): string {
+  return `LEFT JOIN itr_global ${g} ON ${g}.code = ${t}.itr_global`;
+}
+
+/** El hilo es la PREPARACIÓN de una llamada manual: saliente sin número de destino. */
+export function sqlPreparacion(t = "t", g = "g"): string {
+  return `(${t}.origin = 2 AND NULLIF(LTRIM(RTRIM(${g}.to_address)), '') IS NULL)`;
+}
+
+/** El hilo es una llamada (entrante, o saliente con número): lo contrario de sqlPreparacion. */
+export function sqlLlamada(t = "t", g = "g"): string {
+  return `(ISNULL(${t}.origin, 0) <> 2 OR NULLIF(LTRIM(RTRIM(${g}.to_address)), '') IS NOT NULL)`;
+}

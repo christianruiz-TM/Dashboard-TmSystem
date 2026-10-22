@@ -66,7 +66,8 @@ export interface KpiCampaniaHoy {
    * «Llamadas gestionadas» en pantalla (antes «Atendidas»): hilos con
    * termination_state = 1, de cualquier origen. En una saliente solo dice que
    * la llamada pasó por el puesto del agente, no que contestara alguien
-   * (21/10/2026: Bol_0516 tuvo 651 un día, 239 con conversación).
+   * (21/10/2026: Bol_0516 tuvo 651 un día, 239 con conversación). Sin las
+   * preparaciones de llamada manual (salientes sin número, 22/10/2026).
    */
   atendidas: number;
   /** Llamadas gestionadas con conversación: algún segmento Connected (state 6). */
@@ -139,7 +140,15 @@ export interface AgenteHoy {
   talkMedioSeg: number | null;
   acwMedioSeg: number | null;
   ahtMedioSeg: number | null;
+  /** Gestión de todo lo gestionado, preparaciones incluidas (es trabajo). */
   productivoSeg: number;
+  /**
+   * Preparaciones de llamada manual (salientes sin número, 22/10/2026): el
+   * agente coge el contacto y abre la ficha antes de marcar. No son llamadas
+   * (no están en `atendidas` ni en las medias); su tiempo va en productivoSeg.
+   */
+  preparaciones: number;
+  preparacionSeg: number;
 }
 
 /**

@@ -2,7 +2,7 @@ import type { FilaContactos, FilaIntentos } from "@/lib/calidad-bd";
 import { hoyISO } from "@/lib/fechas";
 import { conCache, TTL, ttlSegunRango } from "../cache";
 import { esMock, obtenerPool, sql } from "../pool";
-import { claveCampanias, filtroCampanias, limitesRango } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, sqlJoinGlobal, sqlLlamada } from "./util";
 
 // ============================================================
 // Calidad de la base de datos (21/10/2026): intentos SALIENTES por resultado
@@ -31,8 +31,12 @@ async function calidadCore(desdeISO: string, hastaISO: string, campanias?: strin
   reqContactos.input("hastaExcl", sql.DateTime, hastaExcl);
   const filtroContactos = filtroCampanias(reqContactos, campanias, "c.shortname");
 
+  // Solo intentos con número: la preparación de una llamada manual (saliente
+  // sin número, 22/10/2026) no es un intento. Así cuadra con el informe
+  // «Socios_General» de Altitude (21/10: 577 intentos, uno a uno); su
+  // gráfico del supervisor SÍ cuenta las preparaciones como «Gestionadas».
   const condicion = `t.start_time >= @desde AND t.start_time < @hastaExcl
-        AND t.origin = 2
+        AND t.origin = 2 AND ${sqlLlamada()}
         AND t.termination_state IS NOT NULL AND t.termination_state >= 0
         AND t.termination_state NOT IN (6, 11, 17, 18)`;
 
@@ -45,6 +49,7 @@ async function calidadCore(desdeISO: string, hastaISO: string, campanias?: strin
              COUNT(*)                               AS intentos
       FROM itr_thread t
       INNER JOIN ph_campaign c ON t.campaign = c.code
+      ${sqlJoinGlobal()}
       WHERE ${condicion}${filtroFilas}
       GROUP BY RTRIM(c.shortname), CONVERT(varchar(10), t.start_time, 23), t.termination_state;
     `),
@@ -53,6 +58,7 @@ async function calidadCore(desdeISO: string, hastaISO: string, campanias?: strin
       SELECT RTRIM(c.shortname) AS campania, COUNT(DISTINCT t.contact) AS contactos
       FROM itr_thread t
       INNER JOIN ph_campaign c ON t.campaign = c.code
+      ${sqlJoinGlobal()}
       WHERE ${condicion} AND t.contact IS NOT NULL${filtroContactos}
       GROUP BY RTRIM(c.shortname);
     `),

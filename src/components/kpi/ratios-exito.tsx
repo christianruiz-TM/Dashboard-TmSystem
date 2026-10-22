@@ -207,11 +207,14 @@ export function RatiosExito({
   ratios,
   periodo,
   anterior,
+  sinTarjetas = false,
 }: {
   ratios: ResultadoRatios;
   periodo: string;
   /** Totales del período comparable anterior (Dirección): pinta la variación. */
   anterior?: ResultadoRatios["total"];
+  /** Supervisión: los totales ya están en la cabecera de la pestaña (22/10/2026). */
+  sinTarjetas?: boolean;
 }) {
   const [orden, setOrden] = useState<{ clave: ClaveOrden; desc: boolean } | null>(null);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
@@ -275,7 +278,7 @@ export function RatiosExito({
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
-        <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+        <div className={cn("grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7", sinTarjetas && "hidden")}>
           <TarjetaKpi
             titulo="Conversión (contactos)"
             valor={pct(t.convContactosPct)}

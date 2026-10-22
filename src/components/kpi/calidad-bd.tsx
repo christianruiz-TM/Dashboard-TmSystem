@@ -7,7 +7,7 @@ import { cn } from "@/lib/utils";
 
 // ============================================================
 // «Calidad de la base de datos» (21/10/2026): cómo acaban los intentos
-// salientes, como el gráfico del supervisor de Altitude. Lo usan Supervisión
+// salientes, como el informe de Altitude (sin preparaciones). Lo usan Supervisión
 // (Tiempo real e Histórico) y Dirección. Sin hooks: sirve en el panel de
 // cliente y en los de servidor (la gráfica es su propio componente cliente).
 // Barras horizontales en vez de un donut: con 6-10 resultados se comparan
@@ -81,7 +81,7 @@ export function CalidadBaseDatos({ datos, periodo }: { datos: ResultadoCalidadBd
       <CardHeader>
         <CardTitle className="text-base">Calidad de la base de datos · llamadas salientes {periodo}</CardTitle>
         <CardDescription>
-          Cómo acaban los intentos de llamada, como el gráfico del supervisor de Altitude. No cuentan los que se quedan sin
+          Cómo acaban los intentos de llamada, como el informe de Altitude. No cuentan las preparaciones de las llamadas manuales ni los que se quedan sin
           resultado, las abandonadas ni las redirigidas.
         </CardDescription>
       </CardHeader>

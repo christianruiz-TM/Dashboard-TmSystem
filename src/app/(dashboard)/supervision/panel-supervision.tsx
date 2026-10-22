@@ -17,7 +17,7 @@ import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
-import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
+import { CabeceraSupervision } from "@/components/kpi/cabecera-supervision";
 import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
@@ -35,7 +35,6 @@ import type { PendienteRevision } from "@/lib/planificacion/vistas";
 import { TablaAgentesSupervision } from "@/components/kpi/tabla-agentes-supervision";
 import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
 import type { ResultadoCalidadBd } from "@/lib/calidad-bd";
-import { relojDesdeSegundos, segundosLegibles } from "@/lib/fechas";
 import type { AgenteEstado, AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
 import { cn } from "@/lib/utils";
 
@@ -110,31 +109,9 @@ export function PanelSupervision({
     return () => clearInterval(intervalo);
   }, [refrescar]);
 
-  // Resumen de plantilla y del día
+  // Plantilla ahora mismo (una fila por agente; el resumen del día lo calcula la cabecera)
   const enEstado = (estado: string) => datos.agentes.filter((a) => a.estado === estado).length;
-  const recibidas = datos.kpis.reduce((acc, k) => acc + k.recibidas, 0);
-  const atendidas = datos.kpis.reduce((acc, k) => acc + k.atendidas, 0);
-  const conversaciones = datos.kpis.reduce((acc, k) => acc + k.conversaciones, 0);
-  const abandonadas = datos.kpis.reduce((acc, k) => acc + k.abandonadas, 0);
-  const exitos = datos.kpis.reduce((acc, k) => acc + k.exitos, 0);
-  // Abandono y SLA se calculan SOLO sobre entrantes: las salientes no hacen
-  // cola, y mezclarlas hinchaba el SLA y ensuciaba el % de abandono.
-  const atendidasIn = datos.kpis.reduce((acc, k) => acc + k.atendidasInbound, 0);
-  const abandonadasIn = datos.kpis.reduce((acc, k) => acc + k.abandonadasInbound, 0);
-  const pctAbandono = recibidas > 0 ? (abandonadasIn / recibidas) * 100 : null;
-  // SLA global desde los recuentos, no ponderando los % ya redondeados
-  const fueraSla = datos.kpis.reduce((acc, k) => acc + k.atendidasFueraSla, 0);
-  const slaGlobal = atendidasIn > 0 ? ((atendidasIn - fueraSla) / atendidasIn) * 100 : null;
-  // Cola de las atendidas y espera de las abandonadas (entrantes), por separado.
-  // Medias globales desde las sumas exactas, no promediando medias redondeadas.
-  const colaGlobal =
-    atendidasIn > 0
-      ? datos.kpis.reduce((acc, k) => acc + k.colaAtendidasTotalSeg, 0) / atendidasIn
-      : null;
-  const esperaAbandGlobal =
-    abandonadasIn > 0
-      ? datos.kpis.reduce((acc, k) => acc + k.esperaAbandonadasTotalSeg, 0) / abandonadasIn
-      : null;
+  const conectados = new Set(datos.agentes.filter((a) => a.estado !== "Deslogado").map((a) => a.agente)).size;
 
   return (
     <div className="space-y-6">
@@ -167,45 +144,13 @@ export function PanelSupervision({
         </div>
       ) : null}
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
-        <TarjetaKpi titulo="Agentes Ready" valor={String(enEstado("Ready"))} />
-        <TarjetaKpi
-          titulo="No disponibles"
-          valor={String(enEstado("NotReady"))}
-          sub="Not Ready ahora mismo"
-        />
-        <TarjetaKpi titulo="Recibidas hoy" valor={recibidas.toLocaleString("es-ES")} />
-        <TarjetaKpi
-          titulo="Abandonadas (entrantes)"
-          valor={abandonadasIn.toLocaleString("es-ES")}
-          sub={
-            pctAbandono != null
-              ? `${pctAbandono.toFixed(1)} % de las recibidas · ${abandonadas.toLocaleString("es-ES")} en total`
-              : undefined
-          }
-        />
-        <TarjetaKpi
-          titulo="SLA global (entrantes)"
-          valor={slaGlobal != null ? `${slaGlobal.toFixed(1)} %` : "—"}
-          sub={`Objetivo: cola ≤ ${datos.umbral}s · sobre ${atendidasIn.toLocaleString("es-ES")} atendidas de entrada`}
-        />
-        <TarjetaKpi
-          titulo="Cola media (atendidas)"
-          valor={segundosLegibles(colaGlobal)}
-          reloj={relojDesdeSegundos(colaGlobal)}
-          sub={`Abandonadas: ${segundosLegibles(esperaAbandGlobal)} de espera antes de colgar`}
-        />
-        <TarjetaKpi
-          titulo="Llamadas gestionadas hoy"
-          valor={atendidas.toLocaleString("es-ES")}
-          sub={`${conversaciones.toLocaleString("es-ES")} con conversación`}
-        />
-        <TarjetaKpi
-          titulo="Éxitos hoy"
-          valor={exitos.toLocaleString("es-ES")}
-          sub="Ventas / objetivos"
-        />
-      </div>
+      <CabeceraSupervision
+        kpis={datos.kpis}
+        ratios={datos.ratios}
+        umbral={datos.umbral}
+        periodo="hoy"
+        equipo={{ ready: enEstado("Ready"), noDisponibles: enEstado("NotReady"), conectados }}
+      />
 
       <TarjetaAlertasPlan alertas={datos.plan.alertas} error={datos.plan.error} revisar={datos.plan.revisar ?? []} />
 
@@ -286,7 +231,7 @@ export function PanelSupervision({
         </CardContent>
       </Card>
 
-      <RatiosExito ratios={datos.ratios} periodo="hoy" />
+      <RatiosExito ratios={datos.ratios} periodo="hoy" sinTarjetas />
 
       <CalidadBaseDatos datos={datos.calidad} periodo="hoy" />
 
@@ -308,6 +253,7 @@ export function PanelSupervision({
           "atendidas",
           "calidadBd",
           "conversaciones",
+          "preparacion",
           "tiempoReloj",
           "exitos",
           "contactosGestionados",

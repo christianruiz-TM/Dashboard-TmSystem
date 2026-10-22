@@ -33,7 +33,7 @@ import {
   type ResultadoResultados,
 } from "@/lib/resultados-actividad";
 import type { ColumnaExport, ContactoExport } from "@/lib/export-contactos";
-import { claveCampanias, filtroCampanias, limitesRango } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, sqlJoinGlobal, sqlLlamada } from "./util";
 import { listaServicios, mapaCampaniaServicio } from "./servicios";
 import { baseRatiosRango } from "./ratios-exito";
 
@@ -450,7 +450,8 @@ async function baseResultadosCore(
     --     su cierre, conteste o no, del marcador o del agente. Sin los estados
     --     que tampoco cuentan en la calidad de la base de datos: sin
     --     resultado (NULL, -1), abandonadas (6), redirigidas (11), canceladas
-    --     (17) y reencoladas (18). itr_thread.contact = activity.code.
+    --     (17) y reencoladas (18), ni las preparaciones de llamada manual
+    --     (salientes sin número, 22/10/2026). itr_thread.contact = activity.code.
     IF OBJECT_ID('tempdb..#lla') IS NOT NULL DROP TABLE #lla;
     CREATE TABLE #lla (activity int PRIMARY KEY, llamadas int NOT NULL);
     INSERT INTO #lla (activity, llamadas)
@@ -460,8 +461,9 @@ async function baseResultadosCore(
            AND t.start_time <= k.cierre
            AND t.start_time >= DATEADD(day, -@diasSesion, k.cierre)
     INNER JOIN #ses s ON s.contact = k.activity
+    ${sqlJoinGlobal()}
     WHERE t.start_time >= @desdeSes AND t.start_time < @hastaExcl
-      AND t.origin = 2
+      AND t.origin = 2 AND ${sqlLlamada()}
       AND t.termination_state IS NOT NULL AND t.termination_state >= 0
       AND t.termination_state NOT IN (6, 11, 17, 18)
       AND k.estado IN (${exito})

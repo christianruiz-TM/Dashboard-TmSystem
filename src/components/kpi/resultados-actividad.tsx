@@ -651,7 +651,7 @@ export function ResultadosActividad({ r, periodo }: { r: ResultadoResultados; pe
   const parcial = r.serviciosSinConfigurar.length > 0 && t.finalizadosConfigurados > 0;
   return (
     <div className="space-y-6">
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
+      <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <TarjetaKpi
           titulo="Finalizados"
           valor={entero(t.finalizados)}
@@ -679,6 +679,9 @@ export function ResultadosActividad({ r, periodo }: { r: ResultadoResultados; pe
           sub={`${entero(t.noValidos)} contactos no válidos`}
           extra={<SemaforoTarjeta color={t.semaforo.noValidos} objetivo={objMax(o?.maxPctNoValidos)} />}
         />
+      </div>
+      {/* Segunda fila (22/10/2026): coste del éxito y ritmo, con las horas logadas */}
+      <div className="-mt-3 grid grid-cols-2 gap-3 md:grid-cols-4">
         <TarjetaKpi
           titulo="Finalizados por éxito"
           valor={num2(t.finalizadosPorExito)}
@@ -692,7 +695,12 @@ export function ResultadosActividad({ r, periodo }: { r: ResultadoResultados; pe
         <TarjetaKpi
           titulo="Finalizados por hora logada"
           valor={num2(t.finalizadosHora)}
-          sub={t.horas == null ? "Sin horas logadas" : `${num2(t.horas)} h logadas`}
+          sub="Finalizados ÷ horas logadas"
+        />
+        <TarjetaKpi
+          titulo="Horas logadas"
+          valor={t.horas == null ? "—" : `${num2(t.horas)} h`}
+          sub="De los agentes con finalizados"
         />
       </div>
 

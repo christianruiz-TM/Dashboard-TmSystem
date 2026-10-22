@@ -339,7 +339,9 @@ export function mockAgentesHoy(campanias?: string[]): AgenteHoy[] {
       talkMedioSeg: Math.round(talk),
       acwMedioSeg: Math.round(acw),
       ahtMedioSeg: Math.round(talk + acw),
-      productivoSeg: Math.round(atendidas * (talk + acw)),
+      preparaciones: Math.round(atendidas / 1.5),
+      preparacionSeg: Math.round((atendidas / 1.5) * 36),
+      productivoSeg: Math.round(atendidas * (talk + acw) + (atendidas / 1.5) * 36),
     };
   }).sort((a, b) => b.atendidas - a.atendidas);
 }
@@ -419,7 +421,10 @@ export function mockAgentesRango(desde: string, hasta: string, campanias?: strin
         talkMedioSeg: Math.round(talk),
         acwMedioSeg: Math.round(acw),
         ahtMedioSeg: Math.round(talk + acw),
-        productivoSeg: Math.round(atendidas * (talk + acw)),
+        // Llamadas manuales: una preparación de ~36 s por cada 1,5 llamadas
+        preparaciones: Math.round(atendidas / 1.5),
+        preparacionSeg: Math.round((atendidas / 1.5) * 36),
+        productivoSeg: Math.round(atendidas * (talk + acw) + (atendidas / 1.5) * 36),
       };
     })
     .sort((a, b) => b.atendidas - a.atendidas);

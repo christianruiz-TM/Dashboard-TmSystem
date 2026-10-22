@@ -3,7 +3,7 @@ import { obtenerEnums } from "../enums";
 import { mockVolumenPorCampania, mockVolumenPorDia } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type { VolumenCampania, VolumenDia } from "../types";
-import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, redondear2, sqlJoinGlobal, sqlLlamada } from "./util";
 
 // ============================================================
 // Volumen de interacciones (tabla itr_thread = hilos por agente).
@@ -44,8 +44,10 @@ export async function volumenPorDia(
           AVG(CASE WHEN t.termination_state = 1 THEN (t.duration - t.wrapup_duration) / 10.0 END) AS talkSeg
       FROM itr_thread t
       LEFT JOIN ph_campaign c ON t.campaign = c.code
+      ${sqlJoinGlobal()}
       WHERE t.start_time >= @desde
-        AND t.start_time <  @hastaExcl${filtro}
+        AND t.start_time <  @hastaExcl
+        AND ${sqlLlamada()}${filtro}
       GROUP BY CONVERT(varchar(10), t.start_time, 23)
       ORDER BY fecha;
     `);
@@ -89,8 +91,10 @@ export async function volumenPorCampania(
           AVG(CASE WHEN t.termination_state = 1 THEN t.duration / 10.0 END) AS ahtSeg
       FROM itr_thread t
       INNER JOIN ph_campaign c ON t.campaign = c.code
+      ${sqlJoinGlobal()}
       WHERE t.start_time >= @desde
-        AND t.start_time <  @hastaExcl${filtro}
+        AND t.start_time <  @hastaExcl
+        AND ${sqlLlamada()}${filtro}
       GROUP BY RTRIM(c.shortname), c.campaigntype
       ORDER BY total DESC;
     `);

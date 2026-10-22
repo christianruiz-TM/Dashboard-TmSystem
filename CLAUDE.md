@@ -55,6 +55,23 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
      Por eso van al lado **«Conversaciones»** (gestionadas con algún segmento
      Connected) y **«Contactos»** (sesiones de script de agente humano; puede
      haber más que conversaciones: la ficha se abre aunque no contesten).
+   - **La PREPARACIÓN de una llamada manual NO es una llamada** (22/10/2026,
+     decidido con Christian tras cuadrar con el informe «Socios_General» de
+     Altitude). Al llamar a mano, Altitude graba dos hilos salientes en dos
+     `itr_global` seguidos: el agente cogiendo el contacto y abriendo la ficha
+     (`itr_global.to_address` VACÍO, ~36 s, `termination_state = 1`, sin
+     segmento Connected ni ACW) y la llamada de verdad al número. Socios
+     21/10: 1.180 hilos = 577 con número (el informe, uno a uno) + 603 sin
+     número; 873 «gestionadas» = 334 llamadas + 539 preparaciones (Bolsas:
+     1.822 de 2.834; GH: 538 de 1.339). Condición única en
+     `queries/util.ts` (`sqlLlamada`/`sqlPreparacion` + `sqlJoinGlobal`):
+     fuera de interacciones, salientes, llamadas gestionadas, abandonadas,
+     AHT/Talk/ACW, intentos de la calidad de la BD, llamadas por éxito y
+     conversación por éxito. Su TIEMPO sí es trabajo: sigue en el tiempo y
+     las horas productivas y sale aparte en «Preparación» (tabla de agentes).
+     El gráfico del supervisor de Altitude SÍ las cuenta como «Gestionadas»:
+     no validar contra él. Planificación (ritmo de salientes) aún las cuenta:
+     pendiente, se decide aparte.
    - Origen: `origin` 1=Inbound · 2=Outbound · 3=Workflow
 6.b **SLA, cola y % abandono SOLO sobre `origin = 1`** (entrantes). Verificado
    09/09/2026 con datos reales: de 4.894 atendidas de un día, 4.322 eran
@@ -249,8 +266,8 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       (Σ `script_session.duration` de sus sesiones, sin las de 2 h o más ni
       las abiertas: `guionSeg` en la Q1 de `filasAgenteCampania`). Sustituye
       a «éxitos por hora productiva» (gestión de las atendidas). «Llamadas» =
-      llamadas gestionadas. GH septiembre: 15,02 llamadas y 1,83 éxitos por
-      hora logada (1.384,22 h); 979,57 h de script.
+      llamadas gestionadas (sin preparaciones, regla 6). GH septiembre: 9,64
+      llamadas y 1,83 éxitos por hora logada (1.384,22 h); 979,57 h de script.
     - «Conv. llamadas» se llama **«% éxito por llamada»** (éxitos ÷ llamadas
       gestionadas, en %). **«Gestión sin éxito»** = tiempo medio con el
       script abierto de las sesiones que NO son éxito (GH septiembre:
@@ -328,9 +345,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         no, sin los estados que no cuentan en la calidad de la base de datos
         (NULL, -1, 6, 11, 17, 18), de media entre los éxitos que tienen
         alguno (`itr_thread.contact = activity.code`; tabla `#lla` con
-        `OPTION (HASH JOIN)`). GH septiembre: 2,52; gh_gra_pre_mer 2,93
-        (571 llamadas para 195 éxitos, igual que una consulta independiente).
-        Bolsas, 01-20/10: 11,27.
+        `OPTION (HASH JOIN)`), sin preparaciones (regla 6). GH septiembre:
+        1,99; gh_gra_pre_mer 2,25 (421 llamadas para 187 éxitos, igual que
+        una consulta independiente; con las preparaciones salía 2,93).
       - **Finalizados por hora**: hora logada en el agente y el total (los
         agentes con finalizados); por campaña, hora con el script abierto.
         Las horas salen de la base de los ratios de éxito (`baseRatiosRango`,
@@ -1408,9 +1425,11 @@ aprobada antes de tocar producción (los KPIs van también a Dirección).
       canceladas (17) ni reencoladas (18). Grupos: contactable, para
       reintentar, no útil, rechazo, red (10 = «sin líneas troncales
       disponibles»). Puro en `lib/calidad-bd.ts`, SQL en
-      `queries/calidad-bd.ts`. Socios 20/10: 1.031 intentos, igual que
-      Altitude (solo 2 llamadas cambian de grupo: Altitude las cuenta como
-      rechazadas). Un mes de todos los clientes, 0,9 s.
+      `queries/calidad-bd.ts`. Un mes de todos los clientes, 0,9 s. Ojo: se
+      validó primero contra el gráfico del supervisor de Altitude (Socios
+      20/10: 1.031), que cuenta las preparaciones; desde el 22/10 cuadra con
+      el informe «Socios_General» (21/10: 577 intentos, 334 gestionadas, 57,9 %
+      contactable, cada resultado igual).
 - [x] Tiempos con «reloj» debajo («60,63 s» / «1 min 01 s»):
       `relojDesdeSegundos`/`relojDesdeHoras` y `<Tiempo>`.
 - [x] Selector de clientes por actividad: arriba los que tienen llamadas en
@@ -1425,6 +1444,27 @@ aprobada antes de tocar producción (los KPIs van también a Dirección).
       `next dev` con capturas.
 - [x] Commit `c9c5d27`, desplegado el 21/10/2026 a las 15:08 (imagen
       `6cf0b1bc7d0b`, sin migraciones, backup `dashboard_20261021_1503.db`).
+
+## Sesión 22/10/2026 (Opus 5.5): preparaciones y cabecera de Supervisión
+
+- [x] «873 llamadas en el panel, 577 en Altitude» (Socios, 21/10): el panel
+      contaba la preparación de cada llamada manual como otra llamada
+      gestionada (regla 6). Corregido en todas las consultas de volumen y
+      llamadas; «Preparación» aparte en la tabla de agentes. Socios 21/10
+      cuadra con el informe de Altitude resultado a resultado.
+- [x] Agregados recalculados (`npm run agregados -- --desde 2025-06-01`,
+      60 s): septiembre 2026 pasa de 88.383 a 52.252 llamadas gestionadas y
+      de 115.755 a 80.426 interacciones; éxitos y contactos, iguales.
+- [x] Cabecera de Supervisión (`components/kpi/cabecera-supervision.tsx`):
+      Tiempo real e Histórico con filas «Equipo ahora» (solo Tiempo real),
+      «Actividad» (horas logadas, llamadas gestionadas, llamadas/h logada,
+      AHT, éxitos con % por llamada y por contacto, éxitos/h logada, gestión
+      por éxito y sin éxito) y «Entrantes» (solo si hay recibidas). Las
+      tarjetas de «Rendimiento por éxitos» se ocultan en Supervisión
+      (`sinTarjetas`); en Dirección siguen, con su variación. Resultados, en
+      dos filas con las horas logadas.
+- [ ] Planificación: decidir si su ritmo de salientes deja de contar las
+      preparaciones (cambiaría los planes).
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 

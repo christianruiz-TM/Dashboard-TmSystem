@@ -7,7 +7,9 @@ import type { AgenteHoy } from "@/lib/rdb/types";
 // «Llamadas gestionadas» = lo que antes se llamaba «Atendidas» (21/10/2026):
 // en las salientes cuenta también las marcaciones que el agente cerró sin
 // que contestara nadie, por eso va al lado de «Conversaciones» y de
-// «Contactos». Sin hooks: sirve en los dos paneles.
+// «Contactos». Desde el 22/10/2026 sin las preparaciones de llamada manual
+// (salientes sin número), que van aparte en «Preparación» y dentro del
+// tiempo productivo. Sin hooks: sirve en los dos paneles.
 // ============================================================
 
 export function TablaAgentesSupervision({ agentes, vacio }: { agentes: AgenteHoy[]; vacio: string }) {
@@ -31,13 +33,21 @@ export function TablaAgentesSupervision({ agentes, vacio }: { agentes: AgenteHoy
           <TableHead className="text-right">Talk medio</TableHead>
           <TableHead className="text-right">ACW medio</TableHead>
           <TableHead className="text-right">AHT</TableHead>
-          <TableHead className="text-right">Tiempo productivo</TableHead>
+          <TableHead
+            className="text-right"
+            title="Llamadas manuales: tiempo que el agente pasa cogiendo el contacto y abriendo la ficha antes de marcar. Altitude lo graba como una interacción aparte, sin número; no es una llamada, pero sí trabajo (está dentro del tiempo productivo)."
+          >
+            Preparación
+          </TableHead>
+          <TableHead className="text-right" title="Todo el tiempo de gestión del agente, preparación incluida">
+            Tiempo productivo
+          </TableHead>
         </TableRow>
       </TableHeader>
       <TableBody>
         {agentes.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={8} className="text-center text-muted-foreground">
+            <TableCell colSpan={9} className="text-center text-muted-foreground">
               {vacio}
             </TableCell>
           </TableRow>
@@ -59,6 +69,16 @@ export function TablaAgentesSupervision({ agentes, vacio }: { agentes: AgenteHoy
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 <Tiempo segundos={a.ahtMedioSeg} />
+              </TableCell>
+              <TableCell className="text-right tabular-nums">
+                {a.preparaciones > 0 ? (
+                  <>
+                    <Tiempo segundos={a.preparacionSeg} acumulado />
+                    <div className="text-[11px] text-muted-foreground">{a.preparaciones.toLocaleString("es-ES")} veces</div>
+                  </>
+                ) : (
+                  "—"
+                )}
               </TableCell>
               <TableCell className="text-right tabular-nums">
                 <Tiempo segundos={a.productivoSeg} acumulado />

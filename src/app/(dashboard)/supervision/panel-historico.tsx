@@ -4,7 +4,7 @@ import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
-import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
+import { CabeceraSupervision } from "@/components/kpi/cabecera-supervision";
 import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
@@ -19,7 +19,6 @@ import {
 import { TablaAgentesSupervision } from "@/components/kpi/tabla-agentes-supervision";
 import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
 import type { ResultadoCalidadBd } from "@/lib/calidad-bd";
-import { relojDesdeSegundos, segundosLegibles } from "@/lib/fechas";
 import type { AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
 
 /**
@@ -64,38 +63,12 @@ export function PanelHistorico({
   /** Cliente de cada campaña (para el comparador sin cliente elegido). */
   servicioDe: Record<string, string>;
 }) {
-  const recibidas = kpis.reduce((acc, k) => acc + k.recibidas, 0);
-  const atendidas = kpis.reduce((acc, k) => acc + k.atendidas, 0);
-  const conversaciones = kpis.reduce((acc, k) => acc + k.conversaciones, 0);
-  const exitos = kpis.reduce((acc, k) => acc + k.exitos, 0);
-  // Abandono y SLA solo sobre entrantes (las salientes no hacen cola)
-  const atendidasIn = kpis.reduce((acc, k) => acc + k.atendidasInbound, 0);
-  const abandonadasIn = kpis.reduce((acc, k) => acc + k.abandonadasInbound, 0);
-  const pctAbandono = recibidas > 0 ? (abandonadasIn / recibidas) * 100 : null;
-  // SLA global desde los recuentos, no ponderando los % ya redondeados
-  const fueraSla = kpis.reduce((acc, k) => acc + k.atendidasFueraSla, 0);
-  const slaGlobal = atendidasIn > 0 ? ((atendidasIn - fueraSla) / atendidasIn) * 100 : null;
-  // Cola de las atendidas y espera de las abandonadas (entrantes), por separado.
-  // Medias globales desde las sumas exactas, no promediando medias redondeadas.
-  const colaGlobal =
-    atendidasIn > 0
-      ? kpis.reduce((acc, k) => acc + k.colaAtendidasTotalSeg, 0) / atendidasIn
-      : null;
-  const esperaAbandGlobal =
-    abandonadasIn > 0
-      ? kpis.reduce((acc, k) => acc + k.esperaAbandonadasTotalSeg, 0) / abandonadasIn
-      : null;
-  const ahtMedio =
-    atendidas > 0
-      ? kpis.reduce((acc, k) => acc + (k.ahtSeg ?? 0) * k.atendidas, 0) / atendidas
-      : null;
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-xl font-semibold">Supervisión · histórico</h1>
         <p className="text-sm text-muted-foreground">
-          Cola, SLA y productividad de agentes en el período seleccionado ({desde} a {hasta})
+          Actividad, éxitos y productividad de agentes en el período seleccionado ({desde} a {hasta})
         </p>
       </div>
 
@@ -107,37 +80,7 @@ export function PanelHistorico({
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-7">
-        <TarjetaKpi titulo="Recibidas" valor={recibidas.toLocaleString("es-ES")} />
-        <TarjetaKpi
-          titulo="Llamadas gestionadas"
-          valor={atendidas.toLocaleString("es-ES")}
-          sub={`${conversaciones.toLocaleString("es-ES")} con conversación`}
-        />
-        <TarjetaKpi
-          titulo="Éxitos"
-          valor={exitos.toLocaleString("es-ES")}
-          sub="Ventas / objetivos"
-        />
-        <TarjetaKpi
-          titulo="% Abandono"
-          valor={pctAbandono != null ? `${pctAbandono.toFixed(1)} %` : "—"}
-          // Mismo alcance que el %: solo entrantes (antes mostraba las de todos los orígenes)
-          sub={`${abandonadasIn.toLocaleString("es-ES")} entrantes abandonadas`}
-        />
-        <TarjetaKpi
-          titulo="SLA global"
-          valor={slaGlobal != null ? `${slaGlobal.toFixed(1)} %` : "—"}
-          sub={`Objetivo: cola ≤ ${umbral}s`}
-        />
-        <TarjetaKpi
-          titulo="Cola media (atendidas)"
-          valor={segundosLegibles(colaGlobal)}
-          reloj={relojDesdeSegundos(colaGlobal)}
-          sub={`Abandonadas: ${segundosLegibles(esperaAbandGlobal)} de espera antes de colgar`}
-        />
-        <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} reloj={relojDesdeSegundos(ahtMedio)} />
-      </div>
+      <CabeceraSupervision kpis={kpis} ratios={ratios} umbral={umbral} periodo="en el período" />
 
       <TarjetaIvr ivr={ivr} />
 
@@ -162,7 +105,7 @@ export function PanelHistorico({
         </CardContent>
       </Card>
 
-      <RatiosExito ratios={ratios} periodo="en el período" />
+      <RatiosExito ratios={ratios} periodo="en el período" sinTarjetas />
 
       <CalidadBaseDatos datos={calidad} periodo="en el período" />
 
@@ -183,6 +126,7 @@ export function PanelHistorico({
           "atendidas",
           "calidadBd",
           "conversaciones",
+          "preparacion",
           "tiempoReloj",
           "exitos",
           "contactosGestionados",

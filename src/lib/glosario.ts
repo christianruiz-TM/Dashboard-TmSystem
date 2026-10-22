@@ -22,7 +22,12 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   atendidas: {
     termino: "Llamadas gestionadas (antes «Atendidas»)",
     definicion:
-      "Llamadas que pasaron por el puesto de un agente: lo que Altitude llama «gestionadas». En una entrante es que la cogió un agente. En una saliente NO quiere decir que contestara alguien: cuentan también las marcaciones que el agente cerró sin conversación (sonó y no lo cogieron, saltó un contestador…). Por eso un agente de Bolsas puede tener más de 600 en un día: el 01/10/2026, una agente tuvo 651, de las que 239 fueron conversaciones con 356 contactos.",
+      "Llamadas que pasaron por el puesto de un agente: lo que Altitude llama «gestionadas». En una entrante es que la cogió un agente. En una saliente NO quiere decir que contestara alguien: cuentan también las marcaciones que el agente cerró sin conversación (sonó y no lo cogieron, saltó un contestador…). No cuentan las «preparaciones» de las llamadas manuales (ver «Preparación»): así cuadra con el informe de Altitude (Socios, 21/10/2026: 334 gestionadas de 577 intentos).",
+  },
+  preparacion: {
+    termino: "Preparación (llamadas manuales)",
+    definicion:
+      "Cuando el agente llama a mano, Altitude graba dos cosas: primero el agente cogiendo el contacto y abriendo la ficha (sin número marcado, unos 36 segundos de media) y después la llamada de verdad. Lo primero es la preparación: NO es una llamada, así que no cuenta en las llamadas gestionadas, ni en los intentos, ni en el AHT; pero es trabajo, así que sí está dentro del tiempo productivo. Antes del 22/10/2026 el panel la contaba como otra llamada gestionada y por eso salían el doble (Socios, 21/10/2026: 873 en vez de 334).",
   },
   conversaciones: {
     termino: "Conversaciones",
@@ -32,7 +37,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   calidadBd: {
     termino: "Calidad de la base de datos",
     definicion:
-      "Cómo acaban las llamadas salientes, como el gráfico del supervisor de Altitude: gestionadas, sin respuesta, ocupado, contestador, números inválidos, fax, módem, rechazadas, molestia, sin líneas troncales… No cuentan las que se quedan sin resultado, las abandonadas ni las redirigidas. «Contactable» = gestionadas ÷ intentos; «Para reintentar» = ocupado, sin respuesta y contestador; «No sirven» = números inválidos, fax y módem (lo que dice que la base de datos es mala); «Red» = sin líneas troncales y desbordadas (un problema de líneas, no de la base de datos); «Intentos por contacto» = intentos ÷ contactos distintos llamados.",
+      "Cómo acaban las llamadas salientes, como el informe de Altitude (no cuentan las preparaciones de las llamadas manuales, que el gráfico del supervisor de Altitude sí mete como «gestionadas»): gestionadas, sin respuesta, ocupado, contestador, números inválidos, fax, módem, rechazadas, molestia, sin líneas troncales… No cuentan las que se quedan sin resultado, las abandonadas ni las redirigidas. «Contactable» = gestionadas ÷ intentos; «Para reintentar» = ocupado, sin respuesta y contestador; «No sirven» = números inválidos, fax y módem (lo que dice que la base de datos es mala); «Red» = sin líneas troncales y desbordadas (un problema de líneas, no de la base de datos); «Intentos por contacto» = intentos ÷ contactos distintos llamados.",
   },
   tiempoReloj: {
     termino: "Tiempos en reloj",

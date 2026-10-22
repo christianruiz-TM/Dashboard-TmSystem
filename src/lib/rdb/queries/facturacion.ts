@@ -15,7 +15,7 @@ import type {
   UnidadesCampania,
 } from "../types";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
-import { claveCampanias, filtroCampanias, limitesRango, redondear2 } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, redondear2, sqlJoinGlobal, sqlLlamada } from "./util";
 
 // ============================================================
 // Unidades facturables por campaña. Tres fuentes:
@@ -66,16 +66,19 @@ export async function metricasDiariasPorCampania(
           CONVERT(varchar(10), t.start_time, 23)                          AS fecha,
           RTRIM(c.shortname)                                              AS campania,
           c.campaigntype                                                  AS tipoCodigo,
-          COUNT(*)                                                        AS interacciones,
+          -- Las preparaciones de llamada manual (salientes sin número,
+          -- 22/10/2026) no son interacciones ni llamadas; su tiempo sí va en
+          -- las horas productivas (es gestión del agente)
+          SUM(CASE WHEN ${sqlLlamada()} THEN 1 ELSE 0 END)                AS interacciones,
           SUM(CASE WHEN t.origin = 1 THEN 1 ELSE 0 END)                   AS inbound,
-          SUM(CASE WHEN t.origin = 2 THEN 1 ELSE 0 END)                   AS outbound,
-          SUM(CASE WHEN t.termination_state = 1 THEN 1 ELSE 0 END)        AS atendidas,
-          SUM(CASE WHEN t.termination_state = 6 THEN 1 ELSE 0 END)        AS abandonadas,
+          SUM(CASE WHEN t.origin = 2 AND ${sqlLlamada()} THEN 1 ELSE 0 END) AS outbound,
+          SUM(CASE WHEN t.termination_state = 1 AND ${sqlLlamada()} THEN 1 ELSE 0 END) AS atendidas,
+          SUM(CASE WHEN t.termination_state = 6 AND ${sqlLlamada()} THEN 1 ELSE 0 END) AS abandonadas,
           -- Solo entrantes: la tendencia de abandono de Dirección (regla 6.b)
           SUM(CASE WHEN t.origin = 1 AND t.termination_state = 6 THEN 1 ELSE 0 END) AS abandonadasInbound,
-          AVG(CASE WHEN t.termination_state = 1 THEN t.duration / 10.0 END)                       AS ahtSeg,
-          AVG(CASE WHEN t.termination_state = 1 THEN t.wrapup_duration / 10.0 END)                AS acwSeg,
-          AVG(CASE WHEN t.termination_state = 1 THEN (t.duration - t.wrapup_duration) / 10.0 END) AS talkSeg,
+          AVG(CASE WHEN t.termination_state = 1 AND ${sqlLlamada()} THEN t.duration / 10.0 END)                       AS ahtSeg,
+          AVG(CASE WHEN t.termination_state = 1 AND ${sqlLlamada()} THEN t.wrapup_duration / 10.0 END)                AS acwSeg,
+          AVG(CASE WHEN t.termination_state = 1 AND ${sqlLlamada()} THEN (t.duration - t.wrapup_duration) / 10.0 END) AS talkSeg,
           -- Horas productivas EXACTAS: suma de la gestión real de las atendidas.
           -- Antes se derivaban en TS como (AHT medio redondeado × atendidas),
           -- lo que arrastraba el redondeo a una cifra que se factura.
@@ -84,6 +87,7 @@ export async function metricasDiariasPorCampania(
                    THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 36000.0        AS horasProductivas
       FROM itr_thread t
       INNER JOIN ph_campaign c ON t.campaign = c.code
+      ${sqlJoinGlobal()}
       WHERE t.start_time >= @desde AND t.start_time < @hastaExcl${filtroItr}
       GROUP BY CONVERT(varchar(10), t.start_time, 23), RTRIM(c.shortname), c.campaigntype;
     `);
