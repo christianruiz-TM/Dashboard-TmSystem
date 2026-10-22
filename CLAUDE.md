@@ -1463,6 +1463,9 @@ aprobada antes de tocar producción (los KPIs van también a Dirección).
       tarjetas de «Rendimiento por éxitos» se ocultan en Supervisión
       (`sinTarjetas`); en Dirección siguen, con su variación. Resultados, en
       dos filas con las horas logadas.
+- [x] Commit `1cf6c87`, desplegado el 22/10/2026 a las 10:31 (imagen
+      `1a4858f13931`, sin migraciones, backup `dashboard_20261022_1026.db`),
+      agregados recalculados en producción después.
 - [ ] Planificación: decidir si su ritmo de salientes deja de contar las
       preparaciones (cambiaría los planes).
 
