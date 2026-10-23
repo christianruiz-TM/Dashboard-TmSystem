@@ -611,6 +611,11 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 - `docs/instrucciones.md` — contexto original del flujo manual con Claude chat.
 - `docs/registro-sesiones.md` — índice de TODAS las sesiones de trabajo (qué se
   hizo, commits y dónde está el detalle). Al cerrar una sesión, añadir su fila.
+- `docs/registro-sesion-21-23-octubre-2026.md` — KPIs de Supervisión y
+  Dirección: calidad de la BD, preparaciones de llamada manual, 12 cajas,
+  Salientes, rellamadas validadas con supervisión y horas del cliente por
+  prefijo. La sección 8 de la referencia del esquema recoge los campos
+  verificados (`man_sch_moment`, `to_address` vacío, nombres en Altitude).
 - `docs/facturacion-horas-logadas.md` — Excel de horas de operaciones
   (`v_TM_TiempoAgentLogado` = `user_log`) frente al dashboard y la unidad
   `horas_logadas` (regla 16).
@@ -1418,6 +1423,9 @@ Registro completo en `docs/registro-sesion-20-21-octubre-2026.md`.
 
 ## Sesión 21/10/2026, tarde (Opus 5.5): calidad de la base de datos y KPIs
 
+Registro completo de esta sesión y de las del 22-23/10 (porqué, cifras,
+despliegues y pendientes) en `docs/registro-sesion-21-23-octubre-2026.md`.
+
 Peticiones de Christian y de supervisión del 21/10/2026, con propuesta
 aprobada antes de tocar producción (los KPIs van también a Dirección).
 
@@ -1503,6 +1511,11 @@ Orden fijado por Christian, el MISMO en todas las vistas de Supervisión
 
 ## Sesión 23/10/2026 (Opus 5.5): horas del cliente por prefijo
 
+Registro completo en `docs/registro-sesion-21-23-octubre-2026.md`.
+Desplegado el 23/10/2026 a las 11:25 (`47e1779`, imagen `090f5646af4b`,
+backup `dashboard_20261023_1122.db`), después de `abd4e71` (horas logadas y
+con ficha separadas) y `29f658f` (fila de total y glosario sin repetidos).
+
 - **Horas totales de un cliente = solo sus usuarios** (decidido con
   Christian): con el prefijo de su línea `horas_logadas`
   (`prefijoUsuariosDe`, `lib/facturacion.ts`: GH, CR, UGR, CEFF), el total de
@@ -1516,8 +1529,15 @@ Orden fijado por Christian, el MISMO en todas las vistas de Supervisión
   campañas sin cerrar contactos (0 finalizados, con sus horas; con prefijo,
   solo los del cliente), fila de total y, si un usuario de fuera del
   prefijo cerró contactos, sus horas salen tachadas y no suman.
-- Caja 1 = fila de total de Resultados (GH 01-23/10: 802,74 h; septiembre
-  1.384,22 h, como la facturación).
+- Caja 1 = fila de total de Resultados (GH 01-23/10: 803,02 h en
+  producción; septiembre 1.384,22 h, como la facturación).
+- [ ] Confirmar con Christian si la regla vale para los cuatro clientes con
+      prefijo (hoy sí) o solo para GrupoHuertas, y si los usuarios sin prefijo
+      deben salir también de las filas de «Rendimiento por éxitos».
+- [ ] La guía de supervisión (Claude Docs y HTML) sigue siendo solo de
+      Planificación: no explica estos KPIs.
+- Servidor: 2,9 GB libres; caché de compilación (~2 GB, compartida con
+  tickets) sin limpiar por decisión de Christian (23/10/2026).
 
 ## Sesión 22/10/2026, tarde (Opus 5.5): KPIs de salida («Salientes»)
 
@@ -1590,7 +1610,9 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
    «Ávolo con entrantes y nadie con su usuario»; faltan SLA bajo, abandono
    alto y Not Ready largo.
 5. Curva intradía por franjas de 30 min (hoy todo es total diario).
-6. KPI de ocupación (productivas / logadas) y % ready.
+6. ~~KPI de ocupación (productivas / logadas) y % ready.~~ Hecho el
+   22-23/10/2026 en «Salientes»: ocupación = script abierto ÷ horas logadas
+   y tiempo esperando llamada (Ready sin ficha abierta), por agente y global.
 7. Cerrar o completar el portal de clientes: 0 mapeos en `client_campaigns`,
    0 usuarios con rol `cliente` → hoy da error si alguien entra.
 8. Seguimiento de callbacks del IVR: el mecanismo ya se conoce (se liga por

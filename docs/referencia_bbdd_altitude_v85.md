@@ -559,3 +559,38 @@ WHERE l.op_type = 2   -- Solo registros No Disponible
 GROUP BY u.usr_name, ISNULL(r.name, 'Sin razón')
 ORDER BY agente, segundos_total DESC;
 ```
+
+## 8. Campos verificados en esta instalación (21-23/10/2026)
+
+Comprobados contra RDBv2 y, donde se dice, contra las pantallas e informes de
+Altitude con supervisión. Detalle en `docs/registro-sesion-21-23-octubre-2026.md`.
+
+| Tabla . campo | Qué es | En Altitude se ve como |
+| --- | --- | --- |
+| `activity.code` | Id del contacto de la lista | «Contacto» (con ceros delante: 01781989) |
+| `activity.contact_profile` | `ph_contact_profile.code` | «Perfil del Directorio» / «ID Único» (# 1107104) |
+| `activity.status` | 0 = iniciado (abierto) | «Estado» («Iniciado») |
+| `activity.moment` | Próximo intento (automático o manual) | «Momento» |
+| `activity.man_sch_moment` | Hora de la rellamada que programa el agente; solo guarda la ÚLTIMA (se sobrescribe al volver a agendar) | «Momento de la Rellamada/Agendado manual» |
+| `activity.agent` | Agente guardado en la rellamada; -1 si la agente no se la guarda (para que la llame cualquiera) | «Agente» |
+| `activity_history.event_action` | `ContactEventActionType`: 6 AutomaticOutboundAgentScript (el agente cierra la ficha), 7 AgentUpdate… | — |
+| `activity_history.schedule_status` | `ContactSchedulingStatus`: 0 Scheduled, 1 NotScheduled | — |
+| `activity_history.event_agent` | Agente del evento (quien agendó) | — |
+| `itr_global.code` | Interacción global | «Interacción Global» (informe, hoja «Raw Data - LL») |
+| `itr_global.itr_key` | Clave de la interacción | «Clave de Interacción» |
+| `itr_global.to_address` | Número marcado, con el código de cuenta delante (1013…, 7114…) | «Para» |
+| `itr_thread.contact` | = `activity.code` | — |
+
+- **Preparación de una llamada manual:** hilo saliente (`origin = 2`) con
+  `itr_global.to_address` VACÍO. Es el agente cogiendo el contacto y abriendo
+  la ficha antes de marcar (~36 s, `termination_state = 1` «Handled», sin
+  segmento `state = 6` Connected ni ACW). La llamada de verdad va en OTRO
+  `itr_global` justo después. El informe «Socios_General» de Altitude NO las
+  cuenta; el gráfico del supervisor de Altitude SÍ (como «Gestionadas»).
+- **Ready (`ag_in_cp_log.op_type = 1`)** incluye el tiempo hablando (Ready ≈
+  logado − pausas). El tiempo de verdad esperando llamada es el Ready sin
+  ninguna ficha de script abierta.
+- **`script_session.duration`** también va en DÉCIMAS de segundo (ratio 10,0
+  exacto contra `gmt_end_time - gmt_start_time`), y la ficha sigue abierta
+  aunque el agente esté en pausa.
+

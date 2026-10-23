@@ -220,13 +220,19 @@ Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió jun
 
 ### 21 · 21/10/2026 · Calidad de la base de datos y KPIs de supervisión (Opus 5.5)
 
+Registro completo de las sesiones 21 y 22: `docs/registro-sesion-21-23-octubre-2026.md`.
+
+
 - «Atendidas» pasa a «Llamadas gestionadas» (en salientes no quiere decir que contestaran), con «Conversaciones» (con segmento Connected) y «Contactos» (sesiones de script) al lado.
 - Bloque «Calidad de la base de datos» en Supervisión y Dirección: intentos de salida por resultado, como el gráfico de Altitude (Socios 20/10: 1.031 intentos, igual), por tipo de campaña y evolución diaria. Fuera: sin resultado, abandonadas, redirigidas, canceladas y reencoladas.
 - Tiempos con reloj debajo; selector de clientes con los activos arriba y los parados abajo.
 - KPIs nuevos sin mezclar familias: en «Rendimiento por éxitos» (actividad), llamadas y éxitos por hora (logada en lo agrupado, script abierto por campaña), «% éxito por llamada» y gestión sin éxito; en Resultados (contactos cerrados), «Aprovechamiento (bruto)», finalizados por éxito, llamadas por éxito (intentos a cada contacto de éxito en los 90 días antes de cerrarlo) y finalizados por hora.
 - Verificado contra RDBv2 (GH septiembre: 2.529 éxitos, 1.384,22 h logadas, aprovechamiento 30,01 %, 2,52 llamadas por éxito; comprobación independiente en gh_gra_pre_mer) y en el `next dev`. 263 tests.
 
-### 22 · 22/10/2026 · Preparaciones de llamada manual y cabecera de Supervisión (Opus 5.5)
+### 22 · 22-23/10/2026 · Preparaciones, 12 cajas, Salientes y horas del cliente (Opus 5.5)
+
+Registro completo: `docs/registro-sesion-21-23-octubre-2026.md`. Commits desplegados: `1cf6c87`, `9592ab6`, `bde74ba`, `c741fc8`, `abd4e71`, `29f658f` y `47e1779`.
+
 
 - Socios 21/10: 873 llamadas gestionadas en el panel y 577 interacciones en el informe «Socios_General» de Altitude. Cruzado uno a uno: el informe son exactamente los 577 hilos salientes con número; los 603 sin número son la preparación de cada llamada manual (el agente abre la ficha antes de marcar), de los que 539 salían «gestionados». 873 = 334 llamadas + 539 preparaciones.
 - Decidido con Christian: la preparación no es una llamada (fuera de llamadas gestionadas, interacciones, AHT, intentos y llamadas por éxito), pero su tiempo es trabajo (sigue en el productivo y sale aparte en «Preparación»). Socios 21/10 cuadra resultado a resultado con Altitude; agregados recalculados.
