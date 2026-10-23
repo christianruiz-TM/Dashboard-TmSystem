@@ -105,7 +105,16 @@ const objMin = (v: number | null | undefined) => (v == null ? null : `≥ ${v.to
 const objMax = (v: number | null | undefined) => (v == null ? null : `≤ ${v.toLocaleString("es-ES")} %`);
 
 /** Celdas de ratios comunes a agente, agente×campaña y campaña. */
-function CeldasRatios({ r, baseHoras }: { r: RatiosResultado; baseHoras: "logada" | "guion" }) {
+function CeldasRatios({
+  r,
+  baseHoras,
+  fueraDelTotal = false,
+}: {
+  r: RatiosResultado;
+  baseHoras: "logada" | "guion";
+  /** Usuario que no es del cliente (sin su prefijo): sus horas no van al total. */
+  fueraDelTotal?: boolean;
+}) {
   const at = r.muestraPequenia;
   const o = r.objetivo;
   const ayudaHoras = baseHoras === "logada" ? "Horas logadas en el período" : "Horas con el script abierto en la campaña";
@@ -135,8 +144,14 @@ function CeldasRatios({ r, baseHoras }: { r: RatiosResultado; baseHoras: "logada
         {num2(r.llamadasPorExito)}
       </TableCell>
       <TableCell
-        className="text-right tabular-nums"
-        title={r.horasLogadas == null ? "Por campaña no hay horas logadas: un agente tiene varias campañas abiertas a la vez" : "Horas logadas en el período"}
+        className={cn("text-right tabular-nums", fueraDelTotal && "text-muted-foreground line-through decoration-muted-foreground/50")}
+        title={
+          r.horasLogadas == null
+            ? "Por campaña no hay horas logadas: un agente tiene varias campañas abiertas a la vez"
+            : fueraDelTotal
+              ? "No es un usuario del cliente (no lleva su prefijo): sus horas no cuentan en el total"
+              : "Horas logadas en el período"
+        }
       >
         {r.horasLogadas == null ? "—" : <Tiempo horas={r.horasLogadas} />}
       </TableCell>
@@ -301,7 +316,7 @@ function VistaAgentes({
                         </div>
                       </div>
                     </TableCell>
-                    <CeldasRatios r={a} baseHoras="logada" />
+                    <CeldasRatios r={a} baseHoras="logada" fueraDelTotal={!a.cuentaEnHoras} />
                   </TableRow>
                   {abierto
                     ? a.campanias.map((c) => (
@@ -327,9 +342,9 @@ function VistaAgentes({
         </TableBody>
       </Table>
       <p className="mt-2 text-xs text-muted-foreground">
-        Las horas del total son las de los agentes de esta tabla (los que cerraron contactos en el período). La caja
-        «Horas logadas» de arriba cuenta a todos los que trabajaron en las campañas del cliente, aunque no cerraran
-        ningún contacto, así que puede ser mayor.
+        Salen también los agentes que trabajaron en las campañas sin cerrar ningún contacto (0 finalizados). En los
+        clientes que facturan por horas logadas, las horas del total (y las de la caja «Horas logadas») son solo las de
+        sus usuarios (GH_… en GrupoHuertas); si un usuario de fuera cerró contactos, sale con sus horas tachadas.
       </p>
     </>
   );

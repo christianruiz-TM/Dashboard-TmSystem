@@ -1,3 +1,4 @@
+import { esUsuarioDelCliente } from "@/lib/ratios-exito";
 import type { BaseRatiosExito, BaseSalientes } from "@/lib/rdb/types";
 
 // ============================================================
@@ -174,7 +175,12 @@ function cerrar(clave: string, a: Acum, guionTotalSeg: number | null): FilaSalie
   };
 }
 
-export function calcularSalientes(base: BaseSalientes, ratios: BaseRatiosExito): ResultadoSalientes {
+export function calcularSalientes(
+  base: BaseSalientes,
+  ratios: BaseRatiosExito,
+  /** Prefijo de los usuarios del cliente: solo sus horas van al total. */
+  prefijo: string | null = null,
+): ResultadoSalientes {
   const agentes = new Map<string, Acum>();
   const campanias = new Map<string, Acum>();
   const total = vacio("Total");
@@ -204,7 +210,7 @@ export function calcularSalientes(base: BaseSalientes, ratios: BaseRatiosExito):
     total.guionSeg += f.guionSeg;
   }
   for (const [clave, a] of agentes) a.horasLogadas = horas.get(clave) ?? null;
-  const conHoras = [...agentes.values()].filter((a) => a.horasLogadas != null);
+  const conHoras = [...agentes].filter(([c, a]) => a.horasLogadas != null && esUsuarioDelCliente(c, prefijo)).map(([, a]) => a);
   total.horasLogadas = conHoras.length > 0 ? conHoras.reduce((s, a) => s + a.horasLogadas!, 0) : null;
 
   // Franjas, intentos y preparaciones

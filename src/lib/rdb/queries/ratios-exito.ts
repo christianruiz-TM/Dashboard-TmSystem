@@ -373,9 +373,9 @@ export async function baseRatiosHoy(campanias?: string[]): Promise<BaseRatiosExi
   );
 }
 
-/** Ratios de éxito de HOY (Supervisión en vivo, cache 60 s). */
-export async function ratiosExitoHoy(campanias?: string[]): Promise<ResultadoRatios> {
-  return calcularRatiosExito(await baseRatiosHoy(campanias));
+/** Ratios de éxito de HOY (Supervisión en vivo, cache 60 s). Con prefijo, el total solo con los usuarios del cliente. */
+export async function ratiosExitoHoy(campanias?: string[], prefijo: string | null = null): Promise<ResultadoRatios> {
+  return calcularRatiosExito(await baseRatiosHoy(campanias), prefijo);
 }
 
 /**
@@ -400,6 +400,8 @@ export async function ratiosExitoRango(
   desdeISO: string,
   hastaISO: string,
   campanias?: string[],
+  /** Prefijo de los usuarios del cliente: solo sus horas van al total. */
+  prefijo: string | null = null,
 ): Promise<ResultadoRatios> {
-  return calcularRatiosExito(await baseRatiosRango(desdeISO, hastaISO, campanias));
+  return calcularRatiosExito(await baseRatiosRango(desdeISO, hastaISO, campanias), prefijo);
 }

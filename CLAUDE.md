@@ -1501,6 +1501,24 @@ Orden fijado por Christian, el MISMO en todas las vistas de Supervisión
 - Cada tarjeta lleva globo de ayuda (`TarjetaKpi ayuda`, texto de
   `ayudaDe(clave)` del glosario).
 
+## Sesión 23/10/2026 (Opus 5.5): horas del cliente por prefijo
+
+- **Horas totales de un cliente = solo sus usuarios** (decidido con
+  Christian): con el prefijo de su línea `horas_logadas`
+  (`prefijoUsuariosDe`, `lib/facturacion.ts`: GH, CR, UGR, CEFF), el total de
+  horas logadas (caja 1, fila de total de Resultados, llamadas/éxitos/
+  finalizados por hora y ocupación de Salientes) solo suma `PREFIJO_…`
+  (`esUsuarioDelCliente`, `lib/ratios-exito.ts`; incluye `_BD` y `_BD_LX`).
+  Motivo: «Manu» (sin número ni prefijo) abrió 1 ficha de GH en octubre y
+  metía sus 80,17 h logadas en la caja. Sin cliente elegido o sin prefijo,
+  como antes (todos los que trabajaron en el alcance).
+- Resultados → por agente: salen también los agentes que trabajaron en las
+  campañas sin cerrar contactos (0 finalizados, con sus horas; con prefijo,
+  solo los del cliente), fila de total y, si un usuario de fuera del
+  prefijo cerró contactos, sus horas salen tachadas y no suman.
+- Caja 1 = fila de total de Resultados (GH 01-23/10: 802,74 h; septiembre
+  1.384,22 h, como la facturación).
+
 ## Sesión 22/10/2026, tarde (Opus 5.5): KPIs de salida («Salientes»)
 
 Sección «Salientes» (global, por campaña, por agente, franjas horarias y

@@ -13,6 +13,8 @@ export async function totalResultados(
   desdeISO: string,
   hastaISO: string,
   campanias: string[] | undefined,
+  /** Prefijo de los usuarios del cliente: solo sus horas van al total. */
+  prefijo: string | null = null,
 ): Promise<ResultadoResultados["total"] | null> {
   try {
     const r = await resultadosActividadRango(
@@ -21,6 +23,8 @@ export async function totalResultados(
       campanias,
       configsResultados(),
       objetivosDeResultados(),
+      null,
+      prefijo,
     );
     return r.total;
   } catch (e) {

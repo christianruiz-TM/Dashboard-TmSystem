@@ -12,6 +12,7 @@ import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { KpisPrincipales } from "@/components/kpi/kpis-principales";
 import { ayudaDe } from "@/lib/glosario";
 import { totalResultados } from "@/lib/resultados-cabecera";
+import { prefijoUsuariosDe } from "@/lib/facturacion";
 import { resumenSalientes } from "@/lib/rdb/queries/salientes";
 import { Salientes } from "@/components/kpi/salientes";
 import { Suspense } from "react";
@@ -94,6 +95,8 @@ export default async function PaginaDireccion({
     ? params.servicio
     : undefined;
 
+  // Usuarios del cliente (GH_…): solo sus horas van a los totales (23/10/2026)
+  const prefijo = prefijoUsuariosDe(servicioElegido);
   const [
     campanias,
     campaniasAnt,
@@ -111,13 +114,13 @@ export default async function PaginaDireccion({
     unidadesPorCampania(desde, hasta, camp),
     horasAgenteReales(desde, hasta, camp),
     // Ratios de éxito en vivo, la MISMA consulta que Supervisión (regla 17)
-    ratiosExitoRango(desde, hasta, camp),
-    ratiosExitoRango(anterior.desde, anterior.hasta, camp),
+    ratiosExitoRango(desde, hasta, camp, prefijo),
+    ratiosExitoRango(anterior.desde, anterior.hasta, camp, prefijo),
     servicioElegido ? null : horasLogadasPorServicio(desde, hasta, camp),
     calidadBaseDatosRango(desde, hasta, camp),
     // Contactos cerrados (Resultados, regla 18): las cajas de finalizados y aprovechamiento
-    totalResultados(desde, hasta, camp),
-    totalResultados(anterior.desde, anterior.hasta, camp),
+    totalResultados(desde, hasta, camp, prefijo),
+    totalResultados(anterior.desde, anterior.hasta, camp, prefijo),
   ]);
   const tendencia = tendenciaMensual(12, camp);
   // Conversión mensual desde agg_daily_agent_campaign (hasta ayer)
@@ -314,7 +317,7 @@ export default async function PaginaDireccion({
 
       {/* Salientes: un mes de todos los clientes tarda ~4 s; sale cuando llega */}
       <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando los KPIs de salida…</p>}>
-        <SeccionSalientes desde={desde} hasta={hasta} campanias={camp} />
+        <SeccionSalientes desde={desde} hasta={hasta} campanias={camp} prefijo={prefijo} />
       </Suspense>
 
       <TablaCampanias grupos={grupos} />
@@ -380,7 +383,17 @@ export default async function PaginaDireccion({
   );
 }
 
-async function SeccionSalientes({ desde, hasta, campanias }: { desde: string; hasta: string; campanias?: string[] }) {
-  const datos = await resumenSalientes(desde, hasta, campanias);
+async function SeccionSalientes({
+  desde,
+  hasta,
+  campanias,
+  prefijo,
+}: {
+  desde: string;
+  hasta: string;
+  campanias?: string[];
+  prefijo: string | null;
+}) {
+  const datos = await resumenSalientes(desde, hasta, campanias, prefijo);
   return datos ? <Salientes datos={datos} periodo="en el período" /> : null;
 }

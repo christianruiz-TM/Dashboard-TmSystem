@@ -35,6 +35,17 @@ import type { BaseRatiosExito, FilaBaseRatios } from "@/lib/rdb/types";
 //   éxito. Cada media divide entre los éxitos que tienen ese tiempo.
 // ============================================================
 
+/**
+ * ¿El usuario es del cliente? Con prefijo (el de su facturación por horas
+ * logadas: GH, CR, UGR, CEFF), solo `PREFIJO_…` (GH_0851, GH_0851_BD…);
+ * sin prefijo, todos. Decidido con Christian el 23/10/2026: las horas
+ * totales de un cliente son solo las de sus usuarios (fuera «Manu» y
+ * similares, que tocan una ficha suelta y traían todas sus horas logadas).
+ */
+export function esUsuarioDelCliente(usuario: string, prefijo?: string | null): boolean {
+  return !prefijo || usuario.startsWith(`${prefijo}_`);
+}
+
 /** Por debajo de estos contactos el ratio se enseña atenuado («muestra pequeña»). */
 export const MIN_CONTACTOS_RATIO = 30;
 
@@ -210,7 +221,7 @@ function compararAgentes(a: RatiosAgente, b: RatiosAgente): number {
   return a.agente.localeCompare(b.agente);
 }
 
-export function calcularRatiosExito(base: BaseRatiosExito): ResultadoRatios {
+export function calcularRatiosExito(base: BaseRatiosExito, prefijo: string | null = null): ResultadoRatios {
   const marcan = new Set(base.campaniasConSinExito);
   const horas = new Map(base.horasLogadas.map((h) => [h.agente, h.horas]));
 
@@ -275,7 +286,10 @@ export function calcularRatiosExito(base: BaseRatiosExito): ResultadoRatios {
     .sort((x, y) => y.exitos - x.exitos || y.contactos - x.contactos);
 
   // Horas logadas del total: las de los agentes que trabajaron en el alcance
-  const horasTotal = [...filasPorAgente.keys()].reduce((s, ag) => s + (horas.get(ag) ?? 0), 0);
+  // y, si el cliente tiene prefijo, solo sus usuarios
+  const horasTotal = [...filasPorAgente.keys()]
+    .filter((ag) => esUsuarioDelCliente(ag, prefijo))
+    .reduce((s, ag) => s + (horas.get(ag) ?? 0), 0);
   return {
     agentes,
     campanias,

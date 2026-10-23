@@ -16,6 +16,7 @@ import { calidadBaseDatosRango } from "@/lib/rdb/queries/calidad-bd";
 import { calidadBaseDatos } from "@/lib/calidad-bd";
 import { tiposCampaniaDe } from "@/lib/db/resultados";
 import { totalResultados } from "@/lib/resultados-cabecera";
+import { prefijoUsuariosDe } from "@/lib/facturacion";
 import { resumenSalientes } from "@/lib/rdb/queries/salientes";
 
 /**
@@ -34,16 +35,18 @@ export async function GET(peticion: NextRequest) {
     const incluirIvr = peticion.nextUrl.searchParams.get("ivr") === "1";
     const camp = await campaniasEfectivas(servicio, incluirIvr);
     const campServicio = await campaniasDeServicio(servicio);
+    // Usuarios del cliente (GH_…): solo sus horas van a los totales
+    const prefijo = prefijoUsuariosDe(servicio);
     const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados, salientes] = await Promise.all([
       estadoAgentes(camp),
       kpisCampaniasHoy(umbral, camp),
       agentesHoy(camp),
       metricasIvr(hoyISO(), hoyISO(), campServicio),
       alertasPlanificacion(),
-      ratiosExitoHoy(camp),
+      ratiosExitoHoy(camp, prefijo),
       calidadBaseDatosRango(hoyISO(), hoyISO(), camp),
-      totalResultados(hoyISO(), hoyISO(), camp),
-      resumenSalientes(hoyISO(), hoyISO(), camp),
+      totalResultados(hoyISO(), hoyISO(), camp, prefijo),
+      resumenSalientes(hoyISO(), hoyISO(), camp, prefijo),
     ]);
     // Los tipos de campaña del cliente agrupan la tabla, igual que en la página
     const tipos = servicio ? tiposCampaniaDe(servicio) : [];

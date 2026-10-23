@@ -2,6 +2,7 @@ import { addDays, differenceInCalendarDays, format, parseISO, startOfISOWeek } f
 import { z } from "zod";
 import { coincideLike } from "@/lib/planificacion/motor/campanias";
 import type { BaseResultados, FilaBaseResultados } from "@/lib/rdb/types";
+import { esUsuarioDelCliente } from "@/lib/ratios-exito";
 
 // ============================================================
 // Resultados de actividad (regla 18, decidido 13/10/2026 con Christian).
@@ -96,6 +97,8 @@ export interface RatiosAgenteCampaniaRes extends RatiosResultado {
 export interface RatiosAgenteRes extends RatiosResultado {
   agente: string;
   nombre: string;
+  /** Sus horas logadas cuentan en el total (usuario del cliente, por su prefijo). */
+  cuentaEnHoras: boolean;
   campanias: RatiosAgenteCampaniaRes[];
 }
 
@@ -736,6 +739,8 @@ export function calcularResultados(
   objetivos: ObjetivoResultados[],
   desde: string,
   hasta: string,
+  /** Prefijo de los usuarios del cliente (GH…): solo sus horas van al total. */
+  prefijo: string | null = null,
 ): ResultadoResultados {
   const configurados = new Set(base.serviciosConfigurados);
   const servicioDe = (c: string) => base.servicioDeCampania[c] ?? null;
@@ -806,6 +811,7 @@ export function calcularResultados(
     return {
       agente,
       nombre: filas.find((f) => f.nombre)?.nombre ?? agente,
+      cuentaEnHoras: esUsuarioDelCliente(agente, prefijo),
       ...ratios(acum, objetivoComun(campsAgente.map(objetivoDeCampania)), horasLogadas(agente), horasLogadas(agente), guionAgente),
       campanias: [...porCamp]
         .map(([campania, a]) => ({
@@ -816,6 +822,24 @@ export function calcularResultados(
         .sort((x, y) => y.finalizados - x.finalizados || x.campania.localeCompare(y.campania)),
     };
   });
+  // Agentes que trabajaron en las campañas del alcance sin cerrar ningún
+  // contacto (23/10/2026): salen con sus horas y 0 finalizados. Con prefijo,
+  // solo los usuarios del cliente
+  for (const [agente, nombre] of Object.entries(h?.activos ?? {})) {
+    if (porAgente.has(agente) || !esUsuarioDelCliente(agente, prefijo)) continue;
+    const logadas = horasLogadas(agente);
+    if (logadas == null) continue;
+    const guiones = Object.entries(h!.guionAgenteCampania)
+      .filter(([clave]) => clave.startsWith(`${agente}|`))
+      .map(([, v]) => v);
+    agentes.push({
+      agente,
+      nombre,
+      cuentaEnHoras: true,
+      ...ratios(vacio(), null, logadas, logadas, sumaONull(guiones)),
+      campanias: [],
+    });
+  }
   agentes.sort((a, b) => {
     if (a.muestraPequenia !== b.muestraPequenia) return a.muestraPequenia ? 1 : -1;
     return b.finalizados - a.finalizados || a.nombre.localeCompare(b.nombre);
@@ -885,8 +909,8 @@ export function calcularResultados(
   ].sort();
 
   // Horas del total: las logadas de los agentes con finalizados
-  const conHoras = [...porAgente.keys()].map(horasLogadas).filter((x): x is number => x != null);
-  const horasTotal = conHoras.length > 0 ? conHoras.reduce((s, x) => s + x, 0) : null;
+  // Horas del total: las de los agentes de la tabla que son del cliente
+  const horasTotal = sumaONull(agentes.filter((a) => a.cuentaEnHoras).map((a) => horasLogadas(a.agente)));
   return {
     total: {
       ...ratios(

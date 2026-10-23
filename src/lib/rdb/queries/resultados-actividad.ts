@@ -608,8 +608,10 @@ async function horasResultados(
     logadas: Object.fromEntries(base.horasLogadas.map((h) => [h.agente, h.horas])),
     guionCampania: {},
     guionAgenteCampania: {},
+    activos: {},
   };
   for (const f of base.filas) {
+    horas.activos[f.agente] = f.nombre || f.agente;
     const h = f.guionSeg / 3600;
     horas.guionCampania[f.campania] = (horas.guionCampania[f.campania] ?? 0) + h;
     const clave = `${f.agente}|${f.campania}`;
@@ -636,6 +638,8 @@ export async function resultadosActividadRango(
   configs: ConfigResultados[],
   objetivos: ObjetivoResultados[],
   campo: CampoResultados | null = null,
+  /** Prefijo de los usuarios del cliente: solo sus horas cuentan en el total. */
+  prefijo: string | null = null,
 ): Promise<ResultadoResultados> {
   let base: BaseResultados;
   if (campanias && campanias.length === 0) {
@@ -679,7 +683,7 @@ export async function resultadosActividadRango(
       console.error("[resultados] horas para finalizados por hora:", e);
     }
   }
-  return calcularResultados(base, objetivos, desdeISO, hastaISO);
+  return calcularResultados(base, objetivos, desdeISO, hastaISO, prefijo);
 }
 
 // ============================================================

@@ -379,6 +379,8 @@ export async function resumenSalientes(
   desdeISO: string,
   hastaISO: string,
   campanias?: string[],
+  /** Prefijo de los usuarios del cliente: solo sus horas van al total. */
+  prefijo: string | null = null,
 ): Promise<ResultadoSalientes | null> {
   try {
     const esHoy = desdeISO === hoyISO() && hastaISO === hoyISO();
@@ -387,7 +389,7 @@ export async function resumenSalientes(
         ? [salientesHoy(campanias), baseRatiosHoy(campanias)]
         : [salientesRango(desdeISO, hastaISO, campanias), baseRatiosRango(desdeISO, hastaISO, campanias)],
     );
-    return calcularSalientes(base, ratios);
+    return calcularSalientes(base, ratios, prefijo);
   } catch (e) {
     console.error("[salientes]", e);
     return null;

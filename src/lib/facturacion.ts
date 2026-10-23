@@ -121,6 +121,16 @@ export function lineasHorasLogadas(servicio?: string): LineaHorasLogadas[] {
 }
 
 /**
+ * Prefijo de los usuarios de un cliente (el de su línea `horas_logadas`: GH,
+ * CR, UGR, CEFF) o null si no tiene. Con él, las horas totales del cliente
+ * en Supervisión y Dirección son solo las de sus usuarios (23/10/2026).
+ */
+export function prefijoUsuariosDe(servicio?: string | null): string | null {
+  if (!servicio) return null;
+  return lineasHorasLogadas(servicio)[0]?.prefijo ?? null;
+}
+
+/**
  * Facturación por horas logadas de los clientes del alcance (`servicio`
  * vacío = todos los que tengan esa línea). Una consulta a user_log para todos
  * los prefijos a la vez.

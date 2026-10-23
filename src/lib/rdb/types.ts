@@ -509,6 +509,12 @@ export interface HorasResultados {
   logadas: Record<string, number>;
   guionCampania: Record<string, number>;
   guionAgenteCampania: Record<string, number>;
+  /**
+   * Agentes que trabajaron en las campañas del alcance (fichas de script),
+   * con su nombre: los que no cerraron contactos también salen en la tabla
+   * por agente con sus horas (23/10/2026).
+   */
+  activos: Record<string, string>;
 }
 
 export interface BaseResultados {

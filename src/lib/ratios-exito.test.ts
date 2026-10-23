@@ -257,3 +257,22 @@ describe("llamadas por éxito y duración de las llamadas (22/10/2026)", () => {
     expect(sin.total.duracionLlamadaExitoSeg).toBeNull();
   });
 });
+
+describe("horas del cliente por prefijo (23/10/2026)", () => {
+  it("el total solo suma las horas de los usuarios con el prefijo del cliente", () => {
+    const filas = [
+      fila({ agente: "GH_0851", campania: "gh_a", sesiones: 50, atendidas: 40, exitos: 5 }),
+      fila({ agente: "Manu", campania: "gh_a", sesiones: 1 }),
+    ];
+    const horasLogadas = [
+      { agente: "GH_0851", horas: 8 },
+      { agente: "Manu", horas: 80 },
+    ];
+    expect(calcularRatiosExito(base(filas, { horasLogadas })).total.horasLogadas).toBe(88);
+    const r = calcularRatiosExito(base(filas, { horasLogadas }), "GH");
+    expect(r.total.horasLogadas).toBe(8);
+    expect(r.total.llamadasHoraLogada).toBe(5);
+    // La fila del agente sigue con sus horas
+    expect(r.agentes.find((a) => a.agente === "Manu")!.horasLogadas).toBe(80);
+  });
+});

@@ -16,6 +16,7 @@ import { calidadBaseDatosRango } from "@/lib/rdb/queries/calidad-bd";
 import { calidadBaseDatos } from "@/lib/calidad-bd";
 import { resultadosActividadRango } from "@/lib/rdb/queries/resultados-actividad";
 import { totalResultados } from "@/lib/resultados-cabecera";
+import { prefijoUsuariosDe } from "@/lib/facturacion";
 import { resumenSalientes } from "@/lib/rdb/queries/salientes";
 import {
   campoContactoDe,
@@ -80,6 +81,8 @@ export default async function PaginaSupervision({
   const tiposCliente =
     params.servicio && nombresServicios.includes(params.servicio) ? tiposCampaniaDe(params.servicio) : [];
   const servicioDe = Object.fromEntries(mapaCampaniaServicio(servicios));
+  // Usuarios del cliente (GH_…): solo sus horas van a los totales (23/10/2026)
+  const prefijo = params.servicio && nombresServicios.includes(params.servicio) ? prefijoUsuariosDe(params.servicio) : null;
 
   if (vista === "resultados") {
     // Por defecto el mes en curso: con un solo día la muestra por agente es pequeña
@@ -110,10 +113,11 @@ export default async function PaginaSupervision({
             configsResultados(),
             objetivosDeResultados(),
             campo ? { servicio: servicioElegido, campo, filtro: filtroCampo } : null,
+            prefijo,
           ),
           // Las cajas de actividad de la cabecera (22/10/2026): misma caché que
           // las horas de «finalizados por hora»
-          ratiosExitoRango(desde, hasta, campTipo),
+          ratiosExitoRango(desde, hasta, campTipo, prefijo),
         ])
       : [null, null];
     // CSV de contactos finalizados (solo GH): con los mismos filtros de la pestaña
@@ -168,10 +172,10 @@ export default async function PaginaSupervision({
       kpisCampaniasRango(desde, hasta, umbral, camp),
       agentesProductividadRango(desde, hasta, camp),
       metricasIvr(desde, hasta, campServicio),
-      ratiosExitoRango(desde, hasta, camp),
+      ratiosExitoRango(desde, hasta, camp, prefijo),
       calidadBaseDatosRango(desde, hasta, camp),
-      totalResultados(desde, hasta, camp),
-      resumenSalientes(desde, hasta, camp),
+      totalResultados(desde, hasta, camp, prefijo),
+      resumenSalientes(desde, hasta, camp, prefijo),
     ]);
     return (
       <div className="space-y-6">
@@ -213,10 +217,10 @@ export default async function PaginaSupervision({
     agentesHoy(camp),
     metricasIvr(hoyISO(), hoyISO(), campServicio),
     alertasPlanificacion(),
-    ratiosExitoHoy(camp),
+    ratiosExitoHoy(camp, prefijo),
     calidadBaseDatosRango(hoyISO(), hoyISO(), camp),
-    totalResultados(hoyISO(), hoyISO(), camp),
-    resumenSalientes(hoyISO(), hoyISO(), camp),
+    totalResultados(hoyISO(), hoyISO(), camp, prefijo),
+    resumenSalientes(hoyISO(), hoyISO(), camp, prefijo),
   ]);
   return (
     <div className="space-y-6">

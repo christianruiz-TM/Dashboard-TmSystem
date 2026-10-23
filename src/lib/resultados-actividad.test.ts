@@ -417,6 +417,7 @@ describe("aprovechamiento, llamadas y finalizados por hora (21/10/2026)", () => 
     logadas: { GH_0851: 7.5, GH_0900: 4 },
     guionCampania: { gh_x: 6, gh_y: 2 },
     guionAgenteCampania: { "GH_0851|gh_x": 4, "GH_0851|gh_y": 2, "GH_0900|gh_x": 2 },
+    activos: { GH_0851: "Nombre GH_0851", GH_0900: "Otra" },
   };
 
   it("finalizados por éxito es la inversa del aprovechamiento", () => {
@@ -484,5 +485,40 @@ describe("aprovechamiento, llamadas y finalizados por hora (21/10/2026)", () => 
     expect(r.total.horas).toBeNull();
     expect(r.total.finalizadosHora).toBeNull();
     expect(r.agentes[0].finalizadosHora).toBeNull();
+  });
+});
+
+describe("agentes sin finalizados y horas del cliente (23/10/2026)", () => {
+  const horas = {
+    logadas: { GH_0851: 7.5, GH_1071: 3, Manu: 80, Angeles: 6 },
+    guionCampania: { gh_x: 6 },
+    guionAgenteCampania: { "GH_0851|gh_x": 4, "GH_1071|gh_x": 1.5, "Manu|gh_x": 0.1 },
+    activos: { GH_0851: "Lourdes", GH_1071: "Miriam", Manu: "Manu" },
+  };
+  const filas = [
+    fila({ campania: "gh_x", contactos: 40 }),
+    // Una supervisora sin prefijo que sí cerró contactos
+    fila({ agente: "Angeles", nombre: "Angeles", campania: "gh_x", contactos: 5 }),
+  ];
+
+  it("salen los del cliente que trabajaron sin cerrar contactos; el total solo cuenta los del prefijo", () => {
+    const r = calcularResultados(base(filas, { horas }), [], "2026-10-01", "2026-10-23", "GH");
+    const miriam = r.agentes.find((a) => a.agente === "GH_1071")!;
+    expect(miriam.finalizados).toBe(0);
+    expect(miriam.horasLogadas).toBe(3);
+    expect(miriam.horasGuion).toBe(1.5);
+    // Manu no es del cliente y no cerró nada: no sale
+    expect(r.agentes.some((a) => a.agente === "Manu")).toBe(false);
+    // Angeles cerró contactos: sale, pero sus horas no van al total
+    const angeles = r.agentes.find((a) => a.agente === "Angeles")!;
+    expect(angeles.cuentaEnHoras).toBe(false);
+    expect(r.total.horasLogadas).toBe(10.5); // 7,5 + 3
+    expect(r.total.finalizadosHora).toBe(4.29); // 45 / 10,5
+  });
+
+  it("sin prefijo (cliente sin facturación por horas) cuentan todos los que trabajaron", () => {
+    const r = calcularResultados(base(filas, { horas }), [], "2026-10-01", "2026-10-23");
+    expect(r.agentes.some((a) => a.agente === "Manu")).toBe(true);
+    expect(r.total.horasLogadas).toBe(96.5); // 7,5 + 6 + 3 + 80
   });
 });
