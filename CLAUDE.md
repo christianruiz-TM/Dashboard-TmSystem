@@ -1518,9 +1518,14 @@ aprobadas por Christian:
   una llamada con número después; vencidas AHORA = contactos abiertos
   (`activity.status` 0/1) que siguen agendados tras un agente con
   `man_sch_moment` pasada (> 15 min) y sin llamada desde entonces; retraso
-  APROXIMADO (Altitude solo guarda la última hora programada,
-  `man_sch_moment`). En pantalla «hora programada», nunca «cita» (supervisión
-  no usa esa palabra, 23/10/2026). Muestra
+  APROXIMADO (Altitude solo guarda el último, `man_sch_moment`).
+  `activity.man_sch_moment` = «Momento de la Rellamada/Agendado manual» y
+  `activity.moment` = «Momento» en la pantalla de contactos de Altitude
+  (confirmado por supervisión el 23/10/2026 con el contacto 1781989). En
+  pantalla «momento de la rellamada», nunca «cita». Las vencidas son de la
+  agente que la PROGRAMÓ (último evento de agendado), no de
+  `activity.agent`: la rellamada se puede dejar sin agente guardado (-1)
+  para que la haga cualquiera; «hecha» la puede hacer cualquier agente. Muestra
   de 10 contactos pendiente de validar por supervisión.
 - **Conversión por intento**: intentos al contacto (90 días) hasta el fin
   de la sesión de éxito; 0 = sin llamada de salida (entrante), fuera del %.

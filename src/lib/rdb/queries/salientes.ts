@@ -229,7 +229,9 @@ async function salientesCore(desdeISO: string, hastaISO: string, campanias?: str
       AND h.schedule_status IN (${prog}) AND h.event_action IN (${acciones})${filtroEventos}
     GROUP BY RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
 
-    -- Horas programadas vigentes (activity.man_sch_moment: solo guarda la ÚLTIMA):
+    -- Momentos de rellamada vigentes (activity.man_sch_moment = «Momento de la
+    -- Rellamada/Agendado manual» en Altitude; activity.moment es «Momento»).
+    -- Solo guarda el ÚLTIMO:
     --  · vencidas ahora: siguen agendadas tras un agente, la hora programada pasó hace
     --    más de 15 min y nadie ha llamado desde entonces (foto del momento).
     --  · retraso APROXIMADO: de las horas programadas del rango con una llamada después,
@@ -241,7 +243,14 @@ async function salientesCore(desdeISO: string, hastaISO: string, campanias?: str
                x.llamada
         FROM activity a
         INNER JOIN ph_campaign c3 ON c3.code = a.campaign
-        LEFT JOIN ph_e_user u ON u.code = a.agent
+        -- El agente que la programó (último evento de agendado de un agente),
+        -- no activity.agent: las agentes pueden dejar la rellamada sin guardar
+        -- su nombre (-1) para que la haga cualquiera (supervisión, 23/10/2026)
+        OUTER APPLY (SELECT TOP 1 h.event_agent FROM activity_history h
+                     WHERE h.activity = a.code AND h.schedule_status IN (${prog})
+                       AND h.event_action IN (${acciones})
+                     ORDER BY h.event_moment DESC) p
+        LEFT JOIN ph_e_user u ON u.code = p.event_agent AND u.type = 1
         OUTER APPLY (SELECT MIN(l.start_time) AS llamada FROM #ll l
                      WHERE l.contact = a.code AND l.start_time >= a.man_sch_moment) x
         WHERE a.man_sch_moment >= DATEADD(day, -@diasVencidas, GETDATE())${filtroProgramadas}

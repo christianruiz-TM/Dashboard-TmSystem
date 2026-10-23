@@ -604,16 +604,16 @@ export interface FilaIntentoExito {
   intentosTotales: number;
 }
 
-/** Rellamadas por agente y campaña: agendadas en el rango y horas programadas vigentes. */
+/** Rellamadas por agente y campaña: agendadas en el rango y momentos de rellamada vigentes. */
 export interface FilaRellamadas {
   agente: string | null;
   nombre: string | null;
   campania: string;
   agendadas: number;
   hechas: number;
-  /** Rellamadas vencidas (hora programada pasada) sin llamada ahora mismo (foto, no depende del rango). */
+  /** Rellamadas vencidas (momento de la rellamada pasado) sin llamada ahora mismo (foto, no depende del rango). */
   vencidas: number;
-  /** Horas programadas del rango con llamada después y la suma de minutos de retraso (aproximado). */
+  /** Momentos de rellamada del rango con llamada después y la suma de minutos de retraso (aproximado). */
   conRetraso: number;
   retrasoMin: number;
 }
