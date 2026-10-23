@@ -76,6 +76,10 @@ export interface RatiosResultado {
   llamadasPorExito: number | null;
   /** Horas del período: logadas (agente, total) o con script abierto (campaña). */
   horas: number | null;
+  /** Horas logadas (agente y total; por campaña no existen, regla 11). */
+  horasLogadas: number | null;
+  /** Horas con la ficha del guion abierta (en el agente, de todas sus campañas). */
+  horasGuion: number | null;
   finalizadosHora: number | null;
   netoPct: number | null;
   noValidosPct: number | null;
@@ -378,6 +382,12 @@ export function finalizadosConFiltro(valores: ValorCampo[], filtro: FiltroCampo)
 // Utilidades
 // ------------------------------------------------------------
 
+/** Suma de los valores que hay; null si no hay ninguno. */
+function sumaONull(valores: (number | null)[]): number | null {
+  const hay = valores.filter((x): x is number => x != null);
+  return hay.length > 0 ? hay.reduce((s, x) => s + x, 0) : null;
+}
+
 /** Redondeo del valor FINAL (2 decimales); los parciales se suman sin redondear. */
 function r2(valor: number | null): number | null {
   return valor == null ? null : Math.round(valor * 100) / 100;
@@ -468,7 +478,13 @@ function acumular(a: Acumulado, f: FilaBaseResultados, configurado: boolean): vo
   }
 }
 
-function ratios(a: Acumulado, objetivo: ObjetivoResultados | null, horas: number | null = null): RatiosResultado {
+function ratios(
+  a: Acumulado,
+  objetivo: ObjetivoResultados | null,
+  horas: number | null = null,
+  horasLogadas: number | null = null,
+  horasGuion: number | null = null,
+): RatiosResultado {
   const brutoPct = r2(cociente(a.exitos, a.finalizados, 100));
   const netoPct = r2(cociente(a.exitosConf, a.finalizadosConf - a.noValidos, 100));
   const noValidosPct = r2(cociente(a.noValidos, a.finalizadosConf, 100));
@@ -484,6 +500,8 @@ function ratios(a: Acumulado, objetivo: ObjetivoResultados | null, horas: number
     finalizadosPorExito: r2(cociente(a.finalizados, a.exitos)),
     llamadasPorExito: r2(cociente(a.llamadasExitos, a.exitosConLlamadas)),
     horas: r2(horas),
+    horasLogadas: r2(horasLogadas),
+    horasGuion: r2(horasGuion),
     finalizadosHora: horas != null ? r2(cociente(a.finalizados, horas)) : null,
     netoPct,
     noValidosPct,
@@ -759,7 +777,7 @@ export function calcularResultados(
       campania,
       servicio: servicioDe(campania),
       configurado: esConfigurada(campania),
-      ...ratios(a, objetivoDeCampania(campania), horasGuion(campania)),
+      ...ratios(a, objetivoDeCampania(campania), horasGuion(campania), null, horasGuion(campania)),
       ...fr,
     }))
     .sort((x, y) => y.finalizados - x.finalizados || x.campania.localeCompare(y.campania));
@@ -782,15 +800,18 @@ export function calcularResultados(
       porCamp.set(f.campania, a);
     }
     const campsAgente = [...porCamp.keys()];
+    // Ficha abierta del agente: la suma de sus campañas con finalizados
+    const guiones = campsAgente.map((c) => horasGuion(c, agente)).filter((x): x is number => x != null);
+    const guionAgente = guiones.length > 0 ? guiones.reduce((s, x) => s + x, 0) : null;
     return {
       agente,
       nombre: filas.find((f) => f.nombre)?.nombre ?? agente,
-      ...ratios(acum, objetivoComun(campsAgente.map(objetivoDeCampania)), horasLogadas(agente)),
+      ...ratios(acum, objetivoComun(campsAgente.map(objetivoDeCampania)), horasLogadas(agente), horasLogadas(agente), guionAgente),
       campanias: [...porCamp]
         .map(([campania, a]) => ({
           campania,
           servicio: servicioDe(campania),
-          ...ratios(a, objetivoDeCampania(campania), horasGuion(campania, agente)),
+          ...ratios(a, objetivoDeCampania(campania), horasGuion(campania, agente), null, horasGuion(campania, agente)),
         }))
         .sort((x, y) => y.finalizados - x.finalizados || x.campania.localeCompare(y.campania)),
     };
@@ -868,7 +889,13 @@ export function calcularResultados(
   const horasTotal = conHoras.length > 0 ? conHoras.reduce((s, x) => s + x, 0) : null;
   return {
     total: {
-      ...ratios(total, objetivoComun(conCerrados.map(objetivoDeCampania)), horasTotal),
+      ...ratios(
+        total,
+        objetivoComun(conCerrados.map(objetivoDeCampania)),
+        horasTotal,
+        horasTotal,
+        sumaONull(conCerrados.map((c) => horasGuion(c))),
+      ),
       ...frTotal,
     },
     agentes,

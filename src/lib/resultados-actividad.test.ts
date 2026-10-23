@@ -465,7 +465,12 @@ describe("aprovechamiento, llamadas y finalizados por hora (21/10/2026)", () => 
     );
     const a = r.agentes.find((x) => x.agente === "GH_0851")!;
     expect(a.horas).toBe(7.5);
+    expect(a.horasLogadas).toBe(7.5);
+    expect(a.horasGuion).toBe(6); // 4 h en gh_x + 2 h en gh_y
     expect(a.finalizadosHora).toBe(8); // 60 / 7,5
+    expect(a.campanias.find((c) => c.campania === "gh_x")!.horasLogadas).toBeNull();
+    expect(r.campanias.find((c) => c.campania === "gh_x")!.horasLogadas).toBeNull();
+    expect(r.total.horasGuion).toBe(8); // gh_x 6 + gh_y 2
     expect(a.campanias.find((c) => c.campania === "gh_x")!.finalizadosHora).toBe(10); // 40 / 4 h de script
     expect(r.campanias.find((c) => c.campania === "gh_x")!.finalizadosHora).toBe(9.5); // 57 / 6 h
     expect(r.agentes.find((x) => x.agente === "GH_0999")!.finalizadosHora).toBeNull();

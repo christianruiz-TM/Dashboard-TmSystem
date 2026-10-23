@@ -134,8 +134,14 @@ function CeldasRatios({ r, baseHoras }: { r: RatiosResultado; baseHoras: "logada
       <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")}>
         {num2(r.llamadasPorExito)}
       </TableCell>
-      <TableCell className="text-right tabular-nums" title={ayudaHoras}>
-        {r.horas == null ? "—" : <Tiempo horas={r.horas} />}
+      <TableCell
+        className="text-right tabular-nums"
+        title={r.horasLogadas == null ? "Por campaña no hay horas logadas: un agente tiene varias campañas abiertas a la vez" : "Horas logadas en el período"}
+      >
+        {r.horasLogadas == null ? "—" : <Tiempo horas={r.horasLogadas} />}
+      </TableCell>
+      <TableCell className="text-right tabular-nums" title="Horas con la ficha del guion abierta">
+        {r.horasGuion == null ? "—" : <Tiempo horas={r.horasGuion} />}
       </TableCell>
       <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")} title={ayudaHoras}>
         {num2(r.finalizadosHora)}
@@ -154,7 +160,8 @@ type ClaveOrden =
   | "noValidosPct"
   | "finalizadosPorExito"
   | "llamadasPorExito"
-  | "horas"
+  | "horasLogadas"
+  | "horasGuion"
   | "finalizadosHora";
 
 const COLUMNAS: { clave: ClaveOrden; titulo: string; ayuda: string }[] = [
@@ -175,9 +182,14 @@ const COLUMNAS: { clave: ClaveOrden; titulo: string; ayuda: string }[] = [
     ayuda: "Llamadas de media a cada contacto que acabó en éxito (intentos de salida en los 90 días antes de cerrarlo)",
   },
   {
-    clave: "horas",
-    titulo: "Horas",
-    ayuda: "Agente: horas logadas en el período. Detalle por campaña y campañas: horas con el script abierto",
+    clave: "horasLogadas",
+    titulo: "Horas logadas",
+    ayuda: "Horas logadas del agente en el período (de login a logout). Por campaña no existen: un agente tiene varias campañas abiertas a la vez",
+  },
+  {
+    clave: "horasGuion",
+    titulo: "Horas con ficha",
+    ayuda: "Horas con la ficha del guion abierta: en el agente, sumando sus campañas; en cada campaña, las suyas",
   },
   {
     clave: "finalizadosHora",
