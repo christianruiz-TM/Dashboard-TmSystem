@@ -71,7 +71,7 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
      las horas productivas y sale aparte en «Preparación» (tabla de agentes).
      El gráfico del supervisor de Altitude SÍ las cuenta como «Gestionadas»:
      no validar contra él. Planificación tampoco las cuenta desde el
-     24/10/2026: la tasa de contacto por franja del motor (clientes por
+     23/10/2026: la tasa de contacto por franja del motor (clientes por
      objetivo, `agg_hora_servicio.salientes`/`salientes_atendidas`) usa los
      intentos con número y resultado válido, como la contactabilidad de
      Salientes. GH septiembre: 71,2 % → 59,4 %; CEFF 63,9 % → 44,7 %. Los
@@ -1472,7 +1472,7 @@ aprobada antes de tocar producción (los KPIs van también a Dirección).
       `1a4858f13931`, sin migraciones, backup `dashboard_20261022_1026.db`),
       agregados recalculados en producción después.
 - [x] Planificación: su tasa de contacto ya no cuenta las preparaciones
-      (24/10/2026, agregados de planificación recalculados; los planes de
+      (23/10/2026, agregados de planificación recalculados; los planes de
       noviembre y diciembre no cambian).
 
 ## Sesión 22/10/2026, tarde (Opus 5.5): las 12 cajas principales

@@ -212,7 +212,7 @@ export async function islasLogadoUsuario(
  * termination_state 7 (la llamada no encontró a nadie logado). La gestión de
  * entrantes se suma en SEGUNDOS (décimas / 10.0) solo de humanos y sin los
  * hilos de `maxSeg` o más (CEFF tiene duraciones imposibles).
- * Salientes (24/10/2026, la tasa de contacto del motor): intentos CON NÚMERO
+ * Salientes (23/10/2026, la tasa de contacto del motor): intentos CON NÚMERO
  * y con un resultado que cuenta, como la contactabilidad de Supervisión →
  * Salientes. Antes entraban las preparaciones de llamada manual (regla 6,
  * «gestionadas» sin número) arriba y abajo de la tasa, y la inflaban.
