@@ -15,7 +15,7 @@ import type { BaseRatiosExito, BaseSalientes } from "@/lib/rdb/types";
 //   primera conversación de los que la tuvieron en el período.
 // - Rellamadas: agendadas por un agente, hechas (con una llamada después),
 //   vencidas ahora (foto del momento) y retraso medio APROXIMADO (Altitude
-//   solo guarda la última cita de cada contacto).
+//   solo guarda la última hora programada de cada contacto).
 // - Conversión por intento: en qué intento llega cada éxito.
 // - Tiempo esperando llamada: en Ready sin ninguna ficha abierta (por
 //   campaña no existe, como las horas logadas).

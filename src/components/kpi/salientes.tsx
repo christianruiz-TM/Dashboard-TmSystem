@@ -280,13 +280,13 @@ export function Salientes({ datos, periodo }: { datos: ResultadoSalientes; perio
               <TarjetaKpi
                 titulo="Rellamadas vencidas ahora"
                 valor={entero(t.vencidas)}
-                sub="Cita pasada y sin llamar"
+                sub="Hora programada pasada y sin llamar"
                 ayuda={ayudaDe("rellamadas")}
               />
               <TarjetaKpi
                 titulo="Retraso medio (aprox.)"
                 valor={minutos(t.retrasoMedioMin)}
-                sub="Desde la cita hasta la llamada"
+                sub="Desde la hora programada hasta la llamada"
                 ayuda={ayudaDe("rellamadas")}
               />
               <TarjetaKpi

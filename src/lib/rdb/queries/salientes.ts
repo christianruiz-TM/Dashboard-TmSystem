@@ -35,10 +35,10 @@ import { baseRatiosHoy, baseRatiosRango } from "./ratios-exito";
 /** Días hacia atrás de intentos para «intentos hasta hablar» y por intento. */
 const DIAS_INTENTOS = 90;
 
-/** Días hacia atrás en los que se buscan citas vencidas sin hacer. */
+/** Días hacia atrás en los que se buscan rellamadas vencidas sin hacer. */
 const DIAS_VENCIDAS = 30;
 
-/** Minutos de gracia antes de dar una cita por vencida. */
+/** Minutos de gracia antes de dar una rellamada por vencida. */
 const MINUTOS_GRACIA = 15;
 
 /** Retraso máximo que se tiene en cuenta en la media (7 días, en minutos). */
@@ -201,7 +201,7 @@ async function salientesCore(desdeISO: string, hastaISO: string, campanias?: str
   const prog = lista(reqRell, "pr", programado);
   const agendado = lista(reqRell, "ag", agendadoTrasAgente);
   const filtroEventos = filtroCampanias(reqRell, campanias, "c.shortname");
-  const filtroCitas = filtroEventos.replace("c.shortname", "c3.shortname");
+  const filtroProgramadas = filtroEventos.replace("c.shortname", "c3.shortname");
   const rellamadas = reqRell.query(`
     SET NOCOUNT ON;
     IF OBJECT_ID('tempdb..#ll') IS NOT NULL DROP TABLE #ll;
@@ -229,14 +229,14 @@ async function salientesCore(desdeISO: string, hastaISO: string, campanias?: str
       AND h.schedule_status IN (${prog}) AND h.event_action IN (${acciones})${filtroEventos}
     GROUP BY RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
 
-    -- Citas vigentes (activity.man_sch_moment: solo guarda la ÚLTIMA cita):
-    --  · vencidas ahora: siguen agendadas tras un agente, la cita pasó hace
+    -- Horas programadas vigentes (activity.man_sch_moment: solo guarda la ÚLTIMA):
+    --  · vencidas ahora: siguen agendadas tras un agente, la hora programada pasó hace
     --    más de 15 min y nadie ha llamado desde entonces (foto del momento).
-    --  · retraso APROXIMADO: de las citas del rango con una llamada después,
+    --  · retraso APROXIMADO: de las horas programadas del rango con una llamada después,
     --    minutos hasta esa llamada (topado a 7 días).
     -- activity.status 0/1 = Started/Executing (contacto abierto; no está en rdb_enums).
-    WITH citas AS (
-        SELECT a.code, a.man_sch_moment AS cita, a.status, a.business_status,
+    WITH programadas AS (
+        SELECT a.code, a.man_sch_moment AS programada, a.status, a.business_status,
                RTRIM(u.usr_name) AS agente, RTRIM(u.fullname) AS nombre, RTRIM(c3.shortname) AS campania,
                x.llamada
         FROM activity a
@@ -244,18 +244,18 @@ async function salientesCore(desdeISO: string, hastaISO: string, campanias?: str
         LEFT JOIN ph_e_user u ON u.code = a.agent
         OUTER APPLY (SELECT MIN(l.start_time) AS llamada FROM #ll l
                      WHERE l.contact = a.code AND l.start_time >= a.man_sch_moment) x
-        WHERE a.man_sch_moment >= DATEADD(day, -@diasVencidas, GETDATE())${filtroCitas}
+        WHERE a.man_sch_moment >= DATEADD(day, -@diasVencidas, GETDATE())${filtroProgramadas}
     )
     SELECT agente, MAX(nombre) AS nombre, campania,
            0 AS agendadas, 0 AS hechas,
            SUM(CASE WHEN status IN (0, 1) AND business_status IN (${agendado})
-                     AND cita < DATEADD(minute, -@gracia, GETDATE()) AND llamada IS NULL THEN 1 ELSE 0 END) AS vencidas,
-           SUM(CASE WHEN cita >= @desde AND cita < @hastaExcl AND llamada IS NOT NULL
-                     AND DATEDIFF(minute, cita, llamada) <= @maxRetraso THEN 1 ELSE 0 END) AS conRetraso,
-           SUM(CASE WHEN cita >= @desde AND cita < @hastaExcl AND llamada IS NOT NULL
-                     AND DATEDIFF(minute, cita, llamada) <= @maxRetraso
-                    THEN CAST(DATEDIFF(minute, cita, llamada) AS BIGINT) ELSE 0 END) AS retrasoMin
-    FROM citas
+                     AND programada < DATEADD(minute, -@gracia, GETDATE()) AND llamada IS NULL THEN 1 ELSE 0 END) AS vencidas,
+           SUM(CASE WHEN programada >= @desde AND programada < @hastaExcl AND llamada IS NOT NULL
+                     AND DATEDIFF(minute, programada, llamada) <= @maxRetraso THEN 1 ELSE 0 END) AS conRetraso,
+           SUM(CASE WHEN programada >= @desde AND programada < @hastaExcl AND llamada IS NOT NULL
+                     AND DATEDIFF(minute, programada, llamada) <= @maxRetraso
+                    THEN CAST(DATEDIFF(minute, programada, llamada) AS BIGINT) ELSE 0 END) AS retrasoMin
+    FROM programadas
     GROUP BY agente, campania;
 
     DROP TABLE #ll;

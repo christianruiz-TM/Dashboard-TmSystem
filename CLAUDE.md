@@ -1518,7 +1518,9 @@ aprobadas por Christian:
   una llamada con número después; vencidas AHORA = contactos abiertos
   (`activity.status` 0/1) que siguen agendados tras un agente con
   `man_sch_moment` pasada (> 15 min) y sin llamada desde entonces; retraso
-  APROXIMADO (Altitude solo guarda la última cita, `man_sch_moment`). Muestra
+  APROXIMADO (Altitude solo guarda la última hora programada,
+  `man_sch_moment`). En pantalla «hora programada», nunca «cita» (supervisión
+  no usa esa palabra, 23/10/2026). Muestra
   de 10 contactos pendiente de validar por supervisión.
 - **Conversión por intento**: intentos al contacto (90 días) hasta el fin
   de la sesión de éxito; 0 = sin llamada de salida (entrante), fuera del %.

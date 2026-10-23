@@ -101,7 +101,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   rellamadas: {
     termino: "Rellamadas agendadas",
     definicion:
-      "Agendadas: veces que un agente dejó un contacto programado para volver a llamar en el período. Hechas: de ellas, las que tuvieron una llamada después. Vencidas ahora: contactos que siguen agendados, cuya cita pasó hace más de 15 minutos y nadie ha llamado desde entonces (es una foto de este momento, no depende de las fechas). Retraso medio: APROXIMADO, porque Altitude solo guarda la última cita de cada contacto; se mide desde esa cita hasta la llamada siguiente.",
+      "Agendadas: veces que un agente dejó un contacto programado para volver a llamar en el período. Hechas: de ellas, las que tuvieron una llamada después. Vencidas ahora: contactos que siguen agendados, cuya hora programada pasó hace más de 15 minutos y nadie ha llamado desde entonces (es una foto de este momento, no depende de las fechas). Retraso medio: APROXIMADO, porque Altitude solo guarda la última hora programada de cada contacto (si se vuelve a agendar, se sobrescribe); se mide desde esa hora hasta la llamada siguiente.",
   },
   conversionIntento: {
     termino: "Conversión por número de intento",
