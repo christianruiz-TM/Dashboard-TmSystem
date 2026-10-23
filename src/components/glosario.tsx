@@ -10,7 +10,8 @@ import { GLOSARIO } from "@/lib/glosario";
  * pantalla, y se indica cuántos campos describe.
  */
 export function Glosario({ claves, titulo }: { claves: string[]; titulo?: string }) {
-  const items = claves.map((c) => GLOSARIO[c]).filter(Boolean);
+  // Sin claves repetidas (cada vista monta su lista) y con la clave como key de React
+  const items = [...new Set(claves)].flatMap((c) => (GLOSARIO[c] ? [{ clave: c, ...GLOSARIO[c] }] : []));
   if (items.length === 0) return null;
 
   return (
@@ -28,7 +29,7 @@ export function Glosario({ claves, titulo }: { claves: string[]; titulo?: string
         </summary>
         <dl className="grid gap-x-8 gap-y-3 border-t px-4 py-4 text-sm sm:grid-cols-2">
           {items.map((d) => (
-            <div key={d.termino}>
+            <div key={d.clave}>
               <dt className="font-medium">{d.termino}</dt>
               <dd className="text-muted-foreground">{d.definicion}</dd>
             </div>

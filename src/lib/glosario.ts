@@ -145,7 +145,8 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   },
   kpiFinalizadosHora: {
     termino: "Finalizados por hora",
-    definicion: "Finalizados ÷ horas logadas de los agentes que los cerraron.",
+    definicion:
+      "Finalizados ÷ horas. Para cada agente y para el total, horas LOGADAS en el período de los agentes que los cerraron; por campaña (y en el detalle del agente por campaña), horas con la ficha del guion abierta en esa campaña. Ojo: los finalizados cuentan el día del cierre y las horas son las del período, así que con rangos cortos puede bailar.",
   },
   kpiFinalizadosPorExito: {
     termino: "Finalizados por éxito",
@@ -270,16 +271,6 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     termino: "Aprovechamiento (bruto)",
     definicion: "Éxitos ÷ finalizados. De cada 100 contactos que se cierran, cuántos acaban en éxito.",
   },
-  finalizadosPorExito: {
-    termino: "Finalizados por éxito",
-    definicion:
-      "Cuántos contactos hay que cerrar para conseguir un éxito (finalizados ÷ éxitos; es la otra cara del aprovechamiento: 30 % = 3,33 finalizados por éxito).",
-  },
-  finalizadosHora: {
-    termino: "Finalizados por hora",
-    definicion:
-      "Finalizados ÷ horas. Para cada agente y para el total, horas LOGADAS en el período; por campaña (y en el detalle del agente por campaña), horas con el script abierto en esa campaña. Ojo: los finalizados cuentan el día del cierre y las horas son las del período, así que con rangos cortos puede bailar.",
-  },
   llamadasPorExito: {
     termino: "Llamadas a cada contacto de éxito (Resultados)",
     definicion:
@@ -321,7 +312,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "Compara el ratio bruto, el neto y el % de no válidos con el objetivo de la campaña o de su servicio (Administración → Resultados). Verde: cumple; ámbar: se queda a menos de un 10 % del objetivo; rojo: no llega. Sin objetivo, o con menos de 30 finalizados, no hay color.",
   },
   finalizados: {
-    termino: "Finalizados",
+    termino: "Finalizados (tablas por campaña y por cliente)",
     definicion:
       "Contactos que se dieron por cerrados en el período, fechados por su último intento: los mismos «contactos finalizados» de facturación. Incluye los que se cerraron sin hablar con nadie y los cierres en bloque, así que puede ser algo mayor que los finalizados de Supervisión → Resultados (GrupoHuertas, septiembre de 2026: 8.696 frente a 8.417, por 278 cierres administrativos).",
   },

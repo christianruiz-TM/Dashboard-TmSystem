@@ -202,7 +202,16 @@ const COLUMNAS: { clave: ClaveOrden; titulo: string; ayuda: string }[] = [
 // Vistas
 // ------------------------------------------------------------
 
-function VistaAgentes({ agentes, periodo }: { agentes: RatiosAgenteRes[]; periodo: string }) {
+function VistaAgentes({
+  agentes,
+  total,
+  periodo,
+}: {
+  agentes: RatiosAgenteRes[];
+  /** Fila de total (23/10/2026): los ratios de todo el alcance. */
+  total: RatiosResultado;
+  periodo: string;
+}) {
   const [orden, setOrden] = useState<{ clave: ClaveOrden; desc: boolean } | null>(null);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
 
@@ -306,8 +315,22 @@ function VistaAgentes({ agentes, periodo }: { agentes: RatiosAgenteRes[]; period
               );
             })
           )}
+          {lista.length > 0 ? (
+            <TableRow className="border-t-2 bg-muted/60 font-semibold hover:bg-muted/60">
+              <TableCell>
+                <div>Total</div>
+                <div className="text-xs font-normal text-muted-foreground">{lista.length} agentes</div>
+              </TableCell>
+              <CeldasRatios r={total} baseHoras="logada" />
+            </TableRow>
+          ) : null}
         </TableBody>
       </Table>
+      <p className="mt-2 text-xs text-muted-foreground">
+        Las horas del total son las de los agentes de esta tabla (los que cerraron contactos en el período). La caja
+        «Horas logadas» de arriba cuenta a todos los que trabajaron en las campañas del cliente, aunque no cerraran
+        ningún contacto, así que puede ser mayor.
+      </p>
     </>
   );
 }
@@ -783,7 +806,7 @@ export function ResultadosActividad({
               <TabsTrigger value="evolucion">Evolución</TabsTrigger>
             </TabsList>
             <TabsContent value="agentes">
-              <VistaAgentes agentes={r.agentes} periodo={periodo} />
+              <VistaAgentes agentes={r.agentes} total={r.total} periodo={periodo} />
             </TabsContent>
             <TabsContent value="campanias">
               <VistaCampanias r={r} periodo={periodo} />
