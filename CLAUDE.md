@@ -1539,6 +1539,8 @@ aprobadas por Christian:
 - **Preparación** por campaña y global (regla 6).
 - Tiempos: un mes de todos los clientes ~4 s; GH un mes 1,7 s; hoy de todos
   1,9 s (caché de 60 s en Tiempo real).
+- Desplegado el 23/10/2026 a las 09:24 (`bde74ba`, imagen `e437146e49f7`,
+  backup `dashboard_20261023_0921.db`, sin migraciones).
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
