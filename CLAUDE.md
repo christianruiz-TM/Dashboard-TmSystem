@@ -70,8 +70,13 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
      conversación por éxito. Su TIEMPO sí es trabajo: sigue en el tiempo y
      las horas productivas y sale aparte en «Preparación» (tabla de agentes).
      El gráfico del supervisor de Altitude SÍ las cuenta como «Gestionadas»:
-     no validar contra él. Planificación (ritmo de salientes) aún las cuenta:
-     pendiente, se decide aparte.
+     no validar contra él. Planificación tampoco las cuenta desde el
+     24/10/2026: la tasa de contacto por franja del motor (clientes por
+     objetivo, `agg_hora_servicio.salientes`/`salientes_atendidas`) usa los
+     intentos con número y resultado válido, como la contactabilidad de
+     Salientes. GH septiembre: 71,2 % → 59,4 %; CEFF 63,9 % → 44,7 %. Los
+     borradores de noviembre y diciembre salieron idénticos bloque a bloque
+     (solo CEFF y LX tienen horas por objetivo).
    - Origen: `origin` 1=Inbound · 2=Outbound · 3=Workflow
 6.b **SLA, cola y % abandono SOLO sobre `origin = 1`** (entrantes). Verificado
    09/09/2026 con datos reales: de 4.894 atendidas de un día, 4.322 eran
@@ -1466,8 +1471,9 @@ aprobada antes de tocar producción (los KPIs van también a Dirección).
 - [x] Commit `1cf6c87`, desplegado el 22/10/2026 a las 10:31 (imagen
       `1a4858f13931`, sin migraciones, backup `dashboard_20261022_1026.db`),
       agregados recalculados en producción después.
-- [ ] Planificación: decidir si su ritmo de salientes deja de contar las
-      preparaciones (cambiaría los planes).
+- [x] Planificación: su tasa de contacto ya no cuenta las preparaciones
+      (24/10/2026, agregados de planificación recalculados; los planes de
+      noviembre y diciembre no cambian).
 
 ## Sesión 22/10/2026, tarde (Opus 5.5): las 12 cajas principales
 

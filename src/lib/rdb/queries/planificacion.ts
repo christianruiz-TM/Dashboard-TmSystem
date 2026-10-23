@@ -23,7 +23,7 @@ import type {
 } from "../types";
 import { hoyISO } from "@/lib/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
-import { claveCampanias, filtroCampanias, limitesRango } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, sqlJoinGlobal, sqlLlamada } from "./util";
 
 // ============================================================
 // Capa RDBv2 del módulo «Planificación de turnos».
@@ -212,6 +212,10 @@ export async function islasLogadoUsuario(
  * termination_state 7 (la llamada no encontró a nadie logado). La gestión de
  * entrantes se suma en SEGUNDOS (décimas / 10.0) solo de humanos y sin los
  * hilos de `maxSeg` o más (CEFF tiene duraciones imposibles).
+ * Salientes (24/10/2026, la tasa de contacto del motor): intentos CON NÚMERO
+ * y con un resultado que cuenta, como la contactabilidad de Supervisión →
+ * Salientes. Antes entraban las preparaciones de llamada manual (regla 6,
+ * «gestionadas» sin número) arriba y abajo de la tasa, y la inflaban.
  */
 export async function demandaPorFranja(
   desdeISO: string,
@@ -239,12 +243,18 @@ export async function demandaPorFranja(
           SELECT CONVERT(varchar(10), t.start_time, 23) AS fecha,
                  RTRIM(s.name) AS servicio,
                  DATEPART(HOUR, t.start_time) * 60 + (DATEPART(MINUTE, t.start_time) / 30) * 30 AS inicioMin,
-                 t.origin, t.termination_state, t.duration, u.type AS tipoUsuario
+                 t.origin, t.termination_state, t.duration, u.type AS tipoUsuario,
+                 -- Intento de salida que cuenta: con número y con resultado
+                 CASE WHEN t.origin = 2 AND ${sqlLlamada()}
+                           AND t.termination_state IS NOT NULL AND t.termination_state >= 0
+                           AND t.termination_state NOT IN (6, 11, 17, 18)
+                      THEN 1 ELSE 0 END AS intento
           FROM itr_thread t
           INNER JOIN ph_campaign c  ON t.campaign = c.code
           INNER JOIN cs             ON cs.campaign = c.code
           INNER JOIN ph_service  s  ON s.code = cs.service
           LEFT  JOIN ph_e_user   u  ON u.code = t.e_user
+          ${sqlJoinGlobal()}
           WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
             AND ${SIN_TEST_NI_IVR}
             AND s.name NOT LIKE 'Test[_]%'
@@ -254,8 +264,8 @@ export async function demandaPorFranja(
              SUM(CASE WHEN origin = 1 AND termination_state = 1 THEN 1 ELSE 0 END)      AS entrantesAtendidas,
              SUM(CASE WHEN origin = 1 AND termination_state = 6 THEN 1 ELSE 0 END)      AS entrantesAbandonadas,
              SUM(CASE WHEN origin = 1 AND termination_state = 7 THEN 1 ELSE 0 END)      AS entrantesRechazadas,
-             SUM(CASE WHEN origin = 2 THEN 1 ELSE 0 END)                                AS salientes,
-             SUM(CASE WHEN origin = 2 AND termination_state = 1 THEN 1 ELSE 0 END)      AS salientesAtendidas,
+             SUM(intento)                                                               AS salientes,
+             SUM(CASE WHEN intento = 1 AND termination_state = 1 THEN 1 ELSE 0 END)     AS salientesAtendidas,
              -- décimas → segundos; CAST a BIGINT para no desbordar al sumar
              SUM(CASE WHEN origin = 1 AND termination_state = 1 AND tipoUsuario = 1
                            AND duration < @maxSeg * 10
