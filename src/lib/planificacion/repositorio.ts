@@ -862,6 +862,26 @@ export function crearAusencia(valores: Omit<typeof planAusencias.$inferInsert, "
   return db.insert(planAusencias).values(valores).returning({ id: planAusencias.id }).get().id;
 }
 
+export function leerAusencia(id: number) {
+  return db.select().from(planAusencias).where(eq(planAusencias.id, id)).get() ?? null;
+}
+
+/**
+ * Cambia una ausencia sin borrarla (conserva su id, quién la apuntó y
+ * cuándo). Devuelve cómo estaba antes, para la auditoría; null si ya no existe.
+ */
+export function actualizarAusencia(
+  id: number,
+  valores: Pick<typeof planAusencias.$inferInsert, "agenteNumero" | "tipoCodigo" | "desde" | "hasta" | "inicioMin" | "finMin" | "notas">,
+) {
+  return db.transaction((tx) => {
+    const antes = tx.select().from(planAusencias).where(eq(planAusencias.id, id)).get();
+    if (!antes) return null;
+    tx.update(planAusencias).set(valores).where(eq(planAusencias.id, id)).run();
+    return antes;
+  });
+}
+
 export function borrarAusencia(id: number) {
   return db.transaction((tx) => {
     const fila = tx.select().from(planAusencias).where(eq(planAusencias.id, id)).get();

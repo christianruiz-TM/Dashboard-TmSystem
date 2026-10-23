@@ -75,6 +75,7 @@ const PANTALLAS = [
       { t: "Horas del mes frente a cupos" },
       { t: "Agentes en" },
       { css: "[data-bloque-id]" },
+      { t: "Copia para las agentes", sel: "span" },
     ],
   },
   {
@@ -87,7 +88,7 @@ const PANTALLAS = [
     id: "ausencias",
     ruta: `/planificacion/${MES}/ausencias`,
     alto: 1150,
-    puntos: [{ t: "Nueva ausencia", sel: TITULO }, { t: "Ausencias de", sel: TITULO }, { t: "Borrar", sel: "button", arriba: true }],
+    puntos: [{ t: "Nueva ausencia", sel: TITULO }, { t: "Ausencias de", sel: TITULO }, { t: "Editar", sel: "a", arriba: true }],
   },
   {
     id: "bolsas",

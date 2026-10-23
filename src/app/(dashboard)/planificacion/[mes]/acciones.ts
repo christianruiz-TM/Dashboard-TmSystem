@@ -10,7 +10,7 @@ import { esquemaFechaISO, MAX_DIAS_RANGO } from "@/lib/fechas";
 import { bolsasDelMes } from "@/lib/planificacion/bolsas";
 import { esquemaOperacion, MAX_OPERACIONES_LOTE } from "@/lib/planificacion/edicion";
 import { guardarCambiosVersion, publicarBorrador, quitarAusenciaDeBorradores, resumenCambios } from "@/lib/planificacion/guardar";
-import { fechasDelMes, lunesDe, solapan } from "@/lib/planificacion/motor";
+import { fechasDelMes, horaLarga, lunesDe, solapan } from "@/lib/planificacion/motor";
 import * as repo from "@/lib/planificacion/repositorio";
 import type { BloqueTablero } from "@/lib/planificacion/tablero";
 
@@ -238,11 +238,34 @@ const esquemaAusencia = z
   })
   .refine((a) => a.hasta >= a.desde, { message: "«hasta» anterior a «desde»", path: ["hasta"] });
 
+/** «jornada completa» o «09:00-11:00», para los mensajes y la auditoría. */
+const horarioAusencia = (inicioMin: number | null, finMin: number | null) =>
+  inicioMin == null ? "jornada completa" : `${horaLarga(inicioMin)}-${horaLarga(finMin ?? 1440)}`;
+
+/**
+ * Alta de una ausencia o, si llega `id`, cambio de una que ya existe (sin
+ * borrarla y volverla a crear: conserva quién la apuntó). Las mismas
+ * comprobaciones en los dos casos; al cambiarla no choca consigo misma.
+ */
 export async function guardarAusenciaAccion(formData: FormData): Promise<void> {
   const usuario = await autorizar();
   const mes = esquemaMes.safeParse(texto(formData, "mes"));
   if (!mes.success) redirect("/planificacion");
   const m = mes.data;
+  const idTexto = texto(formData, "id");
+  const id = idTexto === "" ? null : Number(idTexto);
+  if (id != null && (!Number.isInteger(id) || id <= 0)) volver(m, "ausencias", "error_datos");
+  const anterior = id != null ? repo.leerAusencia(id) : null;
+  if (id != null && !anterior) volver(m, "ausencias", "error_datos", "Esa ausencia ya no existe (¿la ha borrado otra persona?).");
+  // Si algo falla al cambiarla, se vuelve al formulario de cambio, no al de alta
+  // Con el tipo escrito en la constante: así TypeScript sabe que no vuelve
+  const volverError: (detalle?: string) => never = (detalle) => {
+    if (id == null) volver(m, "ausencias", "error_datos", detalle);
+    invalidarPlanificacion();
+    const p = new URLSearchParams({ msg: "error_datos", editar: String(id) });
+    if (detalle) p.set("detalle", detalle);
+    redirect(`/planificacion/${m}/ausencias?${p.toString()}#formulario-ausencia`);
+  };
   const datos = esquemaAusencia.safeParse({
     agenteNumero: texto(formData, "agenteNumero"),
     tipoCodigo: texto(formData, "tipoCodigo"),
@@ -254,10 +277,10 @@ export async function guardarAusenciaAccion(formData: FormData): Promise<void> {
     notas: texto(formData, "notas"),
     quitar: formData.get("quitar") === "on",
   });
-  if (!datos.success) volver(m, "ausencias", "error_datos", primerError(datos.error));
+  if (!datos.success) volverError(primerError(datos.error));
   const a = datos.data;
   const dias = Math.round((Date.parse(a.hasta) - Date.parse(a.desde)) / 86_400_000) + 1;
-  if (dias > MAX_DIAS_RANGO) volver(m, "ausencias", "error_datos", `Como mucho ${MAX_DIAS_RANGO} días seguidos.`);
+  if (dias > MAX_DIAS_RANGO) volverError(`Como mucho ${MAX_DIAS_RANGO} días seguidos.`);
 
   let inicioMin: number | null = null;
   let finMin: number | null = null;
@@ -265,40 +288,62 @@ export async function guardarAusenciaAccion(formData: FormData): Promise<void> {
     const i = esquemaHora.safeParse(a.inicio);
     const f = esquemaHora.safeParse(a.fin);
     if (!i.success || !f.success || f.data <= i.data) {
-      volver(m, "ausencias", "error_datos", "Indica las horas de la ausencia (inicio anterior al fin) o marca jornada completa.");
+      volverError("Indica las horas de la ausencia (inicio anterior al fin) o marca jornada completa.");
     }
     inicioMin = i.data;
     finMin = f.data;
   }
   if (!repo.leerAgentes().some((x) => x.numero === a.agenteNumero)) {
-    volver(m, "ausencias", "error_datos", `No existe el agente ${a.agenteNumero}.`);
+    volverError(`No existe el agente ${a.agenteNumero}.`);
   }
   const tipo = repo.leerTiposAusencia().find((t) => t.codigo === a.tipoCodigo);
-  if (!tipo || !tipo.activo) volver(m, "ausencias", "error_datos", `El tipo ${a.tipoCodigo} no existe o no está activo.`);
+  // Un tipo ya desactivado vale si la ausencia que se cambia ya lo tenía
+  if (!tipo || (!tipo.activo && anterior?.tipoCodigo !== a.tipoCodigo)) {
+    volverError(`El tipo ${a.tipoCodigo} no existe o no está activo.`);
+  }
 
   // Sin duplicados: misma persona, días que se cruzan y horas que se pisan
+  // (al cambiar una, sin contarse a sí misma)
   const nueva = { inicioMin: inicioMin ?? 0, finMin: finMin ?? 1440 };
   const choca = repo
     .leerAusencias(a.desde, a.hasta)
-    .find((x) => x.agenteNumero === a.agenteNumero && solapan(nueva, { inicioMin: x.inicioMin ?? 0, finMin: x.finMin ?? 1440 }));
+    .find(
+      (x) =>
+        x.id !== id && x.agenteNumero === a.agenteNumero && solapan(nueva, { inicioMin: x.inicioMin ?? 0, finMin: x.finMin ?? 1440 }),
+    );
   if (choca) {
-    volver(m, "ausencias", "error_datos", `Se solapa con ${choca.tipoCodigo} del ${choca.desde} al ${choca.hasta}.`);
+    volverError(`Se solapa con ${choca.tipoCodigo} del ${choca.desde} al ${choca.hasta}.`);
   }
 
-  const id = repo.crearAusencia({
-    agenteNumero: a.agenteNumero,
-    tipoCodigo: a.tipoCodigo,
-    desde: a.desde,
-    hasta: a.hasta,
-    inicioMin,
-    finMin,
-    notas: a.notas,
-    creadoPor: usuario.username,
-  });
-  const horas = inicioMin == null ? "jornada completa" : `${a.inicio}-${a.fin}`;
-  await auditar(usuario, "plan_ausencia", `mes=${m} alta #${id} ${a.agenteNumero} ${a.tipoCodigo} ${a.desde}..${a.hasta} ${horas}${a.notas ? ` · ${a.notas}` : ""}`);
+  const valores = { agenteNumero: a.agenteNumero, tipoCodigo: a.tipoCodigo, desde: a.desde, hasta: a.hasta, inicioMin, finMin, notas: a.notas };
+  const horas = horarioAusencia(inicioMin, finMin);
+  const descripcion = `${a.agenteNumero} ${a.tipoCodigo} ${a.desde}..${a.hasta} ${horas}${a.notas ? ` · ${a.notas}` : ""}`;
+  let idFinal: number;
+  let detalle: string;
+  if (anterior) {
+    const antes = repo.actualizarAusencia(anterior.id, valores);
+    if (!antes) volver(m, "ausencias", "error_datos", "Esa ausencia ya no existe (¿la ha borrado otra persona?).");
+    idFinal = anterior.id;
+    const descAntes =
+      `${antes.agenteNumero} ${antes.tipoCodigo} ${antes.desde}..${antes.hasta} ${horarioAusencia(antes.inicioMin, antes.finMin)}` +
+      (antes.notas ? ` · ${antes.notas}` : "");
+    if (descAntes === descripcion) volver(m, "ausencias", "guardado", "Sin cambios.");
+    await auditar(usuario, "plan_ausencia", `mes=${m} cambio #${idFinal} ${descAntes} → ${descripcion}`);
+    detalle = `Ausencia cambiada: ${a.agenteNumero} ${a.tipoCodigo} del ${a.desde} al ${a.hasta}.`;
+    // Lo que deja de pisar no vuelve solo al borrador (igual que al borrar)
+    const encoge =
+      a.desde > antes.desde ||
+      a.hasta < antes.hasta ||
+      a.agenteNumero !== antes.agenteNumero ||
+      (inicioMin ?? 0) > (antes.inicioMin ?? 0) ||
+      (finMin ?? 1440) < (antes.finMin ?? 1440);
+    if (encoge) detalle += " Las horas que ya no son ausencia no vuelven solas al borrador: añádelas en el tablero si hace falta.";
+  } else {
+    idFinal = repo.crearAusencia({ ...valores, creadoPor: usuario.username });
+    await auditar(usuario, "plan_ausencia", `mes=${m} alta #${idFinal} ${descripcion}`);
+    detalle = `${a.agenteNumero} ${a.tipoCodigo} del ${a.desde} al ${a.hasta}.`;
+  }
 
-  let detalle = `${a.agenteNumero} ${a.tipoCodigo} del ${a.desde} al ${a.hasta}.`;
   if (a.quitar) {
     for (const r of quitarAusenciaDeBorradores({ agenteNumero: a.agenteNumero, desde: a.desde, hasta: a.hasta, autor: usuario.username })) {
       if (r.error) {
@@ -307,10 +352,10 @@ export async function guardarAusenciaAccion(formData: FormData): Promise<void> {
       }
       const horasQuitadas = r.cambios.reduce((s, c) => s + (c.finMin - c.inicioMin) / 60, 0);
       detalle += ` Borrador v${r.numero} de ${r.mes}: ${horasQuitadas.toLocaleString("es-ES")} h de bloques quitadas.`;
-      await auditar(usuario, "plan_editar", `mes=${r.mes} v${r.numero} ausencia #${id}: ${resumenCambios(r.cambios)}`);
+      await auditar(usuario, "plan_editar", `mes=${r.mes} v${r.numero} ausencia #${idFinal}: ${resumenCambios(r.cambios)}`);
     }
   }
-  volver(m, "ausencias", "creado", detalle);
+  volver(m, "ausencias", anterior ? "guardado" : "creado", detalle);
 }
 
 export async function borrarAusenciaAccion(formData: FormData): Promise<void> {

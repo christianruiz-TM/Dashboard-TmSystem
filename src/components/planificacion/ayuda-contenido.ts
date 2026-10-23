@@ -120,6 +120,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       "Las barras: las horas de cada cliente en el mes frente a las que tiene que cubrir.",
       "El mapa de GH: en rojo, las horas en que falta gente para las llamadas; en verde, las que van bien.",
       "Cada fila es una persona. Cada recuadro de color son unas horas en un cliente.",
+      "«Copia para las agentes» (cuando el mes ya está publicado): el horario para mandarles, en PDF o para el móvil.",
     ],
     queHacer: [
       "Elige la semana con las flechas.",
@@ -277,6 +278,10 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
         haz: "Pulsa «Nuevo borrador desde la vN»: copia el publicado. Lo cambias y lo vuelves a publicar.",
       },
       {
+        caso: "Quiero mandar el horario a las agentes.",
+        haz: "Arriba en el tablero, en «Copia para las agentes»: «PDF» (una hoja con todas, para imprimir) o «Para el móvil» (cada una elige su nombre). Solo días y horas, sin cliente, y siempre del plan publicado.",
+      },
+      {
         caso: "Quiero saber qué se cambió.",
         haz: "En «Versiones», el apartado «Cambios» compara dos versiones.",
       },
@@ -299,7 +304,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     queVeo: [
       "El formulario «Nueva ausencia» (solo supervisión).",
       "La lista de ausencias del mes y quién las apuntó.",
-      "«Borrar», para quitar una que esté mal.",
+      "«Editar», para cambiar una (fechas, horas o tipo), y «Borrar», para quitar una que sobra.",
     ],
     queHacer: [
       "Elige la persona y el tipo (VAC, FEST, RTO o AUS).",
@@ -314,8 +319,12 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
         haz: "VAC: vacaciones. FEST: libranza por un festivo trabajado. RTO: retribución de tiempo por objetivos. CIERRE: su cliente no trabaja ese día y no hay otro trabajo para él. AUS: otras (médico, asuntos propios…). VAC, FEST, RTO y CIERRE cuentan como horas trabajadas en el saldo; AUS no.",
       },
       {
+        caso: "Apunté mal una ausencia (otro día, otra hora u otro tipo).",
+        haz: "Pulsa «Editar» en su fila, cámbiala arriba y pulsa «Guardar cambios». No hace falta borrarla y volver a apuntarla.",
+      },
+      {
         caso: "Sale «Se solapa con…».",
-        haz: "Esa persona ya tiene una ausencia esos días. Bórrala o cambia las fechas.",
+        haz: "Esa persona ya tiene una ausencia esos días. Cambia la otra con «Editar» o pon otras fechas.",
       },
       {
         caso: "Borré una ausencia y no vuelven sus horas.",
@@ -586,13 +595,25 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
     ],
   },
   {
+    id: "editar-ausencia",
+    pregunta: "Cambiar una ausencia (otras fechas, horas o tipo)",
+    tema: "ausencias",
+    palabras: "editar modificar corregir cambiar fechas vacaciones error",
+    pasos: [
+      "En la pestaña «Ausencias» del mes, busca la ausencia en la lista.",
+      "Pulsa «Editar»: el formulario de arriba sale relleno con ella.",
+      "Cambia lo que haga falta y pulsa «Guardar cambios» («Cancelar» la deja como estaba).",
+      "Si la has acortado, las horas que dejan de ser ausencia no vuelven solas al borrador: añádelas en el tablero.",
+    ],
+  },
+  {
     id: "borrar-ausencia",
-    pregunta: "Quitar una ausencia que apunté mal",
+    pregunta: "Quitar una ausencia que sobra",
     tema: "ausencias",
     palabras: "borrar eliminar error vacaciones",
     pasos: [
       "En la pestaña «Ausencias» del mes, busca la ausencia en la lista.",
-      "Pulsa «Borrar».",
+      "Pulsa «Borrar». (Si solo está mal la fecha o la hora, mejor «Editar».)",
       "Sus horas no vuelven solas: añádelas en el tablero si hace falta.",
     ],
   },
@@ -657,6 +678,19 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
       "Pulsa «Publicar…».",
       "Escribe por qué se aceptan los avisos (10 letras o más).",
       "Marca «Publicar con N avisos» y pulsa «Publicar».",
+    ],
+  },
+  {
+    id: "horario-agentes",
+    pregunta: "Mandar el horario a las agentes",
+    tema: "publicar",
+    palabras: "copia enviar pdf imprimir movil whatsapp correo calendario agentes horario descargar",
+    pasos: [
+      "Publica el mes (la copia sale siempre del plan publicado, no del borrador).",
+      "En el tablero, arriba, busca «Copia para las agentes».",
+      "«PDF»: una hoja con todas, para imprimir o colgar. «Para el móvil»: un archivo que cada una abre en el teléfono, elige su nombre y puede pasar sus turnos a su calendario.",
+      "Mándalo por correo o WhatsApp. No sale el cliente: solo los días y las horas.",
+      "Si vuelves a publicar, manda la copia nueva: vale siempre la más reciente (lleva la fecha y la versión arriba).",
     ],
   },
   {
@@ -837,6 +871,11 @@ export const TECLAS_AYUDA: [string, string][] = [
 
 /** Explicaciones cortas de los «?» que hay junto a cada parte de las pantallas. */
 export const PUNTOS_AYUDA = {
+  "copia-agentes": {
+    titulo: "Copia para las agentes",
+    texto:
+      "El plan publicado, sin cliente: solo qué días y de qué hora a qué hora trabaja cada una. «PDF», una hoja con todas. «Para el móvil», cada una elige su nombre.",
+  },
   "estado-datos": {
     titulo: "Estado de los datos",
     texto: "Si todo sale en verde, el plan se calculará con datos al día. Si algo sale en amarillo, léelo: dice qué hacer.",

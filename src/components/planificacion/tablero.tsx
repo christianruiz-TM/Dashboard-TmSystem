@@ -82,6 +82,7 @@ import {
 import { cn } from "@/lib/utils";
 import { BotonAyuda } from "./ayuda";
 import { BarrasBolsa } from "./barras-bolsa";
+import { CopiaAgentes } from "./copia-agentes";
 import { BloqueFantasma, type ClienteVista } from "./bloque";
 import {
   BotonBorradorDesdePublicada,
@@ -911,6 +912,8 @@ export function Tablero({
             {puedeEditar && accionesServidor && version.estado === "publicada" && !hayBorrador ? (
               <BotonBorradorDesdePublicada accion={accionesServidor.copiarPublicada} versionId={version.id} numero={version.numero} />
             ) : null}
+            {/* Siempre la PUBLICADA, aunque se esté viendo el borrador */}
+            {publicadaAnterior != null ? <CopiaAgentes mes={version.mes} numero={publicadaAnterior} /> : null}
           </div>
         </div>
 

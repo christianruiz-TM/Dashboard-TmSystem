@@ -850,6 +850,21 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     justificadas − contrato prorrateado por laborables de la semana. Ausencias
     que cuentan como trabajadas: VAC, FEST y RTO («retribución de tiempo por
     objetivos», decidido 02/10/2026); AUS no.
+    Desde el 23/10/2026 una ausencia se CAMBIA sin borrarla («Editar» →
+    `?editar=<id>`, misma `guardarAusenciaAccion` con `id`: conserva quién la
+    apuntó, no choca consigo misma y audita «antes → después»).
+  - **Copia para las agentes** (23/10/2026, pedido por Christian): botones
+    del tablero cuando el mes tiene publicada; `api/planificacion/horario?
+    mes=&formato=pdf|html`. SIEMPRE la versión PUBLICADA y SIN cliente: los
+    bloques seguidos de una persona se juntan aunque sean de clientes
+    distintos y se descuentan las ausencias de ahora (una VAC apuntada tras
+    publicar no sale como día de trabajo). Modelo puro `horario-agentes.ts`;
+    `horario-html.ts` (puro: un fichero sin internet; sin JavaScript se ve
+    todo, con él «¿Quién eres?», «hoy» y .ics de sus turnos) y
+    `horario-pdf.ts` (pdf-lib, una página A4 apaisada, un solo tamaño de
+    letra para las horas). Si dos personas se llaman igual, salen con su
+    número («María (0851)»). Septiembre y octubre de la SQLite de desarrollo
+    cuadran con los bloques (1.489 h y 1.595 h).
   - **Fin de campaña**: no se conoce; acaba al agotarse los contactos o las
     horas contratadas. `[mes]/bolsas` lo ESTIMA (`motor/estimacion.ts`, puro;
     `estimaciones.ts`): ritmo reciente, lo planificado, campañas parecidas
@@ -1064,6 +1079,11 @@ histórico: `docs/despliegue-linux.md`. Reglas que no se ven en el código:
   otros avisos. `npm audit --omit=dev` dejó de dar avisos críticos: quedan 3
   altos (`sharp`, `brace-expansion` y `source-map-js`, que vienen con Next) y 6
   moderados (`mssql`/`tedious`/`uuid`/`exceljs`, sin arreglo compatible).
+- **Next 16.3.8 → 16.4.2** (23/10/2026): dos avisos críticos de ejecución de
+  código sin autenticación (GHSA-2464-fhr4-w9xw, optimización de imágenes con
+  SVG; GHSA-673q-mjm6-r5xr, `use cache`) y uno alto de Server Actions, todos
+  en 16.0-16.4.0. `eslint-config-next` a la misma versión. Tras subirlo:
+  `npm audit --omit=dev` sin críticos (2 altos y 3 moderados de siempre).
 - **Disco justo** (unos 5 GB libres). Para limpiar imágenes viejas:
   `docker image prune --filter label=org.opencontainers.image.title=dashboard-tmsystem`.
   NUNCA un `prune` sin filtro: las imágenes `<none>` son la vuelta atrás de

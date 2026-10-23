@@ -21,6 +21,7 @@ import {
   type Gravedad,
   type ResumenMotor,
 } from "./motor";
+import { construirHorario, type HorarioMes } from "./horario-agentes";
 import { AUTOR_NOCTURNO } from "./nocturno";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
@@ -322,6 +323,35 @@ function avisoCalendarioCambiado(fechas: readonly string[], estado: PlanVersionR
       (estado === "borrador" ? " Para que el plan recoloque los bloques, vuelve a generar el borrador respetando tus cambios." : ""),
     datos: { fechas },
   };
+}
+
+/**
+ * Copia para las agentes del plan PUBLICADO del mes (PDF y HTML): sin cliente,
+ * con las ausencias y el calendario de ahora. null si el mes no tiene
+ * versión publicada. Salen las agentes activas al generar y las que tienen
+ * algún bloque.
+ */
+export function horarioPublicado(mes: string): HorarioMes | null {
+  const publicada = repo.versionesMes(mes).find((v) => v.estado === "publicada");
+  if (!publicada) return null;
+  const datos = cargarTablero(mes, publicada.id);
+  if (!datos) return null;
+  const conBloques = new Set(datos.bloques.map((b) => b.agenteNumero));
+  const activos = new Set(datos.activos);
+  const numeros = [...new Set([...datos.entrada.agentes.map((a) => a.numero), ...conBloques])].filter(
+    (n) => conBloques.has(n) || activos.has(n),
+  );
+  const ausencias = Object.fromEntries(datos.entrada.agentes.map((a) => [a.numero, a.ausencias]));
+  return construirHorario({
+    mes,
+    version: { numero: datos.version.numero, publicadaAt: datos.version.publicadaAt },
+    dias: datos.entrada.dias,
+    calendarioPlantilla: datos.entrada.servicioCalendario,
+    agentes: numeros.map((numero) => ({ numero, nombre: datos.nombres[numero] ?? null })),
+    bloques: datos.bloques,
+    ausencias,
+    tipos: datos.tiposAusencia,
+  });
 }
 
 // ---------- F3: ausencias y versiones de un mes ----------
