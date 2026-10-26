@@ -122,9 +122,16 @@ export async function horarioPdf(h: HorarioMes, opciones: { generado: string }):
   const n = Math.max(1, h.filas.length);
   const nDias = h.columnas.length;
   const tamNombreMax = 8;
+  // Columna de la persona: código de agente en negrita («GH_0851») y su nombre
+  const GAP_NOMBRE = 5;
+  const nombreDe = (f: (typeof h.filas)[number]) => (f.nombre === f.codigo ? "" : seguro(f.nombre, normal));
+  const anchoCodigo = Math.max(...h.filas.map((f) => negrita.widthOfTextAtSize(seguro(f.codigo, negrita), tamNombreMax)));
   const anchoNombre = Math.min(
-    150,
-    Math.max(90, ...h.filas.map((f) => negrita.widthOfTextAtSize(seguro(f.nombre, negrita), tamNombreMax) + 10)),
+    170,
+    Math.max(
+      90,
+      ...h.filas.map((f) => anchoCodigo + GAP_NOMBRE + normal.widthOfTextAtSize(nombreDe(f), tamNombreMax) + 10),
+    ),
   );
   const anchoDia = (anchoUtil - anchoNombre) / nDias;
   const altoCabecera = 22;
@@ -155,22 +162,29 @@ export async function horarioPdf(h: HorarioMes, opciones: { generado: string }):
     centrado(pagina, LETRA_DIA[c.diaSemana], normal, 7, x + anchoDia / 2, yCab + 13, GRIS);
     centrado(pagina, String(c.dia), negrita, 9, x + anchoDia / 2, yCab + 3.5, NEGRO);
   });
-  pagina.drawText("Persona", { x: xTabla + 4, y: yCab + 7, size: 8, font: negrita, color: GRIS });
+  pagina.drawText("Agente", { x: xTabla + 4, y: yCab + 7, size: 8, font: negrita, color: GRIS });
 
   // Filas
   const yInicioFilas = yCab;
   h.filas.forEach((f, r) => {
     const yFila = yInicioFilas - (r + 1) * altoFila;
     if (r % 2 === 1) pagina.drawRectangle({ x: xTabla, y: yFila, width: anchoNombre, height: altoFila, color: FONDO_CEBRA });
-    const nombre = seguro(f.nombre, negrita);
     const tamNombre = Math.min(tamNombreMax, altoFila - 2);
-    pagina.drawText(recortar(nombre, negrita, tamNombre, anchoNombre - 8), {
-      x: xTabla + 4,
-      y: yFila + altoFila / 2 - tamNombre * 0.35,
-      size: tamNombre,
-      font: negrita,
-      color: NEGRO,
-    });
+    const yTexto = yFila + altoFila / 2 - tamNombre * 0.35;
+    const codigo = seguro(f.codigo, negrita);
+    pagina.drawText(codigo, { x: xTabla + 4, y: yTexto, size: tamNombre, font: negrita, color: NEGRO });
+    // Los nombres empiezan todos a la misma altura (alineados tras el código más largo)
+    const xNombre = xTabla + 4 + (anchoCodigo * tamNombre) / tamNombreMax + GAP_NOMBRE;
+    const nombre = nombreDe(f);
+    if (nombre) {
+      pagina.drawText(recortar(nombre, normal, tamNombre, xTabla + anchoNombre - 4 - xNombre), {
+        x: xNombre,
+        y: yTexto,
+        size: tamNombre,
+        font: normal,
+        color: NEGRO,
+      });
+    }
 
     f.dias.forEach((d, i) => {
       const c = h.columnas[i];

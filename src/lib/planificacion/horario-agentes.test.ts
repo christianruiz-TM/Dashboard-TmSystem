@@ -42,8 +42,8 @@ function entrada(cambios: Partial<EntradaHorario> = {}): EntradaHorario {
     dias: DIAS,
     calendarioPlantilla: "Plantilla",
     agentes: [
-      { numero: "1008", nombre: "Zoe <Ruiz>" },
-      { numero: "0851", nombre: "Ana Pérez" },
+      { numero: "1008", nombre: "Zoe <Ruiz>", codigo: "GH_1008" },
+      { numero: "0851", nombre: "Ana Pérez", codigo: "GH_0851" },
       { numero: "0999", nombre: null },
     ],
     bloques: [
@@ -122,22 +122,13 @@ describe("construirHorario", () => {
   const fila = (n: string) => h.filas.find((f) => f.numero === n)!;
   const deDia = (n: string, fecha: string) => fila(n).dias[h.columnas.findIndex((c) => c.fecha === fecha)];
 
-  it("ordena por nombre y usa el número si no hay nombre", () => {
-    expect(h.filas.map((f) => f.nombre)).toEqual(["0999", "Ana Pérez", "Zoe <Ruiz>"]);
+  it("ordena de menor a mayor por código de agente; sin código ni nombre, el número", () => {
+    expect(h.filas.map((f) => [f.codigo, f.nombre])).toEqual([
+      ["GH_0851", "Ana Pérez"],
+      ["0999", "0999"],
+      ["GH_1008", "Zoe <Ruiz>"],
+    ]);
     expect(h.mesTexto).toBe("octubre de 2026");
-  });
-
-  it("a los nombres repetidos les añade el número (sin distinguir mayúsculas)", () => {
-    const r = construirHorario(
-      entrada({
-        agentes: [
-          { numero: "0851", nombre: "María" },
-          { numero: "0925", nombre: "maría" },
-          { numero: "1008", nombre: "Ana" },
-        ],
-      }),
-    );
-    expect(r.filas.map((f) => f.nombre)).toEqual(["Ana", "María (0851)", "maría (0925)"]);
   });
 
   it("junta los bloques de clientes distintos (no sale el cliente)", () => {
@@ -145,7 +136,8 @@ describe("construirHorario", () => {
     expect(d.estado).toBe("trabaja");
     expect(d.tramos.map(tramoCorto)).toEqual(["9–14", "16–19"]);
     expect(d.minutos).toBe(300 + 180);
-    expect(JSON.stringify(h)).not.toMatch(/GH|UGR|cliente/i);
+    // Ni los días ni las horas llevan cliente (el código de agente «GH_0851» sí sale: lo pidió supervisión)
+    expect(JSON.stringify({ ...h, filas: h.filas.map((f) => f.dias) })).not.toMatch(/GH|UGR|cliente/i);
   });
 
   it("descuenta las ausencias apuntadas después de publicar", () => {
@@ -188,6 +180,10 @@ describe("horarioHtml", () => {
 
   it("escapa los nombres y no deja cerrar el <script> de datos", () => {
     expect(html).toContain("Zoe &lt;Ruiz&gt;");
+    // El selector y la tabla del equipo llevan el código de agente delante
+    expect(html).toContain('<option value="0851">GH_0851 · Ana Pérez</option>');
+    expect(html).toContain('<option value="0999">0999</option>');
+    expect(html).toContain('<th scope="row">GH_1008 · Zoe &lt;Ruiz&gt;</th>');
     expect(html).not.toContain("Zoe <Ruiz>");
     const datos = html.slice(html.indexOf('id="datos">'), html.indexOf("</script>", html.indexOf('id="datos">')));
     expect(datos).toContain("\\u003cRuiz>");

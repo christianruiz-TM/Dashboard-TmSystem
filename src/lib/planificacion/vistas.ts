@@ -23,6 +23,7 @@ import {
 } from "./motor";
 import { construirHorario, type HorarioMes } from "./horario-agentes";
 import { AUTOR_NOCTURNO } from "./nocturno";
+import { resolverCliente } from "./usuarios";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
 import { contarGravedades, fechaDiaMes, nombreMes, type BloqueTablero, type DatosTablero, type VersionTablero } from "./tablero";
@@ -342,12 +343,21 @@ export function horarioPublicado(mes: string): HorarioMes | null {
     (n) => conBloques.has(n) || activos.has(n),
   );
   const ausencias = Object.fromEntries(datos.entrada.agentes.map((a) => [a.numero, a.ausencias]));
+  // Código de agente = su usuario del cliente base sin sufijo («GH_0851», no
+  // «GH_0851_BD»), con los prefijos vigentes
+  const prefijos = repo.leerPrefijos();
+  const codigos = new Map<string, string>();
+  for (const u of repo.leerUsuarios()) {
+    if (u.sufijo !== "" || resolverCliente(u.prefijo, u.sufijo, prefijos) !== datos.entrada.clienteBase) continue;
+    const actual = codigos.get(u.agenteNumero);
+    if (!actual || u.usrName < actual) codigos.set(u.agenteNumero, u.usrName);
+  }
   return construirHorario({
     mes,
     version: { numero: datos.version.numero, publicadaAt: datos.version.publicadaAt },
     dias: datos.entrada.dias,
     calendarioPlantilla: datos.entrada.servicioCalendario,
-    agentes: numeros.map((numero) => ({ numero, nombre: datos.nombres[numero] ?? null })),
+    agentes: numeros.map((numero) => ({ numero, nombre: datos.nombres[numero] ?? null, codigo: codigos.get(numero) ?? null })),
     bloques: datos.bloques,
     ausencias,
     tipos: datos.tiposAusencia,

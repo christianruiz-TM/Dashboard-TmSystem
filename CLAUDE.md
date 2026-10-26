@@ -862,8 +862,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     `horario-html.ts` (puro: un fichero sin internet; sin JavaScript se ve
     todo, con él «¿Quién eres?», «hoy» y .ics de sus turnos) y
     `horario-pdf.ts` (pdf-lib, una página A4 apaisada, un solo tamaño de
-    letra para las horas). Si dos personas se llaman igual, salen con su
-    número («María (0851)»). Septiembre y octubre de la SQLite de desarrollo
+    letra para las horas). Cada persona sale con su código de agente (su
+    usuario del cliente base sin sufijo, «GH_0851»; si no tiene, el número)
+    y van de menor a mayor por número (pedido por supervisión). Septiembre y octubre de la SQLite de desarrollo
     cuadran con los bloques (1.489 h y 1.595 h).
   - **Fin de campaña**: no se conoce; acaba al agotarse los contactos o las
     horas contratadas. `[mes]/bolsas` lo ESTIMA (`motor/estimacion.ts`, puro;

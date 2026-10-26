@@ -33,6 +33,8 @@ export interface DiaHorario {
 
 export interface FilaHorario {
   numero: string;
+  /** Código de agente que se enseña: su usuario del cliente base («GH_0851»); si no tiene, el número. */
+  codigo: string;
   nombre: string;
   /** Un día por columna, en el mismo orden que `columnas`. */
   dias: DiaHorario[];
@@ -76,8 +78,11 @@ export interface EntradaHorario {
   dias: readonly DiaMotor[];
   /** Calendario de la plantilla en `dias[].festivos` (`EntradaMotor.servicioCalendario`). */
   calendarioPlantilla: string;
-  /** Agentes que salen en la copia (nombre null = sale el número). */
-  agentes: readonly { numero: string; nombre: string | null }[];
+  /**
+   * Agentes que salen en la copia: nombre null = sale el número; codigo =
+   * su usuario del cliente base («GH_0851»), null si no tiene.
+   */
+  agentes: readonly { numero: string; nombre: string | null; codigo?: string | null }[];
   bloques: readonly { agenteNumero: string; fecha: string; inicioMin: number; finMin: number }[];
   /** nº de agente → ausencias ya expandidas por día (`expandirAusencias`). */
   ausencias: Readonly<Record<string, readonly AusenciaMotor[]>>;
@@ -165,22 +170,15 @@ export function construirHorario(e: EntradaHorario): HorarioMes {
     porAgenteDia.set(k, lista);
   }
 
-  // Dos personas con el mismo nombre (dos «María») no se pueden confundir en
-  // la copia: a las repetidas se les añade su número de agente
-  const nombreDe = (a: { numero: string; nombre: string | null }) => a.nombre?.trim() || a.numero;
-  const veces = new Map<string, number>();
-  for (const a of e.agentes) veces.set(nombreDe(a).toLocaleLowerCase("es"), (veces.get(nombreDe(a).toLocaleLowerCase("es")) ?? 0) + 1);
-  const visible = (a: { numero: string; nombre: string | null }) => {
-    const n = nombreDe(a);
-    return n !== a.numero && (veces.get(n.toLocaleLowerCase("es")) ?? 0) > 1 ? `${n} (${a.numero})` : n;
-  };
-
+  // Cada persona sale con su código de agente («GH_0851», pedido por
+  // supervisión el 23/10/2026): así dos «María» tampoco se confunden
   const usados = new Set<string>();
   const filas: FilaHorario[] = e.agentes.map((a) => {
     const ausencias = e.ausencias[a.numero] ?? [];
     return {
       numero: a.numero,
-      nombre: visible(a),
+      codigo: a.codigo?.trim() || a.numero,
+      nombre: a.nombre?.trim() || a.numero,
       dias: columnas.map((c): DiaHorario => {
         const delDia = ausencias.filter((x) => x.fecha === c.fecha);
         const tramos = restarTramos(porAgenteDia.get(`${a.numero}|${c.fecha}`) ?? [], delDia);
@@ -196,7 +194,9 @@ export function construirHorario(e: EntradaHorario): HorarioMes {
       }),
     };
   });
-  filas.sort((x, y) => x.nombre.localeCompare(y.nombre, "es") || x.numero.localeCompare(y.numero));
+  // De menor a mayor por código de agente (pedido por supervisión): el número
+  // ordena igual que «GH_0851» < «GH_0892» y no depende de quién tenga usuario de GH
+  filas.sort((x, y) => x.numero.localeCompare(y.numero, "es", { numeric: true }));
 
   return {
     mes: e.mes,

@@ -54,6 +54,9 @@ export interface OpcionesHtml {
   generado: string;
 }
 
+/** «GH_0851 · Begoña» (o solo el código si no hay nombre). */
+const etiqueta = (f: { codigo: string; nombre: string }) => (f.codigo === f.nombre ? f.codigo : `${f.codigo} · ${f.nombre}`);
+
 export function horarioHtml(h: HorarioMes, o: OpcionesHtml): string {
   const nombresTipo = new Map(h.tipos.map((t) => [t.codigo, t.nombre]));
   const colorTipo = new Map(h.tipos.map((t) => [t.codigo, rgb(aclarar(t.color, 0.65))]));
@@ -87,7 +90,7 @@ export function horarioHtml(h: HorarioMes, o: OpcionesHtml): string {
         .join("");
       return (
         `<section class="persona" id="p-${escapar(f.numero)}" data-numero="${escapar(f.numero)}">` +
-        `<h2>${escapar(f.nombre)}${f.nombre.includes(f.numero) ? "" : ` <span class="num">${escapar(f.numero)}</span>`}</h2>` +
+        `<h2>${escapar(f.nombre)}${f.codigo === f.nombre ? "" : ` <span class="num">${escapar(f.codigo)}</span>`}</h2>` +
         bloquesSemana +
         `</section>`
       );
@@ -114,7 +117,7 @@ export function horarioHtml(h: HorarioMes, o: OpcionesHtml): string {
           return `<td class="${clases}">${d.estado === "festivo" ? "Fest." : "Libre"}</td>`;
         })
         .join("");
-      return `<tr data-numero="${escapar(f.numero)}"><th scope="row">${escapar(f.nombre)}</th>${celdas}</tr>`;
+      return `<tr data-numero="${escapar(f.numero)}"><th scope="row">${escapar(etiqueta(f))}</th>${celdas}</tr>`;
     })
     .join("");
 
@@ -138,7 +141,7 @@ export function horarioHtml(h: HorarioMes, o: OpcionesHtml): string {
   };
   const json = JSON.stringify(datos).replace(/</g, "\\u003c");
 
-  const opciones = h.filas.map((f) => `<option value="${escapar(f.numero)}">${escapar(f.nombre)}</option>`).join("");
+  const opciones = h.filas.map((f) => `<option value="${escapar(f.numero)}">${escapar(etiqueta(f))}</option>`).join("");
 
   return `<!doctype html>
 <html lang="es">
