@@ -6,7 +6,7 @@ histórico de git.
 
 **De dónde sale cada sesión:**
 
-- Siete tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10, 14-16/10, 19/10, 20/10 y 20-21/10).
+- Nueve tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10, 14-16/10, 19/10, 20/10, 20-21/10, 21-23/10 y 23-26/10).
 - Las demás se han reconstruido el 14/10/2026 a partir de los commits, los apartados con fecha
   de CLAUDE.md, los «Estado de F…» de `docs/plan-planificacion.md` y el histórico de
   `docs/despliegue-linux.md`. De esas no hay transcripción.
@@ -42,6 +42,10 @@ histórico de git.
 | 17 | 19-20/10/2026 | Opus 5.5 | Dirección por cliente, comparador y filtro de origen; Supervisión por tipo de campaña; CSV de contactos de GH; artículos de GS en Operaciones (migración 0011) | `90b1192` `cf283cf` `7f1d014` `df434d8` (+ documentación) | `registro-sesion-19-octubre-2026.md`; CLAUDE.md reglas 17-20; `facturacion-tarificacion.md` §5 |
 | 18 | 20/10/2026 | Opus 5.5 | Incidencia: Dirección no cargaba tras el login (plan en caché de `tiemposExitos`) | `52329c1` (+ documentación) | `registro-sesion-20-octubre-2026.md`; CLAUDE.md regla 17 |
 | 19 | 20-21/10/2026 | Opus 5.5 | Guía de supervisión: al día, en pestañas por momento del mes y en un HTML único para la carpeta compartida | sin commit | `registro-sesion-20-21-octubre-2026.md`; CLAUDE.md «Planificación → Ayuda para supervisión» |
+| 20 | 21/10/2026 | Opus 5.5 | Cupos y calendarios de planificación | `0ac0f0f` | CLAUDE.md «Planificación → Calendarios»; apartado 20 |
+| 21 | 21/10/2026 | Opus 5.5 | Calidad de la base de datos y KPIs de supervisión | `c9c5d27` | `registro-sesion-21-23-octubre-2026.md` |
+| 22 | 22-23/10/2026 | Opus 5.5 | Preparaciones, 12 cajas, Salientes y horas del cliente | `1cf6c87` `9592ab6` `bde74ba` `c741fc8` `abd4e71` `29f658f` `47e1779` | `registro-sesion-21-23-octubre-2026.md` |
+| 23 | 23-26/10/2026 | Opus 5.5 | Editar ausencias, copia del horario para las agentes (PDF y móvil) y Next 16.4.2 | `c25ab60` `ac91cc2` `e832b16` (+ documentación) | `registro-sesion-23-26-octubre-2026.md` |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -243,9 +247,9 @@ Registro completo: `docs/registro-sesion-21-23-octubre-2026.md`. Commits despleg
 - 23/10: planificación deja de contar las preparaciones en la tasa de contacto por franja (intentos con número y resultado válido). Agregados de planificación recalculados; borradores de noviembre y diciembre idénticos bloque a bloque en una copia.
 - 23/10: Resultados por agente con horas logadas y horas con ficha separadas, fila de total y agentes sin finalizados; horas totales de un cliente solo con sus usuarios (prefijo de facturación, fuera «Manu»: 80,17 h en GH en octubre).
 
-### 23 · 23/10/2026 · Editar ausencias, copia del horario para las agentes y Next 16.4.2 (Opus 5.5)
+### 23 · 23-26/10/2026 · Editar ausencias, copia del horario para las agentes y Next 16.4.2 (Opus 5.5)
 
-Commits desplegados: `c25ab60` (Next 16.4.2) y `ac91cc2` (planificación), a las 14:55 (`despliegue-linux.md` §9). Detalle técnico en CLAUDE.md «Planificación de turnos» («Copia para las agentes» y ausencias) y «Producción» (Next).
+Registro completo: `docs/registro-sesion-23-26-octubre-2026.md`. Commits desplegados: `c25ab60` (Next 16.4.2) y `ac91cc2` (planificación), el 23/10 a las 14:55, y `e832b16` (código de agente en la copia), el 26/10 a las 08:05 (`despliegue-linux.md` §9). Detalle técnico en CLAUDE.md «Planificación de turnos» («Copia para las agentes» y ausencias) y «Producción» (Next).
 
 - Pedido por Christian: «Editar» en las ausencias (sin borrar y volver a crear) y una copia del plan publicado para mandar a las agentes, sin cliente, en PDF de una página y en un formato más moderno. Se eligió un HTML de un solo fichero (sin internet ni cuentas; con «¿Quién eres?», «hoy» y paso de turnos al calendario del móvil con .ics).
 - La copia descuenta las ausencias de ahora: en producción, noviembre (v4) sale con 42 h menos que sus bloques por tres VAC apuntadas el 22/10, después de publicar. Esos días salen como «VAC», no como trabajo.
@@ -253,3 +257,5 @@ Commits desplegados: `c25ab60` (Next 16.4.2) y `ac91cc2` (planificación), a las
 - Next 16.3.8 → 16.4.2 por dos avisos críticos. El primer build falló por el «database is locked» intermitente y llenó el disco mientras corría; con el visto bueno de Christian se borraron las imágenes viejas del dashboard y la caché de compilación (también la de tickets).
 - Guía de Claude Docs y guía HTML al día (copia y edición de ausencias, capturas nuevas y ejemplos del PDF y del móvil con datos inventados). Falta dejar `guia-supervision.html` en la carpeta compartida.
 - Pruebas en la SQLite de desarrollo: dos líneas de `plan_ausencia` y algunas de `export` de la prueba se quedan en su `audit_log` (no se borra la auditoría).
+- 26/10, pedido por supervisión: en la copia, cada persona con su código de agente de GH («GH_0851», su usuario del cliente base sin sufijo) y de menor a mayor por él, en el PDF y en el móvil; sustituye al número en los nombres repetidos. Ejemplos de la guía de Claude Docs rehechos. El disco del servidor ya es de 77 GB.
+- Pendiente: borrador nuevo de noviembre por las tres VAC del 22/10, copiar la guía HTML a la carpeta compartida y que supervisión pruebe la copia en el móvil.

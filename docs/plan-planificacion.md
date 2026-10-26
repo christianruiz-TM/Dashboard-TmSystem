@@ -701,6 +701,21 @@ Chrome sin ventana (CDP) y usuarios de prueba de cada rol.
 - **Exportación**: Excel con el formato de la plantilla (colores, bloques semanales, totales), con `exceljs` y la estructura de `build_xlsx.py`; y PDF de la semana con CSS de impresión, sin librería.
 - **«Mi horario» (.ics)**: un token aleatorio de 32 bytes por agente (en la BBDD solo su hash SHA-256, como las sesiones), revocable, en `/api/ics/[token]` (se añade a `RUTAS_PUBLICAS` del proxy). Solo muestra los bloques de ese agente (cliente y horas), nunca otros nombres. Límite de peticiones. Hoy los agentes no son usuarios del dashboard: con la exposición a internet (HTTPS + 2FA, mejora 10 de CLAUDE.md, que no es la F5 de este plan) un token filtrado es el riesgo, así que se revisa antes de abrir.
 
+**Estado de F6 (23-26/10/2026).** Hecho en parte con la «Copia para las
+agentes» del tablero (`docs/registro-sesion-23-26-octubre-2026.md`), que va
+por otro camino que el planeado arriba:
+
+- PDF del mes PUBLICADO con `pdf-lib` (una página A4 apaisada, todas las
+  agentes), no de la semana con CSS de impresión.
+- «Mi horario» como un HTML de un solo fichero que supervisión manda a las
+  agentes: cada una elige su nombre y descarga un .ics con sus turnos. No hay
+  token ni ruta pública (nada se expone a internet), pero tampoco
+  suscripción: si el plan cambia, hay que mandar el archivo nuevo.
+- Las dos copias van SIN cliente, con el código de agente de GH y por orden
+  de código.
+- Siguen pendientes las simulaciones y la exportación a Excel con el formato
+  de la plantilla.
+
 ## Pasos inmediatos al aprobar
 
 1. `git switch -c feature/planificacion` desde `master`.

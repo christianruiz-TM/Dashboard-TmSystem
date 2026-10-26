@@ -1607,6 +1607,24 @@ aprobadas por Christian:
 - Desplegado el 23/10/2026 a las 09:24 (`bde74ba`, imagen `e437146e49f7`,
   backup `dashboard_20261023_0921.db`, sin migraciones).
 
+## Sesión 23-26/10/2026 (Opus 5.5): ausencias editables, copia para las agentes y Next 16.4.2
+
+Registro completo en `docs/registro-sesion-23-26-octubre-2026.md`.
+
+- [x] «Editar» en las ausencias y «Copia para las agentes» del plan
+      publicado (PDF de una página y HTML para el móvil con .ics), ver
+      «Planificación de turnos». Desplegado el 23/10/2026 a las 14:55
+      (`ac91cc2`, imagen `381cd9fb0d99`, backup `dashboard_20261023_1438.db`).
+- [x] Next 16.3.8 → 16.4.2 (`c25ab60`, dos avisos críticos), en el mismo
+      despliegue. El build falló una vez por «database is locked» (repetir
+      basta); con permiso de Christian se vació la caché de compilación.
+- [x] 26/10: código de agente de GH y orden de menor a mayor en la copia
+      (`e832b16`, imagen `057f20bb182d`, backup `dashboard_20261026_0749.db`).
+- [x] Ayuda, capturas, guía de Claude Docs y guía HTML al día.
+- [ ] Noviembre: borrador nuevo por tres VAC apuntadas tras publicar (la
+      copia ya las descuenta). Copiar `guia-supervision.html` a la carpeta
+      compartida. Que supervisión pruebe la copia en el móvil.
+
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
 Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:
@@ -1653,7 +1671,8 @@ publicación y versiones) el 01/10/2026, F4 (seguimiento: Hoy, adherencia,
 saldo real, alertas y cierre de mes) el 06/10/2026 y F5 (tarea nocturna
 única) el 09/10/2026; sus resultados y desviaciones están en las secciones
 «Estado de F1…F5» de ese documento. Queda F6 (opcionales: simulaciones,
-exportar a Excel/PDF, «Mi horario» .ics); la tarea nocturna ya está
+exportar a Excel; el PDF del plan publicado y «Mi horario» con .ics ya los
+cubre la «Copia para las agentes» del 23/10/2026); la tarea nocturna ya está
 programada en el servidor (servicio `tareas`, 09/10/2026). Cubre también parte de la mejora 4
 (alertas de planificación) y la 5 (curva intradía: la tabla
 `agg_hora_servicio` de su F1). Sus fases F1-F6 son propias del
