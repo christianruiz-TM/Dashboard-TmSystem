@@ -609,6 +609,7 @@ async function horasResultados(
     guionCampania: {},
     guionAgenteCampania: {},
     activos: {},
+    nombresLogados: Object.fromEntries(base.horasLogadas.map((h) => [h.agente, h.nombre || h.agente])),
   };
   for (const f of base.filas) {
     horas.activos[f.agente] = f.nombre || f.agente;
@@ -640,6 +641,8 @@ export async function resultadosActividadRango(
   campo: CampoResultados | null = null,
   /** Prefijo de los usuarios del cliente: solo sus horas cuentan en el total. */
   prefijo: string | null = null,
+  /** Con prefijo, ¿salen sus usuarios logados sin actividad? (cliente entero, no un tipo). */
+  sinActividad = true,
 ): Promise<ResultadoResultados> {
   let base: BaseResultados;
   if (campanias && campanias.length === 0) {
@@ -683,7 +686,7 @@ export async function resultadosActividadRango(
       console.error("[resultados] horas para finalizados por hora:", e);
     }
   }
-  return calcularResultados(base, objetivos, desdeISO, hastaISO, prefijo);
+  return calcularResultados(base, objetivos, desdeISO, hastaISO, prefijo, sinActividad);
 }
 
 // ============================================================

@@ -741,6 +741,11 @@ export function calcularResultados(
   hasta: string,
   /** Prefijo de los usuarios del cliente (GH…): solo sus horas van al total. */
   prefijo: string | null = null,
+  /**
+   * Con prefijo, salen también sus usuarios logados sin ninguna ficha
+   * (27/10/2026), como en los ratios de éxito. No con un tipo de campaña.
+   */
+  sinActividad = true,
 ): ResultadoResultados {
   const configurados = new Set(base.serviciosConfigurados);
   const servicioDe = (c: string) => base.servicioDeCampania[c] ?? null;
@@ -839,6 +844,22 @@ export function calcularResultados(
       ...ratios(vacio(), null, logadas, logadas, sumaONull(guiones)),
       campanias: [],
     });
+  }
+  // Usuarios del cliente logados sin ninguna ficha en el alcance (27/10/2026):
+  // salen con sus horas, como en «Rendimiento por éxitos», y cuentan en el total
+  if (prefijo && sinActividad) {
+    for (const [agente, nombre] of Object.entries(h?.nombresLogados ?? {})) {
+      if (agentes.some((a) => a.agente === agente) || !esUsuarioDelCliente(agente, prefijo)) continue;
+      const logadas = horasLogadas(agente);
+      if (logadas == null || logadas <= 0) continue;
+      agentes.push({
+        agente,
+        nombre,
+        cuentaEnHoras: true,
+        ...ratios(vacio(), null, logadas, logadas, null),
+        campanias: [],
+      });
+    }
   }
   agentes.sort((a, b) => {
     if (a.muestraPequenia !== b.muestraPequenia) return a.muestraPequenia ? 1 : -1;

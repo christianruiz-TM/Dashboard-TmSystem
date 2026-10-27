@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BaseRatiosExito, FilaBaseRatios } from "@/lib/rdb/types";
-import { MIN_CONTACTOS_RATIO, calcularRatiosExito } from "./ratios-exito";
+import { MIN_CONTACTOS_RATIO, calcularRatiosExito, esUsuarioDelCliente } from "./ratios-exito";
 
 function fila(p: Partial<FilaBaseRatios> & Pick<FilaBaseRatios, "agente" | "campania">): FilaBaseRatios {
   return {
@@ -274,5 +274,47 @@ describe("horas del cliente por prefijo (23/10/2026)", () => {
     expect(r.total.llamadasHoraLogada).toBe(5);
     // La fila del agente sigue con sus horas
     expect(r.agentes.find((a) => a.agente === "Manu")!.horasLogadas).toBe(80);
+  });
+});
+
+describe("usuarios del cliente logados sin actividad (27/10/2026)", () => {
+  const filas = [fila({ agente: "GH_0851", nombre: "Lourdes", campania: "gh_a", sesiones: 50, atendidas: 40, exitos: 5 })];
+  const horasLogadas = [
+    { agente: "GH_0851", nombre: "Lourdes", horas: 8 },
+    // Logada todo el día sin una sola llamada (GH_1071, 26/10/2026)
+    { agente: "GH_1071", nombre: "Miriam Delgado_GH", horas: 7.8 },
+    // Cargador de tipo agente: empieza por GH_ pero no es una persona
+    { agente: "GH_Cargador2", nombre: "GH_Cargador2", horas: 10.26 },
+    // De otro cliente
+    { agente: "Av_1071", nombre: "Miriam Delgado", horas: 7.55 },
+  ];
+
+  it("con prefijo salen con sus horas y cuentan en el total", () => {
+    const r = calcularRatiosExito(base(filas, { horasLogadas }), "GH");
+    expect(r.agentes.map((a) => a.agente)).toEqual(["GH_0851", "GH_1071"]);
+    const miriam = r.agentes.find((a) => a.agente === "GH_1071")!;
+    expect(miriam.nombre).toBe("Miriam Delgado_GH");
+    expect(miriam.horasLogadas).toBe(7.8);
+    expect(miriam.contactos).toBe(0);
+    expect(miriam.llamadasHoraLogada).toBe(0);
+    expect(miriam.indice).toBeNull();
+    expect(miriam.campanias).toEqual([]);
+    expect(r.total.horasLogadas).toBe(15.8);
+    expect(r.total.llamadasHoraLogada).toBe(2.53); // 40 / 15,8
+  });
+
+  it("sin prefijo, o con un tipo de campaña, no salen", () => {
+    expect(calcularRatiosExito(base(filas, { horasLogadas })).agentes).toHaveLength(1);
+    const r = calcularRatiosExito(base(filas, { horasLogadas }), "GH", false);
+    expect(r.agentes).toHaveLength(1);
+    expect(r.total.horasLogadas).toBe(8);
+  });
+
+  it("usuario del cliente = PREFIJO_nnnn con sufijo opcional", () => {
+    expect(esUsuarioDelCliente("GH_0851", "GH")).toBe(true);
+    expect(esUsuarioDelCliente("GH_1067_BD_LX", "GH")).toBe(true);
+    expect(esUsuarioDelCliente("GH_Cargador2", "GH")).toBe(false);
+    expect(esUsuarioDelCliente("GHX_0851", "GH")).toBe(false);
+    expect(esUsuarioDelCliente("Manu", null)).toBe(true);
   });
 });

@@ -318,6 +318,7 @@ async function baseRatiosCore(
     ),
     ${sqlCtesIslas("usuario")}
     SELECT RTRIM(u.usr_name) AS agente,
+           RTRIM(MAX(u.fullname)) AS nombre,
            SUM(CAST(DATEDIFF(SECOND, i.ini, i.fin) AS BIGINT)) / 3600.0 AS horas
     FROM islas i
     INNER JOIN ph_e_user u ON u.code = i.usuario
@@ -341,13 +342,17 @@ async function baseRatiosCore(
     ...f,
     ...(tiempos.get(`${f.agente}|${f.campania}`) ?? sinTiempos),
   }));
-  // Las horas de los usuarios sin actividad en el alcance no hacen falta
-  const conActividad = new Set(filas.map((f) => f.agente));
+  // Todos los usuarios logados, también los que no tienen actividad en el
+  // alcance (27/10/2026): con el prefijo del cliente, los suyos salen en la
+  // tabla aunque no hayan llamado (GH_1071 el 26/10/2026: logada y sin
+  // ningún hilo). Quién cuenta lo decide calcularRatiosExito.
   return {
     filas,
-    horasLogadas: (rLogado.recordset as { agente: string; horas: number }[]).filter((h) =>
-      conActividad.has(h.agente),
-    ),
+    horasLogadas: (rLogado.recordset as { agente: string; nombre: string | null; horas: number }[]).map((h) => ({
+      agente: h.agente,
+      nombre: h.nombre || h.agente,
+      horas: Number(h.horas),
+    })),
     campaniasConSinExito: conSinExito,
   };
 }
@@ -373,7 +378,11 @@ export async function baseRatiosHoy(campanias?: string[]): Promise<BaseRatiosExi
   );
 }
 
-/** Ratios de éxito de HOY (Supervisión en vivo, cache 60 s). Con prefijo, el total solo con los usuarios del cliente. */
+/**
+ * Ratios de éxito de HOY (Supervisión en vivo, cache 60 s). Con prefijo, el
+ * total solo con los usuarios del cliente, y salen también los suyos logados
+ * sin actividad.
+ */
 export async function ratiosExitoHoy(campanias?: string[], prefijo: string | null = null): Promise<ResultadoRatios> {
   return calcularRatiosExito(await baseRatiosHoy(campanias), prefijo);
 }
@@ -402,6 +411,11 @@ export async function ratiosExitoRango(
   campanias?: string[],
   /** Prefijo de los usuarios del cliente: solo sus horas van al total. */
   prefijo: string | null = null,
+  /**
+   * Con prefijo, ¿salen también sus usuarios logados sin actividad? Solo
+   * cuando el alcance es el cliente entero (no un tipo de campaña).
+   */
+  sinActividad = true,
 ): Promise<ResultadoRatios> {
-  return calcularRatiosExito(await baseRatiosRango(desdeISO, hastaISO, campanias), prefijo);
+  return calcularRatiosExito(await baseRatiosRango(desdeISO, hastaISO, campanias), prefijo, sinActividad);
 }

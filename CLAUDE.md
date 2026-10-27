@@ -1552,6 +1552,15 @@ con ficha separadas) y `29f658f` (fila de total y glosario sin repetidos).
   prefijo cerró contactos, sus horas salen tachadas y no suman.
 - Caja 1 = fila de total de Resultados (GH 01-23/10: 803,02 h en
   producción; septiembre 1.384,22 h, como la facturación).
+- **Usuarios del cliente logados sin actividad** (27/10/2026, pedido por
+  Christian): con prefijo y el cliente entero, salen en «Rendimiento por
+  éxitos → Por agente» y en Resultados con sus horas y 0 llamadas, y cuentan
+  en la caja 1 (GH 26/10: `GH_1071` logada 7,81 h sin un solo hilo; total
+  101,97 h en los dos). Con un tipo de campaña en Resultados, no
+  (`sinActividad`). La base de los ratios trae ya las horas de TODOS los
+  usuarios logados, con nombre. `esUsuarioDelCliente` exige
+  `PREFIJO_nnnn[_SUFIJO]`: `GH_Cargador2` es de tipo agente y deja ~10 h al
+  día en `user_log`.
 - [ ] Confirmar con Christian si la regla vale para los cuatro clientes con
       prefijo (hoy sí) o solo para GrupoHuertas, y si los usuarios sin prefijo
       deben salir también de las filas de «Rendimiento por éxitos».

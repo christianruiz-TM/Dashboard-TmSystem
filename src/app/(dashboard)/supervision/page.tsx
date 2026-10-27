@@ -104,6 +104,9 @@ export default async function PaginaSupervision({
     const campo = servicioElegido ? campoContactoDe(servicioElegido) : null;
     const filtroCampo = campo ? leerFiltroCampo(params.campo, params.modo) : null;
     const campTipo = filtrarPorTipo(camp ?? [], tipos, tipo);
+    // Con un tipo de campaña no se puede saber de qué tipo es quien no llamó:
+    // los usuarios logados sin actividad solo salen con el cliente entero
+    const sinActividad = tipo === "todas";
     const [resultado, ratiosRes] = servicioElegido
       ? await Promise.all([
           resultadosActividadRango(
@@ -114,10 +117,11 @@ export default async function PaginaSupervision({
             objetivosDeResultados(),
             campo ? { servicio: servicioElegido, campo, filtro: filtroCampo } : null,
             prefijo,
+            sinActividad,
           ),
           // Las cajas de actividad de la cabecera (22/10/2026): misma caché que
           // las horas de «finalizados por hora»
-          ratiosExitoRango(desde, hasta, campTipo, prefijo),
+          ratiosExitoRango(desde, hasta, campTipo, prefijo, sinActividad),
         ])
       : [null, null];
     // CSV de contactos finalizados (solo GH): con los mismos filtros de la pestaña

@@ -521,4 +521,23 @@ describe("agentes sin finalizados y horas del cliente (23/10/2026)", () => {
     expect(r.agentes.some((a) => a.agente === "Manu")).toBe(true);
     expect(r.total.horasLogadas).toBe(96.5); // 7,5 + 6 + 3 + 80
   });
+
+  it("con prefijo salen también los del cliente logados sin ninguna ficha (27/10/2026)", () => {
+    const conLogados = {
+      ...horas,
+      logadas: { ...horas.logadas, GH_1118: 4, GH_Cargador2: 10 },
+      nombresLogados: { GH_0851: "Lourdes", GH_1071: "Miriam", GH_1118: "Cassandra", GH_Cargador2: "GH_Cargador2", Manu: "Manu", Angeles: "Angeles" },
+    };
+    const r = calcularResultados(base(filas, { horas: conLogados }), [], "2026-10-01", "2026-10-23", "GH");
+    const cassandra = r.agentes.find((a) => a.agente === "GH_1118")!;
+    expect(cassandra.nombre).toBe("Cassandra");
+    expect(cassandra.finalizados).toBe(0);
+    expect(cassandra.horasLogadas).toBe(4);
+    expect(r.agentes.some((a) => a.agente === "GH_Cargador2")).toBe(false);
+    expect(r.total.horasLogadas).toBe(14.5); // 7,5 + 3 + 4
+    // Con un tipo de campaña, no
+    const t = calcularResultados(base(filas, { horas: conLogados }), [], "2026-10-01", "2026-10-23", "GH", false);
+    expect(t.agentes.some((a) => a.agente === "GH_1118")).toBe(false);
+    expect(t.total.horasLogadas).toBe(10.5);
+  });
 });

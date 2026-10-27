@@ -223,8 +223,13 @@ export interface FilaDiariaRatios extends FilaConteosRatios {
 
 export interface BaseRatiosExito {
   filas: FilaBaseRatios[];
-  /** Tiempo logado (user_log, unión de sesiones) por usuario, sin redondear. */
-  horasLogadas: { agente: string; horas: number }[];
+  /**
+   * Tiempo logado (user_log, unión de sesiones) por usuario, sin redondear.
+   * De TODOS los usuarios logados en el rango, tengan o no actividad en el
+   * alcance: con prefijo de cliente, los suyos sin llamadas también salen
+   * (27/10/2026).
+   */
+  horasLogadas: { agente: string; nombre?: string; horas: number }[];
   /**
    * Campañas que usan la calificación «sin éxito» (estado 4). Bolsas y
    * Soc_Avisos/Soc_Incidencias no la usan: cierran como «no cualificada», y
@@ -515,6 +520,11 @@ export interface HorasResultados {
    * por agente con sus horas (23/10/2026).
    */
   activos: Record<string, string>;
+  /**
+   * Nombre de cada usuario con horas logadas en el rango (27/10/2026): con
+   * prefijo, los del cliente sin actividad también salen en la tabla.
+   */
+  nombresLogados?: Record<string, string>;
 }
 
 export interface BaseResultados {

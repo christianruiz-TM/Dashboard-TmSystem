@@ -197,6 +197,9 @@ function valorOrden(a: RatiosAgente, clave: ClaveOrden): number | string | null 
   return a[clave];
 }
 
+/** Fila de total de las tablas, como la de Resultados. */
+const FILA_TOTAL = "border-t-2 bg-muted/60 font-semibold hover:bg-muted/60";
+
 /** Variación relativa en % (null sin base), como el resto de tarjetas de Dirección. */
 function variacion(actual: number | null, anterior: number | null | undefined): number | null {
   if (actual == null || anterior == null || anterior === 0) return null;
@@ -231,6 +234,10 @@ export function RatiosExito({
         return orden.desc ? -c : c;
       })
     : ratios.agentes; // por defecto: ranking por índice (lib/ratios-exito.ts)
+
+  // Con prefijo de cliente, las horas de los usuarios de fuera no suman en el total
+  const sumaHorasAgentes = ratios.agentes.reduce((s, a) => s + (a.horasLogadas ?? 0), 0);
+  const horasFuera = sumaHorasAgentes - t.horasLogadas > 0.05;
 
   const ordenarPor = (clave: ClaveOrden) =>
     setOrden((o) => (o?.clave === clave ? { clave, desc: !o.desc } : { clave, desc: clave !== "agente" }));
@@ -274,7 +281,9 @@ export function RatiosExito({
           y el total, por hora logada; por campaña, por hora con el script abierto. El índice
           compara a cada agente con la media de las campañas en las que ha trabajado (100 = la
           media). Con menos de {MIN_CONTACTOS_RATIO} contactos los ratios salen en gris: la
-          muestra es pequeña.
+          muestra es pequeña. En los clientes con usuarios propios (GH_…), salen también los
+          suyos que estuvieron logados aunque no hicieran llamadas, y sus horas cuentan en el
+          total.
         </p>
       </CardHeader>
       <CardContent className="space-y-4">
@@ -372,7 +381,11 @@ export function RatiosExito({
                                 <div className="font-medium">{a.nombre}</div>
                                 <div className="text-xs text-muted-foreground">
                                   {a.agente}
-                                  {a.muestraPequenia ? " · muestra pequeña" : ""}
+                                  {a.contactos === 0 && a.atendidas === 0
+                                    ? " · sin llamadas"
+                                    : a.muestraPequenia
+                                      ? " · muestra pequeña"
+                                      : ""}
                                 </div>
                               </div>
                             </div>
@@ -392,8 +405,28 @@ export function RatiosExito({
                     );
                   })
                 )}
+                {agentes.length > 0 ? (
+                  <TableRow className={FILA_TOTAL}>
+                    <TableCell>
+                      <div>Total</div>
+                      <div className="text-xs font-normal text-muted-foreground">{agentes.length} agentes</div>
+                    </TableCell>
+                    {/* El índice del total es 100 por definición: no se enseña */}
+                    <CeldasRatios
+                      r={t}
+                      hora={{ horas: t.horasLogadas, llamadas: t.llamadasHoraLogada, exitos: t.exitosHoraLogada, base: "logada" }}
+                      indice={null}
+                    />
+                  </TableRow>
+                ) : null}
               </TableBody>
             </Table>
+            {horasFuera ? (
+              <p className="mt-2 text-xs text-muted-foreground">
+                Las horas del total son solo las de los usuarios del cliente (GH_… en GrupoHuertas): las de los
+                agentes de fuera que tocaron alguna ficha salen en su fila pero no suman.
+              </p>
+            ) : null}
           </TabsContent>
 
           <TabsContent value="campanias">
@@ -433,6 +466,17 @@ export function RatiosExito({
                     );
                   })
                 )}
+                {ratios.campanias.length > 0 ? (
+                  <TableRow className={FILA_TOTAL}>
+                    <TableCell>
+                      <div>Total</div>
+                      <div className="text-xs font-normal text-muted-foreground">
+                        {ratios.campanias.length} campañas
+                      </div>
+                    </TableCell>
+                    <CeldasRatios r={t} hora={porHoraGuion(t)} />
+                  </TableRow>
+                ) : null}
               </TableBody>
             </Table>
           </TabsContent>

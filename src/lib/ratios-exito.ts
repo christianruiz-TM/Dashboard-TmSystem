@@ -37,13 +37,15 @@ import type { BaseRatiosExito, FilaBaseRatios } from "@/lib/rdb/types";
 
 /**
  * ¿El usuario es del cliente? Con prefijo (el de su facturación por horas
- * logadas: GH, CR, UGR, CEFF), solo `PREFIJO_…` (GH_0851, GH_0851_BD…);
- * sin prefijo, todos. Decidido con Christian el 23/10/2026: las horas
- * totales de un cliente son solo las de sus usuarios (fuera «Manu» y
- * similares, que tocan una ficha suelta y traían todas sus horas logadas).
+ * logadas: GH, CR, UGR, CEFF), solo `PREFIJO_nnnn[_SUFIJO]` (GH_0851,
+ * GH_0851_BD…, regla 15); sin prefijo, todos. Decidido con Christian el
+ * 23/10/2026: las horas totales de un cliente son solo las de sus usuarios
+ * (fuera «Manu» y similares, que tocan una ficha suelta y traían todas sus
+ * horas logadas). El número de agente es obligatorio desde el 27/10/2026:
+ * GH_Cargador2 es de tipo agente y deja ~10 h diarias en user_log.
  */
 export function esUsuarioDelCliente(usuario: string, prefijo?: string | null): boolean {
-  return !prefijo || usuario.startsWith(`${prefijo}_`);
+  return !prefijo || new RegExp(`^${prefijo}_\\d{4}(_.+)?$`, "i").test(usuario.trim());
 }
 
 /** Por debajo de estos contactos el ratio se enseña atenuado («muestra pequeña»). */
@@ -221,7 +223,18 @@ function compararAgentes(a: RatiosAgente, b: RatiosAgente): number {
   return a.agente.localeCompare(b.agente);
 }
 
-export function calcularRatiosExito(base: BaseRatiosExito, prefijo: string | null = null): ResultadoRatios {
+/**
+ * Ratios de un alcance. Con `prefijo` (y `sinActividad`, lo normal cuando el
+ * alcance es el cliente entero), salen también sus usuarios con horas
+ * logadas y sin ninguna sesión ni llamada (27/10/2026, pedido por
+ * Christian: GH_1071 estuvo logada el 26/10 sin llamar y no aparecía), y
+ * sus horas cuentan en el total.
+ */
+export function calcularRatiosExito(
+  base: BaseRatiosExito,
+  prefijo: string | null = null,
+  sinActividad = true,
+): ResultadoRatios {
   const marcan = new Set(base.campaniasConSinExito);
   const horas = new Map(base.horasLogadas.map((h) => [h.agente, h.horas]));
 
@@ -279,15 +292,33 @@ export function calcularRatiosExito(base: BaseRatiosExito, prefijo: string | nul
       campanias,
     };
   });
+  if (prefijo && sinActividad) {
+    for (const h of base.horasLogadas) {
+      if (filasPorAgente.has(h.agente) || h.horas <= 0 || !esUsuarioDelCliente(h.agente, prefijo)) continue;
+      agentes.push({
+        agente: h.agente,
+        nombre: h.nombre || h.agente,
+        ...ratios(vacio()),
+        horasLogadas: r2(h.horas),
+        llamadasHoraLogada: 0,
+        exitosHoraLogada: 0,
+        exitosEsperados: 0,
+        indice: null,
+        campanias: [],
+      });
+    }
+  }
   agentes.sort(compararAgentes);
 
   const campanias: RatiosCampania[] = [...porCampania]
     .map(([campania, a]) => ({ campania, marcaSinExito: marcan.has(campania), ...ratios(a) }))
     .sort((x, y) => y.exitos - x.exitos || y.contactos - x.contactos);
 
-  // Horas logadas del total: las de los agentes que trabajaron en el alcance
-  // y, si el cliente tiene prefijo, solo sus usuarios
-  const horasTotal = [...filasPorAgente.keys()]
+  // Horas logadas del total: las de los agentes de la tabla (los que
+  // trabajaron en el alcance y, con prefijo, sus usuarios logados sin
+  // actividad) y, si el cliente tiene prefijo, solo sus usuarios
+  const horasTotal = agentes
+    .map((a) => a.agente)
     .filter((ag) => esUsuarioDelCliente(ag, prefijo))
     .reduce((s, ag) => s + (horas.get(ag) ?? 0), 0);
   return {
