@@ -262,7 +262,7 @@ Registro completo: `docs/registro-sesion-23-26-octubre-2026.md`. Commits despleg
 
 ### 24 · 04/11/2026 · Semana partida, pestaña «Horas», campana de alertas y orden alfabético (Opus 5.5)
 
-Registro completo: `docs/registro-sesion-04-noviembre-2026.md`. Sin commit ni despliegue todavía. Detalle técnico en CLAUDE.md («Saldo» y «Horas» en Planificación de turnos, «Campana de alertas» en Arquitectura y el orden alfabético en Convenciones de código).
+Registro completo: `docs/registro-sesion-04-noviembre-2026.md`. Commit `2b5a24c`, desplegado el 04/11 a las 17:06 (`despliegue-linux.md` §9). Detalle técnico en CLAUDE.md («Saldo» y «Horas» en Planificación de turnos, «Campana de alertas» en Arquitectura y el orden alfabético en Convenciones de código).
 
 - Contrato del día repartido según el turno: el lunes 30/11 ya no sale con +3 h y desaparece el negativo del arrastre del 1-2/10 (entre −2 y −5,20 h). Semana partida entera en el tablero, con los días del otro mes en gris.
 - Pestaña «Horas» del mes: contrato frente a horas logadas por día, semana y mes, por persona y por cliente.

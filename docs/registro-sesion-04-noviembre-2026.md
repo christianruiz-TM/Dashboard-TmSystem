@@ -128,10 +128,27 @@ el mismo proyecto (falta `.next/dev/server/preview-props.json`). No se pudo
 parar desde aquí: hay que cerrarlo y volver a lanzar `npm run dev`. La SQLite
 de desarrollo no se tocó (backup `dashboard_20261104_1410.db` por si acaso).
 
+## Despliegue
+
+Commit `2b5a24c`, desplegado el 04/11/2026 a las 17:06 (imagen
+`83819cdc8f57`, sin migraciones, backup `dashboard_20261104_1658.db`). Los
+dos primeros builds fallaron con «database is locked» en la SQLite desechable
+del build; el tercero compiló. `verificar` sin errores. Comprobado desde
+`tareas` en solo lectura con los datos de producción:
+
+- Noviembre v4 publicada, lunes 30/11: de +3,00 / +2,00 / +1,40 h a entre
+  −0,95 y +0,56 h.
+- Arrastre de octubre: mejora entre +1,66 h (0851) y +4,93 h (0973); sin
+  cambio a quien no tiene lunes largos (0950, 1045, 1118). A mitad de semana
+  el saldo de noviembre puede bajar: los lunes y martes llevan ya su contrato
+  de días largos y se compensan el resto de la semana.
+- Horas de noviembre en 51 ms; campana con 5 alertas en 400 ms.
+- Sin sesión, las rutas nuevas mandan al login.
+
 ## Pendiente
 
-- Commit y despliegue (sin migraciones). Avisar a supervisión de que los
-  saldos acumulados cambian.
+- Avisar a supervisión de que los saldos acumulados cambian.
+- Arreglar el «database is locked» del build (mejora 11 de CLAUDE.md).
 - Directiva de los avisos de Windows en los PC de supervisión.
 - Capturas de la ayuda en modo demo, guía de Claude Docs y guía HTML con
   «Horas» y la semana partida.

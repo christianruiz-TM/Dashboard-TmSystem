@@ -1711,8 +1711,12 @@ tocar nada:
       que ordenan (convenciones de código).
 - [x] 304 tests, `tsc`, ESLint y `next build` en verde; verificado en un
       `next dev` aparte (copia del proyecto y de la SQLite) contra RDBv2.
-- [ ] Commit y despliegue (sin migraciones). Avisar a supervisión de que los
-      saldos acumulados cambian (desaparece el negativo del 1-2/10).
+- [x] Commit `2b5a24c`, desplegado el 04/11/2026 a las 17:06 (imagen
+      `83819cdc8f57`, sin migraciones, backup `dashboard_20261104_1658.db`).
+      El build falló dos veces con «database is locked» (ver la mejora 11).
+- [ ] Avisar a supervisión de que los saldos acumulados cambian: el
+      arrastre de octubre mejora entre +1,66 y +4,93 h según la persona, y
+      a mitad de semana el saldo ya no infla los días largos.
 - [ ] Directiva de los avisos de Windows en los PC de supervisión
       (`docs/notificaciones-escritorio.md`).
 - [ ] Capturas de la ayuda (modo demo), guía de Claude Docs y guía HTML con
@@ -1757,6 +1761,12 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 10. F5: 2FA, HTTPS en el nginx del compose (el bloque TLS ya está comentado en
     `docker/nginx.conf`) y `COOKIE_SECURE=1`. `TRUST_PROXY=1` ya está puesto.
     Solo es urgente si se decide exponer a internet.
+11. **«database is locked» al compilar la imagen** (cada vez más a menudo: dos
+    builds seguidos el 04/11/2026). Al recoger la configuración de las
+    rutas, varios procesos de `next build` abren a la vez la SQLite
+    desechable y el `PRAGMA journal_mode = WAL` de `sqlite.ts` choca.
+    Arreglo propuesto: reintentar ese pragma (y la migración) con una
+    espera corta si da SQLITE_BUSY. Mientras tanto, repetir el build.
 
 **Módulo «Planificación de turnos»** (aprobado 30/09/2026, rama
 `feature/planificacion`): plan por fases F1-F6 en `docs/plan-planificacion.md`.
