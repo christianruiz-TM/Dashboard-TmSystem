@@ -20,7 +20,7 @@ import {
 } from "./adherencia";
 import { evaluarAlertas, type Alerta } from "./alertas";
 import { leerEquipo, nombresAgentes } from "./equipo";
-import { calcularMinimos, desplazarMes, diasSinTrabajoEquipo, fechasDelMes, lunesDe, sumarDias } from "./motor";
+import { calcularMinimos, desplazarMes, diasSinTrabajoEquipo, fechasDelMes, horasTurnoSemanas, lunesDe, sumarDias } from "./motor";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
 import { horasCubiertas, saldoAgente, type DiaSaldo, type TotalesSaldo } from "./saldo";
@@ -196,7 +196,8 @@ async function saldoDelMes(mes: string, fechaDatos: string, inicioSaldo: string)
   if (!t) return null;
   const dias = t.entrada.dias.filter((d) => d.fecha >= inicioSaldo);
   const sinTrabajo = diasSinTrabajoEquipo(t.entrada);
-  if (dias.length === 0) return { version, t, dias, porAgente: new Map<string, ReturnType<typeof saldoAgente>>(), ajustes: [] };
+  const porUsuario: Logado["porUsuario"] = [];
+  if (dias.length === 0) return { version, t, dias, porAgente: new Map<string, ReturnType<typeof saldoAgente>>(), ajustes: [], porUsuario };
   const desde = dias[0].fecha;
   const hasta = dias[dias.length - 1].fecha;
 
@@ -204,8 +205,9 @@ async function saldoDelMes(mes: string, fechaDatos: string, inicioSaldo: string)
   const finReal = fechaDatos < hasta ? fechaDatos : hasta;
   const reales = new Map<string, number>();
   if (desde <= finReal) {
-    const { tramos } = await logadoRango(desde, finReal);
-    for (const d of calcularAdherencia([], tramos, SIN_REGLAS).dias) reales.set(`${d.agenteNumero}|${d.fecha}`, d.logadoMin / 60);
+    const logado = await logadoRango(desde, finReal);
+    porUsuario.push(...logado.porUsuario);
+    for (const d of calcularAdherencia([], logado.tramos, SIN_REGLAS).dias) reales.set(`${d.agenteNumero}|${d.fecha}`, d.logadoMin / 60);
   }
   const plan = new Map<string, number>();
   for (const b of t.bloques) plan.set(`${b.agenteNumero}|${b.fecha}`, (plan.get(`${b.agenteNumero}|${b.fecha}`) ?? 0) + (b.finMin - b.inicioMin) / 60);
@@ -239,11 +241,13 @@ async function saldoDelMes(mes: string, fechaDatos: string, inicioSaldo: string)
         realH: porDia(reales),
         justificadasH,
         turnoH,
+        // Con los días de otro mes de las semanas partidas (y los anteriores a inicioSaldo)
+        turnoSemanaH: horasTurnoSemanas(t.entrada.dias.map((d) => d.fecha), a.turnos, a.turnosFuera),
         ajustesH,
       }),
     );
   }
-  return { version, t, dias, porAgente, ajustes };
+  return { version, t, dias, porAgente, ajustes, porUsuario };
 }
 
 /**
@@ -294,6 +298,90 @@ export async function saldosMes(mes: string, ahora = new Date()): Promise<DatosS
     inicioSaldo,
     semanas: [...semanas].map(([lunes, fechas]) => ({ lunes, fechas })),
     agentes: agentes.sort((x, y) => x.numero.localeCompare(y.numero)),
+  };
+}
+
+// ---------- Horas: contrato frente a horas logadas ----------
+
+export interface DiaHoras {
+  fecha: string;
+  /** Día cerrado (hasta ayer): horas logadas de verdad; si no, las planificadas. */
+  cerrado: boolean;
+  contrato: number;
+  logadas: number;
+  /** Códigos de las ausencias de ese día (VAC, FEST...), para explicar un día sin horas. */
+  ausencias: string[];
+}
+
+export interface DatosHoras {
+  mes: string;
+  version: { numero: number; estado: string };
+  /** Último día cerrado (ayer). */
+  fechaDatos: string;
+  fechas: string[];
+  semanas: { lunes: string; fechas: string[] }[];
+  agentes: { numero: string; nombre: string | null; contratoSemanalH: number; dias: DiaHoras[] }[];
+  /** Horas de los usuarios de cada cliente (todos, estén o no en la plantilla, como en Cierre). */
+  clientes: { codigo: string; nombre: string; color: string; dias: { fecha: string; cerrado: boolean; horas: number }[] }[];
+}
+
+/**
+ * Horas de contrato frente a horas logadas de un mes, por día (pedido por
+ * supervisión, 04/11/2026). Son las mismas cuentas que Saldos, sin
+ * justificadas ni ajustes: el contrato de cada día (repartido según el turno,
+ * motor/contrato.ts) y lo logado de la persona (user_log, unión de todos sus
+ * usuarios) hasta ayer; de hoy en adelante, lo planificado. Por cliente no
+ * hay contrato: las horas de sus usuarios hasta ayer y lo planificado después.
+ * Todos los días del mes, también los anteriores a plan.inicioSaldo.
+ */
+export async function horasMes(mes: string, ahora = new Date()): Promise<DatosHoras | null> {
+  const fechaDatos = sumarDias(fechaLocal(ahora), -1);
+  const fechas = fechasDelMes(mes);
+  const actual = await saldoDelMes(mes, fechaDatos, fechas[0]);
+  if (!actual) return null;
+  const { t } = actual;
+
+  // Los mismos agentes que en Saldos: con contrato, y los inactivos solo si han trabajado
+  const activos = new Set(t.activos);
+  const agentes: DatosHoras["agentes"] = [];
+  for (const a of t.entrada.agentes) {
+    const s = actual.porAgente.get(a.numero);
+    if (!s || a.contratoSemanalH == null) continue;
+    if (!activos.has(a.numero) && s.totales.real.trabajadas === 0) continue;
+    agentes.push({
+      numero: a.numero,
+      nombre: t.nombres[a.numero] ?? null,
+      contratoSemanalH: a.contratoSemanalH,
+      dias: s.dias.map((d) => ({
+        fecha: d.fecha,
+        cerrado: d.cerrado,
+        contrato: d.contrato,
+        logadas: d.trabajadas,
+        ausencias: [...new Set(a.ausencias.filter((x) => x.fecha === d.fecha).map((x) => x.tipo))],
+      })),
+    });
+  }
+
+  const horasCliente = new Map<string, number>();
+  const sumar = (cliente: string, fecha: string, h: number) => horasCliente.set(`${cliente}|${fecha}`, (horasCliente.get(`${cliente}|${fecha}`) ?? 0) + h);
+  for (const u of actual.porUsuario) if (u.clienteCodigo) sumar(u.clienteCodigo, u.fecha, (u.finMin - u.inicioMin) / 60);
+  for (const b of t.bloques) if (b.fecha > fechaDatos) sumar(b.clienteCodigo, b.fecha, (b.finMin - b.inicioMin) / 60);
+
+  const semanas = new Map<string, string[]>();
+  for (const d of t.entrada.dias) semanas.set(d.lunes, [...(semanas.get(d.lunes) ?? []), d.fecha]);
+  return {
+    mes,
+    version: { numero: actual.version.numero, estado: actual.version.estado },
+    fechaDatos,
+    fechas,
+    semanas: [...semanas].map(([lunes, f]) => ({ lunes, fechas: f })),
+    agentes: agentes.sort((x, y) => x.numero.localeCompare(y.numero)),
+    clientes: t.entrada.clientes.map((c) => ({
+      codigo: c.codigo,
+      nombre: c.nombre,
+      color: c.color,
+      dias: fechas.map((fecha) => ({ fecha, cerrado: fecha <= fechaDatos, horas: horasCliente.get(`${c.codigo}|${fecha}`) ?? 0 })),
+    })),
   };
 }
 

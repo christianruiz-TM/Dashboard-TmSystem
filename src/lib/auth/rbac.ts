@@ -45,6 +45,17 @@ export const ROLES_SUPERVISION: Rol[] = ["supervision", "direccion"];
 export const ROLES_PLAN_LECTURA: Rol[] = ["supervision", "operaciones", "direccion"];
 export const ROLES_PLAN_EDICION: Rol[] = ["supervision"];
 
+/**
+ * Campana de alertas de la barra de arriba (04/11/2026): todos los roles
+ * internos (y admin). Lleva nombres de agentes: el cliente, nunca.
+ */
+export const ROLES_ALERTAS: Rol[] = ["supervision", "operaciones", "direccion"];
+
+/** ¿Ve este rol la campana de alertas? (admin siempre). */
+export function veAlertas(rol: Rol): boolean {
+  return rol === "admin" || ROLES_ALERTAS.includes(rol);
+}
+
 /** ¿Puede este rol generar, editar o configurar la planificación? (admin siempre). */
 export function puedeEditarPlan(rol: Rol): boolean {
   return rol === "admin" || ROLES_PLAN_EDICION.includes(rol);

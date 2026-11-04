@@ -15,6 +15,7 @@ import {
   calcularTasaContacto,
   construirDias,
   desplazarMes,
+  diasFueraDelMes,
   diasRango,
   esquemaParametrosCliente,
   expandirAusencias,
@@ -120,7 +121,15 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
   // ---------- Usuarios y agentes ----------
   const eq = leerEquipo(p.equipo, fechaDatos);
   const { usuarios, clienteDeUsuario, agenteDeUsuario, plantilla, numerosPlantilla } = eq;
-  const turnos = expandirTurnos(repo.leerAsignacionesTurno(), repo.leerPatrones(), dias);
+  const asignaciones = repo.leerAsignacionesTurno();
+  const patrones = repo.leerPatrones();
+  const turnos = expandirTurnos(asignaciones, patrones, dias);
+  // Turno de los días de otro mes en las semanas partidas: reparte el contrato
+  const turnosFuera = expandirTurnos(
+    asignaciones,
+    patrones,
+    diasFueraDelMes(dias, { servicioCalendario: CALENDARIO_PLANTILLA, festivos: cal.festivos, cierresEquipo: cal.cierresPlantilla }),
+  );
   const ausencias = expandirAusencias(repo.leerAusencias(inicioMes, finMes), dias);
 
   const agentes: AgenteMotor[] = plantilla.map((a) => {
@@ -131,6 +140,7 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
       contratoSemanalH: a.contratoSemanalH,
       habilidades,
       turnos: turnos[a.numero] ?? {},
+      turnosFuera: turnosFuera[a.numero] ?? {},
       ausencias: ausencias[a.numero] ?? [],
       // La persona está activa si ha usado CUALQUIERA de sus usuarios
       ultimaSesion: ultimaSesionAgente(eq, a.numero),

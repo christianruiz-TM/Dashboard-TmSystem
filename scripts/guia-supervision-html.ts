@@ -69,7 +69,7 @@ const GRUPOS: { id: string; nombre: string; corto: string; intro: string; temas:
     nombre: "5 · Fin de mes",
     corto: "Fin de mes",
     intro: "Cuando acaba el mes (o durante, para ir viendo): ¿se cumplió el plan?, ¿a quién le sobran o le faltan horas? y el resumen por cliente.",
-    temas: ["adherencia", "saldos", "cierre"],
+    temas: ["adherencia", "saldos", "horas", "cierre"],
   },
   {
     id: "configuracion",

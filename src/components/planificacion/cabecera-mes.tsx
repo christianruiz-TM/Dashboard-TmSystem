@@ -9,6 +9,7 @@ const SECCIONES = [
   { ruta: "/versiones", texto: "Versiones y cambios" },
   { ruta: "/adherencia", texto: "Adherencia" },
   { ruta: "/saldos", texto: "Saldos" },
+  { ruta: "/horas", texto: "Horas" },
   { ruta: "/cierre", texto: "Cierre" },
 ] as const;
 

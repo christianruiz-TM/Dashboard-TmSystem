@@ -1,3 +1,4 @@
+import { compararTexto } from "./orden";
 import { agruparPorTipoCampania, type TipoCampania } from "./resultados-actividad";
 
 // ============================================================
@@ -154,7 +155,8 @@ export function calidadBaseDatos(
   const campanias: CalidadCampania[] = [...porCampania.entries()]
     .map(([campania, fs]) => ({ campania, ...calcularCalidad(fs, contactosDe.get(campania) ?? 0) }))
     .filter((c) => c.intentos > 0)
-    .sort((a, b) => b.intentos - a.intentos || a.campania.localeCompare(b.campania));
+    // De la A a la Z (04/11/2026); la tabla se puede reordenar por cualquier columna
+    .sort((a, b) => compararTexto(a.campania, b.campania));
 
   const sumaContactos = (cs: readonly CalidadCampania[]) => cs.reduce((a, c) => a + c.contactos, 0);
   const filasDe = (cs: readonly CalidadCampania[]) => {

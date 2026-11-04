@@ -15,7 +15,8 @@ import {
 } from "@/components/ui/table";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { AjustesCierre } from "@/components/operaciones/ajustes-cierre";
-import { TablaFactura, euros } from "@/components/operaciones/tabla-factura";
+import { TablaFactura, euros, ordenarGrupos } from "@/components/operaciones/tabla-factura";
+import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
 import { tipoFicheroGs } from "@/lib/albaranes-gs";
 import { cierreVigente, lineasAjustadas, listarCargos, prefijosExcluidosReparto } from "@/lib/db/facturacion";
 import { UNIDADES_CARGO } from "@/lib/db/schema";
@@ -36,6 +37,7 @@ import {
 } from "@/lib/facturacion-campania";
 import type { FacturacionHorasLogadas } from "@/lib/facturacion-horas-logadas";
 import { horasDesdeSegundos, horasLegibles, hoyISO } from "@/lib/fechas";
+import { ordenarPorTexto, valoresOrden } from "@/lib/orden";
 import { esIvr, listaServicios } from "@/lib/rdb/queries/servicios";
 import type { HorasAgenteReales, PenetracionLista, RazonNotReady } from "@/lib/rdb/types";
 import {
@@ -362,41 +364,56 @@ function RepartoCampanias({ cliente }: { cliente: FacturacionHorasLogadas }) {
         «Reparto»). Es el método del Excel de facturación de operaciones. Suma exactamente las horas del
         cliente.
       </p>
-      <Table className="mt-2">
-        <TableHeader>
-          <TableRow>
-            <TableHead>Campaña</TableHead>
-            <TableHead className="text-right">Tiempo de agente ({cliente.prefijo}_nnnn)</TableHead>
-            <TableHead className="text-right">% tiempo de agente</TableHead>
-            <TableHead className="text-right">Horas logadas repartidas</TableHead>
-            <TableHead className="text-right">Importe repartido</TableHead>
-          </TableRow>
-        </TableHeader>
-        <TableBody>
-          {filas.map((f) => (
-            <TableRow key={f.campania ?? "(sin campaña)"}>
-              <TableCell className={f.campania == null ? "text-muted-foreground italic" : "font-medium"}>
-                {f.campania ?? "Sin tiempo de agente en sus campañas"}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{horasLegibles(f.horasAgente)}</TableCell>
-              <TableCell className="text-right tabular-nums">
-                {f.pctAgente == null
-                  ? "—"
-                  : `${f.pctAgente.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{horasLegibles(f.horasLogadas)}</TableCell>
-              <TableCell className="text-right tabular-nums">{euros(f.importe)}</TableCell>
+      <TablaOrdenable>
+        <Table className="mt-2">
+          <TableHeader>
+            <TableRow>
+              <CabeceraOrdenable col={0}>Campaña</CabeceraOrdenable>
+              <CabeceraOrdenable col={1} numerica className="text-right">
+                Tiempo de agente ({cliente.prefijo}_nnnn)
+              </CabeceraOrdenable>
+              <CabeceraOrdenable col={2} numerica className="text-right">
+                % tiempo de agente
+              </CabeceraOrdenable>
+              <CabeceraOrdenable col={3} numerica className="text-right">
+                Horas logadas repartidas
+              </CabeceraOrdenable>
+              <CabeceraOrdenable col={4} numerica className="text-right">
+                Importe repartido
+              </CabeceraOrdenable>
             </TableRow>
-          ))}
-          <TableRow className="font-medium">
-            <TableCell>Total</TableCell>
-            <TableCell className="text-right tabular-nums">{horasLegibles(Math.round(totalAgente * 100) / 100)}</TableCell>
-            <TableCell className="text-right tabular-nums">100,00 %</TableCell>
-            <TableCell className="text-right tabular-nums">{horasLegibles(cliente.horas)}</TableCell>
-            <TableCell className="text-right tabular-nums">{euros(cliente.importe)}</TableCell>
-          </TableRow>
-        </TableBody>
-      </Table>
+          </TableHeader>
+          <TableBody>
+            <FilasOrdenables>
+              {filas.map((f) => (
+                <TableRow
+                  key={f.campania ?? "(sin campaña)"}
+                  data-orden={valoresOrden(f.campania, f.horasAgente, f.pctAgente, f.horasLogadas, f.importe)}
+                >
+                  <TableCell className={f.campania == null ? "text-muted-foreground italic" : "font-medium"}>
+                    {f.campania ?? "Sin tiempo de agente en sus campañas"}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{horasLegibles(f.horasAgente)}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {f.pctAgente == null
+                      ? "—"
+                      : `${f.pctAgente.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 })} %`}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{horasLegibles(f.horasLogadas)}</TableCell>
+                  <TableCell className="text-right tabular-nums">{euros(f.importe)}</TableCell>
+                </TableRow>
+              ))}
+            </FilasOrdenables>
+            <TableRow className="font-medium">
+              <TableCell>Total</TableCell>
+              <TableCell className="text-right tabular-nums">{horasLegibles(Math.round(totalAgente * 100) / 100)}</TableCell>
+              <TableCell className="text-right tabular-nums">100,00 %</TableCell>
+              <TableCell className="text-right tabular-nums">{horasLegibles(cliente.horas)}</TableCell>
+              <TableCell className="text-right tabular-nums">{euros(cliente.importe)}</TableCell>
+            </TableRow>
+          </TableBody>
+        </Table>
+      </TablaOrdenable>
     </details>
   );
 }
@@ -419,8 +436,8 @@ export async function SeccionFacturacion({
   // Ficheros de albaranes de GS: solo de un mes cerrado, uno por tipo presente
   const tiposGs = verCierre ? [...new Set(facturaMostrada.map((f) => tipoFicheroGs(f)))].sort() : [];
   const sinCodigoGs = factura.filter((f) => !f.codigoGs).map(etiquetaCampania);
-  // «Unidades por campaña»: agrupada por cliente, con su total si tiene más de una campaña
-  const gruposUnidades = agruparPorServicio(facturacion);
+  // «Unidades por campaña»: agrupada por cliente (de la A a la Z), con su total si tiene más de una campaña
+  const gruposUnidades = ordenarGrupos(agruparPorServicio(facturacion));
   const filaTotalUnidades = (
     clave: string,
     etiqueta: string,
@@ -576,51 +593,61 @@ export async function SeccionFacturacion({
             </CardDescription>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Cliente (servicio)</TableHead>
-                  <TableHead>Usuarios</TableHead>
-                  <TableHead className="text-right">Horas logadas</TableHead>
-                  <TableHead className="text-right">€/hora</TableHead>
-                  <TableHead className="text-right">Importe</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {porCliente.map((c) => (
-                  <Fragment key={`${c.servicio}|${c.prefijo}`}>
-                    <TableRow>
-                      <TableCell className="font-medium">{c.servicio}</TableCell>
-                      <TableCell>
-                        <details>
-                          <summary className="cursor-pointer text-sm">
-                            {c.prefijo}_nnnn · {c.usuarios.length} usuarios
-                          </summary>
-                          <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
-                            {c.usuarios.map((u) => (
-                              <li key={u.usuario} className="flex justify-between gap-6">
-                                <span>{u.usuario}</span>
-                                <span className="tabular-nums">{horasLegibles(u.horas)}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </details>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{horasLegibles(c.horas)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{euros(c.precioUnitario)}</TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">{euros(c.importe)}</TableCell>
-                    </TableRow>
-                    {c.campanias.length > 0 && (
-                      <TableRow className="hover:bg-transparent">
-                        <TableCell colSpan={5} className="pt-0 pb-3 whitespace-normal">
-                          <RepartoCampanias cliente={c} />
-                        </TableCell>
-                      </TableRow>
-                    )}
-                  </Fragment>
-                ))}
-              </TableBody>
-            </Table>
+            <TablaOrdenable>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <CabeceraOrdenable col={0}>Cliente (servicio)</CabeceraOrdenable>
+                    <CabeceraOrdenable col={1}>Usuarios</CabeceraOrdenable>
+                    <CabeceraOrdenable col={2} numerica className="text-right">
+                      Horas logadas
+                    </CabeceraOrdenable>
+                    <CabeceraOrdenable col={3} numerica className="text-right">
+                      €/hora
+                    </CabeceraOrdenable>
+                    <CabeceraOrdenable col={4} numerica className="text-right">
+                      Importe
+                    </CabeceraOrdenable>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  <FilasOrdenables>
+                    {porCliente.map((c) => (
+                      <Fragment key={`${c.servicio}|${c.prefijo}`}>
+                        <TableRow data-orden={valoresOrden(c.servicio, c.prefijo, c.horas, c.precioUnitario, c.importe)}>
+                          <TableCell className="font-medium">{c.servicio}</TableCell>
+                          <TableCell>
+                            <details>
+                              <summary className="cursor-pointer text-sm">
+                                {c.prefijo}_nnnn · {c.usuarios.length} usuarios
+                              </summary>
+                              <ul className="mt-1 space-y-0.5 text-xs text-muted-foreground">
+                                {ordenarPorTexto(c.usuarios, (u) => u.usuario).map((u) => (
+                                  <li key={u.usuario} className="flex justify-between gap-6">
+                                    <span>{u.usuario}</span>
+                                    <span className="tabular-nums">{horasLegibles(u.horas)}</span>
+                                  </li>
+                                ))}
+                              </ul>
+                            </details>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">{horasLegibles(c.horas)}</TableCell>
+                          <TableCell className="text-right tabular-nums">{euros(c.precioUnitario)}</TableCell>
+                          <TableCell className="text-right font-medium tabular-nums">{euros(c.importe)}</TableCell>
+                        </TableRow>
+                        {c.campanias.length > 0 && (
+                          <TableRow className="hover:bg-transparent">
+                            <TableCell colSpan={5} className="pt-0 pb-3 whitespace-normal">
+                              <RepartoCampanias cliente={c} />
+                            </TableCell>
+                          </TableRow>
+                        )}
+                      </Fragment>
+                    ))}
+                  </FilasOrdenables>
+                </TableBody>
+              </Table>
+            </TablaOrdenable>
           </CardContent>
         </Card>
       )}
@@ -639,97 +666,152 @@ export async function SeccionFacturacion({
           </CardDescription>
         </CardHeader>
         <CardContent>
-          <Table>
-            <TableHeader>
-              <TableRow>
-                {!servicio && <TableHead>Cliente</TableHead>}
-                <TableHead>Campaña</TableHead>
-                <TableHead className="text-right">H. productivas</TableHead>
-                <TableHead className="text-right">Interacc.</TableHead>
-                <TableHead className="text-right">Atendidas</TableHead>
-                <TableHead className="text-right">Éxitos</TableHead>
-                <TableHead className="text-right">Leads fin.</TableHead>
-                <TableHead className="text-right" title="Contactos cerrados en éxito">Fin. éxito</TableHead>
-                <TableHead className="text-right" title="Contactos que entran en la campaña">Recibidos</TableHead>
-                <TableHead className="text-right" title="Sesiones de script: contactos gestionados">Gestionados</TableHead>
-                <TableHead className="text-right">Min. móvil</TableHead>
-                <TableHead className="text-right">Min. fijo</TableHead>
-                <TableHead className="text-right" title="Números especiales (901, 902, 80x, 70x): artículo «TARIFICACION 901,2,X»">
-                  Min. 90X
-                </TableHead>
-                <TableHead className="text-right">DDIs</TableHead>
-                <TableHead>Facturable</TableHead>
-                <TableHead className="text-right">Importe (sin h. logadas)</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {facturacion.length === 0 ? (
+          {/* Por campaña de la A a la Z dentro de cada cliente; pulsando una cabecera, por esa columna */}
+          <TablaOrdenable inicial={{ col: 1, desc: false }}>
+            <Table>
+              <TableHeader>
                 <TableRow>
-                  <TableCell colSpan={servicio ? 15 : 16} className="text-center text-muted-foreground">
-                    Sin actividad en el período seleccionado
-                  </TableCell>
+                  {!servicio && <CabeceraOrdenable col={0}>Cliente</CabeceraOrdenable>}
+                  <CabeceraOrdenable col={1}>Campaña</CabeceraOrdenable>
+                  <CabeceraOrdenable col={2} numerica className="text-right">
+                    H. productivas
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={3} numerica className="text-right">
+                    Interacc.
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={4} numerica className="text-right">
+                    Atendidas
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={5} numerica className="text-right">
+                    Éxitos
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={6} numerica className="text-right">
+                    Leads fin.
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={7} numerica className="text-right" title="Contactos cerrados en éxito">
+                    Fin. éxito
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={8} numerica className="text-right" title="Contactos que entran en la campaña">
+                    Recibidos
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={9} numerica className="text-right" title="Sesiones de script: contactos gestionados">
+                    Gestionados
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={10} numerica className="text-right">
+                    Min. móvil
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={11} numerica className="text-right">
+                    Min. fijo
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable
+                    col={12}
+                    numerica
+                    className="text-right"
+                    title="Números especiales (901, 902, 80x, 70x): artículo «TARIFICACION 901,2,X»"
+                  >
+                    Min. 90X
+                  </CabeceraOrdenable>
+                  <CabeceraOrdenable col={13} numerica className="text-right">
+                    DDIs
+                  </CabeceraOrdenable>
+                  <TableHead>Facturable</TableHead>
+                  <CabeceraOrdenable col={14} numerica className="text-right">
+                    Importe (sin h. logadas)
+                  </CabeceraOrdenable>
                 </TableRow>
-              ) : (
-                gruposUnidades.map((g) => [
-                  ...g.filas.map((f) => (
-                    <TableRow key={f.campania}>
-                      {!servicio && <TableCell className="text-muted-foreground">{f.servicio ?? "—"}</TableCell>}
-                      <TableCell className="font-medium">{f.campania}</TableCell>
-                      <TableCell className="text-right tabular-nums">{horasLegibles(f.medidas.horasProductivas)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{f.medidas.interacciones.toLocaleString("es-ES")}</TableCell>
-                      <TableCell className="text-right tabular-nums">{f.medidas.atendidas.toLocaleString("es-ES")}</TableCell>
-                      <TableCell className="text-right tabular-nums">{f.medidas.exitos.toLocaleString("es-ES")}</TableCell>
-                      <TableCell className="text-right tabular-nums">{f.medidas.leadsFinalizados.toLocaleString("es-ES")}</TableCell>
-                      <TableCell className="text-right tabular-nums">{f.medidas.exitosFinalizados.toLocaleString("es-ES")}</TableCell>
-                      <TableCell className="text-right tabular-nums">{f.leadsRecibidos.toLocaleString("es-ES")}</TableCell>
-                      <TableCell className="text-right tabular-nums">{f.medidas.sesiones.toLocaleString("es-ES")}</TableCell>
-                      <TableCell
-                        className="text-right tabular-nums"
-                        title={
-                          f.tarificacion?.minutosEncuesta
-                            ? `De ellos, ${minutos(f.tarificacion.minutosEncuesta)} min de encuesta (móvil y fijo)`
-                            : undefined
-                        }
-                      >
-                        {minutos(f.tarificacion?.minutos.movil)}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{minutos(f.tarificacion?.minutos.fijo)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{minutos(f.tarificacion?.minutos.especial)}</TableCell>
-                      <TableCell className="text-right tabular-nums">{ddisTexto(f.ddis, f.ddisMovil)}</TableCell>
-                      <TableCell>
-                        {f.lineas.length === 0 && !f.porHorasLogadas ? (
-                          <span className="text-xs text-muted-foreground">Sin configurar</span>
-                        ) : (
-                          <div className="flex flex-wrap gap-1">
-                            {f.porHorasLogadas && (
-                              <Badge variant="secondary" className="text-[10px]">
-                                Horas logadas (cliente)
-                              </Badge>
+              </TableHeader>
+              <TableBody>
+                {facturacion.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={servicio ? 15 : 16} className="text-center text-muted-foreground">
+                      Sin actividad en el período seleccionado
+                    </TableCell>
+                  </TableRow>
+                ) : (
+                  gruposUnidades.map((g) => (
+                    <Fragment key={g.servicio ?? "(sin cliente)"}>
+                      <FilasOrdenables>
+                        {g.filas.map((f) => (
+                          <TableRow
+                            key={f.campania}
+                            data-orden={valoresOrden(
+                              f.servicio,
+                              f.campania,
+                              f.medidas.horasProductivas,
+                              f.medidas.interacciones,
+                              f.medidas.atendidas,
+                              f.medidas.exitos,
+                              f.medidas.leadsFinalizados,
+                              f.medidas.exitosFinalizados,
+                              f.leadsRecibidos,
+                              f.medidas.sesiones,
+                              f.tarificacion?.minutos.movil,
+                              f.tarificacion?.minutos.fijo,
+                              f.tarificacion?.minutos.especial,
+                              f.ddis + f.ddisMovil,
+                              f.importeTotal,
                             )}
-                            {f.lineas.map((l, i) => (
-                              <Badge key={i} variant="secondary" className="text-[10px]" title={NOMBRE_UNIDAD[l.unidad]}>
-                                {ARTICULO_GS[l.unidad] ?? NOMBRE_UNIDAD[l.unidad]}
-                              </Badge>
-                            ))}
-                          </div>
-                        )}
-                      </TableCell>
-                      <TableCell className="text-right font-medium tabular-nums">{euros(f.importeTotal)}</TableCell>
-                    </TableRow>
-                  )),
-                  g.filas.length > 1
-                    ? filaTotalUnidades(
-                        `total|${g.servicio}`,
-                        `Total ${g.servicio ?? "sin cliente"}`,
-                        g.filas,
-                        gruposUnidades.length === 1,
-                      )
-                    : null,
-                ])
-              )}
-              {gruposUnidades.length > 1 && filaTotalUnidades("total|general", "Total general", facturacion, true)}
-            </TableBody>
-          </Table>
+                          >
+                            {!servicio && <TableCell className="text-muted-foreground">{f.servicio ?? "—"}</TableCell>}
+                            <TableCell className="font-medium">{f.campania}</TableCell>
+                            <TableCell className="text-right tabular-nums">{horasLegibles(f.medidas.horasProductivas)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{f.medidas.interacciones.toLocaleString("es-ES")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{f.medidas.atendidas.toLocaleString("es-ES")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{f.medidas.exitos.toLocaleString("es-ES")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{f.medidas.leadsFinalizados.toLocaleString("es-ES")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{f.medidas.exitosFinalizados.toLocaleString("es-ES")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{f.leadsRecibidos.toLocaleString("es-ES")}</TableCell>
+                            <TableCell className="text-right tabular-nums">{f.medidas.sesiones.toLocaleString("es-ES")}</TableCell>
+                            <TableCell
+                              className="text-right tabular-nums"
+                              title={
+                                f.tarificacion?.minutosEncuesta
+                                  ? `De ellos, ${minutos(f.tarificacion.minutosEncuesta)} min de encuesta (móvil y fijo)`
+                                  : undefined
+                              }
+                            >
+                              {minutos(f.tarificacion?.minutos.movil)}
+                            </TableCell>
+                            <TableCell className="text-right tabular-nums">{minutos(f.tarificacion?.minutos.fijo)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{minutos(f.tarificacion?.minutos.especial)}</TableCell>
+                            <TableCell className="text-right tabular-nums">{ddisTexto(f.ddis, f.ddisMovil)}</TableCell>
+                            <TableCell>
+                              {f.lineas.length === 0 && !f.porHorasLogadas ? (
+                                <span className="text-xs text-muted-foreground">Sin configurar</span>
+                              ) : (
+                                <div className="flex flex-wrap gap-1">
+                                  {f.porHorasLogadas && (
+                                    <Badge variant="secondary" className="text-[10px]">
+                                      Horas logadas (cliente)
+                                    </Badge>
+                                  )}
+                                  {f.lineas.map((l, i) => (
+                                    <Badge key={i} variant="secondary" className="text-[10px]" title={NOMBRE_UNIDAD[l.unidad]}>
+                                      {ARTICULO_GS[l.unidad] ?? NOMBRE_UNIDAD[l.unidad]}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                            </TableCell>
+                            <TableCell className="text-right font-medium tabular-nums">{euros(f.importeTotal)}</TableCell>
+                          </TableRow>
+                        ))}
+                      </FilasOrdenables>
+                      {g.filas.length > 1
+                        ? filaTotalUnidades(
+                            `total|${g.servicio}`,
+                            `Total ${g.servicio ?? "sin cliente"}`,
+                            g.filas,
+                            gruposUnidades.length === 1,
+                          )
+                        : null}
+                    </Fragment>
+                  ))
+                )}
+                {gruposUnidades.length > 1 && filaTotalUnidades("total|general", "Total general", facturacion, true)}
+              </TableBody>
+            </Table>
+          </TablaOrdenable>
         </CardContent>
       </Card>
     </div>
@@ -747,42 +829,62 @@ export async function SeccionListas({ datos }: { datos: Promise<PenetracionLista
         <CardDescription>Contactos según fecha programada (activity.moment) dentro del período</CardDescription>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Campaña</TableHead>
-              <TableHead>Lista</TableHead>
-              <TableHead className="text-right">Contactos</TableHead>
-              <TableHead className="text-right">Finalizados</TableHead>
-              <TableHead className="text-right">Éxitos</TableHead>
-              <TableHead className="text-right">Sin éxito</TableHead>
-              <TableHead className="text-right">Sin contactar</TableHead>
-              <TableHead className="text-right">Intentos medios</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {listas.length === 0 ? (
+        <TablaOrdenable>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={8} className="text-center text-muted-foreground">
-                  Sin listas con actividad en el período
-                </TableCell>
+                <CabeceraOrdenable col={0}>Campaña</CabeceraOrdenable>
+                <CabeceraOrdenable col={1}>Lista</CabeceraOrdenable>
+                <CabeceraOrdenable col={2} numerica className="text-right">
+                  Contactos
+                </CabeceraOrdenable>
+                <CabeceraOrdenable col={3} numerica className="text-right">
+                  Finalizados
+                </CabeceraOrdenable>
+                <CabeceraOrdenable col={4} numerica className="text-right">
+                  Éxitos
+                </CabeceraOrdenable>
+                <CabeceraOrdenable col={5} numerica className="text-right">
+                  Sin éxito
+                </CabeceraOrdenable>
+                <CabeceraOrdenable col={6} numerica className="text-right">
+                  Sin contactar
+                </CabeceraOrdenable>
+                <CabeceraOrdenable col={7} numerica className="text-right">
+                  Intentos medios
+                </CabeceraOrdenable>
               </TableRow>
-            ) : (
-              listas.map((l) => (
-                <TableRow key={`${l.campania}-${l.lista}`}>
-                  <TableCell className="font-medium">{l.campania}</TableCell>
-                  <TableCell>{l.lista}</TableCell>
-                  <TableCell className="text-right tabular-nums">{l.totalContactos.toLocaleString("es-ES")}</TableCell>
-                  <TableCell className="text-right tabular-nums">{l.done.toLocaleString("es-ES")}</TableCell>
-                  <TableCell className="text-right tabular-nums text-emerald-700">{l.exitos.toLocaleString("es-ES")}</TableCell>
-                  <TableCell className="text-right tabular-nums">{l.sinExito.toLocaleString("es-ES")}</TableCell>
-                  <TableCell className="text-right tabular-nums">{l.sinContacto.toLocaleString("es-ES")}</TableCell>
-                  <TableCell className="text-right tabular-nums">{l.intentosAutoMedio ?? "—"}</TableCell>
+            </TableHeader>
+            <TableBody>
+              {listas.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={8} className="text-center text-muted-foreground">
+                    Sin listas con actividad en el período
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                <FilasOrdenables>
+                  {listas.map((l) => (
+                    <TableRow
+                      key={`${l.campania}-${l.lista}`}
+                      // Campaña y, dentro, lista: así queda en orden con la misma campaña
+                      data-orden={valoresOrden(`${l.campania}\u0000${l.lista}`, l.lista, l.totalContactos, l.done, l.exitos, l.sinExito, l.sinContacto, l.intentosAutoMedio)}
+                    >
+                      <TableCell className="font-medium">{l.campania}</TableCell>
+                      <TableCell>{l.lista}</TableCell>
+                      <TableCell className="text-right tabular-nums">{l.totalContactos.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{l.done.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums text-emerald-700">{l.exitos.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{l.sinExito.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{l.sinContacto.toLocaleString("es-ES")}</TableCell>
+                      <TableCell className="text-right tabular-nums">{l.intentosAutoMedio ?? "—"}</TableCell>
+                    </TableRow>
+                  ))}
+                </FilasOrdenables>
+              )}
+            </TableBody>
+          </Table>
+        </TablaOrdenable>
       </CardContent>
     </Card>
   );
@@ -798,34 +900,46 @@ export async function SeccionPausas({ datos }: { datos: Promise<RazonNotReady[]>
         <CardTitle className="text-base">Tiempo en No Disponible por agente y razón</CardTitle>
       </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Agente</TableHead>
-              <TableHead>Razón</TableHead>
-              <TableHead className="text-right">Veces</TableHead>
-              <TableHead className="text-right">Tiempo total</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {razones.length === 0 ? (
+        <TablaOrdenable>
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={4} className="text-center text-muted-foreground">
-                  Sin pausas registradas en el período
-                </TableCell>
+                <CabeceraOrdenable col={0}>Agente</CabeceraOrdenable>
+                <CabeceraOrdenable col={1}>Razón</CabeceraOrdenable>
+                <CabeceraOrdenable col={2} numerica className="text-right">
+                  Veces
+                </CabeceraOrdenable>
+                <CabeceraOrdenable col={3} numerica className="text-right">
+                  Tiempo total
+                </CabeceraOrdenable>
               </TableRow>
-            ) : (
-              razones.map((r, i) => (
-                <TableRow key={i}>
-                  <TableCell className="font-medium">{r.agente}</TableCell>
-                  <TableCell>{r.razon}</TableCell>
-                  <TableCell className="text-right tabular-nums">{r.veces}</TableCell>
-                  <TableCell className="text-right tabular-nums">{horasDesdeSegundos(r.segundosTotal)}</TableCell>
+            </TableHeader>
+            <TableBody>
+              {razones.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={4} className="text-center text-muted-foreground">
+                    Sin pausas registradas en el período
+                  </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                <FilasOrdenables>
+                  {razones.map((r) => (
+                    <TableRow
+                      key={`${r.agente}|${r.razon}`}
+                      // Agente y, dentro, razón
+                      data-orden={valoresOrden(`${r.agente}\u0000${r.razon}`, r.razon, r.veces, r.segundosTotal)}
+                    >
+                      <TableCell className="font-medium">{r.agente}</TableCell>
+                      <TableCell>{r.razon}</TableCell>
+                      <TableCell className="text-right tabular-nums">{r.veces}</TableCell>
+                      <TableCell className="text-right tabular-nums">{horasDesdeSegundos(r.segundosTotal)}</TableCell>
+                    </TableRow>
+                  ))}
+                </FilasOrdenables>
+              )}
+            </TableBody>
+          </Table>
+        </TablaOrdenable>
       </CardContent>
     </Card>
   );

@@ -1,3 +1,5 @@
+import { Fragment } from "react";
+import { BotonOrden, CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
 import {
   Table,
   TableBody,
@@ -17,6 +19,7 @@ import {
   type FilaFactura,
 } from "@/lib/facturacion-campania";
 import { horasLegibles } from "@/lib/fechas";
+import { compararTexto, valoresOrden } from "@/lib/orden";
 
 export function euros(importe: number | null | undefined): string {
   if (importe == null) return "—";
@@ -39,7 +42,9 @@ export function cantidadLegible(unidad: UnidadFacturacion, cantidad: number): st
  * La factura por campaña: cantidad e importe de cada unidad que se cobra,
  * código de GS y total. Es la hoja «FACTURACION» del Excel de operaciones.
  * Cada cliente con más de una campaña lleva su fila de total; con varios
- * clientes («Todos»), además el total general.
+ * clientes («Todos»), además el total general. Clientes y campañas de la A a
+ * la Z (04/11/2026); pulsando una cabecera, por esa columna dentro de cada
+ * cliente (los artículos, por su importe).
  */
 export function TablaFactura({ filas, conServicio }: { filas: FilaFactura[]; conServicio: boolean }) {
   const totales = totalesFactura(filas);
@@ -51,7 +56,7 @@ export function TablaFactura({ filas, conServicio }: { filas: FilaFactura[]; con
       </p>
     );
   }
-  const grupos = agruparPorServicio(filas);
+  const grupos = ordenarGrupos(agruparPorServicio(filas));
   const columnasEtiqueta = conServicio ? 3 : 2;
 
   /** Fila de total con la suma de cada columna (de un cliente o de todos). */
@@ -76,52 +81,79 @@ export function TablaFactura({ filas, conServicio }: { filas: FilaFactura[]; con
     );
   };
 
+  // Valores para ordenar: cliente, campaña, código, el importe de cada artículo y el total
+  const orden = (f: FilaFactura) =>
+    valoresOrden(
+      f.servicio,
+      f.campania,
+      f.codigoGs,
+      ...unidades.map((u) => f.lineas.find((x) => x.unidad === u)?.importe ?? null),
+      f.importeTotal,
+    );
+
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          {conServicio && <TableHead>Cliente</TableHead>}
-          <TableHead>Campaña</TableHead>
-          <TableHead>Cód. GS</TableHead>
-          {unidades.map((u) => (
-            <TableHead key={u} colSpan={2} className="text-center" title={ARTICULO_GS[u] ?? NOMBRE_UNIDAD[u]}>
-              {NOMBRE_CORTO_UNIDAD[u]}
-            </TableHead>
+    <TablaOrdenable inicial={{ col: 1, desc: false }}>
+      <Table>
+        <TableHeader>
+          <TableRow>
+            {conServicio && <CabeceraOrdenable col={0}>Cliente</CabeceraOrdenable>}
+            <CabeceraOrdenable col={1}>Campaña</CabeceraOrdenable>
+            <CabeceraOrdenable col={2}>Cód. GS</CabeceraOrdenable>
+            {unidades.map((u, i) => (
+              <TableHead key={u} colSpan={2} className="text-center" title={ARTICULO_GS[u] ?? NOMBRE_UNIDAD[u]}>
+                <BotonOrden col={3 + i} numerica title={ARTICULO_GS[u] ?? NOMBRE_UNIDAD[u]}>
+                  {NOMBRE_CORTO_UNIDAD[u]}
+                </BotonOrden>
+              </TableHead>
+            ))}
+            <CabeceraOrdenable col={3 + unidades.length} numerica className="text-right">
+              Total
+            </CabeceraOrdenable>
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {grupos.map((g) => (
+            <Fragment key={g.servicio ?? "(sin cliente)"}>
+              <FilasOrdenables>
+                {g.filas.map((f) => (
+                  <TableRow key={`${f.servicio}|${etiquetaCampania(f)}`} data-orden={orden(f)}>
+                    {conServicio && <TableCell className="text-muted-foreground">{f.servicio ?? "—"}</TableCell>}
+                    <TableCell className={f.campania == null ? "italic text-muted-foreground" : "font-medium"}>
+                      {etiquetaCampania(f)}
+                    </TableCell>
+                    <TableCell className="tabular-nums">
+                      {f.codigoGs ?? <span className="text-xs text-amber-700 dark:text-amber-400">sin código</span>}
+                    </TableCell>
+                    {unidades.map((u) => {
+                      const l = f.lineas.find((x) => x.unidad === u);
+                      return [
+                        <TableCell key={`${u}c`} className="text-right tabular-nums">
+                          {l ? cantidadLegible(u, l.cantidad) : ""}
+                        </TableCell>,
+                        <TableCell key={`${u}i`} className="text-right tabular-nums text-muted-foreground">
+                          {l ? euros(l.importe) : ""}
+                        </TableCell>,
+                      ];
+                    })}
+                    <TableCell className="text-right font-medium tabular-nums">{euros(f.importeTotal)}</TableCell>
+                  </TableRow>
+                ))}
+              </FilasOrdenables>
+              {g.filas.length > 1
+                ? filaTotal(`total|${g.servicio}`, `Total ${g.servicio ?? "sin cliente"}`, g.filas, grupos.length === 1)
+                : null}
+            </Fragment>
           ))}
-          <TableHead className="text-right">Total</TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {grupos.map((g) => [
-          ...g.filas.map((f) => (
-            <TableRow key={`${f.servicio}|${etiquetaCampania(f)}`}>
-              {conServicio && <TableCell className="text-muted-foreground">{f.servicio ?? "—"}</TableCell>}
-              <TableCell className={f.campania == null ? "italic text-muted-foreground" : "font-medium"}>
-                {etiquetaCampania(f)}
-              </TableCell>
-              <TableCell className="tabular-nums">
-                {f.codigoGs ?? <span className="text-xs text-amber-700 dark:text-amber-400">sin código</span>}
-              </TableCell>
-              {unidades.map((u) => {
-                const l = f.lineas.find((x) => x.unidad === u);
-                return [
-                  <TableCell key={`${u}c`} className="text-right tabular-nums">
-                    {l ? cantidadLegible(u, l.cantidad) : ""}
-                  </TableCell>,
-                  <TableCell key={`${u}i`} className="text-right tabular-nums text-muted-foreground">
-                    {l ? euros(l.importe) : ""}
-                  </TableCell>,
-                ];
-              })}
-              <TableCell className="text-right font-medium tabular-nums">{euros(f.importeTotal)}</TableCell>
-            </TableRow>
-          )),
-          g.filas.length > 1
-            ? filaTotal(`total|${g.servicio}`, `Total ${g.servicio ?? "sin cliente"}`, g.filas, grupos.length === 1)
-            : null,
-        ])}
-        {grupos.length > 1 && filaTotal("total|general", "Total general", filas, true)}
-      </TableBody>
-    </Table>
+          {grupos.length > 1 && filaTotal("total|general", "Total general", filas, true)}
+        </TableBody>
+      </Table>
+    </TablaOrdenable>
+  );
+}
+
+/** Grupos por cliente de la A a la Z; el de las campañas sin cliente, al final. */
+export function ordenarGrupos<G extends { servicio: string | null }>(grupos: G[]): G[] {
+  return [...grupos].sort((a, b) =>
+    (a.servicio == null) !== (b.servicio == null) ? (a.servicio == null ? 1 : -1) : compararTexto(a.servicio ?? "", b.servicio ?? ""),
   );
 }

@@ -138,6 +138,16 @@ export function construirDias(opciones: {
   festivos: readonly FestivoLike[];
   cierresEquipo?: readonly string[];
 }): DiaMotor[] {
+  const dia = constructorDias(opciones);
+  return fechasDelMes(opciones.mes).map((fecha) => dia(fecha, rotacionDe(fecha, opciones.semanaA)));
+}
+
+/** Construye los DiaMotor de un calendario (lo común a construirDias y diasFueraDelMes). */
+function constructorDias(opciones: {
+  servicioCalendario: string;
+  festivos: readonly FestivoLike[];
+  cierresEquipo?: readonly string[];
+}): (fecha: string, rotacion: "A" | "B") => DiaMotor {
   const cierres = new Set(opciones.cierresEquipo ?? []);
   const porFecha = new Map<string, string[]>();
   for (const f of opciones.festivos) {
@@ -148,7 +158,7 @@ export function construirDias(opciones: {
   const esFestivoEquipo = (fecha: string) =>
     (porFecha.get(fecha) ?? []).includes(opciones.servicioCalendario);
 
-  return fechasDelMes(opciones.mes).map((fecha) => {
+  return (fecha, rotacion) => {
     const ds = diaSemana(fecha);
     const anterior = sumarDias(fecha, -1);
     const anteriorFestivoEntreSemana = diaSemana(anterior) < 5 && esFestivoEquipo(anterior);
@@ -157,7 +167,7 @@ export function construirDias(opciones: {
       fecha,
       diaSemana: ds,
       lunes: lunesDe(fecha),
-      rotacion: rotacionDe(fecha, opciones.semanaA),
+      rotacion,
       laborable,
       festivos: [...(porFecha.get(fecha) ?? [])].sort(),
       diaEquivalente: laborable && anteriorFestivoEntreSemana ? 0 : ds,
@@ -165,7 +175,27 @@ export function construirDias(opciones: {
     // Solo cuando lo es: las fotos guardadas y el fixture del motor no lo llevan
     if (cierres.has(fecha) && esFestivoEquipo(fecha)) dia.cierreEmpresa = true;
     return dia;
-  });
+  };
+}
+
+/**
+ * Días de OTRO mes en las semanas partidas de `dias` (la primera y la última
+ * del mes), con la rotación de su semana tal como la lleva el mes
+ * (04/11/2026): el turno de la semana entera reparte el contrato
+ * (contrato.ts) y el tablero enseña la semana entera, con esos días en gris.
+ */
+export function diasFueraDelMes(
+  dias: readonly DiaMotor[],
+  opciones: { servicioCalendario: string; festivos: readonly FestivoLike[]; cierresEquipo?: readonly string[] },
+): DiaMotor[] {
+  if (dias.length === 0) return [];
+  const dia = constructorDias(opciones);
+  const primero = dias[0];
+  const ultimo = dias[dias.length - 1];
+  const fuera: DiaMotor[] = [];
+  for (let f = primero.lunes; f < primero.fecha; f = sumarDias(f, 1)) fuera.push(dia(f, primero.rotacion));
+  for (let f = sumarDias(ultimo.fecha, 1); f <= sumarDias(ultimo.lunes, 6); f = sumarDias(f, 1)) fuera.push(dia(f, ultimo.rotacion));
+  return fuera;
 }
 
 /**

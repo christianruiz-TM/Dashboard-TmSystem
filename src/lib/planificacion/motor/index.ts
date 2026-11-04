@@ -3,6 +3,7 @@ export * from "./tipos";
 export * from "./franjas";
 export * from "./erlang";
 export * from "./calendario";
+export * from "./contrato";
 export * from "./campanias";
 export * from "./demanda";
 export * from "./minimos";

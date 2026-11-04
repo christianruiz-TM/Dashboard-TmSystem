@@ -4,7 +4,9 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LogoTm } from "@/components/logo-tm";
 import { NavLateral } from "@/components/layout/nav-lateral";
-import { requireSesion, rutasVisibles } from "@/lib/auth/rbac";
+import { CampanaAlertas } from "@/components/alertas/campana-alertas";
+import { preferenciasAlertas } from "@/lib/alertas-servidor";
+import { requireSesion, rutasVisibles, veAlertas } from "@/lib/auth/rbac";
 import { esMock } from "@/lib/rdb/pool";
 import { cerrarSesion } from "./acciones";
 
@@ -55,6 +57,8 @@ export default async function LayoutDashboard({
             Panel del contact center
           </div>
           <div className="flex items-center gap-3">
+            {/* Alertas en cualquier página (04/11/2026): roles internos */}
+            {veAlertas(usuario.rol) ? <CampanaAlertas preferenciasIniciales={preferenciasAlertas(usuario.id)} /> : null}
             <div className="text-right">
               <div className="text-sm font-medium leading-tight">{usuario.nombre}</div>
               <Badge variant="secondary" className="text-[10px]">

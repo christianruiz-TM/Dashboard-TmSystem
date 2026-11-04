@@ -9,7 +9,6 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -22,6 +21,8 @@ import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { TablaKpisCampania } from "@/components/kpi/tabla-kpis-campania";
+import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
+import { valoresOrden } from "@/lib/orden";
 import type { ResultadoRatios } from "@/lib/ratios-exito";
 import type { ResultadoResultados } from "@/lib/resultados-actividad";
 import type { TipoCampania } from "@/lib/resultados-actividad";
@@ -183,48 +184,55 @@ export function PanelSupervision({
             </CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Agente</TableHead>
-                  <TableHead>Campaña</TableHead>
-                  <TableHead>Estado</TableHead>
-                  <TableHead>Motivo</TableHead>
-                  <TableHead className="text-right">Desde hace</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {datos.agentes.length === 0 ? (
+            {/* De la A a la Z por usuario de Altitude; pulsando una cabecera, por esa columna */}
+            <TablaOrdenable>
+              <Table>
+                <TableHeader>
                   <TableRow>
-                    <TableCell colSpan={5} className="text-center text-muted-foreground">
-                      Ningún agente con actividad hoy
-                    </TableCell>
+                    <CabeceraOrdenable col={0}>Agente</CabeceraOrdenable>
+                    <CabeceraOrdenable col={1}>Campaña</CabeceraOrdenable>
+                    <CabeceraOrdenable col={2}>Estado</CabeceraOrdenable>
+                    <CabeceraOrdenable col={3}>Motivo</CabeceraOrdenable>
+                    <CabeceraOrdenable col={4} numerica className="text-right">
+                      Desde hace
+                    </CabeceraOrdenable>
                   </TableRow>
-                ) : (
-                  datos.agentes.map((a) => (
-                    <TableRow key={`${a.agente}-${a.campania}`}>
-                      <TableCell>
-                        <div className="font-medium">{a.nombre}</div>
-                        <div className="text-xs text-muted-foreground">{a.agente}</div>
+                </TableHeader>
+                <TableBody>
+                  {datos.agentes.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={5} className="text-center text-muted-foreground">
+                        Ningún agente con actividad hoy
                       </TableCell>
-                      <TableCell>{a.campania}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant="outline"
-                          className={COLOR_ESTADO[a.estado] ?? "bg-zinc-100 text-zinc-700"}
-                        >
-                          {a.estado}
-                        </Badge>
-                      </TableCell>
-                      <TableCell className="text-sm text-muted-foreground">
-                        {a.motivo ?? "—"}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">{a.desdeMin} min</TableCell>
                     </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
+                  ) : (
+                    <FilasOrdenables>
+                      {datos.agentes.map((a) => (
+                        <TableRow key={`${a.agente}-${a.campania}`} data-orden={valoresOrden(a.agente, a.campania, a.estado, a.motivo, a.desdeMin)}>
+                          <TableCell>
+                            <div className="font-medium">{a.agente}</div>
+                            <div className="text-xs text-muted-foreground">{a.nombre}</div>
+                          </TableCell>
+                          <TableCell>{a.campania}</TableCell>
+                          <TableCell>
+                            <Badge
+                              variant="outline"
+                              className={COLOR_ESTADO[a.estado] ?? "bg-zinc-100 text-zinc-700"}
+                            >
+                              {a.estado}
+                            </Badge>
+                          </TableCell>
+                          <TableCell className="text-sm text-muted-foreground">
+                            {a.motivo ?? "—"}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">{a.desdeMin} min</TableCell>
+                        </TableRow>
+                      ))}
+                    </FilasOrdenables>
+                  )}
+                </TableBody>
+              </Table>
+            </TablaOrdenable>
           </CardContent>
         </Card>
       </div>

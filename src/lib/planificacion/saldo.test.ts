@@ -72,6 +72,40 @@ describe("saldo", () => {
     expect(Math.round(r.totales.previsto.contrato * 100) / 100).toBe(38);
   });
 
+  it("contrato según el turno: el festivo y la semana partida salen a cero (04/11/2026)", () => {
+    // La misma semana con su turno entero conocido (9 + 6 × 4 = 33 h) y 33 h de contrato
+    const semana = new Map([["2026-10-12", 33]]);
+    const r = saldoAgente({
+      contratoSemanalH: 33,
+      fechaDatos: "2026-10-01",
+      dias: DIAS,
+      planH: { "2026-10-13": 6, "2026-10-14": 6, "2026-10-15": 6, "2026-10-16": 6 },
+      realH: {},
+      justificadasH: {},
+      turnoH: TURNO,
+      turnoSemanaH: semana,
+      ajustesH: {},
+    })!;
+    // El festivo de 9 h lleva 9 h de contrato (antes 6,60): su saldo, 0
+    expect(r.dias[0]).toMatchObject({ justificadas: 9, contrato: 9, saldo: 0 });
+    expect(r.dias.every((d) => Math.abs(d.saldo) < 1e-9)).toBe(true);
+    expect(r.totales.previsto.contrato).toBeCloseTo(33, 10);
+
+    // Solo el lunes en el mes (como el 30/11/2026), con 30 h: 9 h de contrato
+    const lunes = saldoAgente({
+      contratoSemanalH: 30,
+      fechaDatos: "2026-10-01",
+      dias: [{ fecha: "2026-10-12", entreSemana: true, festivo: false }],
+      planH: { "2026-10-12": 9 },
+      realH: {},
+      justificadasH: {},
+      turnoH: { "2026-10-12": 9 },
+      turnoSemanaH: new Map([["2026-10-12", 30]]),
+      ajustesH: {},
+    })!;
+    expect(lunes.dias[0]).toMatchObject({ contrato: 9, saldo: 0 });
+  });
+
   it("sin contrato no hay saldo", () => {
     expect(
       saldoAgente({ contratoSemanalH: null, fechaDatos: "2026-10-14", dias: DIAS, planH: {}, realH: {}, justificadasH: {}, turnoH: {}, ajustesH: {} }),

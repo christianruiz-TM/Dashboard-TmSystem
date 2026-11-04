@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { ordenarPorActividad } from "./actividad-servicios";
 
 describe("orden del selector de clientes", () => {
-  it("activos por la llamada más reciente; parados abajo", () => {
+  it("activos arriba y parados abajo, cada grupo de la A a la Z", () => {
     const r = ordenarPorActividad(
       ["Avolo", "Bolsas", "CajaRural", "GrupoHuertas", "Wit"],
       {
@@ -14,7 +14,7 @@ describe("orden del selector de clientes", () => {
       },
       "2026-10-21",
     );
-    expect(r.activos.map((s) => s.servicio)).toEqual(["GrupoHuertas", "Bolsas", "Avolo"]);
+    expect(r.activos.map((s) => s.servicio)).toEqual(["Avolo", "Bolsas", "GrupoHuertas"]);
     expect(r.parados.map((s) => s.servicio)).toEqual(["CajaRural", "Wit"]);
   });
 

@@ -1,3 +1,4 @@
+import { compararTexto } from "@/lib/orden";
 import { esUsuarioDelCliente } from "@/lib/ratios-exito";
 import type { BaseRatiosExito, BaseSalientes } from "@/lib/rdb/types";
 
@@ -270,10 +271,11 @@ export function calcularSalientes(
     total.esperando = (total.esperando ?? 0) + f.esperando;
   }
 
-  const porIntentos = (x: FilaSalientes, y: FilaSalientes) => y.intentos - x.intentos || x.nombre.localeCompare(y.nombre);
+  // De la A a la Z: campañas por nombre y agentes por usuario de Altitude (04/11/2026)
+  const porClave = (x: FilaSalientes, y: FilaSalientes) => compararTexto(x.clave, y.clave);
   return {
     total: cerrar("total", total, null),
-    campanias: [...campanias].map(([c, a]) => cerrar(c, a, total.guionSeg)).sort(porIntentos),
-    agentes: [...agentes].map(([c, a]) => cerrar(c, a, null)).sort(porIntentos),
+    campanias: [...campanias].map(([c, a]) => cerrar(c, a, total.guionSeg)).sort(porClave),
+    agentes: [...agentes].map(([c, a]) => cerrar(c, a, null)).sort(porClave),
   };
 }

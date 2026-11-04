@@ -1,8 +1,10 @@
 import { Fragment } from "react";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { GraficaLineas } from "@/components/graficas/grafica-lineas";
-import type { CalidadBd, ResultadoCalidadBd } from "@/lib/calidad-bd";
+import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
+import { valoresOrden } from "@/lib/orden";
+import type { CalidadBd, CalidadCampania, ResultadoCalidadBd } from "@/lib/calidad-bd";
 import { cn } from "@/lib/utils";
 
 // ============================================================
@@ -73,6 +75,9 @@ function Celdas({ c }: { c: CalidadBd }) {
 
 const COLUMNAS = 8;
 
+const orden = (c: CalidadCampania) =>
+  valoresOrden(c.campania, c.intentos, c.pctContactable, c.pctReintentable, c.pctNoUtil, c.pctRechazo, c.pctRed, c.intentosPorContacto);
+
 export function CalidadBaseDatos({ datos, periodo }: { datos: ResultadoCalidadBd; periodo: string }) {
   const t = datos.total;
   const agrupada = datos.grupos.some((g) => g.nombre != null);
@@ -126,61 +131,74 @@ export function CalidadBaseDatos({ datos, periodo }: { datos: ResultadoCalidadBd
 
             <div>
               <h3 className="mb-2 text-sm font-medium">Por campaña</h3>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Campaña</TableHead>
-                    <TableHead className="text-right">Intentos</TableHead>
-                    <TableHead className="text-right" title="Gestionadas ÷ intentos">
-                      Contactable
-                    </TableHead>
-                    <TableHead className="text-right" title="Ocupado, sin respuesta y contestador ÷ intentos">
-                      Para reintentar
-                    </TableHead>
-                    <TableHead className="text-right" title="Números inválidos, fax y módem ÷ intentos">
-                      No sirven
-                    </TableHead>
-                    <TableHead className="text-right" title="Rechazadas y molestia ÷ intentos">
-                      Rechazo
-                    </TableHead>
-                    <TableHead className="text-right" title="Sin líneas troncales y desbordadas ÷ intentos: problema de red, no de la base de datos">
-                      Red
-                    </TableHead>
-                    <TableHead className="text-right">Intentos / contacto</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {datos.grupos.map((g) => (
-                    <Fragment key={g.nombre ?? "todas"}>
-                      {agrupada ? (
-                        <TableRow className="bg-muted/40 hover:bg-muted/40">
-                          <TableCell colSpan={COLUMNAS} className="text-xs font-semibold uppercase tracking-wide">
-                            {g.nombre} · {g.campanias.length} {g.campanias.length === 1 ? "campaña" : "campañas"}
-                          </TableCell>
-                        </TableRow>
-                      ) : null}
-                      {g.campanias.map((c) => (
-                        <TableRow key={c.campania}>
-                          <TableCell className={cn("font-medium", agrupada && "pl-4")}>{c.campania}</TableCell>
-                          <Celdas c={c} />
-                        </TableRow>
-                      ))}
-                      {agrupada ? (
-                        <TableRow className="border-b-2 font-semibold">
-                          <TableCell>Total {g.nombre}</TableCell>
-                          <Celdas c={g.total} />
-                        </TableRow>
-                      ) : null}
-                    </Fragment>
-                  ))}
-                  {datos.grupos.length > 1 || (!agrupada && (datos.grupos[0]?.campanias.length ?? 0) > 1) ? (
-                    <TableRow className="font-semibold">
-                      <TableCell>Total</TableCell>
-                      <Celdas c={t} />
+              <TablaOrdenable>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <CabeceraOrdenable col={0}>Campaña</CabeceraOrdenable>
+                      <CabeceraOrdenable col={1} numerica className="text-right">
+                        Intentos
+                      </CabeceraOrdenable>
+                      <CabeceraOrdenable col={2} numerica className="text-right" title="Gestionadas ÷ intentos">
+                        Contactable
+                      </CabeceraOrdenable>
+                      <CabeceraOrdenable col={3} numerica className="text-right" title="Ocupado, sin respuesta y contestador ÷ intentos">
+                        Para reintentar
+                      </CabeceraOrdenable>
+                      <CabeceraOrdenable col={4} numerica className="text-right" title="Números inválidos, fax y módem ÷ intentos">
+                        No sirven
+                      </CabeceraOrdenable>
+                      <CabeceraOrdenable col={5} numerica className="text-right" title="Rechazadas y molestia ÷ intentos">
+                        Rechazo
+                      </CabeceraOrdenable>
+                      <CabeceraOrdenable
+                        col={6}
+                        numerica
+                        className="text-right"
+                        title="Sin líneas troncales y desbordadas ÷ intentos: problema de red, no de la base de datos"
+                      >
+                        Red
+                      </CabeceraOrdenable>
+                      <CabeceraOrdenable col={7} numerica className="text-right">
+                        Intentos / contacto
+                      </CabeceraOrdenable>
                     </TableRow>
-                  ) : null}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {datos.grupos.map((g) => (
+                      <Fragment key={g.nombre ?? "todas"}>
+                        {agrupada ? (
+                          <TableRow className="bg-muted/40 hover:bg-muted/40">
+                            <TableCell colSpan={COLUMNAS} className="text-xs font-semibold uppercase tracking-wide">
+                              {g.nombre} · {g.campanias.length} {g.campanias.length === 1 ? "campaña" : "campañas"}
+                            </TableCell>
+                          </TableRow>
+                        ) : null}
+                        <FilasOrdenables>
+                          {g.campanias.map((c) => (
+                            <TableRow key={c.campania} data-orden={orden(c)}>
+                              <TableCell className={cn("font-medium", agrupada && "pl-4")}>{c.campania}</TableCell>
+                              <Celdas c={c} />
+                            </TableRow>
+                          ))}
+                        </FilasOrdenables>
+                        {agrupada ? (
+                          <TableRow className="border-b-2 font-semibold">
+                            <TableCell>Total {g.nombre}</TableCell>
+                            <Celdas c={g.total} />
+                          </TableRow>
+                        ) : null}
+                      </Fragment>
+                    ))}
+                    {datos.grupos.length > 1 || (!agrupada && (datos.grupos[0]?.campanias.length ?? 0) > 1) ? (
+                      <TableRow className="font-semibold">
+                        <TableCell>Total</TableCell>
+                        <Celdas c={t} />
+                      </TableRow>
+                    ) : null}
+                  </TableBody>
+                </Table>
+              </TablaOrdenable>
             </div>
           </>
         )}

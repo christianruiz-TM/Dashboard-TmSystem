@@ -132,6 +132,12 @@ export interface AgenteMotor {
   habilidades: string[];
   /** fecha → tramos del turno, ya expandidos con la rotación A/B. */
   turnos: Record<string, Tramo[]>;
+  /**
+   * Turno de los días de OTRO mes en las semanas partidas (04/11/2026): con
+   * él se reparte el contrato de esas semanas (contrato.ts). Las fotos
+   * anteriores no lo llevan: el tablero lo calcula con los patrones de ahora.
+   */
+  turnosFuera?: Record<string, Tramo[]>;
   ausencias: AusenciaMotor[];
   ultimaSesion: string | null;
   forzarActivo: boolean;
@@ -307,7 +313,7 @@ export interface ResumenAgente {
   /** Horas de turno disponibles en el mes (turno − ausencias − festivos). */
   capacidadH: number;
   horas: number;
-  /** Contrato semanal × laborables del mes ÷ 5. */
+  /** Contrato de los días del mes (contrato.ts) menos el turno de los festivos. */
   contratoMesH: number | null;
   porCliente: Record<string, number>;
   porSemana: Record<string, number>;

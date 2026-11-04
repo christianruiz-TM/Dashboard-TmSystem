@@ -71,6 +71,7 @@ import {
   fechaDiaMes,
   horasPorAgente,
   horasPorCliente,
+  mesEnMinusculas,
   nombreMes,
   posicionPct,
   saldosPrevistos,
@@ -113,7 +114,7 @@ const ESTADO_VERSION: Record<VersionTablero["estado"], { texto: string; clase: s
 
 const VACIO: BloqueTablero[] = [];
 
-type AgenteFila = Pick<AgenteMotor, "numero" | "contratoSemanalH" | "turnos" | "ausencias">;
+type AgenteFila = Pick<AgenteMotor, "numero" | "contratoSemanalH" | "turnos" | "ausencias" | "turnosFuera">;
 
 /** Respuesta de la Server Action de guardar (la define [mes]/acciones.ts). */
 export type RespuestaGuardar =
@@ -383,6 +384,20 @@ export function Tablero({
       })),
     [entrada, contexto],
   );
+  // Días de otro mes de las semanas partidas: se ven en gris, sin editar
+  const diasFuera = useMemo<(DiaColumna & { lunes: string })[]>(
+    () =>
+      datos.fuera.dias.map((d) => ({
+        fecha: d.fecha,
+        diaSemana: d.diaSemana,
+        laborable: d.diaSemana < 5 && !d.festivo,
+        festivo: d.festivo,
+        fuera: true,
+        lunes: d.lunes,
+      })),
+    [datos.fuera],
+  );
+  const bloquesFuera = useMemo(() => bloquesPorAgenteDia(datos.fuera.bloques), [datos.fuera]);
   const agentes = useMemo<AgenteFila[]>(() => {
     const porNumero = new Map(entrada.agentes.map((a) => [a.numero, a]));
     // Con bloques pero fuera de la foto (p. ej. un fijado de alguien que ya no está en plantilla)
@@ -647,6 +662,18 @@ export function Tablero({
     [diasColumna, semanaDe, semanaActual, diaVisible],
   );
   const diaActual = diasColumna.find((d) => d.fecha === dia) ?? diasSemana[0] ?? diasColumna[0];
+  // Vista por agente: la semana ENTERA, con los días de otro mes si está partida
+  const columnasSemana = useMemo(() => {
+    const fuera = diasFuera.filter(
+      (d) =>
+        d.lunes === semanaActual.lunes &&
+        (d.diaSemana < 5 ||
+          datos.fuera.bloques.some((b) => b.fecha === d.fecha) ||
+          agentes.some((a) => (a.turnosFuera?.[d.fecha] ?? []).length > 0)),
+    );
+    return fuera.length === 0 ? diasSemana : [...fuera, ...diasSemana].sort((a, b) => a.fecha.localeCompare(b.fecha));
+  }, [diasFuera, semanaActual, diasSemana, datos.fuera, agentes]);
+  const fueraVisibles = columnasSemana.filter((d) => d.fuera);
 
   const construirFilas = useCallback(
     (dias: readonly DiaColumna[]): FilaAgenteDatos[] =>
@@ -655,11 +682,18 @@ export function Tablero({
         const turnos: FilaAgenteDatos["turnos"] = {};
         const ausencias: FilaAgenteDatos["ausencias"] = {};
         for (const d of dias) {
+          if (d.fuera) {
+            bloquesDia[d.fecha] = bloquesFuera.get(`${a.numero}|${d.fecha}`) ?? VACIO;
+            turnos[d.fecha] = d.festivo ? [] : (a.turnosFuera?.[d.fecha] ?? []);
+            ausencias[d.fecha] = (datos.fuera.ausencias[a.numero] ?? []).filter((x) => x.fecha === d.fecha);
+            continue;
+          }
           bloquesDia[d.fecha] = porAgenteDia.get(`${a.numero}|${d.fecha}`) ?? VACIO;
           turnos[d.fecha] = d.festivo ? [] : (a.turnos[d.fecha] ?? []);
           ausencias[d.fecha] = a.ausencias.filter((x) => x.fecha === d.fecha);
         }
-        const lunes = semanaDe[dias[0]?.fecha] ?? "";
+        // Horas, saldo e incidencias: los de los días del mes
+        const lunes = semanaDe[dias.find((d) => !d.fuera)?.fecha ?? ""] ?? "";
         const incid = incidenciasAgente.get(`${a.numero}|${lunes}`);
         return {
           numero: a.numero,
@@ -676,9 +710,9 @@ export function Tablero({
           blandas: incid?.blandas ?? 0,
         };
       }),
-    [agentes, porAgenteDia, semanaDe, incidenciasAgente, nombres, horasAgentes, saldos],
+    [agentes, porAgenteDia, bloquesFuera, datos.fuera, semanaDe, incidenciasAgente, nombres, horasAgentes, saldos],
   );
-  const filasSemana = useMemo(() => construirFilas(diasSemana), [construirFilas, diasSemana]);
+  const filasSemana = useMemo(() => construirFilas(columnasSemana), [construirFilas, columnasSemana]);
   const filasDia = useMemo(() => (diaActual ? construirFilas([diaActual]) : []), [construirFilas, diaActual]);
 
   // ---------- URL: vista, semana y día sin recargar ----------
@@ -766,22 +800,31 @@ export function Tablero({
 
   const vistaPlan =
     vista === "agente" ? (
+      <div className="space-y-1">
+        {fueraVisibles.length > 0 ? <AvisoSemanaPartida dias={fueraVisibles} planes={datos.fuera.planes} mes={version.mes} /> : null}
       <div className="overflow-x-auto rounded-lg border bg-card">
-        <div className="grid min-w-[900px]" style={{ gridTemplateColumns: `12rem repeat(${diasSemana.length}, minmax(0, 1fr))` }}>
+        <div className="grid min-w-[900px]" style={{ gridTemplateColumns: `12rem repeat(${columnasSemana.length}, minmax(0, 1fr))` }}>
           <div className="sticky left-0 z-10 bg-card px-2 py-1 text-xs font-medium text-muted-foreground">Agente</div>
-          {diasSemana.map((d) => (
-            <div key={d.fecha} className="border-l px-1 pt-1">
-              <button
-                type="button"
-                className="text-xs font-medium hover:underline"
-                onClick={() => {
-                  setDia(d.fecha);
-                  setVista("dia");
-                }}
-                title="Ver el día"
-              >
-                {diaCorto(d.diaSemana)} {fechaDiaMes(d.fecha)}
-              </button>
+          {columnasSemana.map((d) => (
+            <div key={d.fecha} className={cn("border-l px-1 pt-1", d.fuera && "bg-muted/50 text-muted-foreground")}>
+              {d.fuera ? (
+                <span className="text-xs font-medium" title={`Día de ${mesEnMinusculas(d.fecha)}: solo para ver`}>
+                  {diaCorto(d.diaSemana)} {fechaDiaMes(d.fecha)}
+                  <span className="ml-1 text-[10px] font-normal">{mesEnMinusculas(d.fecha)}</span>
+                </span>
+              ) : (
+                <button
+                  type="button"
+                  className="text-xs font-medium hover:underline"
+                  onClick={() => {
+                    setDia(d.fecha);
+                    setVista("dia");
+                  }}
+                  title="Ver el día"
+                >
+                  {diaCorto(d.diaSemana)} {fechaDiaMes(d.fecha)}
+                </button>
+              )}
               {d.festivo ? <span className="ml-1 text-[10px] text-muted-foreground">festivo</span> : null}
               <div className="relative h-3 text-[9px] text-muted-foreground" aria-hidden>
                 {ticks.map((f) => (
@@ -801,23 +844,28 @@ export function Tablero({
           <div className="sticky left-0 z-10 flex items-center border-t border-r bg-card px-2 text-xs font-medium">
             {base} / mínimo
           </div>
-          {diasSemana.map((d) => (
-            <MapaCoberturaDia
-              key={d.fecha}
-              fecha={d.fecha}
-              diaSemana={d.diaSemana}
-              franjas={franjas}
-              pasoMin={paso}
-              cobertura={cobertura[d.fecha]}
-              minimos={contexto.minimos[d.fecha]}
-              clienteBase={base}
-            />
-          ))}
+          {columnasSemana.map((d) =>
+            d.fuera ? (
+              <div key={d.fecha} className="h-6 border-t border-l bg-muted/50" aria-hidden />
+            ) : (
+              <MapaCoberturaDia
+                key={d.fecha}
+                fecha={d.fecha}
+                diaSemana={d.diaSemana}
+                franjas={franjas}
+                pasoMin={paso}
+                cobertura={cobertura[d.fecha]}
+                minimos={contexto.minimos[d.fecha]}
+                clienteBase={base}
+              />
+            ),
+          )}
 
           {filasSemana.map((f) => (
-            <FilaAgente key={f.numero} fila={f} dias={diasSemana} ctx={ctxCeldas} resaltado={resaltado === f.numero} />
+            <FilaAgente key={f.numero} fila={f} dias={columnasSemana} ctx={ctxCeldas} resaltado={resaltado === f.numero} />
           ))}
         </div>
+      </div>
       </div>
     ) : vista === "cliente" ? (
       <VistaCliente
@@ -1056,8 +1104,11 @@ export function Tablero({
                 <ChevronLeft />
               </Button>
               <span className="min-w-44 text-center text-sm font-medium">
-                Semana {fechaDiaMes(semanaActual.fechas[0])}–{fechaDiaMes(semanaActual.fechas[semanaActual.fechas.length - 1])} ·{" "}
-                {semanaActual.rotacion}
+                Semana {fechaDiaMes(vista === "agente" ? columnasSemana[0].fecha : semanaActual.fechas[0])}–
+                {fechaDiaMes(
+                  vista === "agente" ? columnasSemana[columnasSemana.length - 1].fecha : semanaActual.fechas[semanaActual.fechas.length - 1],
+                )}{" "}
+                · {semanaActual.rotacion}
               </span>
               <Button
                 variant="outline"
@@ -1228,5 +1279,39 @@ export function Tablero({
         ) : null}
       </div>
     </TooltipProvider>
+  );
+}
+
+/**
+ * Semana partida entre dos meses (04/11/2026): los días del otro mes se ven
+ * en gris con su plan vigente, si lo tiene, y no se cambian desde aquí. Las
+ * horas y el saldo de la columna de la izquierda son solo los de este mes.
+ */
+function AvisoSemanaPartida({
+  dias,
+  planes,
+  mes,
+}: {
+  dias: readonly DiaColumna[];
+  planes: DatosTablero["fuera"]["planes"];
+  mes: string;
+}) {
+  const otro = dias[0].fecha.slice(0, 7);
+  const plan = planes.find((p) => p.mes === otro);
+  const nombre = mesEnMinusculas(dias[0].fecha);
+  const conPlan =
+    plan?.numero != null
+      ? `con su plan v${plan.numero} ${plan.estado === "publicada" ? "publicado" : "en borrador"}`
+      : "aún sin plan: solo se ve el turno";
+  const varios = dias.length > 1;
+  return (
+    <p className="text-xs text-muted-foreground">
+      {varios ? `Del ${fechaDiaMes(dias[0].fecha)} al ${fechaDiaMes(dias[dias.length - 1].fecha)} son días` : `El ${fechaDiaMes(dias[0].fecha)} es un día`}{" "}
+      de {nombre} ({conPlan}): {varios ? "se ven" : "se ve"} en gris y {varios ? "se cambian" : "se cambia"} en{" "}
+      <Link href={`/planificacion/${otro}`} className="underline underline-offset-2">
+        el plan de {nombre}
+      </Link>
+      . Las horas y el saldo de la izquierda son solo de {mesEnMinusculas(mes)}.
+    </p>
   );
 }

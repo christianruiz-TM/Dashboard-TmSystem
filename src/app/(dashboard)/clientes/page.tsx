@@ -9,10 +9,11 @@ import {
   Table,
   TableBody,
   TableCell,
-  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
+import { valoresOrden } from "@/lib/orden";
 import { GraficaLineas } from "@/components/graficas/grafica-lineas";
 import { AvisoRango } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
@@ -198,36 +199,48 @@ export default async function PaginaClientes({
             <CardTitle className="text-base">Resumen por campaña</CardTitle>
           </CardHeader>
           <CardContent>
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  <TableHead>Campaña</TableHead>
-                  <TableHead className="text-right">Interacciones</TableHead>
-                  <TableHead className="text-right">Atendidas</TableHead>
-                  <TableHead className="text-right">Abandonadas</TableHead>
-                  <TableHead className="text-right">AHT</TableHead>
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {porCampania.map((c) => (
-                  <TableRow key={c.campania}>
-                    <TableCell className="font-medium">{c.campania}</TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {c.total.toLocaleString("es-ES")}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {c.atendidas.toLocaleString("es-ES")}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {c.abandonadasInbound.toLocaleString("es-ES")}
-                    </TableCell>
-                    <TableCell className="text-right tabular-nums">
-                      {segundosLegibles(c.ahtSeg)}
-                    </TableCell>
+            <TablaOrdenable>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <CabeceraOrdenable col={0}>Campaña</CabeceraOrdenable>
+                    <CabeceraOrdenable col={1} numerica className="text-right">
+                      Interacciones
+                    </CabeceraOrdenable>
+                    <CabeceraOrdenable col={2} numerica className="text-right">
+                      Atendidas
+                    </CabeceraOrdenable>
+                    <CabeceraOrdenable col={3} numerica className="text-right">
+                      Abandonadas
+                    </CabeceraOrdenable>
+                    <CabeceraOrdenable col={4} numerica className="text-right">
+                      AHT
+                    </CabeceraOrdenable>
                   </TableRow>
-                ))}
-              </TableBody>
-            </Table>
+                </TableHeader>
+                <TableBody>
+                  <FilasOrdenables>
+                    {porCampania.map((c) => (
+                      <TableRow key={c.campania} data-orden={valoresOrden(c.campania, c.total, c.atendidas, c.abandonadasInbound, c.ahtSeg)}>
+                        <TableCell className="font-medium">{c.campania}</TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {c.total.toLocaleString("es-ES")}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {c.atendidas.toLocaleString("es-ES")}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {c.abandonadasInbound.toLocaleString("es-ES")}
+                        </TableCell>
+                        <TableCell className="text-right tabular-nums">
+                          {segundosLegibles(c.ahtSeg)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </FilasOrdenables>
+                </TableBody>
+              </Table>
+            </TablaOrdenable>
           </CardContent>
         </Card>
 
@@ -242,35 +255,45 @@ export default async function PaginaClientes({
                 Sin campañas outbound con actividad en el período
               </p>
             ) : (
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Lista</TableHead>
-                    <TableHead className="text-right">Contactos</TableHead>
-                    <TableHead className="text-right">Finalizados</TableHead>
-                    <TableHead className="text-right">Éxitos</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {listas.map((l) => (
-                    <TableRow key={`${l.campania}-${l.lista}`}>
-                      <TableCell>
-                        <div className="font-medium">{l.lista}</div>
-                        <div className="text-xs text-muted-foreground">{l.campania}</div>
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {l.totalContactos.toLocaleString("es-ES")}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums">
-                        {l.done.toLocaleString("es-ES")}
-                      </TableCell>
-                      <TableCell className="text-right tabular-nums text-emerald-700">
-                        {l.exitos.toLocaleString("es-ES")}
-                      </TableCell>
+              <TablaOrdenable>
+                <Table>
+                  <TableHeader>
+                    <TableRow>
+                      <CabeceraOrdenable col={0}>Lista</CabeceraOrdenable>
+                      <CabeceraOrdenable col={1} numerica className="text-right">
+                        Contactos
+                      </CabeceraOrdenable>
+                      <CabeceraOrdenable col={2} numerica className="text-right">
+                        Finalizados
+                      </CabeceraOrdenable>
+                      <CabeceraOrdenable col={3} numerica className="text-right">
+                        Éxitos
+                      </CabeceraOrdenable>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    <FilasOrdenables>
+                      {listas.map((l) => (
+                        <TableRow key={`${l.campania}-${l.lista}`} data-orden={valoresOrden(l.lista, l.totalContactos, l.done, l.exitos)}>
+                          <TableCell>
+                            <div className="font-medium">{l.lista}</div>
+                            <div className="text-xs text-muted-foreground">{l.campania}</div>
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {l.totalContactos.toLocaleString("es-ES")}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums">
+                            {l.done.toLocaleString("es-ES")}
+                          </TableCell>
+                          <TableCell className="text-right tabular-nums text-emerald-700">
+                            {l.exitos.toLocaleString("es-ES")}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </FilasOrdenables>
+                  </TableBody>
+                </Table>
+              </TablaOrdenable>
             )}
           </CardContent>
         </Card>

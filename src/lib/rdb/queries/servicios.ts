@@ -3,6 +3,7 @@ import { mockServicios } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type { ServicioConCampanias } from "../types";
 import { listadoCampanias } from "./campanias";
+import { compararTexto } from "@/lib/orden";
 
 /** ¿Es una campaña de IVR? Convención de la instalación: prefijo `IVR_`. */
 export function esIvr(shortname: string): boolean {
@@ -50,9 +51,10 @@ export async function listaServicios(): Promise<ServicioConCampanias[]> {
       if (!lista.includes(f.campania)) lista.push(f.campania);
       mapa.set(f.servicio, lista);
     }
+    // De la A a la Z (04/11/2026), también sus campañas
     return [...mapa.entries()]
-      .map(([servicio, campanias]) => ({ servicio, campanias }))
-      .sort((a, b) => b.campanias.length - a.campanias.length);
+      .map(([servicio, campanias]) => ({ servicio, campanias: [...campanias].sort(compararTexto) }))
+      .sort((a, b) => compararTexto(a.servicio, b.servicio));
   });
 }
 

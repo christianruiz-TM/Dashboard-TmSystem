@@ -143,6 +143,16 @@ describe("tablero", () => {
     expect(semana("2026-10-26")).toEqual({ plan: 31, justificadas: 0, contrato: 30, saldo: 1 });
     expect(saldos.get("0851|mes")).toEqual({ plan: 115, justificadas: 12, contrato: 132, saldo: -5 });
     expect(saldosPrevistos(entrada, [{ ...agente, contratoSemanalH: null }], bloques, () => true).size).toBe(0);
+    // Con el turno de los días de septiembre de esa semana (04/11/2026): lunes
+    // y martes de 9 h y miércoles de 6 h → 36 h; el 1 y 2/10 llevan 30 × 12 ÷ 36
+    const nueve = [{ inicioMin: 540, finMin: 1080 }];
+    const conFuera = { ...agente, turnosFuera: { "2026-09-28": nueve, "2026-09-29": nueve, "2026-09-30": turnos["2026-10-01"] } };
+    expect(saldosPrevistos(entrada, [conFuera], bloques, (t) => t === "VAC").get("0851|2026-09-28")).toEqual({
+      plan: 12,
+      justificadas: 0,
+      contrato: 10,
+      saldo: 2,
+    });
     expect([saldoTexto(1), saldoTexto(-6), saldoTexto(0.004)]).toEqual(["+1,00 h", "−6,00 h", "0,00 h"]);
 
     // Capacidad: 21 laborables × 6 h − las dos ausencias; sin el festivo

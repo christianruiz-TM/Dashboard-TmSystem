@@ -1,5 +1,7 @@
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { Table, TableBody, TableCell, TableHeader, TableRow } from "@/components/ui/table";
 import { Tiempo } from "@/components/kpi/tiempo";
+import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
+import { valoresOrden } from "@/lib/orden";
 import type { AgenteHoy } from "@/lib/rdb/types";
 
 // ============================================================
@@ -9,84 +11,107 @@ import type { AgenteHoy } from "@/lib/rdb/types";
 // que contestara nadie, por eso va al lado de «Conversaciones» y de
 // «Contactos». Desde el 22/10/2026 sin las preparaciones de llamada manual
 // (salientes sin número), que van aparte en «Preparación» y dentro del
-// tiempo productivo. Sin hooks: sirve en los dos paneles.
+// tiempo productivo. Sin hooks: sirve en los dos paneles. De la A a la Z
+// por el usuario de Altitude (04/11/2026), que va delante del nombre; se
+// ordena por cualquier columna pulsando su cabecera.
 // ============================================================
 
 export function TablaAgentesSupervision({ agentes, vacio }: { agentes: AgenteHoy[]; vacio: string }) {
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead>Agente</TableHead>
-          <TableHead
-            className="text-right"
-            title="Llamadas que pasaron por su puesto (lo que Altitude llama «gestionadas»). En una saliente no quiere decir que contestara alguien."
-          >
-            Llamadas gestionadas
-          </TableHead>
-          <TableHead className="text-right" title="Llamadas gestionadas en las que hubo conversación (alguien al otro lado)">
-            Conversaciones
-          </TableHead>
-          <TableHead className="text-right" title="Contactos trabajados: sesiones de guion (una por cada contacto al que se abrió la ficha, conteste o no). Por eso puede haber más contactos que conversaciones.">
-            Contactos
-          </TableHead>
-          <TableHead className="text-right">Talk medio</TableHead>
-          <TableHead className="text-right">ACW medio</TableHead>
-          <TableHead className="text-right">AHT</TableHead>
-          <TableHead
-            className="text-right"
-            title="Llamadas manuales: tiempo que el agente pasa cogiendo el contacto y abriendo la ficha antes de marcar. Altitude lo graba como una interacción aparte, sin número; no es una llamada, pero sí trabajo (está dentro del tiempo productivo)."
-          >
-            Preparación
-          </TableHead>
-          <TableHead className="text-right" title="Todo el tiempo de gestión del agente, preparación incluida">
-            Tiempo productivo
-          </TableHead>
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {agentes.length === 0 ? (
+    <TablaOrdenable>
+      <Table>
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={9} className="text-center text-muted-foreground">
-              {vacio}
-            </TableCell>
+            <CabeceraOrdenable col={0}>Agente</CabeceraOrdenable>
+            <CabeceraOrdenable
+              col={1}
+              numerica
+              className="text-right"
+              title="Llamadas que pasaron por su puesto (lo que Altitude llama «gestionadas»). En una saliente no quiere decir que contestara alguien."
+            >
+              Llamadas gestionadas
+            </CabeceraOrdenable>
+            <CabeceraOrdenable col={2} numerica className="text-right" title="Llamadas gestionadas en las que hubo conversación (alguien al otro lado)">
+              Conversaciones
+            </CabeceraOrdenable>
+            <CabeceraOrdenable col={3} numerica className="text-right" title="Contactos trabajados: sesiones de guion (una por cada contacto al que se abrió la ficha, conteste o no). Por eso puede haber más contactos que conversaciones.">
+              Contactos
+            </CabeceraOrdenable>
+            <CabeceraOrdenable col={4} numerica className="text-right">Talk medio</CabeceraOrdenable>
+            <CabeceraOrdenable col={5} numerica className="text-right">ACW medio</CabeceraOrdenable>
+            <CabeceraOrdenable col={6} numerica className="text-right">AHT</CabeceraOrdenable>
+            <CabeceraOrdenable
+              col={7}
+              numerica
+              className="text-right"
+              title="Llamadas manuales: tiempo que el agente pasa cogiendo el contacto y abriendo la ficha antes de marcar. Altitude lo graba como una interacción aparte, sin número; no es una llamada, pero sí trabajo (está dentro del tiempo productivo)."
+            >
+              Preparación
+            </CabeceraOrdenable>
+            <CabeceraOrdenable col={8} numerica className="text-right" title="Todo el tiempo de gestión del agente, preparación incluida">
+              Tiempo productivo
+            </CabeceraOrdenable>
           </TableRow>
-        ) : (
-          agentes.map((a) => (
-            <TableRow key={a.agente}>
-              <TableCell>
-                <div className="font-medium">{a.nombre}</div>
-                <div className="text-xs text-muted-foreground">{a.agente}</div>
-              </TableCell>
-              <TableCell className="text-right tabular-nums">{a.atendidas.toLocaleString("es-ES")}</TableCell>
-              <TableCell className="text-right tabular-nums">{a.conversaciones.toLocaleString("es-ES")}</TableCell>
-              <TableCell className="text-right tabular-nums">{a.contactos.toLocaleString("es-ES")}</TableCell>
-              <TableCell className="text-right tabular-nums">
-                <Tiempo segundos={a.talkMedioSeg} />
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                <Tiempo segundos={a.acwMedioSeg} />
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                <Tiempo segundos={a.ahtMedioSeg} />
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                {a.preparaciones > 0 ? (
-                  <>
-                    <Tiempo segundos={a.preparacionSeg} acumulado />
-                    <div className="text-[11px] text-muted-foreground">{a.preparaciones.toLocaleString("es-ES")} veces</div>
-                  </>
-                ) : (
-                  "—"
-                )}
-              </TableCell>
-              <TableCell className="text-right tabular-nums">
-                <Tiempo segundos={a.productivoSeg} acumulado />
+        </TableHeader>
+        <TableBody>
+          {agentes.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={9} className="text-center text-muted-foreground">
+                {vacio}
               </TableCell>
             </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
+          ) : (
+            <FilasOrdenables>
+              {agentes.map((a) => (
+                <TableRow
+                  key={a.agente}
+                  data-orden={valoresOrden(
+                    a.agente,
+                    a.atendidas,
+                    a.conversaciones,
+                    a.contactos,
+                    a.talkMedioSeg,
+                    a.acwMedioSeg,
+                    a.ahtMedioSeg,
+                    a.preparaciones > 0 ? a.preparacionSeg : null,
+                    a.productivoSeg,
+                  )}
+                >
+                  <TableCell>
+                    <div className="font-medium">{a.agente}</div>
+                    <div className="text-xs text-muted-foreground">{a.nombre}</div>
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">{a.atendidas.toLocaleString("es-ES")}</TableCell>
+                  <TableCell className="text-right tabular-nums">{a.conversaciones.toLocaleString("es-ES")}</TableCell>
+                  <TableCell className="text-right tabular-nums">{a.contactos.toLocaleString("es-ES")}</TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Tiempo segundos={a.talkMedioSeg} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Tiempo segundos={a.acwMedioSeg} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Tiempo segundos={a.ahtMedioSeg} />
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    {a.preparaciones > 0 ? (
+                      <>
+                        <Tiempo segundos={a.preparacionSeg} acumulado />
+                        <div className="text-[11px] text-muted-foreground">{a.preparaciones.toLocaleString("es-ES")} veces</div>
+                      </>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
+                  <TableCell className="text-right tabular-nums">
+                    <Tiempo segundos={a.productivoSeg} acumulado />
+                  </TableCell>
+                </TableRow>
+              ))}
+            </FilasOrdenables>
+          )}
+        </TableBody>
+      </Table>
+    </TablaOrdenable>
   );
 }

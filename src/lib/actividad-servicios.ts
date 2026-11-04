@@ -1,9 +1,12 @@
 // ============================================================
 // Orden del selector de clientes (pedido el 21/10/2026): arriba los que
-// tienen llamadas en los últimos días, de la más reciente a la más antigua;
-// abajo, en otro grupo, los que llevan más tiempo parados. Puro, con tests
-// (corre también en el navegador: lo usa SelectorServicio).
+// tienen llamadas en los últimos días; abajo, en otro grupo, los que llevan
+// más tiempo parados. Dentro de cada grupo, de la A a la Z (04/11/2026; antes,
+// de la llamada más reciente a la más antigua). Puro, con tests (corre
+// también en el navegador: lo usa SelectorServicio).
 // ============================================================
+
+import { compararTexto } from "./orden";
 
 /** Días sin llamadas a partir de los cuales un cliente se da por parado. */
 export const DIAS_SIN_ACTIVIDAD = 7;
@@ -28,11 +31,10 @@ export function ordenarPorActividad(
 ): { activos: ServicioOrdenado[]; parados: ServicioOrdenado[] } {
   const limite = haceDias(hoy, DIAS_SIN_ACTIVIDAD);
   const filas = servicios.map((servicio) => ({ servicio, ultima: actividad[servicio] ?? null }));
-  const reciente = (a: ServicioOrdenado, b: ServicioOrdenado) =>
-    (b.ultima ?? "").localeCompare(a.ultima ?? "") || a.servicio.localeCompare(b.servicio);
+  const alfabetico = (a: ServicioOrdenado, b: ServicioOrdenado) => compararTexto(a.servicio, b.servicio);
   return {
-    activos: filas.filter((f) => f.ultima != null && f.ultima.slice(0, 10) >= limite).sort(reciente),
-    parados: filas.filter((f) => f.ultima == null || f.ultima.slice(0, 10) < limite).sort(reciente),
+    activos: filas.filter((f) => f.ultima != null && f.ultima.slice(0, 10) >= limite).sort(alfabetico),
+    parados: filas.filter((f) => f.ultima == null || f.ultima.slice(0, 10) < limite).sort(alfabetico),
   };
 }
 

@@ -1,3 +1,4 @@
+import { compararTexto } from "@/lib/orden";
 import type { SeccionComparable } from "@/lib/comparador";
 import type { RatiosCampania } from "@/lib/ratios-exito";
 import { agruparPorTipoCampania, type TipoCampania } from "@/lib/resultados-actividad";
@@ -112,7 +113,8 @@ export function filasCampaniaDireccion(
         gestionPorNoExitoSeg: r?.gestionPorNoExitoSeg ?? null,
       };
     })
-    .sort((a, b) => b.interacciones - a.interacciones || a.campania.localeCompare(b.campania));
+    // De la A a la Z (04/11/2026); las tablas se reordenan pulsando una cabecera
+    .sort((a, b) => compararTexto(a.campania, b.campania));
 }
 
 export function sumarCampanias(filas: FilaCampaniaDireccion[]): TotalesCampanias {
@@ -166,7 +168,7 @@ export function resumenPorCliente(
     }))
     .sort((a, b) => {
       if ((a.servicio == null) !== (b.servicio == null)) return a.servicio == null ? 1 : -1;
-      return b.interacciones - a.interacciones || (a.servicio ?? "").localeCompare(b.servicio ?? "");
+      return compararTexto(a.servicio ?? "", b.servicio ?? "");
     });
 }
 

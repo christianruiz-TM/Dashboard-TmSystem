@@ -12,6 +12,7 @@ import {
   type UnidadCargo,
 } from "./schema";
 import type { DdiFechas } from "@/lib/ddis";
+import { compararTexto } from "@/lib/orden";
 import { guardarAjuste, obtenerAjuste } from "./settings";
 import {
   aplicarAjustes,
@@ -35,9 +36,14 @@ export type CampaniaGsRow = typeof campaniasGs.$inferSelect;
 export type CierreRow = typeof facturacionCierres.$inferSelect;
 export type CierreLineaRow = typeof facturacionCierreLineas.$inferSelect;
 
-/** Todo el inventario de DDIs, por campaña y número. */
+/** Todo el inventario de DDIs, por campaña (de la A a la Z, como un listado en español) y número. */
 export function listarDdis(): DdiRow[] {
-  return db.select().from(ddis).orderBy(asc(ddis.campaignShortname), asc(ddis.numero)).all();
+  return db
+    .select()
+    .from(ddis)
+    .orderBy(asc(ddis.campaignShortname), asc(ddis.numero))
+    .all()
+    .sort((a, b) => compararTexto(a.campaignShortname ?? "", b.campaignShortname ?? ""));
 }
 
 /** Fechas de los DDIs de unas campañas (todas si no se indican), para la cuota. */
@@ -122,7 +128,13 @@ export function borrarCargo(id: number): void {
 }
 
 export function listarCampaniasGs(): CampaniaGsRow[] {
-  return db.select().from(campaniasGs).orderBy(asc(campaniasGs.campaignShortname)).all();
+  // SQLite ordena «gh_…» detrás de las mayúsculas: de la A a la Z como un listado en español
+  return db
+    .select()
+    .from(campaniasGs)
+    .orderBy(asc(campaniasGs.campaignShortname))
+    .all()
+    .sort((a, b) => compararTexto(a.campaignShortname, b.campaignShortname));
 }
 
 /** shortname → código de GS. */

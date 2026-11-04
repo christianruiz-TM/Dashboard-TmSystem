@@ -21,6 +21,7 @@ export type PantallaAyuda =
   | "hoy"
   | "adherencia"
   | "saldos"
+  | "horas"
   | "cierre";
 
 export interface CasoAyuda {
@@ -473,7 +474,11 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     siPasa: [
       {
         caso: "¿Cómo se calcula?",
-        haz: "Cada día: horas trabajadas + horas de ausencias que cuentan (vacaciones, libranzas, RTO) − horas de contrato de ese día (el semanal entre cinco, de lunes a viernes).",
+        haz: "Cada día: horas trabajadas + horas de ausencias que cuentan (vacaciones, libranzas, RTO) − horas de contrato de ese día. El contrato de la semana se reparte según su turno: si el lunes es de 9 h y el viernes de 4 h, el lunes lleva más contrato. Así un día con su turno de siempre sale a cero o casi.",
+      },
+      {
+        caso: "La primera o la última semana del mes tiene pocos días.",
+        haz: "Es normal: la semana se parte entre dos meses. En el tablero se ve entera; los días del otro mes salen en gris y se cambian en el plan de ese mes. Cada mes lleva el saldo de sus días.",
       },
       {
         caso: "¿Qué pasa con un festivo?",
@@ -486,6 +491,41 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       {
         caso: "Apunté mal un ajuste.",
         haz: "Bórralo con «Borrar» y apúntalo otra vez. Todo queda en el historial.",
+      },
+    ],
+  },
+  {
+    id: "horas",
+    etiqueta: "Horas",
+    titulo: "Horas: contrato y horas conectadas",
+    intro: "Las horas de contrato de cada persona al lado de las que estuvo conectada, por día, por semana y del mes.",
+    queVeo: [
+      "Arriba eliges cómo verlo: «Por día», «Por semana» o «Mes».",
+      "«Por persona»: en cada casilla, las horas conectadas y, debajo, las de contrato y la diferencia. En cursiva, lo que aún no ha pasado (sale del plan).",
+      "«Mes»: lo que llevamos hasta ayer y cómo acabará el mes con lo planificado.",
+      "«Por cliente»: las horas conectadas con los usuarios de cada cliente.",
+    ],
+    queHacer: [
+      "Mira la diferencia: en rojo, horas que le faltan esa semana o ese día; en verde, horas de más.",
+      "Si un día sale vacío y con un código (VAC, FEST…), ese día tenía una ausencia.",
+      "Para el saldo con las vacaciones y libranzas descontadas, entra en «Saldos».",
+    ],
+    siPasa: [
+      {
+        caso: "¿Cuántas horas de contrato tiene un día?",
+        haz: "Su parte del contrato semanal según su turno: si el lunes es de 9 h y el viernes de 4 h, el lunes lleva más contrato. Una semana entera suma justo el contrato.",
+      },
+      {
+        caso: "Una persona tiene un día en rojo y estaba de vacaciones.",
+        haz: "Aquí solo cuentan las horas conectadas. Las vacaciones, libranzas y RTO se tienen en cuenta en «Saldos».",
+      },
+      {
+        caso: "La suma por cliente es mayor que la de las personas.",
+        haz: "Quien está conectada con dos usuarios a la vez (por ejemplo, GH y BD) cuenta en los dos clientes.",
+      },
+      {
+        caso: "Una persona no sale en la lista.",
+        haz: "No tiene contrato apuntado o no está activa. El contrato se pone en Configuración → Agentes.",
       },
     ],
   },
@@ -760,6 +800,17 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
     pasos: ["Abre el mes y entra en «Saldos».", "Mira la última columna: en rojo faltan horas; en verde sobran."],
   },
   {
+    id: "horas-contrato",
+    pregunta: "Ver las horas de contrato y las conectadas de cada persona",
+    tema: "horas",
+    palabras: "horas contrato conectadas logadas efectivas dia semana mes",
+    pasos: [
+      "Abre el mes y entra en «Horas».",
+      "Elige «Por día», «Por semana» o «Mes».",
+      "En cada casilla: arriba las horas conectadas; debajo, las de contrato y la diferencia.",
+    ],
+  },
+  {
     id: "ajuste",
     pregunta: "Apuntar horas que no salen en el sistema",
     tema: "saldos",
@@ -949,6 +1000,15 @@ export const PUNTOS_AYUDA = {
     titulo: "Arrastre",
     texto: "Las horas que le sobraban (+) o le faltaban (−) de los meses anteriores.",
   },
+  "horas-contrato": {
+    titulo: "Contrato y horas conectadas",
+    texto:
+      "Horas conectadas: desde que entra en Altitude hasta que sale, con cualquiera de sus usuarios. Contrato: su parte del contrato semanal según su turno de cada día.",
+  },
+  "horas-cliente": {
+    titulo: "Horas por cliente",
+    texto: "Las horas conectadas con los usuarios de cada cliente (GH_…, UGR_…), de toda la empresa. Son las mismas que en «Cierre».",
+  },
   "saldo-previsto": {
     titulo: "Previsto a fin de mes",
     texto: "Cómo acabará el mes: lo que ya ha hecho, más lo que tiene planificado hasta el final, más el arrastre.",
@@ -1000,6 +1060,7 @@ export const TEMA_DE: Record<PantallaAyuda, string> = {
   hoy: "hoy",
   adherencia: "adherencia",
   saldos: "saldos",
+  horas: "horas",
   cierre: "cierre",
 };
 

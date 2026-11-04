@@ -19,6 +19,7 @@ import { configuracionFacturacion } from "@/lib/facturacion";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import { esIvr, listaServicios } from "@/lib/rdb/queries/servicios";
 import { borrarCampaniaGs, guardarCampaniaGs } from "../acciones";
+import { compararTexto } from "@/lib/orden";
 
 export const metadata: Metadata = { title: "Códigos de campaña en GS" };
 export const dynamic = "force-dynamic";
@@ -50,7 +51,7 @@ export default async function PaginaCampaniasGs({
     ]),
   ]
     .filter((c) => !esIvr(c) && !conCodigo.has(c))
-    .sort();
+    .sort(compararTexto);
 
   return (
     <div className="space-y-6">

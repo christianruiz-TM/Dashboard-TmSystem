@@ -259,3 +259,13 @@ Registro completo: `docs/registro-sesion-23-26-octubre-2026.md`. Commits despleg
 - Pruebas en la SQLite de desarrollo: dos líneas de `plan_ausencia` y algunas de `export` de la prueba se quedan en su `audit_log` (no se borra la auditoría).
 - 26/10, pedido por supervisión: en la copia, cada persona con su código de agente de GH («GH_0851», su usuario del cliente base sin sufijo) y de menor a mayor por él, en el PDF y en el móvil; sustituye al número en los nombres repetidos. Ejemplos de la guía de Claude Docs rehechos. El disco del servidor ya es de 77 GB.
 - Pendiente: borrador nuevo de noviembre por las tres VAC del 22/10, copiar la guía HTML a la carpeta compartida y que supervisión pruebe la copia en el móvil.
+
+### 24 · 04/11/2026 · Semana partida, pestaña «Horas», campana de alertas y orden alfabético (Opus 5.5)
+
+Registro completo: `docs/registro-sesion-04-noviembre-2026.md`. Sin commit ni despliegue todavía. Detalle técnico en CLAUDE.md («Saldo» y «Horas» en Planificación de turnos, «Campana de alertas» en Arquitectura y el orden alfabético en Convenciones de código).
+
+- Contrato del día repartido según el turno: el lunes 30/11 ya no sale con +3 h y desaparece el negativo del arrastre del 1-2/10 (entre −2 y −5,20 h). Semana partida entera en el tablero, con los días del otro mes en gris.
+- Pestaña «Horas» del mes: contrato frente a horas logadas por día, semana y mes, por persona y por cliente.
+- Campana de alertas con sonido en todas las páginas (roles internos), «vista» y ajustes por usuario, recordatorio cada 3 min configurable y avisos de Windows con la directiva del PC (`docs/notificaciones-escritorio.md`).
+- Orden alfabético en todas las tablas y desplegables, con cabeceras que ordenan; Planificación por número y los rankings de éxitos y Resultados, como estaban.
+- Incidencia: el `next dev` del puerto 3000 se quedó dando error 500 tras intentar arrancar otro; hay que reiniciarlo.

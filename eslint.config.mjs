@@ -17,7 +17,7 @@ const eslintConfig = defineConfig([
   {
     files: [
       "src/lib/planificacion/motor/**/*.ts",
-      "src/lib/planificacion/{tablero,edicion,adherencia,saldo,alertas,nocturno,formulario-cliente,horario-agentes,horario-html}.ts",
+      "src/lib/planificacion/{tablero,edicion,adherencia,saldo,alertas,nocturno,formulario-cliente,horario-agentes,horario-html,horas}.ts",
     ],
     rules: {
       "no-restricted-imports": [

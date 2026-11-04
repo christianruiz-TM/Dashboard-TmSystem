@@ -22,6 +22,7 @@ import { activoEntre, mesesDelRango } from "@/lib/ddis";
 import { hoyISO } from "@/lib/fechas";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import { guardarDdi } from "../acciones";
+import { compararTexto } from "@/lib/orden";
 
 export const metadata: Metadata = { title: "DDIs" };
 export const dynamic = "force-dynamic";
@@ -74,7 +75,7 @@ export default async function PaginaDdis({
   // Lo que se cobra este mes: activos algún día del mes en curso
   const { inicio, fin, mes } = mesesDelRango(hoyISO(), hoyISO())[0];
   const activosMes = todos.filter((d) => d.campaignShortname && activoEntre(d, inicio, fin)).length;
-  const campaniasConDdi = [...new Set(todos.map((d) => d.campaignShortname).filter((c): c is string => !!c))].sort();
+  const campaniasConDdi = [...new Set(todos.map((d) => d.campaignShortname).filter((c): c is string => !!c))].sort(compararTexto);
 
   return (
     <div className="space-y-6">

@@ -30,6 +30,7 @@ import {
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import { listaServicios, mapaCampaniaServicio } from "@/lib/rdb/queries/servicios";
 import { borrarLineaTarifa, crearLineaTarifa, editarLineaTarifa } from "../acciones";
+import { compararTexto } from "@/lib/orden";
 
 export const metadata: Metadata = { title: "Artículos y tarifas" };
 export const dynamic = "force-dynamic";
@@ -81,7 +82,7 @@ export default async function PaginaArticulos({
     const cliente = l.serviceName ?? servicioDe.get(l.campaignShortname ?? "") ?? "Sin cliente";
     porCliente.set(cliente, [...(porCliente.get(cliente) ?? []), l]);
   }
-  const clientes = [...porCliente].sort(([a], [b]) => a.localeCompare(b));
+  const clientes = [...porCliente].sort(([a], [b]) => compararTexto(a, b));
 
   return (
     <div className="space-y-6">
@@ -241,7 +242,7 @@ export default async function PaginaArticulos({
                       .sort(
                         (a, b) =>
                           Number(a.serviceName == null) - Number(b.serviceName == null) ||
-                          (a.campaignShortname ?? "").localeCompare(b.campaignShortname ?? "") ||
+                          compararTexto(a.campaignShortname ?? "", b.campaignShortname ?? "") ||
                           orden(a) - orden(b),
                       )
                       .map((l) => (

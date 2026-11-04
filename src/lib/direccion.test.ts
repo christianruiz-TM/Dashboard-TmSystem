@@ -66,14 +66,15 @@ describe("filas por campaña", () => {
       [rat("gh_skoda", { contactos: 70, exitos: 14, convContactosPct: 20 })],
       servicios,
     );
-    expect(filas.map((f) => f.campania)).toEqual(["gh_skoda", "gh_bbdd_x"]);
-    const gh = filas[0];
+    // De la A a la Z (04/11/2026)
+    expect(filas.map((f) => f.campania)).toEqual(["gh_bbdd_x", "gh_skoda"]);
+    const gh = filas[1];
     expect(gh.servicio).toBe("GrupoHuertas");
     expect(gh.pctAbandono).toBe(10);
     expect(gh.finalizados).toBe(30);
     expect(gh.exitos).toBe(14);
     // Sin cliente conocido y sin llamadas: null y ceros, no undefined
-    expect(filas[1]).toMatchObject({ servicio: null, interacciones: 0, finalizados: 12, ahtSeg: null });
+    expect(filas[0]).toMatchObject({ servicio: null, interacciones: 0, finalizados: 12, ahtSeg: null });
   });
 });
 
@@ -111,12 +112,13 @@ describe("resumen por cliente", () => {
       servicios,
     );
     const r = resumenPorCliente(filas, new Map([["Bolsas", 12.5]]));
+    // De la A a la Z, y las campañas sin cliente al final aunque tengan más volumen
     expect(r.map((f) => [f.servicio, f.interacciones, f.horasLogadas])).toEqual([
-      ["GrupoHuertas", 90, 0],
       ["Bolsas", 70, 12.5],
+      ["GrupoHuertas", 90, 0],
       [null, 500, null],
     ]);
-    expect(r[1].campanias).toBe(2);
+    expect(r[0].campanias).toBe(2);
   });
 });
 

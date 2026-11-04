@@ -1,5 +1,6 @@
 import { differenceInCalendarDays, parseISO } from "date-fns";
 import { CALENDARIO_PLANTILLA, diasSinTrabajoEquipo, semanasDelMes } from "./calendario";
+import { contratoDelDia, horasTurno, horasTurnoSemanas } from "./contrato";
 import { franjaDentro, generarFranjas, horasTexto, rangoCorto, redondear2, solapan } from "./franjas";
 import { calcularMinimos } from "./minimos";
 import type {
@@ -554,7 +555,14 @@ function construirResumen(
 ): ResumenMotor {
   const semanas = semanasDelMes(entrada.dias);
   const semanaDe = new Map(entrada.dias.map((d) => [d.fecha, d.lunes]));
-  const entreSemana = entrada.dias.filter((d) => d.diaSemana < 5).length;
+  const fechas = entrada.dias.map((d) => d.fecha);
+  const contratoDias = (a: AgenteMotor, contratoSemanalH: number) => {
+    const semanas = horasTurnoSemanas(fechas, a.turnos, a.turnosFuera);
+    return entrada.dias.reduce(
+      (h, d) => h + contratoDelDia(contratoSemanalH, d.diaSemana < 5, horasTurno(a.turnos[d.fecha]), semanas.get(d.lunes)),
+      0,
+    );
+  };
   const festivosEquipo = diasSinTrabajoEquipo(entrada);
   const turnoFestivosH = (a: AgenteMotor) =>
     [...festivosEquipo].reduce((h, f) => h + (a.turnos[f] ?? []).reduce((x, t) => x + (t.finMin - t.inicioMin) / 60, 0), 0);
@@ -601,12 +609,10 @@ function construirResumen(
         activo: idsActivos.has(a.numero),
         capacidadH: (capacidadAgente.get(a.numero) ?? 0) * horasFranja,
         horas: total,
-        // Horas a cubrir en el mes: contrato ÷ 5 cada día de lunes a viernes menos el
-        // turno de los festivos (que cuentan como trabajados, como en el saldo)
-        contratoMesH:
-          a.contratoSemanalH != null
-            ? redondear2((a.contratoSemanalH * entreSemana) / 5 - turnoFestivosH(a))
-            : null,
+        // Horas a cubrir en el mes: el contrato de cada día (repartido según el
+        // turno, contrato.ts) menos el turno de los festivos (que cuentan como
+        // trabajados, como en el saldo)
+        contratoMesH: a.contratoSemanalH != null ? redondear2(contratoDias(a, a.contratoSemanalH) - turnoFestivosH(a)) : null,
         porCliente,
         porSemana,
       };

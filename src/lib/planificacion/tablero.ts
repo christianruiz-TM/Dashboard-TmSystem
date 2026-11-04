@@ -1,10 +1,12 @@
 import {
   diasSinTrabajoEquipo,
   franjaDentro,
+  horasTurnoSemanas,
   generarFranjas,
   horasTexto,
   solapan,
   type AgenteMotor,
+  type AusenciaMotor,
   type Aviso,
   type BolsaMotor,
   type ClienteMotor,
@@ -75,7 +77,25 @@ export interface DatosTablero {
   /** Avisos del momento de generar que no son validaciones (datos caducados, objetivos...). */
   avisosGeneracion: Aviso[];
   tiposAusencia: Record<string, TipoAusenciaTablero>;
+  /**
+   * Días de otro mes en la primera y la última semana (04/11/2026): el
+   * tablero enseña la semana entera, con esos días en gris y sin editar. Su
+   * turno va en `entrada.agentes[].turnosFuera`.
+   */
+  fuera: DiasFuera;
 }
+
+export interface DiasFuera {
+  dias: { fecha: string; diaSemana: number; lunes: string; festivo: boolean }[];
+  /** Ausencias de esos días por agente. */
+  ausencias: Record<string, AusenciaMotor[]>;
+  /** Bloques de esos días en el plan vigente de su mes (el publicado; si no, el borrador). */
+  bloques: BloqueTablero[];
+  /** Plan de cada mes vecino que aparece (null = aún sin plan). */
+  planes: { mes: string; numero: number | null; estado: VersionTablero["estado"] | null }[];
+}
+
+export const SIN_DIAS_FUERA: DiasFuera = { dias: [], ausencias: {}, bloques: [], planes: [] };
 
 export interface TipoAusenciaTablero {
   nombre: string;
@@ -95,6 +115,11 @@ export function nombreMes(mes: string): string {
   const [a, m] = mes.split("-").map(Number);
   const nombre = MESES[m - 1] ?? mes;
   return `${nombre.charAt(0).toUpperCase()}${nombre.slice(1)} ${a}`;
+}
+
+/** '2026-12' o '2026-12-01' → 'diciembre'. */
+export function mesEnMinusculas(fechaOMes: string): string {
+  return MESES[Number(fechaOMes.slice(5, 7)) - 1] ?? fechaOMes;
 }
 
 /** 0 → 'Lun'. */
@@ -268,7 +293,7 @@ export function barrasBolsa(
   return barras;
 }
 
-type AgenteCapacidad = Pick<AgenteMotor, "numero" | "contratoSemanalH" | "turnos" | "ausencias">;
+type AgenteCapacidad = Pick<AgenteMotor, "numero" | "contratoSemanalH" | "turnos" | "ausencias" | "turnosFuera">;
 
 /** Días sin trabajo de la plantilla: festivos y cierres (no se trabaja ni cuenta el contrato). */
 const festivosEquipo = (entrada: Pick<EntradaMotor, "dias" | "servicioCalendario">) => diasSinTrabajoEquipo(entrada);
@@ -305,7 +330,7 @@ export interface SaldoPrevisto {
   plan: number;
   /** Horas justificadas: ausencias que cuentan como trabajadas y el turno de los festivos. */
   justificadas: number;
-  /** Contrato semanal ÷ 5 por cada día de lunes a viernes del mes (festivos incluidos). */
+  /** Contrato de los días del mes: el semanal repartido según su turno (motor/contrato.ts). */
   contrato: number;
   /** plan + justificadas − contrato. */
   saldo: number;
@@ -314,10 +339,12 @@ export interface SaldoPrevisto {
 /**
  * Saldo PREVISTO por agente: plan + justificadas − contrato, por semana
  * (`${agente}|${lunes}`) y del mes (`${agente}|mes`), con la MISMA regla que
- * la página de Saldos (saldo.ts, todo previsto): el contrato es el semanal ÷ 5
- * cada día de lunes a viernes y un festivo justifica las horas de su turno de
- * ese día (si no se planifica trabajo). Una semana partida entre dos meses
- * lleva en cada uno la parte de sus días. Sin contrato, sin saldo.
+ * la página de Saldos (saldo.ts, todo previsto): el contrato semanal se
+ * reparte entre los días según su turno de la semana entera, con los días de
+ * otro mes de las semanas partidas (`turnosFuera`), y un festivo justifica las
+ * horas de su turno de ese día (si no se planifica trabajo). Una semana
+ * partida entre dos meses lleva en cada uno la parte de sus días. Sin
+ * contrato, sin saldo.
  */
 export function saldosPrevistos(
   entrada: Pick<EntradaMotor, "dias" | "servicioCalendario">,
@@ -356,6 +383,7 @@ export function saldosPrevistos(
       realH: {},
       justificadasH,
       turnoH,
+      turnoSemanaH: horasTurnoSemanas(entrada.dias.map((d) => d.fecha), a.turnos, a.turnosFuera),
       ajustesH: {},
     });
     if (!r) continue;

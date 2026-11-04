@@ -11,12 +11,15 @@ import {
   balanceCambios,
   CODIGOS_VALIDACION,
   desplazarMes,
+  diasFueraDelMes,
   diffPlanes,
   expandirAusencias,
+  expandirTurnos,
   fechasDelMes,
   sumarDias,
   type Aviso,
   type CambioPlan,
+  type DiaMotor,
   type EntradaMotor,
   type Gravedad,
   type ResumenMotor,
@@ -26,7 +29,15 @@ import { AUTOR_NOCTURNO } from "./nocturno";
 import { resolverCliente } from "./usuarios";
 import { leerParametrosPlan } from "./parametros";
 import * as repo from "./repositorio";
-import { contarGravedades, fechaDiaMes, nombreMes, type BloqueTablero, type DatosTablero, type VersionTablero } from "./tablero";
+import {
+  contarGravedades,
+  fechaDiaMes,
+  nombreMes,
+  type BloqueTablero,
+  type DatosTablero,
+  type DiasFuera,
+  type VersionTablero,
+} from "./tablero";
 
 /** Fecha y hora LOCALES (nunca toISOString: daría UTC, regla 14). */
 const fechaHora = (d: Date | null) => (d ? format(d, "dd/MM/yyyy HH:mm") : null);
@@ -254,10 +265,23 @@ export function cargarTablero(mes: string, versionId?: number): DatosTablero | n
   const orden = (codigo: string) => clientesVivos.get(codigo)?.orden ?? Number.MAX_SAFE_INTEGER;
 
   // Calendario de ahora (si ya se ha copiado alguna vez de Altitude)
-  const calendario = estadoCopia() ? aplicarCalendario(foto, calendarioPlan()) : null;
+  const cal = estadoCopia() ? calendarioPlan() : null;
+  const calendario = cal ? aplicarCalendario(foto, cal) : null;
   const base: EntradaMotor = calendario
     ? { ...foto, dias: calendario.dias, servicioCalendario: calendario.servicioCalendario, clientes: calendario.clientes }
     : foto;
+
+  // Semanas partidas: días del mes vecino. Las fotos anteriores al 04/11/2026
+  // no llevan su turno: sale de los patrones de ahora.
+  const diasFuera = diasFueraDelMes(base.dias, {
+    servicioCalendario: base.servicioCalendario,
+    festivos: cal?.festivos ?? [],
+    cierresEquipo: cal?.cierresPlantilla ?? [],
+  });
+  const turnosFueraVivos =
+    diasFuera.length > 0 && base.agentes.some((a) => a.turnosFuera === undefined)
+      ? expandirTurnos(repo.leerAsignacionesTurno(), repo.leerPatrones(), diasFuera)
+      : {};
 
   const entrada: EntradaMotor = {
     ...base,
@@ -270,6 +294,7 @@ export function cargarTablero(mes: string, versionId?: number): DatosTablero | n
     agentes: base.agentes.map((a) => ({
       ...a,
       contratoSemanalH: porNumero.has(a.numero) ? porNumero.get(a.numero)!.contratoSemanalH : a.contratoSemanalH,
+      turnosFuera: a.turnosFuera ?? turnosFueraVivos[a.numero] ?? {},
       ausencias: ausencias[a.numero] ?? [],
     })),
   };
@@ -310,6 +335,32 @@ export function cargarTablero(mes: string, versionId?: number): DatosTablero | n
         .leerTiposAusencia()
         .map((t) => [t.codigo, { nombre: t.nombre, color: t.color, computaComoTrabajada: t.computaComoTrabajada }]),
     ),
+    fuera: datosFuera(diasFuera, base.servicioCalendario),
+  };
+}
+
+/**
+ * Lo que el tablero enseña de los días de otro mes de las semanas partidas:
+ * ausencias y bloques del plan vigente de ese mes (el publicado; si no, el
+ * borrador), solo para ver.
+ */
+function datosFuera(dias: readonly DiaMotor[], servicioCalendario: string): DiasFuera {
+  if (dias.length === 0) return { dias: [], ausencias: {}, bloques: [], planes: [] };
+  const fechas = new Set(dias.map((d) => d.fecha));
+  const planes: DiasFuera["planes"] = [];
+  const bloques: BloqueTablero[] = [];
+  for (const mes of [...new Set(dias.map((d) => d.fecha.slice(0, 7)))]) {
+    const versiones = repo.versionesMes(mes);
+    const v = versiones.find((x) => x.estado === "publicada") ?? versiones.find((x) => x.estado === "borrador") ?? null;
+    planes.push({ mes, numero: v?.numero ?? null, estado: v?.estado ?? null });
+    if (v) bloques.push(...repo.bloquesVersion(v.id).filter((b) => fechas.has(b.fecha)).map(aBloqueTablero));
+  }
+  const ordenadas = [...fechas].sort();
+  return {
+    dias: dias.map((d) => ({ fecha: d.fecha, diaSemana: d.diaSemana, lunes: d.lunes, festivo: d.festivos.includes(servicioCalendario) })),
+    ausencias: expandirAusencias(repo.leerAusencias(ordenadas[0], ordenadas[ordenadas.length - 1]), dias),
+    bloques,
+    planes,
   };
 }
 

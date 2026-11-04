@@ -922,13 +922,38 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       logado de la PERSONA (unión de todos sus usuarios); después, lo
       planificado. Arrastre desde `plan.inicioSaldo` (01/10/2026).
       **Festivos** (08/10/2026, pendiente de que RR. HH. lo confirme): el
-      contrato del día es el semanal ÷ 5 de lunes a viernes, festivos
-      incluidos, y el festivo justifica las horas de su turno de ese día (si
-      se trabaja, cuentan las trabajadas y se compensa con FEST). Antes
-      restaba 1/5 del contrato y con 38 h salían saldos de −0,40 h. La misma
-      regla en `saldo.ts`, el saldo previsto del tablero y el contrato del
-      mes del motor. Quedan decimales solo en semanas partidas entre dos meses
-      (1-2/10 con 38 h: 15,20 h), que se compensan con la otra parte.
+      festivo justifica las horas de su turno de ese día (si se trabaja,
+      cuentan las trabajadas y se compensa con FEST). Antes restaba 1/5 del
+      contrato y con 38 h salían saldos de −0,40 h.
+      **Contrato del día = su parte del semanal según el TURNO** (04/11/2026,
+      decidido con Christian; `motor/contrato.ts`): semanal × turno del día ÷
+      turno de la semana ENTERA, festivos incluidos. Antes era el semanal ÷ 5
+      de lunes a viernes y, como los lunes son de 9 h y los viernes de 4-5 h,
+      las semanas partidas daban saldos que no eran: el lunes 30/11 salía +3 h
+      (30 h de contrato) y el 1-2/10 (el saldo empieza un jueves) dejó en el
+      arrastre entre −2 y −5,20 h que nada compensaba; ahora, décimas (el ±1
+      de las semanas A/B de 39/37 h repartido por días). Una semana entera
+      suma lo mismo que antes. Sin el turno de la semana entera, ÷ 5.
+      - El turno de los días de OTRO mes de la semana partida va en
+        `AgenteMotor.turnosFuera` (el cargador lo rellena en las fotos nuevas;
+        para las anteriores, `cargarTablero` lo calcula con los patrones de
+        ahora) y `diasFueraDelMes` da esos días con la rotación de su semana.
+      - La misma regla en `saldo.ts` (Saldos, cierre), el saldo previsto del
+        tablero y el `contratoMesH` del motor (el snapshot del motor no cambia:
+        su fixture no lleva `turnosFuera` y va con ÷ 5 en las semanas partidas).
+      - El tablero (vista por agente) enseña la semana partida ENTERA: los días
+        del otro mes en gris y sin editar, con los bloques de su plan vigente
+        (`DatosTablero.fuera`) o solo el turno si aún no tiene plan. Las horas y
+        el saldo de la izquierda siguen siendo solo los del mes.
+    - **Horas** (pestaña del mes `/planificacion/[mes]/horas`, 04/11/2026,
+      pedida por supervisión): contrato del día frente a horas LOGADAS
+      (`user_log` de la persona, como el saldo) por día, semana o mes
+      (`?ver=dia|semana|mes`), hasta ayer lo real y después lo planificado en
+      cursiva; sin justificadas ni ajustes (eso es Saldos). Por cliente, las
+      horas de sus usuarios de toda la empresa (como Cierre) y lo planificado
+      después. `seguimiento.ts::horasMes` (reutiliza `saldoDelMes` con todos
+      los días del mes) y `lib/planificacion/horas.ts` (puro, con tests). Sin
+      Excel de momento (decidido 04/11/2026).
     - **Cierre**: real = `user_log` de los usuarios de cada cliente; cuadra
       con facturación (GH 1.027,88 h en septiembre) y el grupo GH+BD+LX con el
       Excel de operaciones (1.384,22 h).
@@ -938,6 +963,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       margen); planificado sin conectar tras `plan.minutosAlertaConexion`
       (más de 3 → una alerta con la lista); saliente por debajo de
       `plan.pctAlertaRetraso` en la semana.
+      - **Campana** (04/11/2026): las mismas alertas salen en la campana de
+        la barra de arriba, en cualquier página (ver «Campana de alertas» en
+        Arquitectura).
       - **Ávolo** (corregido el 16/10/2026): sin nadie con `Av_`, la campaña
         rechaza la entrante (estado 7) y alguien se conecta luego a
         devolverla. La alerta contaba TODAS las perdidas del día, también
@@ -969,6 +997,24 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     con origen `importada` y sus ausencias. Septiembre de 2026 está importado
     así en la SQLite real (06/10/2026, v1 publicada, tras backup), con los
     agregados de planificación al día hasta el 05/10.
+- **Campana de alertas** (04/11/2026, pedida por supervisión, como la de la
+  herramienta de tickets): en la barra de arriba de TODAS las páginas para
+  los roles internos (`ROLES_ALERTAS`/`veAlertas`, el cliente nunca).
+  - Consulta `/api/alertas` cada 60 s: hoy, las alertas de planificación y
+    los borradores de la noche por revisar (`alertasPlanificacion`, consultas
+    de RDBv2 cacheadas 60 s y compartidas). Cada alerta lleva un `id` estable
+    (tipo, cliente y agente) mientras dura el problema.
+  - Suena al aparecer una alerta nueva sin ver (alta o media; nunca al abrir
+    la página) y recuerda las ALTAS sin ver cada N minutos (por defecto 3;
+    nunca/1/3/5/10/15). «Vista», el sonido y el recordatorio son POR USUARIO
+    (`app_settings` `alertas.usuario.<id>`, sin migración); las vistas se
+    olvidan cuando la alerta desaparece, para que vuelva a sonar si vuelve.
+    Lógica pura con tests en `lib/alertas-panel.ts`; servidor en
+    `lib/alertas-servidor.ts`; acciones en `(dashboard)/alertas-acciones.ts`.
+  - Número en el título de la pestaña y `public/favicon-alerta.svg` en su
+    icono; aviso de Windows solo con la dirección marcada como segura en el
+    PC (HTTP: `docs/notificaciones-escritorio.md`). El navegador no deja
+    sonar hasta el primer clic en la página.
 - **Facturación por servicio o campaña**: `billing_config` tiene dos ámbitos
   mutuamente excluyentes — `serviceName` (lo normal: aplica a TODAS las campañas
   del servicio/cliente) o `campaignShortname` (excepción puntual). Al facturar,
@@ -1091,6 +1137,22 @@ histórico: `docs/despliegue-linux.md`. Reglas que no se ven en el código:
   tickets.
 
 ## Convenciones de código
+
+- **Orden alfabético en todas las tablas y desplegables** (04/11/2026,
+  decidido con Christian): agentes por su USUARIO de Altitude (`GH_0851`,
+  que va delante del nombre) y campañas y clientes por su nombre, con
+  `compararTexto` de `lib/orden.ts` (español, sin distinguir mayúsculas ni
+  tildes y con los números en su orden: el orden binario de SQLite o de
+  `.sort()` dejaba los `gh_…` en minúscula detrás de todo). Las tablas se
+  ordenan además pulsando la cabecera (`components/tabla-ordenable.tsx`:
+  `TablaOrdenable` + `CabeceraOrdenable` + `FilasOrdenables`, y cada fila con
+  `data-orden={valoresOrden(...)}`, que está en `lib/orden.ts` porque la
+  llaman componentes de servidor). Se ordena dentro de cada grupo y los
+  totales no se mueven; no se recuerda: al volver, otra vez alfabético.
+  **Excepciones**: Planificación va por NÚMERO de agente (también la copia
+  para las agentes) y «Rendimiento por éxitos» y Resultados conservan su
+  ranking por defecto. Los grupos «activos/parados» del selector de clientes
+  se mantienen (alfabético dentro de cada uno).
 
 - Queries SQL: constantes template en `src/lib/rdb/queries/`, comentadas en español,
   con parámetros nombrados. Cada función exporta tipos TS del resultado.
@@ -1634,6 +1696,28 @@ Registro completo en `docs/registro-sesion-23-26-octubre-2026.md`.
       copia ya las descuenta). Copiar `guia-supervision.html` a la carpeta
       compartida. Que supervisión pruebe la copia en el móvil.
 
+## Sesión 04/11/2026 (Opus 5.5): semana partida, Horas, campana y orden alfabético
+
+Registro completo en `docs/registro-sesion-04-noviembre-2026.md`. Cuatro
+peticiones de supervisión, con propuesta aprobada por Christian antes de
+tocar nada:
+
+- [x] Contrato del día según el turno (semana partida del 30/11 y arrastre
+      de octubre), con la semana partida entera en el tablero.
+- [x] Pestaña «Horas» del mes: contrato frente a horas logadas por día,
+      semana y mes, por persona y por cliente.
+- [x] Campana de alertas con sonido en todas las páginas (roles internos).
+- [x] Orden alfabético en todas las tablas y desplegables, con cabeceras
+      que ordenan (convenciones de código).
+- [x] 304 tests, `tsc`, ESLint y `next build` en verde; verificado en un
+      `next dev` aparte (copia del proyecto y de la SQLite) contra RDBv2.
+- [ ] Commit y despliegue (sin migraciones). Avisar a supervisión de que los
+      saldos acumulados cambian (desaparece el negativo del 1-2/10).
+- [ ] Directiva de los avisos de Windows en los PC de supervisión
+      (`docs/notificaciones-escritorio.md`).
+- [ ] Capturas de la ayuda (modo demo), guía de Claude Docs y guía HTML con
+      la pestaña «Horas» y la semana partida.
+
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
 Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar:
@@ -1656,7 +1740,9 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
    campaña con entrantes y cero agentes logados). **A medias** (06/10/2026):
    las de planificación (F4 del módulo) ya salen en Supervisión, incluida
    «Ávolo con entrantes y nadie con su usuario»; faltan SLA bajo, abandono
-   alto y Not Ready largo.
+   alto y Not Ready largo. Desde el 04/11/2026 hay campana con sonido en
+   todas las páginas: las que falten entran como otro `origen` en
+   `lib/alertas-panel.ts` y `alertasCampana()`.
 5. Curva intradía por franjas de 30 min (hoy todo es total diario).
 6. ~~KPI de ocupación (productivas / logadas) y % ready.~~ Hecho el
    22-23/10/2026 en «Salientes»: ocupación = script abierto ÷ horas logadas

@@ -4,6 +4,8 @@ import { useState } from "react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
+import { valoresOrden, type ValorOrden } from "@/lib/orden";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { Tiempo } from "@/components/kpi/tiempo";
 import { horasLegibles, segundosLegibles } from "@/lib/fechas";
@@ -48,28 +50,58 @@ function hora(h: number): string {
 
 const ETIQUETAS_INTENTO = ["Sin llamada", "1.º", "2.º", "3.º", "4.º", "5.º o más"];
 
+interface ColumnaSalientes {
+  titulo: string;
+  ayuda: string;
+  celda: (f: FilaSalientes) => React.ReactNode;
+  /** Para ordenar la tabla por esta columna. */
+  valor: (f: FilaSalientes) => ValorOrden;
+}
+
 /** Columnas comunes de las tablas por campaña y por agente. */
-const COLUMNAS: { titulo: string; ayuda: string; celda: (f: FilaSalientes) => React.ReactNode }[] = [
-  { titulo: "Intentos", ayuda: "Intentos de llamada con número", celda: (f) => entero(f.intentos) },
-  { titulo: "Contactabilidad", ayuda: ayudaDe("contactabilidadFranja") ?? "", celda: (f) => pct(f.contactabilidadPct) },
+const COLUMNAS: ColumnaSalientes[] = [
+  { titulo: "Intentos", ayuda: "Intentos de llamada con número", celda: (f) => entero(f.intentos), valor: (f) => f.intentos },
+  {
+    titulo: "Contactabilidad",
+    ayuda: ayudaDe("contactabilidadFranja") ?? "",
+    celda: (f) => pct(f.contactabilidadPct),
+    valor: (f) => f.contactabilidadPct,
+  },
   {
     titulo: "Mejor franja",
     ayuda: "La hora con más % contestado (con al menos 20 intentos)",
     celda: (f) => (f.mejorFranja ? `${hora(f.mejorFranja.hora)} · ${pct(f.mejorFranja.pct)}` : "—"),
+    valor: (f) => f.mejorFranja?.pct,
   },
-  { titulo: "Contactos", ayuda: "Contactos llamados en el período", celda: (f) => entero(f.contactos) },
-  { titulo: "Alcanzados", ayuda: ayudaDe("contactosAlcanzados") ?? "", celda: (f) => pct(f.alcanzadosPct) },
-  { titulo: "Intentos hasta hablar", ayuda: ayudaDe("contactosAlcanzados") ?? "", celda: (f) => num2(f.intentosHastaHablar) },
-  { titulo: "Rellamadas agendadas", ayuda: ayudaDe("rellamadas") ?? "", celda: (f) => entero(f.agendadas) },
-  { titulo: "Hechas", ayuda: ayudaDe("rellamadas") ?? "", celda: (f) => pct(f.hechasPct) },
-  { titulo: "Vencidas ahora", ayuda: ayudaDe("rellamadas") ?? "", celda: (f) => entero(f.vencidas) },
-  { titulo: "Retraso (aprox.)", ayuda: ayudaDe("rellamadas") ?? "", celda: (f) => minutos(f.retrasoMedioMin) },
-  { titulo: "Éxito al 1.er intento", ayuda: ayudaDe("conversionIntento") ?? "", celda: (f) => pct(f.exitoPrimerIntentoPct) },
-  { titulo: "Intentos hasta el éxito", ayuda: ayudaDe("conversionIntento") ?? "", celda: (f) => num2(f.intentosMediosHastaExito) },
+  { titulo: "Contactos", ayuda: "Contactos llamados en el período", celda: (f) => entero(f.contactos), valor: (f) => f.contactos },
+  { titulo: "Alcanzados", ayuda: ayudaDe("contactosAlcanzados") ?? "", celda: (f) => pct(f.alcanzadosPct), valor: (f) => f.alcanzadosPct },
+  {
+    titulo: "Intentos hasta hablar",
+    ayuda: ayudaDe("contactosAlcanzados") ?? "",
+    celda: (f) => num2(f.intentosHastaHablar),
+    valor: (f) => f.intentosHastaHablar,
+  },
+  { titulo: "Rellamadas agendadas", ayuda: ayudaDe("rellamadas") ?? "", celda: (f) => entero(f.agendadas), valor: (f) => f.agendadas },
+  { titulo: "Hechas", ayuda: ayudaDe("rellamadas") ?? "", celda: (f) => pct(f.hechasPct), valor: (f) => f.hechasPct },
+  { titulo: "Vencidas ahora", ayuda: ayudaDe("rellamadas") ?? "", celda: (f) => entero(f.vencidas), valor: (f) => f.vencidas },
+  { titulo: "Retraso (aprox.)", ayuda: ayudaDe("rellamadas") ?? "", celda: (f) => minutos(f.retrasoMedioMin), valor: (f) => f.retrasoMedioMin },
+  {
+    titulo: "Éxito al 1.er intento",
+    ayuda: ayudaDe("conversionIntento") ?? "",
+    celda: (f) => pct(f.exitoPrimerIntentoPct),
+    valor: (f) => f.exitoPrimerIntentoPct,
+  },
+  {
+    titulo: "Intentos hasta el éxito",
+    ayuda: ayudaDe("conversionIntento") ?? "",
+    celda: (f) => num2(f.intentosMediosHastaExito),
+    valor: (f) => f.intentosMediosHastaExito,
+  },
   {
     titulo: "Preparación",
     ayuda: ayudaDe("preparacion") ?? "",
     celda: (f) => (f.preparaciones > 0 ? <Tiempo segundos={f.preparacionSeg} acumulado /> : "—"),
+    valor: (f) => (f.preparaciones > 0 ? f.preparacionSeg : null),
   },
 ];
 
@@ -81,46 +113,53 @@ function TablaSalientes({
 }: {
   filas: FilaSalientes[];
   primera: string;
-  extras: { titulo: string; ayuda: string; celda: (f: FilaSalientes) => React.ReactNode }[];
+  extras: ColumnaSalientes[];
   vacio: string;
 }) {
   const columnas = [...extras, ...COLUMNAS];
+  // De la A a la Z (usuario de Altitude o campaña); pulsando una cabecera, por esa columna
   return (
-    <Table>
-      <TableHeader>
-        <TableRow>
-          <TableHead className="align-bottom">{primera}</TableHead>
-          {columnas.map((c) => (
-            <TableHead key={c.titulo} className="whitespace-normal text-right align-bottom" title={c.ayuda}>
-              {c.titulo}
-            </TableHead>
-          ))}
-        </TableRow>
-      </TableHeader>
-      <TableBody>
-        {filas.length === 0 ? (
+    <TablaOrdenable>
+      <Table>
+        <TableHeader>
           <TableRow>
-            <TableCell colSpan={columnas.length + 1} className="text-center text-muted-foreground">
-              {vacio}
-            </TableCell>
+            <CabeceraOrdenable col={0} className="align-bottom">
+              {primera}
+            </CabeceraOrdenable>
+            {columnas.map((c, i) => (
+              <CabeceraOrdenable key={c.titulo} col={i + 1} numerica className="whitespace-normal text-right align-bottom" title={c.ayuda}>
+                {c.titulo}
+              </CabeceraOrdenable>
+            ))}
           </TableRow>
-        ) : (
-          filas.map((f) => (
-            <TableRow key={f.clave}>
-              <TableCell>
-                <div className="font-medium">{f.nombre}</div>
-                {f.nombre !== f.clave ? <div className="text-xs text-muted-foreground">{f.clave}</div> : null}
+        </TableHeader>
+        <TableBody>
+          {filas.length === 0 ? (
+            <TableRow>
+              <TableCell colSpan={columnas.length + 1} className="text-center text-muted-foreground">
+                {vacio}
               </TableCell>
-              {columnas.map((c) => (
-                <TableCell key={c.titulo} className="text-right tabular-nums">
-                  {c.celda(f)}
-                </TableCell>
-              ))}
             </TableRow>
-          ))
-        )}
-      </TableBody>
-    </Table>
+          ) : (
+            <FilasOrdenables>
+              {filas.map((f) => (
+                <TableRow key={f.clave} data-orden={valoresOrden(f.clave, ...columnas.map((c) => c.valor(f)))}>
+                  <TableCell>
+                    <div className="font-medium">{f.clave}</div>
+                    {f.nombre !== f.clave ? <div className="text-xs text-muted-foreground">{f.nombre}</div> : null}
+                  </TableCell>
+                  {columnas.map((c) => (
+                    <TableCell key={c.titulo} className="text-right tabular-nums">
+                      {c.celda(f)}
+                    </TableCell>
+                  ))}
+                </TableRow>
+              ))}
+            </FilasOrdenables>
+          )}
+        </TableBody>
+      </Table>
+    </TablaOrdenable>
   );
 }
 
@@ -310,8 +349,13 @@ export function Salientes({ datos, periodo }: { datos: ResultadoSalientes; perio
               primera="Campaña"
               vacio={`Sin llamadas de salida ${periodo}`}
               extras={[
-                { titulo: "Horas con ficha", ayuda: ayudaDe("ocupacion") ?? "", celda: (f) => <Tiempo horas={f.horasGuion} /> },
-                { titulo: "Peso", ayuda: ayudaDe("ocupacion") ?? "", celda: (f) => pct(f.pesoGuionPct) },
+                {
+                  titulo: "Horas con ficha",
+                  ayuda: ayudaDe("ocupacion") ?? "",
+                  celda: (f) => <Tiempo horas={f.horasGuion} />,
+                  valor: (f) => f.horasGuion,
+                },
+                { titulo: "Peso", ayuda: ayudaDe("ocupacion") ?? "", celda: (f) => pct(f.pesoGuionPct), valor: (f) => f.pesoGuionPct },
               ]}
             />
           </TabsContent>
@@ -326,12 +370,14 @@ export function Salientes({ datos, periodo }: { datos: ResultadoSalientes; perio
                   titulo: "Horas logadas",
                   ayuda: ayudaDe("kpiHorasLogadas") ?? "",
                   celda: (f) => (f.horasLogadas == null ? "—" : <Tiempo horas={f.horasLogadas} />),
+                  valor: (f) => f.horasLogadas,
                 },
-                { titulo: "Ocupación", ayuda: ayudaDe("ocupacion") ?? "", celda: (f) => pct(f.ocupacionPct) },
+                { titulo: "Ocupación", ayuda: ayudaDe("ocupacion") ?? "", celda: (f) => pct(f.ocupacionPct), valor: (f) => f.ocupacionPct },
                 {
                   titulo: "Esperando llamada",
                   ayuda: ayudaDe("tiempoEsperando") ?? "",
                   celda: (f) => (f.horasEsperando == null ? "—" : <Tiempo horas={f.horasEsperando} />),
+                  valor: (f) => f.horasEsperando,
                 },
               ]}
             />

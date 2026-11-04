@@ -15,6 +15,8 @@ export interface DiaColumna {
   laborable: boolean;
   /** Festivo en el calendario del equipo. */
   festivo: boolean;
+  /** Día de otro mes en una semana partida (04/11/2026): se ve en gris y no se edita. */
+  fuera?: boolean;
 }
 
 /** Lo común a todas las celdas del tablero (estable entre renders: va memoizado). */
@@ -64,7 +66,7 @@ interface PropsCelda {
  * editar, es además el sitio donde se suelta un bloque arrastrado.
  */
 export const CeldaDia = memo(function CeldaDia(props: PropsCelda) {
-  return props.ctx.edicion ? <CeldaSoltable {...props} /> : <Celda {...props} />;
+  return props.ctx.edicion && !props.dia.fuera ? <CeldaSoltable {...props} /> : <Celda {...props} />;
 });
 
 function CeldaSoltable(props: PropsCelda) {
@@ -87,14 +89,20 @@ function Celda({
   refCelda,
   encima = false,
 }: PropsCelda & { refCelda?: (el: HTMLElement | null) => void; encima?: boolean }) {
-  const edicion = ctx.edicion;
+  // Los días de otro mes son solo para ver
+  const edicion = dia.fuera ? null : ctx.edicion;
   return (
     <div
       ref={refCelda}
-      data-celda=""
+      data-celda={dia.fuera ? undefined : ""}
       data-agente={agente}
       data-fecha={dia.fecha}
-      className={cn("relative border-t border-l", alto, encima && "bg-primary/10 ring-2 ring-primary ring-inset")}
+      className={cn(
+        "relative border-t border-l",
+        alto,
+        encima && "bg-primary/10 ring-2 ring-primary ring-inset",
+        dia.fuera && "bg-muted/50 opacity-55 grayscale-[0.4]",
+      )}
       style={fondoDia(ctx.nFranjas, dia.festivo)}
       onDoubleClick={
         edicion
