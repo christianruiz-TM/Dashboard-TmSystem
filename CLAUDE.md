@@ -945,15 +945,20 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         del otro mes en gris y sin editar, con los bloques de su plan vigente
         (`DatosTablero.fuera`) o solo el turno si aún no tiene plan. Las horas y
         el saldo de la izquierda siguen siendo solo los del mes.
-    - **Horas** (pestaña del mes `/planificacion/[mes]/horas`, 04/11/2026,
-      pedida por supervisión): contrato del día frente a horas LOGADAS
-      (`user_log` de la persona, como el saldo) por día, semana o mes
-      (`?ver=dia|semana|mes`), hasta ayer lo real y después lo planificado en
-      cursiva; sin justificadas ni ajustes (eso es Saldos). Por cliente, las
-      horas de sus usuarios de toda la empresa (como Cierre) y lo planificado
-      después. `seguimiento.ts::horasMes` (reutiliza `saldoDelMes` con todos
-      los días del mes) y `lib/planificacion/horas.ts` (puro, con tests). Sin
-      Excel de momento (decidido 04/11/2026).
+    - **Horas** (pestaña del mes `/planificacion/[mes]/horas`, pedida por
+      supervisión el 04/11/2026; panel desde el 05/11): de un día, una semana
+      o el mes (`?ver=dia|semana|mes&p=<fecha o lunes>`, flechas; por
+      defecto la semana de hoy si el mes está en curso), tres cifras:
+      CONTRATO (el del día, motor/contrato.ts), PLANIFICADAS (plan vigente,
+      todo el periodo) y EFECTIVAS (`user_log` de la persona, como el saldo,
+      SOLO hasta ayer). Tres cajas con el total del equipo y una barra por
+      persona (planificadas claro, efectivas oscuro, una raya en el
+      contrato; mismo fondo para todas) con «Efectivas − plan», que compara
+      con lo planificado de los días YA pasados. Por cliente, igual sin
+      contrato (efectivas de sus usuarios de toda la empresa, como Cierre).
+      Sin justificadas ni ajustes (eso es Saldos). `seguimiento.ts::horasMes`
+      (reutiliza `saldoDelMes`: `plan` y `reales` por agente y día) y
+      `lib/planificacion/horas.ts` (puro, con tests). Sin Excel de momento.
     - **Cierre**: real = `user_log` de los usuarios de cada cliente; cuadra
       con facturación (GH 1.027,88 h en septiembre) y el grupo GH+BD+LX con el
       Excel de operaciones (1.384,22 h).

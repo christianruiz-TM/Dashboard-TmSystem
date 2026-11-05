@@ -134,9 +134,9 @@ const PANTALLAS = [
     alto: 1250,
     puntos: [
       { css: "nav[aria-label='Ver por']" },
+      { t: "Contrato", sel: "span" },
       { t: "Por persona", sel: TITULO },
-      { t: "Mes", sel: "th", arriba: true },
-      { t: "Por cliente", sel: TITULO },
+      { t: "Efectivas − plan", sel: "div", arriba: true },
     ],
   },
   {

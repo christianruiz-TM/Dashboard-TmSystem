@@ -176,6 +176,26 @@ del build; el tercero compiló. `verificar` sin errores. Comprobado desde
   «Dashboard TmSystem - npm run dev». `/login` responde 200 y no hay errores.
   Al arrancar, Next 16.4.2 reescribe `AGENTS.md` (un título de `#` a `##`).
 
+## 05/11: «Horas» como panel
+
+Supervisión pidió ver en «Horas» las planificadas, las efectivas y el
+contrato de forma «ágil y muy sencilla». La pestaña pasa a ser un panel:
+
+- Periodo arriba (Día, Semana, Mes y flechas); por defecto, la semana de hoy
+  si el mes está en curso y, si no, el mes.
+- Tres cajas con el total del equipo: contrato, planificadas (y su % del
+  contrato) y efectivas hasta ayer (y su % de lo planificado hasta ayer).
+- Una barra por persona: planificadas en azul claro, efectivas en azul
+  oscuro y una raya negra en el contrato, con el mismo fondo para todas; al
+  lado, las cifras y «Efectivas − plan» (frente a lo planificado de los días
+  ya pasados, en rojo o verde y con su signo). En «Día», el código de la
+  ausencia junto al nombre.
+- Por cliente, igual sin contrato.
+- `horasMes` devuelve ahora planificadas y efectivas por separado (antes,
+  una sola cifra: lo real hasta ayer y el plan después).
+- Ayuda, captura de «Horas» (modo demo), guía de Claude Docs y guía HTML al
+  día.
+
 ## Pendiente
 
 - Avisar a supervisión de que los saldos acumulados cambian.
