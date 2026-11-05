@@ -170,15 +170,17 @@ del build; el tercero compiló. `verificar` sin errores. Comprobado desde
   de «Empieza aquí» y dos palabras.
 - **Guía HTML** regenerada (`npm run guia:html`, 1,5 MB, con las 11
   capturas).
-- El `next dev` del puerto 3000 sigue sin reiniciar: el sistema de permisos
-  no deja parar ese proceso ni con la petición de Christian.
+- El `next dev` del puerto 3000: el sistema de permisos no dejaba pararlo en
+  modo automático. Fuera de él, con la aprobación de Christian, se paró
+  (`taskkill /T`) y se volvió a lanzar en una consola minimizada titulada
+  «Dashboard TmSystem - npm run dev». `/login` responde 200 y no hay errores.
+  Al arrancar, Next 16.4.2 reescribe `AGENTS.md` (un título de `#` a `##`).
 
 ## Pendiente
 
 - Avisar a supervisión de que los saldos acumulados cambian.
 - Arreglar el «database is locked» del build (mejora 11 de CLAUDE.md).
 - Copiar `guia-supervision.html` a la carpeta compartida.
-- Reiniciar el `next dev` del puerto 3000 (Christian).
 - Directiva de los avisos de Windows en los PC de supervisión.
 - Capturas de la ayuda en modo demo, guía de Claude Docs y guía HTML con
   «Horas» y la semana partida.

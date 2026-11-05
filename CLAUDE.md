@@ -1725,6 +1725,8 @@ tocar nada:
       Textos nuevos: semana partida (tablero y Saldos), campana (Hoy),
       «Horas» en la rutina y dos palabras. Guía de Claude Docs y guía HTML
       al día; falta copiar `guia-supervision.html` a la carpeta compartida.
+      Commit `07207df`, desplegado el 05/11/2026 a las 08:15 (imagen
+      `6adec55ec958`, backup `dashboard_20261105_0814.db`).
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 
