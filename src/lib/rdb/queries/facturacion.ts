@@ -67,15 +67,16 @@ export async function metricasDiariasPorCampania(
           RTRIM(c.shortname)                                              AS campania,
           c.campaigntype                                                  AS tipoCodigo,
           -- Las preparaciones de llamada manual (salientes sin número,
-          -- 22/10/2026) no son interacciones ni llamadas; su tiempo sí va en
-          -- las horas productivas (es gestión del agente)
+          -- 22/10/2026), los emails y el tramo rechazado o desbordado de las
+          -- entrantes del IVR (05/11/2026) no son interacciones ni llamadas;
+          -- su tiempo sí va en las horas productivas (es gestión del agente)
           SUM(CASE WHEN ${sqlLlamada()} THEN 1 ELSE 0 END)                AS interacciones,
-          SUM(CASE WHEN t.origin = 1 THEN 1 ELSE 0 END)                   AS inbound,
+          SUM(CASE WHEN t.origin = 1 AND ${sqlLlamada()} THEN 1 ELSE 0 END) AS inbound,
           SUM(CASE WHEN t.origin = 2 AND ${sqlLlamada()} THEN 1 ELSE 0 END) AS outbound,
           SUM(CASE WHEN t.termination_state = 1 AND ${sqlLlamada()} THEN 1 ELSE 0 END) AS atendidas,
           SUM(CASE WHEN t.termination_state = 6 AND ${sqlLlamada()} THEN 1 ELSE 0 END) AS abandonadas,
           -- Solo entrantes: la tendencia de abandono de Dirección (regla 6.b)
-          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 6 THEN 1 ELSE 0 END) AS abandonadasInbound,
+          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 6 AND ${sqlLlamada()} THEN 1 ELSE 0 END) AS abandonadasInbound,
           AVG(CASE WHEN t.termination_state = 1 AND ${sqlLlamada()} THEN t.duration / 10.0 END)                       AS ahtSeg,
           AVG(CASE WHEN t.termination_state = 1 AND ${sqlLlamada()} THEN t.wrapup_duration / 10.0 END)                AS acwSeg,
           AVG(CASE WHEN t.termination_state = 1 AND ${sqlLlamada()} THEN (t.duration - t.wrapup_duration) / 10.0 END) AS talkSeg,

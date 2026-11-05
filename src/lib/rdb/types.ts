@@ -61,15 +61,23 @@ export interface AgenteEstado {
 export interface KpiCampaniaHoy {
   campania: string;
   tipo: string;
-  recibidas: number; // entrantes (origin = 1)
+  /**
+   * Entrantes (origin = 1), sin el tramo rechazado o desbordado (estados 7
+   * y 9) de las que vienen del IVR: esas cuentan solo en la campaña de IVR
+   * (05/11/2026).
+   */
+  recibidas: number;
   /**
    * «Llamadas gestionadas» en pantalla (antes «Atendidas»): hilos con
    * termination_state = 1, de cualquier origen. En una saliente solo dice que
    * la llamada pasó por el puesto del agente, no que contestara alguien
    * (21/10/2026: Bol_0516 tuvo 651 un día, 239 con conversación). Sin las
-   * preparaciones de llamada manual (salientes sin número, 22/10/2026).
+   * preparaciones de llamada manual (salientes sin número, 22/10/2026) ni
+   * los emails (05/11/2026).
    */
   atendidas: number;
+  /** Emails gestionados (enviados desde el guion): no son llamadas, van aparte (05/11/2026). */
+  emails: number;
   /** Llamadas gestionadas con conversación: algún segmento Connected (state 6). */
   conversaciones: number;
   /** Contactos trabajados: sesiones de script de agente humano (como los ratios). */
@@ -133,6 +141,8 @@ export interface AgenteHoy {
   nombre: string;
   /** Llamadas gestionadas (termination_state = 1); ver KpiCampaniaHoy.atendidas. */
   atendidas: number;
+  /** Emails gestionados: no son llamadas; su tiempo va en productivoSeg (05/11/2026). */
+  emails: number;
   /** Las que tuvieron conversación (segmento Connected). */
   conversaciones: number;
   /** Contactos trabajados: sesiones de script del agente. */

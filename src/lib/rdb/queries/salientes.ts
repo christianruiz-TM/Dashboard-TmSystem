@@ -5,7 +5,7 @@ import { esMock, obtenerPool, sql } from "../pool";
 import type { BaseSalientes, FilaAlcanceSalientes, FilaFranjaSalientes, FilaIntentoExito, FilaRellamadas } from "../types";
 import { hoyISO } from "@/lib/fechas";
 import { sqlFinIntervalo, sqlCtesIslas } from "./islas";
-import { claveCampanias, filtroCampanias, limitesRango, sqlJoinGlobal, sqlLlamada } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, sqlJoinGlobal, sqlLlamada, sqlPreparacion } from "./util";
 import { mockBaseSalientes } from "../mock";
 import { calcularSalientes, type ResultadoSalientes } from "@/lib/salientes";
 import { baseRatiosHoy, baseRatiosRango } from "./ratios-exito";
@@ -87,8 +87,9 @@ async function salientesCore(desdeISO: string, hastaISO: string, campanias?: str
            DATEPART(hour, t.start_time) AS hora,
            SUM(CASE WHEN ${sqlLlamada()} AND ${ESTADO_VALIDO} THEN 1 ELSE 0 END)   AS intentos,
            SUM(CASE WHEN ${sqlLlamada()} AND t.termination_state = 1 THEN 1 ELSE 0 END) AS contestados,
-           SUM(CASE WHEN ${sqlLlamada()} THEN 0 ELSE 1 END)                          AS preparaciones,
-           SUM(CASE WHEN ${sqlLlamada()} THEN 0 ELSE CAST(t.duration AS BIGINT) END) / 10.0 AS preparacionSeg
+           -- Preparación explícita: «lo que no es llamada» metería los emails (05/11/2026)
+           SUM(CASE WHEN ${sqlPreparacion()} THEN 1 ELSE 0 END)                      AS preparaciones,
+           SUM(CASE WHEN ${sqlPreparacion()} THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 10.0 AS preparacionSeg
     FROM itr_thread t
     INNER JOIN ph_campaign c ON t.campaign = c.code
     LEFT JOIN ph_e_user u ON t.e_user = u.code AND u.type = 1

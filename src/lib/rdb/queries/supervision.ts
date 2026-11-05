@@ -16,14 +16,20 @@ import {
   filtroCampanias,
   limitesRango,
   redondear2,
+  sqlEmail,
   sqlJoinGlobal,
   sqlLlamada,
   sqlPreparacion,
 } from "./util";
 
-/** Hilo que es una llamada (no la preparación de una llamada manual, 22/10/2026). */
+/**
+ * Hilo que es una llamada: ni la preparación de una llamada manual
+ * (22/10/2026) ni un email ni el tramo rechazado o desbordado de una
+ * entrante del IVR (05/11/2026). Ver util.ts.
+ */
 const LLAMADA = sqlLlamada();
 const PREPARACION = sqlPreparacion();
+const EMAIL = sqlEmail();
 
 // ============================================================
 // Vista Supervisión: intradía casi en tiempo real.
@@ -144,17 +150,20 @@ async function kpisCampaniasCore(
     const filtroHilos = filtroCampanias(reqHilos, campanias, "c.shortname");
     const hilos = reqHilos.query(`
       -- Volumen y tiempos del día por campaña (sin colas). Las preparaciones
-      -- de llamada manual (salientes sin número) no son llamadas: fuera de
-      -- las gestionadas y de las medias (22/10/2026)
+      -- de llamada manual (salientes sin número, 22/10/2026), los emails y
+      -- las entrantes rechazadas o desbordadas (tramo del IVR, 05/11/2026)
+      -- no son llamadas: fuera de recibidas, gestionadas y medias. Los
+      -- emails van aparte
       SELECT
           RTRIM(c.shortname)                                       AS campania,
           c.campaigntype                                           AS tipoCodigo,
-          SUM(CASE WHEN t.origin = 1 THEN 1 ELSE 0 END)            AS recibidas,
+          SUM(CASE WHEN t.origin = 1 AND ${LLAMADA} THEN 1 ELSE 0 END) AS recibidas,
           SUM(CASE WHEN t.termination_state = 1 AND ${LLAMADA} THEN 1 ELSE 0 END) AS atendidas,
           SUM(CASE WHEN t.termination_state = 6 AND ${LLAMADA} THEN 1 ELSE 0 END) AS abandonadas,
+          SUM(CASE WHEN t.termination_state = 1 AND ${EMAIL} THEN 1 ELSE 0 END)   AS emails,
           -- Desglose de ENTRADA: es el denominador correcto de SLA y abandono.
-          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 1 THEN 1 ELSE 0 END) AS atendidasInbound,
-          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 6 THEN 1 ELSE 0 END) AS abandonadasInbound,
+          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 1 AND ${LLAMADA} THEN 1 ELSE 0 END) AS atendidasInbound,
+          SUM(CASE WHEN t.origin = 1 AND t.termination_state = 6 AND ${LLAMADA} THEN 1 ELSE 0 END) AS abandonadasInbound,
           AVG(CASE WHEN t.termination_state = 1 AND ${LLAMADA} THEN t.duration / 10.0 END)        AS ahtSeg,
           AVG(CASE WHEN t.termination_state = 1 AND ${LLAMADA} THEN t.wrapup_duration / 10.0 END) AS acwSeg
       FROM itr_thread t
@@ -359,11 +368,13 @@ async function agentesCore(
       -- Productividad de agentes humanos (solo hilos gestionados). Las
       -- preparaciones de llamada manual (salientes sin número, 22/10/2026) no
       -- son llamadas ni entran en las medias, pero su tiempo es trabajo: van
-      -- en el tiempo productivo y, aparte, en «Preparación».
+      -- en el tiempo productivo y, aparte, en «Preparación». Los emails
+      -- (05/11/2026), igual: aparte en «Emails» y dentro del productivo.
       SELECT
           RTRIM(u.usr_name)                                AS agente,
           RTRIM(u.fullname)                                AS nombre,
           SUM(CASE WHEN ${LLAMADA} THEN 1 ELSE 0 END)      AS atendidas,
+          SUM(CASE WHEN ${EMAIL} THEN 1 ELSE 0 END)        AS emails,
           AVG(CASE WHEN ${LLAMADA} THEN (t.duration - t.wrapup_duration) / 10.0 END) AS talkMedioSeg,
           AVG(CASE WHEN ${LLAMADA} THEN t.wrapup_duration / 10.0 END)                AS acwMedioSeg,
           AVG(CASE WHEN ${LLAMADA} THEN t.duration / 10.0 END)                       AS ahtMedioSeg,

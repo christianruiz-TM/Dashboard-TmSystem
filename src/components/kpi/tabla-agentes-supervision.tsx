@@ -11,12 +11,15 @@ import type { AgenteHoy } from "@/lib/rdb/types";
 // que contestara nadie, por eso va al lado de «Conversaciones» y de
 // «Contactos». Desde el 22/10/2026 sin las preparaciones de llamada manual
 // (salientes sin número), que van aparte en «Preparación» y dentro del
-// tiempo productivo. Sin hooks: sirve en los dos paneles. De la A a la Z
+// tiempo productivo. Los emails (05/11/2026) tampoco son llamadas: van en
+// «Emails», que solo sale si alguien los envió, y dentro del tiempo
+// productivo. Sin hooks: sirve en los dos paneles. De la A a la Z
 // por el usuario de Altitude (04/11/2026), que va delante del nombre; se
 // ordena por cualquier columna pulsando su cabecera.
 // ============================================================
 
 export function TablaAgentesSupervision({ agentes, vacio }: { agentes: AgenteHoy[]; vacio: string }) {
+  const conEmails = agentes.some((a) => a.emails > 0);
   return (
     <TablaOrdenable>
       <Table>
@@ -37,6 +40,16 @@ export function TablaAgentesSupervision({ agentes, vacio }: { agentes: AgenteHoy
             <CabeceraOrdenable col={3} numerica className="text-right" title="Contactos trabajados: sesiones de guion (una por cada contacto al que se abrió la ficha, conteste o no). Por eso puede haber más contactos que conversaciones.">
               Contactos
             </CabeceraOrdenable>
+            {conEmails ? (
+              <CabeceraOrdenable
+                col={9}
+                numerica
+                className="text-right"
+                title="Emails enviados desde el guion. No son llamadas: no cuentan en las llamadas gestionadas ni en las medias, pero su tiempo está en el productivo."
+              >
+                Emails
+              </CabeceraOrdenable>
+            ) : null}
             <CabeceraOrdenable col={4} numerica className="text-right">Talk medio</CabeceraOrdenable>
             <CabeceraOrdenable col={5} numerica className="text-right">ACW medio</CabeceraOrdenable>
             <CabeceraOrdenable col={6} numerica className="text-right">AHT</CabeceraOrdenable>
@@ -56,7 +69,7 @@ export function TablaAgentesSupervision({ agentes, vacio }: { agentes: AgenteHoy
         <TableBody>
           {agentes.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={9} className="text-center text-muted-foreground">
+              <TableCell colSpan={conEmails ? 10 : 9} className="text-center text-muted-foreground">
                 {vacio}
               </TableCell>
             </TableRow>
@@ -75,6 +88,8 @@ export function TablaAgentesSupervision({ agentes, vacio }: { agentes: AgenteHoy
                     a.ahtMedioSeg,
                     a.preparaciones > 0 ? a.preparacionSeg : null,
                     a.productivoSeg,
+                    // Al final: la columna solo sale si hay emails y no mueve las demás
+                    a.emails,
                   )}
                 >
                   <TableCell>
@@ -84,6 +99,9 @@ export function TablaAgentesSupervision({ agentes, vacio }: { agentes: AgenteHoy
                   <TableCell className="text-right tabular-nums">{a.atendidas.toLocaleString("es-ES")}</TableCell>
                   <TableCell className="text-right tabular-nums">{a.conversaciones.toLocaleString("es-ES")}</TableCell>
                   <TableCell className="text-right tabular-nums">{a.contactos.toLocaleString("es-ES")}</TableCell>
+                  {conEmails ? (
+                    <TableCell className="text-right tabular-nums">{a.emails.toLocaleString("es-ES")}</TableCell>
+                  ) : null}
                   <TableCell className="text-right tabular-nums">
                     <Tiempo segundos={a.talkMedioSeg} />
                   </TableCell>

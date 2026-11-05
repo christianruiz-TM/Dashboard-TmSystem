@@ -77,6 +77,35 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
      Salientes. GH septiembre: 71,2 % → 59,4 %; CEFF 63,9 % → 44,7 %. Los
      borradores de noviembre y diciembre salieron idénticos bloque a bloque
      (solo CEFF y LX tienen horas por objetivo).
+   - **Los EMAILS y las ENTRANTES RECHAZADAS o DESBORDADAS tampoco son llamadas**
+     (05/11/2026, decidido con Christian tras cuadrar CEFF del 04/11 con el
+     informe «CEFF_General» de Altitude). Van en la misma condición única,
+     `sqlLlamada`, y quedan fuera de todo lo de arriba:
+     - **Emails** (`itr_thread.media_type` ≠ 1; `ph_media_type`: 1 =
+       telefonía, 2 = email). Las agentes los envían desde el guion y
+       Altitude los graba como salientes «gestionados», con el correo de
+       destino en `to_address`. Con el número de destino relleno, contaban
+       como llamadas. CEFF 04/11: 55 «gestionadas» = 47 llamadas + 8 emails.
+       Del 01/09 al 04/11 hubo 818 emails en Ávolo y 29 en CEFF. Salen
+       aparte en la columna «Emails» de las tablas de campañas y agentes de
+       Supervisión (`sqlEmail`), solo si hay alguno. Su tiempo sigue en el
+       productivo.
+     - **Entrantes rechazadas** (`origin = 1`, `termination_state = 7`) y
+       **desbordadas** (estado 9, Overflow). La rechazada es el tramo de una
+       llamada del IVR que pasa a una campaña sin agentes y esta rechaza.
+       La desbordada también es un tramo del IVR: desde el 01/09, todas
+       tenían su hilo del IVR (GH 1.361, Ávolo 19, TMSYSTEM 2). La llamada cuenta UNA vez, en la campaña de IVR, igual
+       que en el informe. Desde el 01/09 todas tenían el hilo del IVR en la
+       misma `itr_global`: Ávolo 938, GH 952, TMSYSTEM 50 y CEFF 33. Antes
+       contaban como recibidas sin estar gestionadas ni abandonadas, y eso
+       bajaba el % de abandono. Octubre 2026, con las dos: Ávolo pasa de 530
+       a 145 recibidas y de un 8,87 % a un 32,41 % de abandono; GH, de 3.932
+       a 3.016 y de un 11,32 % a un 14,75 %.
+     - Salientes cuenta las preparaciones con `sqlPreparacion`, nunca como
+       «lo que no es llamada», porque eso metería los emails.
+     - Planificación NO usa `sqlLlamada` para las entrantes: allí las
+       rechazadas van aparte (`entrantesRechazadas`), porque son la demanda
+       de Ávolo cuando no hay nadie conectado.
    - Origen: `origin` 1=Inbound · 2=Outbound · 3=Workflow
 6.b **SLA, cola y % abandono SOLO sobre `origin = 1`** (entrantes). Verificado
    09/09/2026 con datos reales: de 4.894 atendidas de un día, 4.322 eran

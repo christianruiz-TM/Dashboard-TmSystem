@@ -19,7 +19,8 @@ import { cn } from "@/lib/utils";
 // BBDD), agrupada por tipo con el total de cada grupo (lib/supervision.ts).
 // Sin hooks: sirve en el panel de cliente (Tiempo real) y en el de servidor.
 // De la A a la Z por campaña; pulsando una cabecera, por esa columna (dentro
-// de cada grupo; los totales no se mueven).
+// de cada grupo; los totales no se mueven). «Emails» (05/11/2026) solo sale
+// si alguna campaña los tiene (CEFF, Ávolo): no son llamadas.
 // ============================================================
 
 function colorSla(pct: number | null): string {
@@ -30,6 +31,9 @@ function colorSla(pct: number | null): string {
 }
 
 const COLUMNAS = 11;
+
+const TITULO_EMAILS =
+  "Emails enviados desde el guion. No son llamadas: no cuentan en las llamadas gestionadas ni en las medias.";
 
 /** Abandono: entrantes abandonadas / entrantes recibidas (regla 6.b). */
 const pctAbandono = (k: KpiCampaniaHoy) => (k.recibidas > 0 ? (k.abandonadasInbound / k.recibidas) * 100 : 0);
@@ -47,9 +51,11 @@ const orden = (k: KpiCampaniaHoy) =>
     k.esperaAbandonadasSeg,
     k.ahtSeg,
     k.slaPct,
+    // Al final: la columna solo sale si hay emails y no mueve las demás
+    k.emails,
   );
 
-function Celdas({ k }: { k: KpiCampaniaHoy }) {
+function Celdas({ k, conEmails }: { k: KpiCampaniaHoy; conEmails: boolean }) {
   const pctAb = pctAbandono(k);
   return (
     <>
@@ -57,6 +63,7 @@ function Celdas({ k }: { k: KpiCampaniaHoy }) {
       <TableCell className="text-right tabular-nums">{k.atendidas.toLocaleString("es-ES")}</TableCell>
       <TableCell className="text-right tabular-nums">{k.conversaciones.toLocaleString("es-ES")}</TableCell>
       <TableCell className="text-right tabular-nums">{k.contactos.toLocaleString("es-ES")}</TableCell>
+      {conEmails ? <TableCell className="text-right tabular-nums">{k.emails.toLocaleString("es-ES")}</TableCell> : null}
       <TableCell className="text-right tabular-nums text-emerald-700">{k.exitos.toLocaleString("es-ES")}</TableCell>
       <TableCell className={cn("text-right tabular-nums", pctAb >= 10 && "font-semibold text-red-600")}>
         {pctAb.toFixed(1)} %
@@ -80,6 +87,8 @@ function Celdas({ k }: { k: KpiCampaniaHoy }) {
 export function TablaKpisCampania({ grupos, vacio }: { grupos: GrupoKpis[]; vacio: string }) {
   const agrupada = grupos.some((g) => g.nombre != null);
   const hayFilas = grupos.some((g) => g.kpis.length > 0);
+  const conEmails = grupos.some((g) => g.kpis.some((k) => k.emails > 0));
+  const columnas = COLUMNAS + (conEmails ? 1 : 0);
   return (
     <TablaOrdenable>
       <Table>
@@ -96,6 +105,11 @@ export function TablaKpisCampania({ grupos, vacio }: { grupos: GrupoKpis[]; vaci
             <CabeceraOrdenable col={4} numerica className="text-right" title="Contactos trabajados: sesiones de guion (una por cada contacto al que se abrió la ficha, conteste o no). Por eso puede haber más contactos que conversaciones.">
               Contactos
             </CabeceraOrdenable>
+            {conEmails ? (
+              <CabeceraOrdenable col={11} numerica className="text-right" title={TITULO_EMAILS}>
+                Emails
+              </CabeceraOrdenable>
+            ) : null}
             <CabeceraOrdenable col={5} numerica className="text-right">Éxitos</CabeceraOrdenable>
             <CabeceraOrdenable col={6} numerica className="text-right">Abandono</CabeceraOrdenable>
             <CabeceraOrdenable col={7} numerica className="text-right">Cola media</CabeceraOrdenable>
@@ -107,7 +121,7 @@ export function TablaKpisCampania({ grupos, vacio }: { grupos: GrupoKpis[]; vaci
         <TableBody>
           {!hayFilas ? (
             <TableRow>
-              <TableCell colSpan={COLUMNAS} className="text-center text-muted-foreground">
+              <TableCell colSpan={columnas} className="text-center text-muted-foreground">
                 {vacio}
               </TableCell>
             </TableRow>
@@ -116,7 +130,7 @@ export function TablaKpisCampania({ grupos, vacio }: { grupos: GrupoKpis[]; vaci
               <Fragment key={g.nombre ?? "todas"}>
                 {agrupada ? (
                   <TableRow className="bg-muted/40 hover:bg-muted/40">
-                    <TableCell colSpan={COLUMNAS} className="text-xs font-semibold uppercase tracking-wide">
+                    <TableCell colSpan={columnas} className="text-xs font-semibold uppercase tracking-wide">
                       {g.nombre} · {g.kpis.length} {g.kpis.length === 1 ? "campaña" : "campañas"}
                     </TableCell>
                   </TableRow>
@@ -125,14 +139,14 @@ export function TablaKpisCampania({ grupos, vacio }: { grupos: GrupoKpis[]; vaci
                   {g.kpis.map((k) => (
                     <TableRow key={k.campania} data-orden={orden(k)}>
                       <TableCell className={cn("font-medium", agrupada && "pl-4")}>{k.campania}</TableCell>
-                      <Celdas k={k} />
+                      <Celdas k={k} conEmails={conEmails} />
                     </TableRow>
                   ))}
                 </FilasOrdenables>
                 {agrupada ? (
                   <TableRow className="border-b-2 font-semibold">
                     <TableCell>{g.total.campania}</TableCell>
-                    <Celdas k={g.total} />
+                    <Celdas k={g.total} conEmails={conEmails} />
                   </TableRow>
                 ) : null}
               </Fragment>

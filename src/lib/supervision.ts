@@ -40,6 +40,7 @@ export function sumarKpis(kpis: KpiCampaniaHoy[], nombre: string): KpiCampaniaHo
     tipo: "",
     recibidas: s((k) => k.recibidas),
     atendidas: s((k) => k.atendidas),
+    emails: s((k) => k.emails),
     conversaciones: s((k) => k.conversaciones),
     contactos: s((k) => k.contactos),
     abandonadas: s((k) => k.abandonadas),

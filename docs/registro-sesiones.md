@@ -269,3 +269,13 @@ Registro completo: `docs/registro-sesion-04-noviembre-2026.md`. Commit `2b5a24c`
 - Campana de alertas con sonido en todas las páginas (roles internos), «vista» y ajustes por usuario, recordatorio cada 3 min configurable y avisos de Windows con la directiva del PC (`docs/notificaciones-escritorio.md`).
 - Orden alfabético en todas las tablas y desplegables, con cabeceras que ordenan; Planificación por número y los rankings de éxitos y Resultados, como estaban.
 - Incidencia: el `next dev` del puerto 3000 se quedó dando error 500 tras intentar arrancar otro; hay que reiniciarlo.
+
+### 25 · 05/11/2026 · Emails y entrantes rechazadas o desbordadas fuera de las llamadas (Opus 5.5)
+
+Sin registro aparte: el porqué y las cifras están en CLAUDE.md (regla 6, «Los EMAILS y las ENTRANTES RECHAZADAS tampoco son llamadas») y en el comentario de `sqlLlamada` (`queries/util.ts`).
+
+- «No me cuadran las llamadas de CEFF del 04/11» frente al informe «CEFF_General» de Altitude: mismos hilos, pero el panel contaba 8 emails como llamadas gestionadas (55 frente a 47) y 8 tramos rechazados de entrantes del IVR como recibidas de Curso_maquinista.
+- `sqlLlamada` exige telefonía y quita las entrantes rechazadas (estado 7). Columna «Emails» en las tablas de campañas y agentes de Supervisión. CEFF 04/11 cuadra con el informe: 47 gestionadas, 79 intentos y 0 recibidas (12 en IVR_CEFF).
+- Octubre 2026 (rechazadas y desbordadas fuera): Ávolo pasa de 530 a 145 recibidas (abandono del 8,87 % al 32,41 %) y de 663 a 304 gestionadas (359 emails); GH, de 3.932 a 3.016 recibidas (abandono del 11,32 % al 14,75 %).
+- Tras desplegar hay que recalcular los agregados (`npm run agregados -- --desde 2025-06-01` y `npm run planificacion:agregados -- --desde 2025-06-01`).
+- Las entrantes desbordadas (estado 9, Overflow; 1.361 en GH desde el 01/09, todas con su hilo del IVR) siguen la misma regla, decidido el mismo día.

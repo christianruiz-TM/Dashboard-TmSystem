@@ -9,6 +9,7 @@ function kpi(campania: string, p: Partial<KpiCampaniaHoy> = {}): KpiCampaniaHoy 
     tipo: "Outbound",
     recibidas: 0,
     atendidas: 0,
+    emails: 0,
     conversaciones: 0,
     contactos: 0,
     abandonadas: 0,
@@ -54,6 +55,7 @@ describe("total de un grupo de campañas", () => {
     ahtSeg: 100,
     acwSeg: null,
     exitos: 2,
+    emails: 8,
   });
 
   it("SLA, cola y espera desde los recuentos, no promediando % ni medias", () => {
@@ -64,6 +66,8 @@ describe("total de un grupo de campañas", () => {
     expect(t.recibidas).toBe(110);
     expect(t.abandonadasInbound).toBe(14);
     expect(t.exitos).toBe(7);
+    expect(t.emails).toBe(8); // aparte: no suman en las atendidas
+    expect(t.atendidas).toBe(120);
     expect(t.campania).toBe("Total");
   });
 

@@ -72,6 +72,25 @@ export function redondear2(valor: number | null): number | null {
 // llamada: fuera de interacciones, llamadas gestionadas, intentos y
 // medias por llamada (AHT, Talk, ACW). Su tiempo SÍ es trabajo del agente:
 // sigue en el tiempo y las horas productivas.
+//
+// Tampoco son llamadas (decidido 05/11/2026 con Christian, al cuadrar CEFF
+// del 04/11 con el informe «CEFF_General» de Altitude):
+// - Los EMAILS (`media_type` 2): las agentes los envían desde el guion y
+//   Altitude los graba como hilos salientes «gestionados» con la dirección
+//   de correo de destino. CEFF 04/11: 55 «llamadas gestionadas» = 47
+//   llamadas + 8 emails; Ávolo, 818 emails del 01/09 al 04/11. Van aparte
+//   («Emails» en las tablas de Supervisión).
+// - Las ENTRANTES RECHAZADAS (`origin = 1`, estado 7): el tramo de una
+//   llamada del IVR que pasa a una campaña sin agentes y esta rechaza. La
+//   llamada cuenta UNA vez, en la campaña de IVR (como en el informe). Desde
+//   el 01/09 todas (Ávolo 938, GH 952, TMSYSTEM 50, CEFF 33) tenían el hilo
+//   del IVR en la misma itr_global. Contaban como recibidas sin ser ni
+//   gestionadas ni abandonadas, y bajaban el % de abandono.
+// - Las ENTRANTES DESBORDADAS (`origin = 1`, estado 9, Overflow), por lo
+//   mismo: también son el tramo de una llamada del IVR (desde el 01/09, todas
+//   con su hilo del IVR: GH 1.361, Ávolo 19, TMSYSTEM 2).
+// Planificación no usa esta condición para las entrantes: allí las
+// rechazadas van aparte a propósito (demanda de Ávolo sin nadie conectado).
 // ------------------------------------------------------------
 
 /** JOIN de itr_global para las condiciones de abajo (LEFT: un hilo sin global sigue contando). */
@@ -79,12 +98,25 @@ export function sqlJoinGlobal(t = "t", g = "g"): string {
   return `LEFT JOIN itr_global ${g} ON ${g}.code = ${t}.itr_global`;
 }
 
-/** El hilo es la PREPARACIÓN de una llamada manual: saliente sin número de destino. */
+/** El hilo es la PREPARACIÓN de una llamada manual: saliente de telefonía sin número de destino. */
 export function sqlPreparacion(t = "t", g = "g"): string {
-  return `(${t}.origin = 2 AND NULLIF(LTRIM(RTRIM(${g}.to_address)), '') IS NULL)`;
+  return `(${t}.origin = 2 AND ISNULL(${t}.media_type, 1) = 1 AND NULLIF(LTRIM(RTRIM(${g}.to_address)), '') IS NULL)`;
 }
 
-/** El hilo es una llamada (entrante, o saliente con número): lo contrario de sqlPreparacion. */
+/** El hilo es un EMAIL (o cualquier medio que no sea telefonía): no es una llamada. */
+export function sqlEmail(t = "t"): string {
+  return `(ISNULL(${t}.media_type, 1) <> 1)`;
+}
+
+/**
+ * El hilo es una LLAMADA: de telefonía, no es una preparación (saliente sin
+ * número) ni el tramo rechazado o desbordado de una entrante del IVR
+ * (estados 7 y 9).
+ */
 export function sqlLlamada(t = "t", g = "g"): string {
-  return `(ISNULL(${t}.origin, 0) <> 2 OR NULLIF(LTRIM(RTRIM(${g}.to_address)), '') IS NOT NULL)`;
+  return (
+    `(ISNULL(${t}.media_type, 1) = 1` +
+    ` AND (ISNULL(${t}.origin, 0) <> 1 OR ISNULL(${t}.termination_state, -1) NOT IN (7, 9))` +
+    ` AND (ISNULL(${t}.origin, 0) <> 2 OR NULLIF(LTRIM(RTRIM(${g}.to_address)), '') IS NOT NULL))`
+  );
 }

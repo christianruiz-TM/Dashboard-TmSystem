@@ -17,12 +17,18 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   },
   recibidas: {
     termino: "Recibidas",
-    definicion: "Llamadas entrantes (inbound) que llegaron a la campaña.",
+    definicion:
+      "Llamadas entrantes (inbound) que llegaron a la campaña. Cuando una llamada del IVR pasa a una campaña y la campaña la rechaza (no hay nadie conectado) o la desborda, no cuenta aquí: cuenta una sola vez, en la campaña del IVR, como en el informe de Altitude (desde el 05/11/2026).",
   },
   atendidas: {
     termino: "Llamadas gestionadas (antes «Atendidas»)",
     definicion:
-      "Llamadas que pasaron por el puesto de un agente: lo que Altitude llama «gestionadas». En una entrante es que la cogió un agente. En una saliente NO quiere decir que contestara alguien: cuentan también las marcaciones que el agente cerró sin conversación (sonó y no lo cogieron, saltó un contestador…). No cuentan las «preparaciones» de las llamadas manuales (ver «Preparación»): así cuadra con el informe de Altitude (Socios, 21/10/2026: 334 gestionadas de 577 intentos).",
+      "Llamadas que pasaron por el puesto de un agente: lo que Altitude llama «gestionadas». En una entrante es que la cogió un agente. En una saliente NO quiere decir que contestara alguien: cuentan también las marcaciones que el agente cerró sin conversación (sonó y no lo cogieron, saltó un contestador…). No cuentan las «preparaciones» de las llamadas manuales (ver «Preparación») ni los emails (ver «Emails»): así cuadra con el informe de Altitude (Socios, 21/10/2026: 334 gestionadas de 577 intentos; CEFF, 04/11/2026: 47 llamadas y 8 emails).",
+  },
+  emails: {
+    termino: "Emails",
+    definicion:
+      "Emails que las agentes envían desde el guion. Altitude los guarda como interacciones «gestionadas», pero no son llamadas: no cuentan en las llamadas gestionadas, ni en los intentos, ni en el AHT. Su tiempo sí está dentro del tiempo productivo. La columna solo sale si alguna campaña o agente los tiene. Antes del 05/11/2026 el panel los contaba como llamadas.",
   },
   preparacion: {
     termino: "Preparación (tiempo preparado sin marcar)",
@@ -122,7 +128,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   kpiLlamadas: {
     termino: "Llamadas",
     definicion:
-      "Llamadas gestionadas por los agentes (entrantes atendidas y salientes que pasaron por su puesto), sin las preparaciones de las llamadas manuales. Debajo, los contactos trabajados (fichas de guion abiertas).",
+      "Llamadas gestionadas por los agentes (entrantes atendidas y salientes que pasaron por su puesto), sin las preparaciones de las llamadas manuales ni los emails. Debajo, los contactos trabajados (fichas de guion abiertas).",
   },
   kpiFinalizados: {
     termino: "Finalizados",
