@@ -197,19 +197,21 @@ async function saldoDelMes(mes: string, fechaDatos: string, inicioSaldo: string)
   const dias = t.entrada.dias.filter((d) => d.fecha >= inicioSaldo);
   const sinTrabajo = diasSinTrabajoEquipo(t.entrada);
   const porUsuario: Logado["porUsuario"] = [];
-  if (dias.length === 0) return { version, t, dias, porAgente: new Map<string, ReturnType<typeof saldoAgente>>(), ajustes: [], porUsuario };
+  const reales = new Map<string, number>();
+  const plan = new Map<string, number>();
+  if (dias.length === 0) {
+    return { version, t, dias, porAgente: new Map<string, ReturnType<typeof saldoAgente>>(), ajustes: [], porUsuario, plan, reales };
+  }
   const desde = dias[0].fecha;
   const hasta = dias[dias.length - 1].fecha;
 
   // Horas reales de la persona: unión de TODOS sus usuarios, solo días cerrados
   const finReal = fechaDatos < hasta ? fechaDatos : hasta;
-  const reales = new Map<string, number>();
   if (desde <= finReal) {
     const logado = await logadoRango(desde, finReal);
     porUsuario.push(...logado.porUsuario);
     for (const d of calcularAdherencia([], logado.tramos, SIN_REGLAS).dias) reales.set(`${d.agenteNumero}|${d.fecha}`, d.logadoMin / 60);
   }
-  const plan = new Map<string, number>();
   for (const b of t.bloques) plan.set(`${b.agenteNumero}|${b.fecha}`, (plan.get(`${b.agenteNumero}|${b.fecha}`) ?? 0) + (b.finMin - b.inicioMin) / 60);
   const ajustes = repo.ajustesSaldo(desde, hasta);
   const cuenta = (tipo: string) => t.tiposAusencia[tipo]?.computaComoTrabajada ?? false;
@@ -247,7 +249,7 @@ async function saldoDelMes(mes: string, fechaDatos: string, inicioSaldo: string)
       }),
     );
   }
-  return { version, t, dias, porAgente, ajustes, porUsuario };
+  return { version, t, dias, porAgente, ajustes, porUsuario, plan, reales };
 }
 
 /**
@@ -305,10 +307,13 @@ export async function saldosMes(mes: string, ahora = new Date()): Promise<DatosS
 
 export interface DiaHoras {
   fecha: string;
-  /** Día cerrado (hasta ayer): horas logadas de verdad; si no, las planificadas. */
+  /** Día cerrado (hasta ayer): ya tiene horas efectivas. */
   cerrado: boolean;
   contrato: number;
-  logadas: number;
+  /** Horas del plan vigente ese día (publicado; si no hay, el borrador). */
+  planificadas: number;
+  /** Horas logadas de verdad (unión de todos sus usuarios); null si el día no ha pasado. */
+  efectivas: number | null;
   /** Códigos de las ausencias de ese día (VAC, FEST...), para explicar un día sin horas. */
   ausencias: string[];
 }
@@ -321,18 +326,26 @@ export interface DatosHoras {
   fechas: string[];
   semanas: { lunes: string; fechas: string[] }[];
   agentes: { numero: string; nombre: string | null; contratoSemanalH: number; dias: DiaHoras[] }[];
-  /** Horas de los usuarios de cada cliente (todos, estén o no en la plantilla, como en Cierre). */
-  clientes: { codigo: string; nombre: string; color: string; dias: { fecha: string; cerrado: boolean; horas: number }[] }[];
+  /**
+   * Por cliente: planificadas (los bloques del plan) y efectivas (las horas de
+   * los usuarios del cliente, estén o no en la plantilla, como en Cierre).
+   */
+  clientes: {
+    codigo: string;
+    nombre: string;
+    color: string;
+    dias: { fecha: string; cerrado: boolean; planificadas: number; efectivas: number | null }[];
+  }[];
 }
 
 /**
- * Horas de contrato frente a horas logadas de un mes, por día (pedido por
- * supervisión, 04/11/2026). Son las mismas cuentas que Saldos, sin
- * justificadas ni ajustes: el contrato de cada día (repartido según el turno,
- * motor/contrato.ts) y lo logado de la persona (user_log, unión de todos sus
- * usuarios) hasta ayer; de hoy en adelante, lo planificado. Por cliente no
- * hay contrato: las horas de sus usuarios hasta ayer y lo planificado después.
- * Todos los días del mes, también los anteriores a plan.inicioSaldo.
+ * Horas de un mes por día, para la pestaña «Horas» (pedida por supervisión,
+ * 04/11/2026; con planificadas aparte desde el 05/11): el contrato de cada
+ * día (repartido según el turno, motor/contrato.ts), las planificadas (plan
+ * vigente) y las efectivas (lo logado de la persona, user_log, unión de
+ * todos sus usuarios; solo hasta ayer). Sin justificadas ni ajustes: eso es
+ * Saldos. Por cliente no hay contrato. Todos los días del mes, también los
+ * anteriores a plan.inicioSaldo.
  */
 export async function horasMes(mes: string, ahora = new Date()): Promise<DatosHoras | null> {
   const fechaDatos = sumarDias(fechaLocal(ahora), -1);
@@ -356,16 +369,18 @@ export async function horasMes(mes: string, ahora = new Date()): Promise<DatosHo
         fecha: d.fecha,
         cerrado: d.cerrado,
         contrato: d.contrato,
-        logadas: d.trabajadas,
+        planificadas: actual.plan.get(`${a.numero}|${d.fecha}`) ?? 0,
+        efectivas: d.cerrado ? (actual.reales.get(`${a.numero}|${d.fecha}`) ?? 0) : null,
         ausencias: [...new Set(a.ausencias.filter((x) => x.fecha === d.fecha).map((x) => x.tipo))],
       })),
     });
   }
 
-  const horasCliente = new Map<string, number>();
-  const sumar = (cliente: string, fecha: string, h: number) => horasCliente.set(`${cliente}|${fecha}`, (horasCliente.get(`${cliente}|${fecha}`) ?? 0) + h);
-  for (const u of actual.porUsuario) if (u.clienteCodigo) sumar(u.clienteCodigo, u.fecha, (u.finMin - u.inicioMin) / 60);
-  for (const b of t.bloques) if (b.fecha > fechaDatos) sumar(b.clienteCodigo, b.fecha, (b.finMin - b.inicioMin) / 60);
+  const sumar = (m: Map<string, number>, cliente: string, fecha: string, h: number) => m.set(`${cliente}|${fecha}`, (m.get(`${cliente}|${fecha}`) ?? 0) + h);
+  const planCliente = new Map<string, number>();
+  const realCliente = new Map<string, number>();
+  for (const b of t.bloques) sumar(planCliente, b.clienteCodigo, b.fecha, (b.finMin - b.inicioMin) / 60);
+  for (const u of actual.porUsuario) if (u.clienteCodigo) sumar(realCliente, u.clienteCodigo, u.fecha, (u.finMin - u.inicioMin) / 60);
 
   const semanas = new Map<string, string[]>();
   for (const d of t.entrada.dias) semanas.set(d.lunes, [...(semanas.get(d.lunes) ?? []), d.fecha]);
@@ -380,7 +395,12 @@ export async function horasMes(mes: string, ahora = new Date()): Promise<DatosHo
       codigo: c.codigo,
       nombre: c.nombre,
       color: c.color,
-      dias: fechas.map((fecha) => ({ fecha, cerrado: fecha <= fechaDatos, horas: horasCliente.get(`${c.codigo}|${fecha}`) ?? 0 })),
+      dias: fechas.map((fecha) => ({
+        fecha,
+        cerrado: fecha <= fechaDatos,
+        planificadas: planCliente.get(`${c.codigo}|${fecha}`) ?? 0,
+        efectivas: fecha <= fechaDatos ? (realCliente.get(`${c.codigo}|${fecha}`) ?? 0) : null,
+      })),
     })),
   };
 }

@@ -505,19 +505,19 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
   {
     id: "horas",
     etiqueta: "Horas",
-    titulo: "Horas: contrato y horas conectadas",
-    intro: "Las horas de contrato de cada persona al lado de las que estuvo conectada, por día, por semana y del mes.",
+    titulo: "Horas: contrato, planificadas y efectivas",
+    intro: "Las horas de contrato, las planificadas y las efectivas (las que estuvo conectada de verdad) del equipo y de cada persona, de un día, una semana o el mes.",
     captura: "horas",
     queVeo: [
-      "Arriba eliges cómo verlo: «Por día», «Por semana» o «Mes».",
-      "«Por persona»: en cada casilla, las horas conectadas y, debajo, las de contrato y la diferencia. En cursiva, lo que aún no ha pasado (sale del plan).",
-      "«Mes»: lo que llevamos hasta ayer y cómo acabará el mes con lo planificado.",
-      "«Por cliente»: las horas conectadas con los usuarios de cada cliente.",
+      "Arriba eliges «Día», «Semana» o «Mes»; con las flechas pasas al anterior o al siguiente.",
+      "Las tres cifras del equipo: contrato, planificadas y efectivas. Las efectivas llegan hasta ayer.",
+      "«Por persona»: la barra clara es lo planificado, la oscura lo que hizo de verdad y la raya negra su contrato. Al lado, las cifras.",
+      "«Efectivas − plan»: en verde, horas de más; en rojo, las que le faltan frente a lo planificado de los mismos días.",
     ],
     queHacer: [
-      "Mira la diferencia: en rojo, horas que le faltan esa semana o ese día; en verde, horas de más.",
-      "Si un día sale vacío y con un código (VAC, FEST…), ese día tenía una ausencia.",
-      "Para el saldo con las vacaciones y libranzas descontadas, entra en «Saldos».",
+      "Mira la última columna: en rojo, quien ha hecho menos horas de las planificadas.",
+      "Si la barra clara no llega a la raya, se le planificaron menos horas que su contrato (vacaciones, libranzas…).",
+      "Abajo, «Por cliente», lo mismo de cada cliente. Para el saldo con las vacaciones descontadas, entra en «Saldos».",
     ],
     siPasa: [
       {
@@ -525,8 +525,12 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
         haz: "Su parte del contrato semanal según su turno: si el lunes es de 9 h y el viernes de 4 h, el lunes lleva más contrato. Una semana entera suma justo el contrato.",
       },
       {
-        caso: "Una persona tiene un día en rojo y estaba de vacaciones.",
-        haz: "Aquí solo cuentan las horas conectadas. Las vacaciones, libranzas y RTO se tienen en cuenta en «Saldos».",
+        caso: "La semana va por la mitad y las efectivas parecen pocas.",
+        haz: "Es normal: las efectivas solo llegan hasta ayer. La última columna las compara con lo planificado hasta ayer, no con la semana entera.",
+      },
+      {
+        caso: "La barra clara no llega a la raya del contrato.",
+        haz: "Se le planificaron menos horas que su contrato. Suele ser por vacaciones o libranzas: en «Día» salen junto al nombre (VAC, FEST…). El saldo con ellas está en «Saldos».",
       },
       {
         caso: "La suma por cliente es mayor que la de las personas.",
@@ -810,13 +814,13 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
   },
   {
     id: "horas-contrato",
-    pregunta: "Ver las horas de contrato y las conectadas de cada persona",
+    pregunta: "Ver las horas de contrato, las planificadas y las efectivas",
     tema: "horas",
-    palabras: "horas contrato conectadas logadas efectivas dia semana mes",
+    palabras: "horas contrato conectadas logadas efectivas planificadas dia semana mes panel",
     pasos: [
       "Abre el mes y entra en «Horas».",
-      "Elige «Por día», «Por semana» o «Mes».",
-      "En cada casilla: arriba las horas conectadas; debajo, las de contrato y la diferencia.",
+      "Elige «Día», «Semana» o «Mes» y, con las flechas, cuál.",
+      "Mira las tres cifras de arriba y, en cada persona, su barra y la última columna.",
     ],
   },
   {
@@ -1012,13 +1016,13 @@ export const PUNTOS_AYUDA = {
     texto: "Las horas que le sobraban (+) o le faltaban (−) de los meses anteriores.",
   },
   "horas-contrato": {
-    titulo: "Contrato y horas conectadas",
+    titulo: "Contrato, planificadas y efectivas",
     texto:
-      "Horas conectadas: desde que entra en Altitude hasta que sale, con cualquiera de sus usuarios. Contrato: su parte del contrato semanal según su turno de cada día.",
+      "Planificadas: las del plan. Efectivas: desde que entra en Altitude hasta que sale, con cualquiera de sus usuarios, hasta ayer. Contrato: su parte del contrato semanal según su turno de cada día.",
   },
   "horas-cliente": {
     titulo: "Horas por cliente",
-    texto: "Las horas conectadas con los usuarios de cada cliente (GH_…, UGR_…), de toda la empresa. Son las mismas que en «Cierre».",
+    texto: "Las planificadas en cada cliente y las efectivas con sus usuarios (GH_…, UGR_…), de toda la empresa. Las efectivas son las mismas que en «Cierre».",
   },
   "saldo-previsto": {
     titulo: "Previsto a fin de mes",
