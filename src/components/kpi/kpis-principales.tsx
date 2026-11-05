@@ -15,8 +15,11 @@ import type { ResultadoResultados } from "@/lib/resultados-actividad";
 //   11 duración de las llamadas sin éxito · 12 de las de éxito.
 // Dos fuentes (y así lo dice la ayuda de cada caja):
 //  - actividad (ratios de éxito, regla 17): horas logadas de user_log,
-//    llamadas gestionadas sin preparaciones, éxitos de las sesiones de
-//    script por el día de la llamada y duración de las llamadas.
+//    llamadas, éxitos de las sesiones de script por el día de la llamada y
+//    duración de las llamadas. La caja 2 cuenta TODAS las llamadas (pedido
+//    por Christian el 05/11/2026: la supervisión contaba 192 llamadas hechas
+//    en gh_bbdd_autoclasse y la caja decía 124); las gestionadas van debajo
+//    y son la base de los «por hora» y «por éxito» (cajas 4, 5 y 6).
 //  - resultados (regla 18): contactos cerrados por un agente, por el día del
 //    cierre; aprovechamiento, finalizados por hora y por éxito.
 // Sin hooks: sirve en paneles de cliente y de servidor.
@@ -75,9 +78,9 @@ export function KpisPrincipales({
       />
       <TarjetaKpi
         titulo="Llamadas"
-        valor={entero(r.atendidas)}
-        variacionPct={variacion(r.atendidas, ra?.atendidas)}
-        sub={`${entero(r.contactos)} contactos trabajados`}
+        valor={entero(r.llamadasTotales)}
+        variacionPct={variacion(r.llamadasTotales, ra?.llamadasTotales)}
+        sub={`${entero(r.atendidas)} gestionadas · ${entero(r.contactos)} contactos`}
         ayuda={ayudaDe("kpiLlamadas")}
       />
       <TarjetaKpi
@@ -95,14 +98,14 @@ export function KpisPrincipales({
         titulo="Éxitos"
         valor={entero(r.exitos)}
         variacionPct={variacion(r.exitos, ra?.exitos)}
-        sub={`${pct(r.convAtendidasPct)} de las llamadas`}
+        sub={`${pct(r.convAtendidasPct)} de las gestionadas`}
         ayuda={ayudaDe("kpiExitos")}
       />
       <TarjetaKpi
         titulo="Llamadas por hora"
         valor={num2(r.llamadasHoraLogada)}
         variacionPct={variacion(r.llamadasHoraLogada, ra?.llamadasHoraLogada)}
-        sub="Por hora logada"
+        sub="Gestionadas por hora logada"
         ayuda={ayudaDe("kpiLlamadasHora")}
       />
       <TarjetaKpi
@@ -110,7 +113,7 @@ export function KpisPrincipales({
         valor={num2(r.llamadasPorExito)}
         variacionPct={variacion(r.llamadasPorExito, ra?.llamadasPorExito)}
         invertirColor
-        sub={`${pct(r.convAtendidasPct)} acaban en éxito`}
+        sub={`Gestionadas · ${pct(r.convAtendidasPct)} acaban en éxito`}
         ayuda={ayudaDe("kpiLlamadasPorExito")}
       />
       <TarjetaKpi

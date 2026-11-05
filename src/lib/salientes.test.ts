@@ -29,7 +29,7 @@ function vacia(): BaseSalientes {
   return { franjas: [], alcance: [], intentos: [], rellamadas: [], ready: [] };
 }
 
-const sinRatios: BaseRatiosExito = { filas: [], horasLogadas: [], campaniasConSinExito: [] };
+const sinRatios: BaseRatiosExito = { filas: [], horasLogadas: [], campaniasConSinExito: [], llamadasCampania: [] };
 
 describe("ocupación y tiempo esperando", () => {
   it("script abierto ÷ horas logadas por agente y global; por campaña, su peso", () => {
@@ -46,6 +46,7 @@ describe("ocupación y tiempo esperando", () => {
           { agente: "GH_0925", horas: 4 },
         ],
         campaniasConSinExito: [],
+        llamadasCampania: [],
       },
     );
     const a = r.agentes.find((x) => x.clave === "GH_0851")!;

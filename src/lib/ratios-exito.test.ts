@@ -26,7 +26,7 @@ function fila(p: Partial<FilaBaseRatios> & Pick<FilaBaseRatios, "agente" | "camp
 }
 
 function base(filas: FilaBaseRatios[], extra: Partial<BaseRatiosExito> = {}): BaseRatiosExito {
-  return { filas, horasLogadas: [], campaniasConSinExito: [], ...extra };
+  return { filas, horasLogadas: [], campaniasConSinExito: [], llamadasCampania: [], ...extra };
 }
 
 describe("conversión", () => {
@@ -316,5 +316,22 @@ describe("usuarios del cliente logados sin actividad (27/10/2026)", () => {
     expect(esUsuarioDelCliente("GH_Cargador2", "GH")).toBe(false);
     expect(esUsuarioDelCliente("GHX_0851", "GH")).toBe(false);
     expect(esUsuarioDelCliente("Manu", null)).toBe(true);
+  });
+});
+
+describe("caja «Llamadas» (05/11/2026)", () => {
+  it("cuenta TODAS las llamadas de las campañas; las gestionadas siguen en atendidas y en los «por hora»", () => {
+    const r = calcularRatiosExito(
+      base([fila({ agente: "GH_0892_BD", campania: "gh_bbdd_autoclasse", sesiones: 205, atendidas: 124, exitos: 5 })], {
+        horasLogadas: [{ agente: "GH_0892_BD", horas: 10 }],
+        llamadasCampania: [
+          { campania: "gh_bbdd_autoclasse", llamadas: 194 },
+          { campania: "gh_bbdd_otra", llamadas: 6 },
+        ],
+      }),
+    );
+    expect(r.total.llamadasTotales).toBe(200);
+    expect(r.total.atendidas).toBe(124);
+    expect(r.total.llamadasHoraLogada).toBe(12.4);
   });
 });

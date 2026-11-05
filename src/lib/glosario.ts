@@ -128,7 +128,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   kpiLlamadas: {
     termino: "Llamadas",
     definicion:
-      "Llamadas gestionadas por los agentes (entrantes atendidas y salientes que pasaron por su puesto), sin las preparaciones de las llamadas manuales ni los emails. Debajo, los contactos trabajados (fichas de guion abiertas).",
+      "TODAS las llamadas: entrantes y salientes, contesten o no (ocupado, sin respuesta, rechazadas, números inválidos, entrantes abandonadas…). No cuentan las preparaciones de las llamadas manuales, los emails ni el paso de una entrante del IVR a una campaña que la rechaza o la desborda. Debajo, las llamadas gestionadas (las que pasaron por el puesto de un agente, que son la base de «Llamadas por hora» y «Llamadas por éxito») y los contactos trabajados (fichas de guion abiertas). Hasta el 05/11/2026 esta caja contaba solo las gestionadas.",
   },
   kpiFinalizados: {
     termino: "Finalizados",
@@ -138,16 +138,17 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   kpiExitos: {
     termino: "Éxitos",
     definicion:
-      "Sesiones de guion marcadas como éxito (venta, cita u objetivo), el día de la llamada. Debajo, qué % de las llamadas acaba en éxito. Puede diferir en unos pocos de los éxitos del aprovechamiento, que cuenta contactos cerrados con éxito el día del cierre.",
+      "Sesiones de guion marcadas como éxito (venta, cita u objetivo), el día de la llamada. Debajo, qué % de las llamadas gestionadas acaba en éxito. Puede diferir en unos pocos de los éxitos del aprovechamiento, que cuenta contactos cerrados con éxito el día del cierre.",
   },
   kpiLlamadasHora: {
     termino: "Llamadas por hora",
-    definicion: "Llamadas ÷ horas logadas, de todo el servicio (o de todos los servicios si no se elige ninguno).",
+    definicion:
+      "Llamadas GESTIONADAS ÷ horas logadas, de todo el servicio (o de todos los servicios si no se elige ninguno). No usa el total de la caja «Llamadas», que cuenta también las que no contestaron.",
   },
   kpiLlamadasPorExito: {
     termino: "Llamadas por éxito",
     definicion:
-      "Llamadas ÷ éxitos: cuántas llamadas hacen falta para conseguir un éxito. Debajo, lo mismo al revés: qué % de las llamadas acaba en éxito.",
+      "Llamadas GESTIONADAS ÷ éxitos: cuántas llamadas gestionadas hacen falta para conseguir un éxito. Debajo, lo mismo al revés: qué % de las gestionadas acaba en éxito.",
   },
   kpiFinalizadosHora: {
     termino: "Finalizados por hora",

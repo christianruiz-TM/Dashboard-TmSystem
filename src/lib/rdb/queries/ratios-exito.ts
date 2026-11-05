@@ -325,11 +325,31 @@ async function baseRatiosCore(
     GROUP BY RTRIM(u.usr_name);
   `);
 
-  const [conteos, tiempos, rLogado, conSinExito] = await Promise.all([
+  // --- Q4: TODAS las llamadas por campaña (caja «Llamadas», 05/11/2026) ---
+  // Entrantes y salientes con número, contesten o no y las coja o no un
+  // agente: lo que la supervisión llama «llamadas hechas». Sin
+  // preparaciones, emails ni el tramo rechazado o desbordado de las
+  // entrantes del IVR (sqlLlamada). Igual que el total de volumenPorCampania.
+  const reqLlamadas = pool.request();
+  reqLlamadas.input("desde", sql.DateTime, desde);
+  reqLlamadas.input("hastaExcl", sql.DateTime, hastaExcl);
+  const filtroLlamadas = filtroCampanias(reqLlamadas, campanias, "c.shortname");
+  const llamadas = reqLlamadas.query(`
+    SELECT RTRIM(c.shortname) AS campania, COUNT(*) AS llamadas
+    FROM itr_thread t
+    INNER JOIN ph_campaign c ON t.campaign = c.code
+    ${sqlJoinGlobal()}
+    WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+      AND ${sqlLlamada()}${filtroLlamadas}
+    GROUP BY RTRIM(c.shortname);
+  `);
+
+  const [conteos, tiempos, rLogado, conSinExito, rLlamadas] = await Promise.all([
     filasAgenteCampania(desdeISO, hastaISO, campanias, false),
     tiemposExitos(desdeISO, hastaISO, campanias),
     logado,
     campaniasConSinExito(hastaISO),
+    llamadas,
   ]);
   const sinTiempos: TiemposExitos = {
     exitosConConversacion: 0,
@@ -354,6 +374,7 @@ async function baseRatiosCore(
       horas: Number(h.horas),
     })),
     campaniasConSinExito: conSinExito,
+    llamadasCampania: rLlamadas.recordset as { campania: string; llamadas: number }[],
   };
 }
 

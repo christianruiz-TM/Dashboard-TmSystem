@@ -246,6 +246,13 @@ export interface BaseRatiosExito {
    * la efectividad de cierre saldría siempre al 100 %.
    */
   campaniasConSinExito: string[];
+  /**
+   * TODAS las llamadas de cada campaña del alcance (05/11/2026): entrantes y
+   * salientes con número, contesten o no, de agente o no. La caja «Llamadas»
+   * cuenta estas, no solo las gestionadas (gh_bbdd_autoclasse 04/11: 194
+   * llamadas, 124 gestionadas).
+   */
+  llamadasCampania: { campania: string; llamadas: number }[];
 }
 
 /** Unidades facturables de una campaña en un rango. */

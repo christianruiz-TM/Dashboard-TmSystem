@@ -1615,7 +1615,19 @@ Orden fijado por Christian, el MISMO en todas las vistas de Supervisión
   9 y 10 de Resultados (regla 18, contactos cerrados por un agente,
   `totalResultados` en `lib/resultados-cabecera.ts`: misma consulta y caché
   que la pestaña, un mes de todos los clientes 1,7-2,5 s).
-- 6 = llamadas ÷ éxitos (el % va debajo). 11 y 12 = `itr_thread.duration`
+- **La caja 2 cuenta TODAS las llamadas** (05/11/2026, pedido por
+  Christian). La supervisión contaba 192 llamadas hechas en
+  `gh_bbdd_autoclasse` el 04/11, y la caja decía 124, las gestionadas.
+  - Qué cuenta: entrantes y salientes con número, contesten o no y las
+    coja o no un agente (`sqlLlamada`, sin preparaciones, emails ni tramos
+    del IVR).
+  - De dónde sale: Q4 de `baseRatiosCore` (`BaseRatiosExito.llamadasCampania`)
+    → `total.llamadasTotales`. Es lo mismo que el volumen de Dirección:
+    autoclasse 04/11 = 194 (189 salientes + 5 entrantes), GH = 594 y todos
+    los clientes en octubre = 68.806.
+  - Debajo salen las gestionadas: siguen siendo la base de las cajas 4, 5 y
+    6 («de las gestionadas» en su texto).
+- 6 = llamadas gestionadas ÷ éxitos (el % va debajo). 11 y 12 = `itr_thread.duration`
   de las llamadas según su sesión de script sea éxito o no (sin sesión = no
   éxito), Q2 de `filasAgenteCampania` con `LEFT JOIN script_session`.
 - Dirección: «Finalizados» pasa a ser el de Resultados (el de facturación,

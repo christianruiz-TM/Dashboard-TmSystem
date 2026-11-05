@@ -457,7 +457,7 @@ export function mockBaseRatiosExito(
   const conSinExito = CAMPANIAS_DEMO.filter((_, i) => i % 2 === 0).map((c) => c.shortname);
   const filas: FilaBaseRatios[] = [];
   const horasLogadas: { agente: string; horas: number }[] = [];
-  if (camps.length === 0) return { filas, horasLogadas, campaniasConSinExito: conSinExito };
+  if (camps.length === 0) return { filas, horasLogadas, campaniasConSinExito: conSinExito, llamadasCampania: [] };
 
   for (const agente of plantilla) {
     const r = rng(`${desde}|${hasta}|ratios|${agente}`);
@@ -508,7 +508,15 @@ export function mockBaseRatiosExito(
     // Logado ≈ productivo + pausas y espera en Ready
     horasLogadas.push({ agente, horas: horas * (1.3 + r() * 0.5) });
   }
-  return { filas, horasLogadas, campaniasConSinExito: conSinExito };
+  // Todas las llamadas: las gestionadas más las que no cogió nadie (~1,5×)
+  const llamadasCampania = new Map<string, number>();
+  for (const f of filas) llamadasCampania.set(f.campania, (llamadasCampania.get(f.campania) ?? 0) + Math.round(f.atendidas * 1.5));
+  return {
+    filas,
+    horasLogadas,
+    campaniasConSinExito: conSinExito,
+    llamadasCampania: [...llamadasCampania].map(([campania, llamadas]) => ({ campania, llamadas })),
+  };
 }
 
 /** Ratios por día (para el agregado): la base de cada día por separado. */

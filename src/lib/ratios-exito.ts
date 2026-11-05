@@ -110,6 +110,12 @@ export interface ResultadoRatios {
   agentes: RatiosAgente[];
   campanias: RatiosCampania[];
   total: RatiosBasicos & {
+    /**
+     * TODAS las llamadas del alcance (caja «Llamadas», 05/11/2026), no solo
+     * las gestionadas de `atendidas`, en las que siguen los «por hora» y
+     * «por éxito».
+     */
+    llamadasTotales: number;
     horasLogadas: number;
     llamadasHoraLogada: number | null;
     exitosHoraLogada: number | null;
@@ -326,6 +332,7 @@ export function calcularRatiosExito(
     campanias,
     total: {
       ...ratios(total),
+      llamadasTotales: base.llamadasCampania.reduce((s, c) => s + c.llamadas, 0),
       horasLogadas: r2(horasTotal) ?? 0,
       llamadasHoraLogada: r2(cociente(total.atendidas, horasTotal)),
       exitosHoraLogada: r2(cociente(total.exitos, horasTotal)),
