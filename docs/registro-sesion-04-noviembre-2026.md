@@ -214,9 +214,9 @@ contrato de forma «ágil y muy sencilla». La pestaña pasa a ser un panel:
   ya cuenta el saldo: el festivo trabajado suma lo trabajado y el día de
   FEST justifica su turno, así que el balance de los dos días queda en 0.
   En «Horas», el festivo trabajado sale con plan y efectivas, y la semana
-  del FEST con la barra clara antes de la raya (el aviso lo explica). La
-  pregunta 3 (vacaciones y libranzas) no se entendió; pendiente de
-  confirmar que se tratan igual que los festivos (opción A).
+  del FEST con la barra clara antes de la raya (el aviso lo explica); (3)
+  vacaciones y libranzas, igual que los festivos: contrato entero y el
+  aviso. No hay que cambiar nada del panel.
 
 ## Pendiente
 
