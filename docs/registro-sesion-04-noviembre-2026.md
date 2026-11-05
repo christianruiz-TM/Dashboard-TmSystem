@@ -208,6 +208,15 @@ contrato de forma «ágil y muy sencilla». La pestaña pasa a ser un panel:
   «Contrato» lo dice. Christian lo pregunta a supervisión: contrato entero,
   solo lo que toca trabajar o las dos cosas, y cómo cuentan los festivos
   trabajados.
+- Respuestas (05/11): (1) la raya, el contrato ENTERO con el aviso de los
+  festivos (opción A: lo que ya hay); (2) un festivo trabajado con un
+  cliente son horas DE MÁS que se devuelven con una libranza FEST. Es como
+  ya cuenta el saldo: el festivo trabajado suma lo trabajado y el día de
+  FEST justifica su turno, así que el balance de los dos días queda en 0.
+  En «Horas», el festivo trabajado sale con plan y efectivas, y la semana
+  del FEST con la barra clara antes de la raya (el aviso lo explica). La
+  pregunta 3 (vacaciones y libranzas) no se entendió; pendiente de
+  confirmar que se tratan igual que los festivos (opción A).
 
 ## Pendiente
 
