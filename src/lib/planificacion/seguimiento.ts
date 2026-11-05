@@ -325,6 +325,12 @@ export interface DatosHoras {
   fechaDatos: string;
   fechas: string[];
   semanas: { lunes: string; fechas: string[] }[];
+  /**
+   * Días sin trabajo de la plantilla (festivos y cierres del calendario
+   * laboral): su parte del contrato cuenta aunque no se planifiquen, salvo
+   * los festivos que se trabajan con algún cliente. El panel lo avisa.
+   */
+  festivos: string[];
   agentes: { numero: string; nombre: string | null; contratoSemanalH: number; dias: DiaHoras[] }[];
   /**
    * Por cliente: planificadas (los bloques del plan) y efectivas (las horas de
@@ -390,6 +396,7 @@ export async function horasMes(mes: string, ahora = new Date()): Promise<DatosHo
     fechaDatos,
     fechas,
     semanas: [...semanas].map(([lunes, f]) => ({ lunes, fechas: f })),
+    festivos: [...diasSinTrabajoEquipo(t.entrada)].sort(),
     agentes: agentes.sort((x, y) => x.numero.localeCompare(y.numero)),
     clientes: t.entrada.clientes.map((c) => ({
       codigo: c.codigo,

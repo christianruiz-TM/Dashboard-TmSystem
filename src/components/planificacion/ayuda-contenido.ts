@@ -530,7 +530,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       },
       {
         caso: "La barra clara no llega a la raya del contrato.",
-        haz: "Se le planificaron menos horas que su contrato. Suele ser por vacaciones o libranzas: en «Día» salen junto al nombre (VAC, FEST…). El saldo con ellas está en «Saldos».",
+        haz: "Se le planificaron menos horas que su contrato. La raya cuenta también los festivos, las vacaciones y las libranzas, y esos días no se suelen planificar (salvo los festivos que se trabajan con algún cliente). El aviso amarillo dice qué festivos hay en el periodo; en «Día», las ausencias salen junto al nombre (VAC, FEST…). El saldo con ellas descontadas está en «Saldos».",
       },
       {
         caso: "La suma por cliente es mayor que la de las personas.",
@@ -1018,7 +1018,7 @@ export const PUNTOS_AYUDA = {
   "horas-contrato": {
     titulo: "Contrato, planificadas y efectivas",
     texto:
-      "Planificadas: las del plan. Efectivas: desde que entra en Altitude hasta que sale, con cualquiera de sus usuarios, hasta ayer. Contrato: su parte del contrato semanal según su turno de cada día.",
+      "Planificadas: las del plan. Efectivas: desde que entra en Altitude hasta que sale, con cualquiera de sus usuarios, hasta ayer. Contrato: su parte del contrato semanal según su turno de cada día, también los festivos, las vacaciones y las libranzas.",
   },
   "horas-cliente": {
     titulo: "Horas por cliente",

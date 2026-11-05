@@ -101,6 +101,25 @@ function Leyenda({ conContrato }: { conContrato: boolean }) {
   );
 }
 
+/**
+ * Por qué la barra clara puede quedarse antes de la raya del contrato
+ * (05/11/2026): el contrato cuenta los festivos, las vacaciones y las
+ * libranzas, y esos días no se suelen planificar. Algunos festivos sí se
+ * trabajan con algún cliente: entonces sí hay plan.
+ */
+function NotaContrato({ festivos }: { festivos: readonly string[] }) {
+  const fechas = festivos.map(fechaDiaMes);
+  const lista = fechas.length > 1 ? `${fechas.slice(0, -1).join(", ")} y ${fechas.at(-1)}` : fechas[0];
+  return (
+    <p className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-100">
+      <strong className="font-semibold">Ojo con el contrato:</strong> la raya cuenta también los festivos, las vacaciones y las
+      libranzas. Esos días no se suele planificar, salvo los festivos que se trabajan con algún cliente, así que la barra clara
+      puede quedarse antes de la raya sin que falte nada.
+      {fechas.length > 0 ? ` En este periodo ${fechas.length === 1 ? "es festivo el" : "son festivos el"} ${lista}.` : ""}
+    </p>
+  );
+}
+
 const COLUMNAS_PERSONA = "grid-cols-[minmax(9rem,13rem)_minmax(10rem,1fr)_repeat(4,minmax(5.5rem,auto))]";
 const COLUMNAS_CLIENTE = "grid-cols-[minmax(9rem,13rem)_minmax(10rem,1fr)_repeat(3,minmax(5.5rem,auto))]";
 
@@ -162,6 +181,9 @@ export default async function PaginaHoras({
   const escala = escalaHoras(personas.map((x) => x.r));
   const escalaClientes = escalaHoras(clientes.map((x) => x.r));
   const hastaAyer = equipo.terminado ? "" : " hasta ayer";
+  // Festivos del periodo: su parte del contrato cuenta aunque ese día no se planifique (05/11/2026)
+  const festivosPeriodo = d.festivos.filter((f) => periodo.fechas.includes(f));
+  const etiquetaPeriodo = vista === "dia" && festivosPeriodo.length > 0 ? `${periodo.etiqueta} · festivo` : periodo.etiqueta;
 
   return (
     <div className="space-y-6">
@@ -200,7 +222,7 @@ export default async function PaginaHoras({
                   <ChevronLeft className="size-4" />
                 </span>
               )}
-              <span className="min-w-44 text-center text-sm font-medium">{periodo.etiqueta}</span>
+              <span className="min-w-44 text-center text-sm font-medium">{etiquetaPeriodo}</span>
               {i < periodos.length - 1 ? (
                 <Link
                   href={enlace(vista, periodos[i + 1].clave)}
@@ -230,7 +252,7 @@ export default async function PaginaHoras({
           titulo="Contrato"
           valor={horasLegibles(equipo.contrato)}
           sub={equipo.terminado || !equipo.empezado ? "Lo que pide el contrato de todos" : `${horasLegibles(equipo.contratoHastaAyer)} hasta ayer`}
-          ayuda="La parte del contrato semanal de cada persona que toca en esos días, según su turno."
+          ayuda="La parte del contrato semanal de cada persona que toca en esos días, según su turno. Cuenta también los festivos, las vacaciones y las libranzas, aunque esos días no se trabajen."
         />
         <TarjetaKpi
           titulo="Planificadas"
@@ -262,6 +284,7 @@ export default async function PaginaHoras({
             {equipo.terminado ? "" : " Las efectivas se comparan con lo planificado hasta ayer."}
           </CardDescription>
           <Leyenda conContrato />
+          <NotaContrato festivos={festivosPeriodo} />
         </CardHeader>
         <CardContent className="overflow-x-auto">
           <div className={cn("grid min-w-[44rem] items-center", COLUMNAS_PERSONA)}>

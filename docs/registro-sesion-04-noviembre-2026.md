@@ -198,9 +198,16 @@ contrato de forma «ágil y muy sencilla». La pestaña pasa a ser un panel:
 - Desplegado el 05/11 a las 09:40 (`840882d`, imagen `8b2372190286`).
   Comprobado con datos reales: el lunes 02/11 es festivo en el calendario
   laboral, así que esa semana el contrato (420 h) incluye el festivo y lo
-  planificado (297 h) sale muy por debajo. Pendiente de decidir si el
-  contrato del panel descuenta festivos y ausencias que cuentan (VAC, FEST,
-  RTO), como hace el saldo.
+  planificado (297 h) sale muy por debajo.
+- Decidido con Christian (05/11): el contrato se queda ENTERO de momento
+  (algunos festivos se trabajan con algunos clientes). El panel lleva un
+  aviso amarillo bajo la leyenda («Ojo con el contrato»: la raya cuenta
+  también festivos, vacaciones y libranzas, que no se suelen planificar
+  salvo los festivos que se trabajan con algún cliente) con los festivos
+  del periodo, «· festivo» junto al día en la vista de día y el «?» de
+  «Contrato» lo dice. Christian lo pregunta a supervisión: contrato entero,
+  solo lo que toca trabajar o las dos cosas, y cómo cuentan los festivos
+  trabajados.
 
 ## Pendiente
 
