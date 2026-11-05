@@ -195,6 +195,12 @@ contrato de forma «ágil y muy sencilla». La pestaña pasa a ser un panel:
   una sola cifra: lo real hasta ayer y el plan después).
 - Ayuda, captura de «Horas» (modo demo), guía de Claude Docs y guía HTML al
   día.
+- Desplegado el 05/11 a las 09:40 (`840882d`, imagen `8b2372190286`).
+  Comprobado con datos reales: el lunes 02/11 es festivo en el calendario
+  laboral, así que esa semana el contrato (420 h) incluye el festivo y lo
+  planificado (297 h) sale muy por debajo. Pendiente de decidir si el
+  contrato del panel descuenta festivos y ausencias que cuentan (VAC, FEST,
+  RTO), como hace el saldo.
 
 ## Pendiente
 
