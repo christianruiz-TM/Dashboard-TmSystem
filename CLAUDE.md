@@ -1719,8 +1719,12 @@ tocar nada:
       a mitad de semana el saldo ya no infla los días largos.
 - [ ] Directiva de los avisos de Windows en los PC de supervisión
       (`docs/notificaciones-escritorio.md`).
-- [ ] Capturas de la ayuda (modo demo), guía de Claude Docs y guía HTML con
-      la pestaña «Horas» y la semana partida.
+- [x] 05/11: ayuda al día. Las 11 capturas rehechas en modo demo (también
+      «Horas», nueva) con una SQLite de demo nueva, porque no quedaba
+      ninguna: cómo se montó, en `docs/registro-sesion-04-noviembre-2026.md`.
+      Textos nuevos: semana partida (tablero y Saldos), campana (Hoy),
+      «Horas» en la rutina y dos palabras. Guía de Claude Docs y guía HTML
+      al día; falta copiar `guia-supervision.html` a la carpeta compartida.
 
 ## Mejoras recomendadas pendientes (auditoría 10/09/2026)
 

@@ -151,6 +151,10 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
         haz: "Esa semana le faltan 2 horas para su contrato. En azul, le sobran.",
       },
       {
+        caso: "La semana tiene días en gris de otro mes.",
+        haz: "La semana se parte entre dos meses y se ve entera. Los días del otro mes salen en gris y se cambian en el plan de ese mes. Las horas y el saldo de la izquierda son solo de este mes.",
+      },
+      {
         caso: "No me deja cambiar nada.",
         haz: "Solo se cambia el borrador, y con usuario de supervisión. Si el mes ya está publicado, pulsa «Nuevo borrador desde la vN».",
       },
@@ -407,6 +411,10 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
         caso: "La barra de abajo sale gris.",
         haz: "Está conectada con un usuario que no es de nuestros clientes.",
       },
+      {
+        caso: "Suena la campana de arriba.",
+        haz: "Hay una alerta nueva. Las alertas salen en la campana de arriba en cualquier página. Púlsala para verlas; «Marcar como vista» hace que deje de sonar. Ahí mismo quitas el sonido o cambias cada cuántos minutos se recuerdan las rojas.",
+      },
     ],
   },
   {
@@ -499,6 +507,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     etiqueta: "Horas",
     titulo: "Horas: contrato y horas conectadas",
     intro: "Las horas de contrato de cada persona al lado de las que estuvo conectada, por día, por semana y del mes.",
+    captura: "horas",
     queVeo: [
       "Arriba eliges cómo verlo: «Por día», «Por semana» o «Mes».",
       "«Por persona»: en cada casilla, las horas conectadas y, debajo, las de contrato y la diferencia. En cursiva, lo que aún no ha pasado (sale del plan).",
@@ -901,6 +910,8 @@ export const GLOSARIO_AYUDA: [string, string][] = [
   ["Aviso (amarillo)", "Algo raro que puede estar bien: se publica explicando el motivo."],
   ["Conectada (logada)", "Con la sesión abierta en Altitude."],
   ["Saldo", "Horas que le sobran (+) o le faltan (−) a una persona para su contrato."],
+  ["Contrato del día", "La parte del contrato semanal que toca ese día, según su turno: un lunes de 9 h lleva más que un viernes de 4 h."],
+  ["Semana partida", "La primera o la última semana del mes, que tiene días de otro mes. Cada mes lleva el saldo de sus días."],
   ["Arrastre", "El saldo que trae de los meses anteriores."],
   ["Adherencia", "Si se cumplió el plan: conectada cuando y donde tocaba."],
   ["Cubierto por otro", "Conectada con un usuario que cubre ese cliente sin ser el suyo (BD o LX en GH; en GH esperando a Ávolo)."],

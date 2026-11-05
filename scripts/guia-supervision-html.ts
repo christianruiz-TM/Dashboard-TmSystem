@@ -68,7 +68,8 @@ const GRUPOS: { id: string; nombre: string; corto: string; intro: string; temas:
     id: "fin-de-mes",
     nombre: "5 · Fin de mes",
     corto: "Fin de mes",
-    intro: "Cuando acaba el mes (o durante, para ir viendo): ¿se cumplió el plan?, ¿a quién le sobran o le faltan horas? y el resumen por cliente.",
+    intro:
+      "Cuando acaba el mes (o durante, para ir viendo): ¿se cumplió el plan?, ¿a quién le sobran o le faltan horas?, las horas de contrato frente a las conectadas y el resumen por cliente.",
     temas: ["adherencia", "saldos", "horas", "cierre"],
   },
   {
@@ -87,7 +88,7 @@ const RUTINA: [string, string, string[]][] = [
   ["Cada lunes", "Mira «Para revisar»: por la noche se recalculan las semanas que aún no han empezado.", ["publicar"]],
   ["Antes del día 20", "Apunta las ausencias del mes siguiente y confirma su bolsa.", ["ausencias", "preparar"]],
   ["Del 20 a fin de mes", "Revisa el borrador del mes siguiente, cámbialo y publícalo.", ["preparar", "publicar"]],
-  ["Al empezar el mes", "Mira la adherencia, los saldos y el cierre del mes que acaba de terminar.", ["fin-de-mes"]],
+  ["Al empezar el mes", "Mira la adherencia, los saldos, las horas y el cierre del mes que acaba de terminar.", ["fin-de-mes"]],
 ];
 
 // ---------- Utilidades ----------

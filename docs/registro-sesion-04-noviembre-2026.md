@@ -145,10 +145,40 @@ del build; el tercero compiló. `verificar` sin errores. Comprobado desde
 - Horas de noviembre en 51 ms; campana con 5 alertas en 400 ms.
 - Sin sesión, las rutas nuevas mandan al login.
 
+## 05/11: ayuda, capturas y guías
+
+- **SQLite de demo nueva** (no quedaba ninguna de sesiones anteriores), en
+  el scratchpad y con `RDB_MOCK=1`: `seed:admin`, una usuaria `supervision`
+  insertada sin cambio de contraseña pendiente (el script de capturas entra
+  con ese rol), `planificacion:semilla`, `planificacion:agregados` del
+  01/07 al 03/11, octubre generado y su v1 publicada a mano, tres ausencias
+  de ejemplo, el borrador de octubre regenerado después (si no, el tablero
+  sale con 8 incidencias duras por las ausencias) y el borrador de noviembre
+  para «Hoy». Servidor `next start` en modo demo en el puerto 3200, desde la
+  copia del proyecto.
+- **Capturas**: las 11 rehechas con `scripts/ayuda-capturas.mjs`, «Horas»
+  nueva (4 puntos). El tablero de octubre enseña la semana partida.
+- **Textos** (`ayuda-contenido.ts`): «La semana tiene días en gris de otro
+  mes» en el tablero, «Suena la campana de arriba» en Hoy, «Contrato del
+  día» y «Semana partida» en las palabras, y «las horas» en la rutina de
+  principio de mes.
+- **Guía de Claude Docs**: las 11 capturas con los números pintados,
+  sección «Horas» en «5 · Fin de mes», la regla nueva del contrato en
+  Saldos (y en la «Guía detallada», que aún decía «entre cinco» y
+  «se prorratea por laborables»), la fila de la semana partida en el
+  tablero, la campana en «4 · Cada día» y en la guía detallada, la rutina
+  de «Empieza aquí» y dos palabras.
+- **Guía HTML** regenerada (`npm run guia:html`, 1,5 MB, con las 11
+  capturas).
+- El `next dev` del puerto 3000 sigue sin reiniciar: el sistema de permisos
+  no deja parar ese proceso ni con la petición de Christian.
+
 ## Pendiente
 
 - Avisar a supervisión de que los saldos acumulados cambian.
 - Arreglar el «database is locked» del build (mejora 11 de CLAUDE.md).
+- Copiar `guia-supervision.html` a la carpeta compartida.
+- Reiniciar el `next dev` del puerto 3000 (Christian).
 - Directiva de los avisos de Windows en los PC de supervisión.
 - Capturas de la ayuda en modo demo, guía de Claude Docs y guía HTML con
   «Horas» y la semana partida.

@@ -128,6 +128,18 @@ const PANTALLAS = [
     ],
   },
   {
+    id: "horas",
+    ruta: `/planificacion/${MES}/horas`,
+    ancho: 1500,
+    alto: 1250,
+    puntos: [
+      { css: "nav[aria-label='Ver por']" },
+      { t: "Por persona", sel: TITULO },
+      { t: "Mes", sel: "th", arriba: true },
+      { t: "Por cliente", sel: TITULO },
+    ],
+  },
+  {
     id: "cierre",
     ruta: `/planificacion/${MES}/cierre`,
     alto: 1300,
