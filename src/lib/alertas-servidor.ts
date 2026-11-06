@@ -15,6 +15,19 @@ import {
 
 const clave = (userId: number) => `alertas.usuario.${userId}`;
 
+const ARRANQUE = `${process.pid}-${Date.now()}`;
+
+/**
+ * Identifica el servidor en marcha (cada despliegue arranca uno nuevo). La
+ * campana la compara con la de cuando se abrió la página: si cambia, esa
+ * pestaña sigue con el código viejo, cuyas acciones ya no existen («Marcar
+ * como vista» no se guardaba, 06/11/2026). Un reinicio sin cambios también
+ * pide recargar, sin más consecuencia.
+ */
+export function versionPanel(): string {
+  return ARRANQUE;
+}
+
 export function preferenciasAlertas(userId: number): PreferenciasAlertas {
   return leerPreferencias(obtenerAjuste(clave(userId), ""));
 }

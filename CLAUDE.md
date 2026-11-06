@@ -1014,6 +1014,17 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         de fuera (0049, 0036) y ninguna se devolvió, frente a 991 de 1.125
         españolas en 3 días. Solo cuentan las de 9 cifras, con o sin 34,
         0034 o +34 delante.
+      - **El cliente que nos devuelve la llamada no cuenta** (06/11/2026,
+        «está todo llamado», dicen las supervisoras): si un agente ya había
+        llamado a ese número ESE DÍA, la perdida es el cliente devolviendo
+        nuestra llamada cuando ya no hay nadie conectado (CEFF 06/11:
+        llamada a las 10:42, devolución a las 10:44; Ávolo: un cliente de
+        GH llamado a las 09:10 que entró a las 09:41 por el IVR de Ávolo).
+        Del 01/09 al 06/11, 38 de las 147 que quedaban sin devolver en Ávolo
+        y 27 de 33 en CEFF; a casi ninguna se la volvió a llamar en los días
+        siguientes (5 y 14). Quedan en Ávolo ~1,5 al día en horario sin
+        ninguna llamada nuestra en Altitude, ni antes ni después: si se
+        devuelven por fuera de Altitude, la alerta no puede verlo.
   - **Tarea nocturna (F5)**, `npm run planificacion:nocturno` a las 02:15:
     `nocturno.ts` (PURO, misma regla de ESLint) decide por fecha y
     `tarea-nocturna.ts` lo ejecuta. Idempotente y se pone al día sola:
@@ -1070,6 +1081,14 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     - En la pestaña, lo ya salido no vuelve a ser «nuevo» (la alerta sin ver
       que va y vuelve la recuerda el recordatorio), y una consulta que
       salió antes de marcar no deshace el «vista».
+    - **Tras un despliegue hay que recargar las pestañas abiertas**: el
+      código viejo llama a acciones que ya no existen («Failed to find
+      Server Action» en el log) y lo marcado no se guarda (06/11: de 10:21 a
+      10:58, y Miriam y Patricia sin ninguna vista guardada). `/api/alertas`
+      manda `version` (`versionPanel()`, la hora de arranque del servidor) y,
+      si cambia, la campana pide recargar con un botón; si guardar falla,
+      también lo dice. Vale desde la versión de este cambio: las pestañas
+      anteriores no lo llevan.
   - Número en el título de la pestaña y `public/favicon-alerta.svg` en su
     icono; aviso de Windows solo con la dirección marcada como segura en el
     PC (HTTP: `docs/notificaciones-escritorio.md`). El navegador no deja

@@ -429,6 +429,13 @@ export async function calendariosAltitude(): Promise<{ festivos: FestivoServicio
  * 0036…) y no se devolvió ninguna, frente a 991 de 1.125 españolas; la
  * alemana del 05/11 dejó la alerta encendida todo el día. Español = 9 cifras,
  * con o sin 34, 0034 o +34 delante.
+ * Tampoco cuenta la perdida de un número al que un agente YA había llamado
+ * ese día (06/11/2026, «está todo llamado», dicen las supervisoras): es el
+ * cliente que nos devuelve la llamada y entra por el IVR cuando ya no hay
+ * nadie conectado (CEFF 06/11: llamada a las 10:42, devolución del cliente a
+ * las 10:44). Del 01/09 al 06/11 fueron 38 de las 147 que quedaban sin
+ * devolver en Ávolo y 27 de 33 en CEFF; a casi ninguna se la volvió a llamar
+ * en los días siguientes (5 y 14).
  * Se cuentan NÚMEROS, no hilos: quien llama tres veces se devuelve una vez.
  * Antes contaba todas las perdidas del día aunque ya estuvieran devueltas
  * (16/10/2026: 9 «sin atender», todas devueltas).
@@ -458,7 +465,7 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
       agente AS (
           -- Lo que hicieron hoy los agentes humanos, en cualquier campaña:
           -- salientes con cualquier resultado y entrantes atendidas
-          SELECT t.itr_global, t.start_time,
+          SELECT t.itr_global, t.start_time, t.origin,
                  RIGHT(RTRIM(CASE WHEN t.origin = 2 THEN g.to_address ELSE g.from_address END), 9) AS numero
           FROM itr_thread t
           INNER JOIN ph_e_user u ON u.code = t.e_user AND u.type = 1
@@ -476,7 +483,9 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
         AND (LEN(p.origen) = 9 OR p.origen LIKE '34_________' OR p.origen LIKE '0034_________'
              OR p.origen LIKE '+34_________')
         AND NOT EXISTS (SELECT 1 FROM agente a WHERE a.itr_global = p.itr_global)
-        AND NOT EXISTS (SELECT 1 FROM agente a WHERE a.numero = p.numero AND a.start_time >= p.start_time)
+        -- Devuelta después, o llamada nuestra de antes que el cliente devuelve
+        AND NOT EXISTS (SELECT 1 FROM agente a
+                        WHERE a.numero = p.numero AND (a.start_time >= p.start_time OR a.origin = 2))
       GROUP BY p.numero;
     `);
     const filas = r.recordset as { hilo: string; primera: string; ultima: string }[];

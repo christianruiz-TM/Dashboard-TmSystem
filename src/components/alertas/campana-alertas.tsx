@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { AlertTriangle, Bell, BellRing, CheckCheck, Eye, Volume2 } from "lucide-react";
+import { AlertTriangle, Bell, BellRing, CheckCheck, Eye, RefreshCw, Volume2 } from "lucide-react";
 import { guardarAjustesAlertas, marcarAlertasVistas } from "@/app/(dashboard)/alertas-acciones";
 import { SelectNativo } from "@/components/admin/select-nativo";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,8 @@ import {
 // nueva sin ver y recuerda las altas sin ver cada N minutos (lógica en
 // lib/alertas-panel.ts); pone el número en el título y el icono de la
 // pestaña y, si el PC lo permite, avisa con una notificación de Windows.
+// Si el servidor cambia (despliegue), pide recargar la página: el código
+// viejo ya no puede guardar lo marcado como visto (06/11/2026).
 // ============================================================
 
 const CADA_MS = 60_000;
@@ -60,13 +62,25 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
   const ultimoSonido = useRef(0);
   /** Marcadas aquí y quizá aún sin guardar: una consulta que salió antes no las deshace. */
   const marcadasAqui = useRef(new Set<string>());
+  /** Servidor de la primera consulta de esta pestaña: si cambia, hubo un despliegue. */
+  const servidor = useRef<string | null>(null);
+  const [versionNueva, setVersionNueva] = useState(false);
 
   const consultar = useCallback(async () => {
     try {
       const r = await fetch("/api/alertas", { cache: "no-store" });
       if (r.status === 401) return; // sesión caducada: la página ya llevará a entrar
       if (!r.ok) throw new Error(String(r.status));
-      const d = (await r.json()) as { alertas: AlertaPanel[]; errores: string[]; preferencias: PreferenciasAlertas };
+      const d = (await r.json()) as {
+        alertas: AlertaPanel[];
+        errores: string[];
+        preferencias: PreferenciasAlertas;
+        version?: string;
+      };
+      if (d.version) {
+        servidor.current ??= d.version;
+        if (d.version !== servidor.current) setVersionNueva(true);
+      }
       const guardadas = new Set(d.preferencias.vistas);
       for (const v of marcadasAqui.current) if (guardadas.has(v)) marcadasAqui.current.delete(v);
       const prefs = { ...d.preferencias, vistas: [...guardadas, ...marcadasAqui.current] };
@@ -133,7 +147,8 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
         await marcarAlertasVistas(partes);
       } catch {
         for (const p of partes) marcadasAqui.current.delete(p);
-        setErrores(["No se ha podido guardar: vuelve a intentarlo."]);
+        setPreferencias((p) => ({ ...p, vistas: p.vistas.filter((v) => !partes.includes(v)) }));
+        setErrores(["No se ha podido guardar. Recarga la página (F5) y vuelve a marcarla."]);
       }
     });
   };
@@ -178,6 +193,15 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
             </Button>
           ) : null}
         </div>
+
+        {versionNueva ? (
+          <div className="flex items-center justify-between gap-2 border-b bg-amber-50 px-3 py-2 text-xs text-amber-900 dark:bg-amber-950/40 dark:text-amber-200">
+            <span>Hay una versión nueva del panel: recarga la página para que lo que marques como visto se guarde.</span>
+            <Button size="xs" variant="outline" onClick={() => window.location.reload()}>
+              <RefreshCw /> Recargar
+            </Button>
+          </div>
+        ) : null}
 
         <div className="max-h-96 overflow-y-auto">
           {errores.map((e) => (
