@@ -1022,9 +1022,22 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         GH llamado a las 09:10 que entró a las 09:41 por el IVR de Ávolo).
         Del 01/09 al 06/11, 38 de las 147 que quedaban sin devolver en Ávolo
         y 27 de 33 en CEFF; a casi ninguna se la volvió a llamar en los días
-        siguientes (5 y 14). Quedan en Ávolo ~1,5 al día en horario sin
-        ninguna llamada nuestra en Altitude, ni antes ni después: si se
-        devuelven por fuera de Altitude, la alerta no puede verlo.
+        siguientes (5 y 14).
+      - **Solo si su CONTACTO sigue pendiente** (06/11/2026, pedido por
+        supervisión: «hay contactos que no se tienen que llamar y los marcan
+        como Terminados»). Tras cada perdida, el IVR (usuarios `IVRnn`, tipo
+        3) da de alta un contacto en la campaña con ese teléfono
+        (`ContactEventActionType` AgentCreation, por `rdb_enums`; de 13 a 92 s
+        después, con el número en `phone_01_value` y en el móvil). Esa es la
+        lista que trabajan: lo llaman y lo cierran, o lo cierran sin llamar.
+        El alta NO guarda la llamada (`activity_history.itr_thread` vacío;
+        el `itr_thread.contact` del hilo del IVR es OTRO contacto, de
+        IVR_Avolo): se casa por campaña, teléfono y 10 minutos. Pendiente =
+        `activity.status` 0, 1 o 2. Del 01/10 al 06/11, 432 de 553 perdidas
+        de Ávolo tuvieron contacto; las demás no salen en su lista y tampoco
+        cuentan (el 06/11: 09:23 Nissan_Linares, 09:41 VW, 11:21 Seat_Cupra).
+        Solo cuentan los contactos de HOY: en Ávolo quedan 6 pendientes de
+        2024-2026 y en CEFF 3 ya reprogramados, que la encenderían siempre.
   - **Tarea nocturna (F5)**, `npm run planificacion:nocturno` a las 02:15:
     `nocturno.ts` (PURO, misma regla de ESLint) decide por fecha y
     `tarea-nocturna.ts` lo ejecuta. Idempotente y se pone al día sola:

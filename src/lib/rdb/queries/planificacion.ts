@@ -10,6 +10,7 @@ import {
   mockLlamadasPorDevolverHoy,
   mockUsuariosAgente,
 } from "../mock";
+import { obtenerEnums } from "../enums";
 import { esMock, obtenerPool, sql } from "../pool";
 import type {
   CierresDia,
@@ -436,6 +437,15 @@ export async function calendariosAltitude(): Promise<{ festivos: FestivoServicio
  * las 10:44). Del 01/09 al 06/11 fueron 38 de las 147 que quedaban sin
  * devolver en Ávolo y 27 de 33 en CEFF; a casi ninguna se la volvió a llamar
  * en los días siguientes (5 y 14).
+ * Y solo cuenta si el CONTACTO que se creó para devolverla sigue PENDIENTE
+ * (06/11/2026, a petición de supervisión): tras cada perdida, el IVR da de
+ * alta un contacto en la campaña con ese teléfono (AgentCreation, entre 13 y
+ * 92 s después; el alta no guarda la llamada, así que se casa por campaña,
+ * teléfono y los 10 minutos siguientes). Es la lista que trabajan las
+ * supervisoras: los que no hay que llamar los cierran («Terminado») sin
+ * llamar. Del 01/10 al 06/11, 432 de las 553 perdidas de Ávolo tuvieron su
+ * contacto; las otras no salen en esa lista y tampoco aquí. Pendiente =
+ * `activity.status` 0, 1 o 2 (los «vivos» de `estadoListas`).
  * Se cuentan NÚMEROS, no hilos: quien llama tres veces se devuelve una vez.
  * Antes contaba todas las perdidas del día aunque ya estuvieran devueltas
  * (16/10/2026: 9 «sin atender», todas devueltas).
@@ -445,16 +455,21 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
   if (campanias.length === 0) return { porDevolver: 0, primera: null, ultima: null, hilos: [] };
   if (esMock()) return mockLlamadasPorDevolverHoy(campanias);
   return conCache(`rdb:plan:porDevolver:${claveCampanias(campanias)}`, TTL.supervision, async () => {
+    const altas = Object.entries((await obtenerEnums()).ContactEventActionType ?? {})
+      .filter(([, nombre]) => nombre === "AgentCreation")
+      .map(([valor]) => Number(valor));
+    if (altas.length !== 1) throw new Error("rdb_enums no tiene ContactEventActionType.AgentCreation");
     const pool = await obtenerPool();
     const request = pool.request();
     const { desde, hastaExcl } = limitesRango(hoyISO(), hoyISO());
     request.input("desde", sql.DateTime, desde);
     request.input("hastaExcl", sql.DateTime, hastaExcl);
+    request.input("alta", sql.Int, altas[0]);
     const filtro = filtroCampanias(request, campanias, "c.shortname");
     const r = await request.query(`
       WITH perdidas AS (
           -- Entrantes de hoy en las campañas del cliente que no acabaron atendidas
-          SELECT t.code, t.itr_global, t.start_time, RTRIM(g.from_address) AS origen,
+          SELECT t.code, t.itr_global, t.campaign, t.start_time, RTRIM(g.from_address) AS origen,
                  RIGHT(RTRIM(g.from_address), 9) AS numero
           FROM itr_thread t
           INNER JOIN ph_campaign c ON t.campaign = c.code
@@ -472,6 +487,16 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
           INNER JOIN itr_global g ON g.code = t.itr_global
           WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
             AND (t.origin = 2 OR (t.origin = 1 AND t.termination_state = 1))
+      ),
+      contactos AS (
+          -- Contactos dados de alta hoy para devolver una perdida (el IVR los
+          -- crea con el teléfono en phone_01 y en el móvil), aún pendientes
+          SELECT a.campaign, h.event_moment AS alta,
+                 RIGHT(RTRIM(COALESCE(NULLIF(RTRIM(pf.phone_01_value), ''), pf.mobile_phone_value)), 9) AS numero
+          FROM activity_history h
+          INNER JOIN activity a ON a.code = h.activity AND a.status IN (0, 1, 2)
+          INNER JOIN ph_contact_profile pf ON pf.code = a.contact_profile
+          WHERE h.event_moment >= @desde AND h.event_moment < @hastaExcl AND h.event_action = @alta
       )
       -- Una fila por número pendiente; «hilo» = su primera perdida sin
       -- devolver (identifica la llamada en la campana sin guardar el teléfono)
@@ -486,6 +511,10 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
         -- Devuelta después, o llamada nuestra de antes que el cliente devuelve
         AND NOT EXISTS (SELECT 1 FROM agente a
                         WHERE a.numero = p.numero AND (a.start_time >= p.start_time OR a.origin = 2))
+        -- Con su contacto para devolverla aún pendiente (si lo cierran sin llamar, ya no)
+        AND EXISTS (SELECT 1 FROM contactos k
+                    WHERE k.campaign = p.campaign AND k.numero = p.numero
+                      AND k.alta >= p.start_time AND k.alta < DATEADD(MINUTE, 10, p.start_time))
       GROUP BY p.numero;
     `);
     const filas = r.recordset as { hilo: string; primera: string; ultima: string }[];
