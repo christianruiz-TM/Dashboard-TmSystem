@@ -14,6 +14,7 @@ const MENSAJES: Record<string, { texto: string; error: boolean }> = {
     error: true,
   },
   error_existe: { texto: "Ya existe un registro con ese nombre.", error: true },
+  error_servicio: { texto: "Ese servicio ya es de otro cliente: cada servicio puede tener un solo cliente.", error: true },
   error_cliente: { texto: "Los usuarios con rol cliente necesitan un cliente asignado.", error: true },
   error_propio: { texto: "No puedes desactivar tu propio usuario.", error: true },
   error_resultados: {

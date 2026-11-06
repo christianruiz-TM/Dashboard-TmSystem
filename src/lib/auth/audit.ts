@@ -21,6 +21,8 @@ export type AccionAuditoria =
   // Resultados de actividad: columnas, no válidos y objetivos
   | "config_resultados"
   | "export"
+  // «Mi servicio»: cada informe descargado (cliente, periodo, filtros y comentarios)
+  | "informe_mi_servicio"
   // Planificación de turnos
   | "plan_generar"
   | "plan_editar"

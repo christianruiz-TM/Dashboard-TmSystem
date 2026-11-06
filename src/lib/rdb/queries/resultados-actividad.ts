@@ -628,6 +628,36 @@ function claveCampo(c: CampoResultados | null): string {
 }
 
 /**
+ * La base de Resultados SIN calcular (contactos cerrados por día, campaña,
+ * agente y resultado), para «Mi servicio» (06/11/2026): la misma consulta y,
+ * sin `ttlMs`, la misma caché que la pestaña Resultados. Con `ttlMs`, caché
+ * propia (60 s cuando el rango llega a hoy).
+ */
+export async function baseResultadosRango(
+  desdeISO: string,
+  hastaISO: string,
+  campanias: string[] | undefined,
+  configs: ConfigResultados[],
+  ttlMs?: number,
+): Promise<BaseResultados> {
+  // Lista vacía: en filtroCampanias significaría «todas», así que no se consulta
+  if (campanias && campanias.length === 0) {
+    return { filas: [], textos: {}, servicioDeCampania: {}, niveles: {}, serviciosConfigurados: [] };
+  }
+  if (esMock()) {
+    const tablas = await tablasResultados();
+    const validas = configs.filter((c) => configValida(c, tablas));
+    const mapa = mapaCampaniaServicio(await listaServicios());
+    return montarBase(mockBaseResultados(desdeISO, hastaISO, campanias, validas), mockTextosResultados(), mapa, validas);
+  }
+  return conCache(
+    `rdb:resultados:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}:${claveConfigs(configs)}:${claveCampo(null)}${ttlMs ? `:t${ttlMs}` : ""}`,
+    ttlMs ?? ttlSegunRango(hastaISO),
+    () => baseResultadosCore(desdeISO, hastaISO, campanias, configs, null),
+  );
+}
+
+/**
  * Resultados de actividad de un rango (Supervisión → Resultados). Con
  * `campo`, trae además los valores de ese campo del contacto y, si lleva
  * filtro, se queda solo con los contactos que lo cumplen.

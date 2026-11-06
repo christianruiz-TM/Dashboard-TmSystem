@@ -93,16 +93,31 @@ export const sessions = sqliteTable(
   (t) => [index("idx_sessions_user").on(t.userId)],
 );
 
-export const clients = sqliteTable("clients", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  nombre: text("nombre").notNull().unique(),
-  activo: integer("activo", { mode: "boolean" }).notNull().default(true),
-  createdAt: integer("created_at", { mode: "timestamp" })
-    .notNull()
-    .default(sql`(unixepoch())`),
-});
+export const clients = sqliteTable(
+  "clients",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    nombre: text("nombre").notNull().unique(),
+    activo: integer("activo", { mode: "boolean" }).notNull().default(true),
+    /**
+     * Servicio de Altitude del cliente (ph_service.name), decidido el
+     * 06/11/2026: «Mi servicio» enseña todas sus campañas (sin IVR ni Test)
+     * y solo salen en su selector los servicios con cliente dado de alta, así
+     * que los internos (Bolsas, Socios, TMSYSTEM) no salen. Uno por cliente.
+     */
+    serviceName: text("service_name"),
+    createdAt: integer("created_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [uniqueIndex("uq_clients_service").on(t.serviceName)],
+);
 
-/** Mapeo cliente ↔ campañas de Altitude (ph_campaign.shortname). */
+/**
+ * Mapeo cliente ↔ campañas de Altitude (ph_campaign.shortname). Sin uso desde
+ * el 06/11/2026 (el cliente va por su servicio, `clients.service_name`); la
+ * tabla se queda, vacía en producción.
+ */
 export const clientCampaigns = sqliteTable(
   "client_campaigns",
   {

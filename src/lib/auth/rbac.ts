@@ -51,6 +51,17 @@ export const ROLES_PLAN_EDICION: Rol[] = ["supervision"];
  */
 export const ROLES_ALERTAS: Rol[] = ["supervision", "operaciones", "direccion"];
 
+/**
+ * «Mi servicio» (06/11/2026): el panel de cada cliente. Lo ven los roles
+ * internos, eligiendo cliente, y el rol cliente, solo el suyo.
+ */
+export const ROLES_MI_SERVICIO: Rol[] = ["supervision", "operaciones", "direccion"];
+
+/** ¿Elige cliente en «Mi servicio» y ve sus globos internos? (admin siempre). */
+export function esInternoMiServicio(rol: Rol): boolean {
+  return rol === "admin" || ROLES_MI_SERVICIO.includes(rol);
+}
+
 /** ¿Ve este rol la campana de alertas? (admin siempre). */
 export function veAlertas(rol: Rol): boolean {
   return rol === "admin" || ROLES_ALERTAS.includes(rol);
@@ -68,7 +79,7 @@ export function rutasVisibles(rol: Rol): { ruta: string; etiqueta: string }[] {
     { ruta: "/operaciones", etiqueta: "Operaciones", roles: ["admin", ...ROLES_OPERACIONES] },
     { ruta: "/supervision", etiqueta: "Supervisión", roles: ["admin", ...ROLES_SUPERVISION] },
     { ruta: "/planificacion", etiqueta: "Planificación", roles: ["admin", ...ROLES_PLAN_LECTURA] },
-    { ruta: "/clientes", etiqueta: "Mi servicio", roles: ["admin", "cliente"] },
+    { ruta: "/clientes", etiqueta: "Mi servicio", roles: ["admin", "cliente", ...ROLES_MI_SERVICIO] },
     { ruta: "/admin", etiqueta: "Administración", roles: ["admin"] },
   ];
   return todas

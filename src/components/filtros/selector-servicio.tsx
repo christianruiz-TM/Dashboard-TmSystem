@@ -40,9 +40,12 @@ export function SelectorServicio({
     const siguientes = new URLSearchParams(params.toString());
     if (servicio) siguientes.set("servicio", servicio);
     else siguientes.delete("servicio");
-    // El filtro por un dato del contacto (Resultados) es de cada cliente
+    // El filtro por un dato del contacto (Resultados), el tipo de campaña y
+    // la campaña («Mi servicio») son de cada cliente
     siguientes.delete("campo");
     siguientes.delete("modo");
+    siguientes.delete("tipo");
+    siguientes.delete("campania");
     router.push(`${ruta}?${siguientes.toString()}`);
   }
 

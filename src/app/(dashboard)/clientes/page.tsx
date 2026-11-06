@@ -1,318 +1,128 @@
 import type { Metadata } from "next";
-import Link from "next/link";
-import { Download } from "lucide-react";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
-import { Badge } from "@/components/ui/badge";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "@/components/ui/table";
-import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
-import { valoresOrden } from "@/lib/orden";
-import { GraficaLineas } from "@/components/graficas/grafica-lineas";
+import { Card, CardContent } from "@/components/ui/card";
 import { AvisoRango } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
-import { SelectorIvr } from "@/components/filtros/selector-ivr";
-import { Glosario } from "@/components/glosario";
-import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
-import { requireRol } from "@/lib/auth/rbac";
-import { campaniasDeCliente, listarClientes, obtenerCliente } from "@/lib/db/clientes";
-import { segundosLegibles, esquemaRango, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
-import { penetracionListas } from "@/lib/rdb/queries/outbound";
-import { volumenPorCampania, volumenPorDia } from "@/lib/rdb/queries/interacciones";
-import { esIvr } from "@/lib/rdb/queries/servicios";
+import { SelectorServicioActividad } from "@/components/filtros/selector-servicio-actividad";
+import { BotonInformeMiServicio } from "@/components/mi-servicio/boton-informe";
+import { FiltrosMiServicio } from "@/components/mi-servicio/filtros";
+import { RefrescoMiServicio } from "@/components/mi-servicio/interaccion";
+import { PanelMiServicio } from "@/components/mi-servicio/panel";
+import { requireRol, ROLES_MI_SERVICIO } from "@/lib/auth/rbac";
+import { esquemaRango, fechaCorta, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
+import { servicioDeMiServicio } from "@/lib/mi-servicio/acceso";
+import { cargarMiServicio } from "@/lib/mi-servicio/servidor";
+
+// ============================================================
+// «Mi servicio» (06/11/2026): el panel de un cliente, que en el futuro verán
+// los propios clientes. Hoy lo usan supervisión, operaciones y dirección
+// (eligen cliente: los dados de alta en Administración → Clientes con su
+// servicio de Altitude) y el rol cliente, cada uno solo el suyo. Cifras:
+// llamadas, finalizados, no válidos, éxitos y horas logadas, con sus ratios,
+// gráficas e informe descargable. Detalle en lib/mi-servicio.
+// ============================================================
 
 export const metadata: Metadata = { title: "Mi servicio" };
 export const dynamic = "force-dynamic";
 
-export default async function PaginaClientes({
+export default async function PaginaMiServicio({
   searchParams,
 }: {
-  searchParams: Promise<{ desde?: string; hasta?: string; cliente?: string; ivr?: string }>;
+  searchParams: Promise<{ desde?: string; hasta?: string; servicio?: string; tipo?: string; campania?: string }>;
 }) {
-  const usuario = await requireRol("cliente");
+  const usuario = await requireRol("cliente", ...ROLES_MI_SERVICIO);
   const params = await searchParams;
+  const presets = presetsRango();
+  const mes = presets.find((p) => p.etiqueta === "Mes actual")!;
+  const rango = esquemaRango.safeParse({ desde: params.desde ?? mes.desde, hasta: params.hasta ?? mes.hasta });
+  const { desde, hasta } = rango.success ? rango.data : mes;
 
-  // Resolución del cliente: los usuarios `cliente` SOLO ven el suyo;
-  // el admin puede elegir cliente con ?cliente=ID para revisar su portal.
-  let clientId: number | null = usuario.clientId;
-  if (usuario.rol === "admin") {
-    clientId = params.cliente ? Number(params.cliente) : (listarClientes()[0]?.id ?? null);
-  }
-  const cliente = clientId != null ? obtenerCliente(clientId) : undefined;
+  // El alcance lo decide el servidor: el cliente, siempre el suyo
+  const acceso = await servicioDeMiServicio(usuario, params.servicio);
 
-  if (!cliente || !cliente.activo) {
+  if (!acceso.interno && !acceso.servicio) {
     return (
       <Alert>
         <AlertTitle>Cuenta sin servicio asignado</AlertTitle>
         <AlertDescription>
-          Tu usuario no tiene ningún servicio asociado todavía. Contacta con TmSystem
-          para activar el acceso a tus campañas.
+          {acceso.clienteSinServicio
+            ? `${acceso.clienteSinServicio} aún no tiene su servicio activado.`
+            : "Tu usuario no tiene ningún servicio asociado todavía."}{" "}
+          Contacta con TM System para activar el acceso.
         </AlertDescription>
       </Alert>
     );
   }
 
-  const campanias = campaniasDeCliente(cliente.id);
-  if (campanias.length === 0) {
-    return (
-      <Alert>
-        <AlertTitle>{cliente.nombre}: sin campañas asignadas</AlertTitle>
-        <AlertDescription>
-          Aún no hay campañas mapeadas a este cliente. Un administrador puede
-          asignarlas en Administración → Clientes.
-        </AlertDescription>
-      </Alert>
-    );
-  }
-
-  const presets = presetsRango().filter((p) => p.etiqueta !== "Hoy");
-  const mesActual = presets.find((p) => p.etiqueta === "Mes actual")!;
-  const rango = esquemaRango.safeParse({
-    desde: params.desde ?? mesActual.desde,
-    hasta: params.hasta ?? mesActual.hasta,
-  });
-  const { desde, hasta } = rango.success ? rango.data : mesActual;
-
-  // IVR excluido salvo que se marque el check (las campañas IVR son automáticas)
-  const incluirIvr = params.ivr === "1";
-  const campaniasEf = incluirIvr ? campanias : campanias.filter((c) => !esIvr(c));
-
-  // ⚠ Scoping: las campañas del cliente viajan como parámetros del SQL
-  const [porDia, porCampania, listas] = await Promise.all([
-    volumenPorDia(desde, hasta, campaniasEf),
-    volumenPorCampania(desde, hasta, campaniasEf),
-    penetracionListas(desde, hasta, campaniasEf),
-  ]);
-
-  const total = porCampania.reduce((acc, c) => acc + c.total, 0);
-  const atendidas = porCampania.reduce((acc, c) => acc + c.atendidas, 0);
-  // Abandonadas = solo entrantes (glosario y regla 6.b): el % va sobre el inbound
-  const abandonadas = porCampania.reduce((acc, c) => acc + c.abandonadasInbound, 0);
-  const inbound = porCampania.reduce((acc, c) => acc + c.inbound, 0);
-  const ahtMedio =
-    atendidas > 0
-      ? porCampania.reduce((acc, c) => acc + (c.ahtSeg ?? 0) * c.atendidas, 0) / atendidas
-      : null;
-
-  const urlExport = `/api/export/cliente?desde=${desde}&hasta=${hasta}${
-    usuario.rol === "admin" ? `&cliente=${cliente.id}` : ""
-  }${incluirIvr ? "&ivr=1" : ""}`;
+  const carga = acceso.servicio
+    ? await cargarMiServicio({ servicio: acceso.servicio, desde, hasta, tipo: params.tipo, campania: params.campania })
+    : null;
+  const periodo = desde === hasta ? `el ${fechaCorta(desde)}` : `del ${fechaCorta(desde)} al ${fechaCorta(hasta)}`;
+  const filtro = carga?.datos.filtro.campania ?? carga?.datos.filtro.tipo ?? null;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold">Mi servicio · {cliente.nombre}</h1>
+          <h1 className="text-xl font-semibold">Mi servicio{acceso.servicio ? ` · ${acceso.servicio}` : ""}</h1>
           <p className="text-sm text-muted-foreground">
-            Actividad de tus campañas con TmSystem
+            Llamadas, contactos finalizados, éxitos y horas del equipo{acceso.servicio ? ` ${periodo}` : ""}.
           </p>
-          <div className="mt-1 flex flex-wrap gap-1">
-            {campanias.map((c) => (
-              <Badge key={c} variant="secondary" className="text-[10px]">
-                {c}
-              </Badge>
-            ))}
-          </div>
-        </div>
-        <div className="flex items-center gap-2">
-          {usuario.rol === "admin" ? (
-            <div className="flex items-center gap-1 text-xs">
-              <span className="text-muted-foreground">Ver como:</span>
-              {listarClientes().map((c) => (
-                <Link
-                  key={c.id}
-                  href={`/clientes?cliente=${c.id}&desde=${desde}&hasta=${hasta}`}
-                  className={
-                    c.id === cliente.id
-                      ? "rounded bg-primary px-2 py-1 font-medium text-primary-foreground"
-                      : "rounded border px-2 py-1 hover:bg-accent"
-                  }
-                >
-                  {c.nombre}
-                </Link>
-              ))}
+          {carga ? (
+            <div className="mt-1">
+              <RefrescoMiServicio enVivo={carga.enVivo} generado={carga.datos.generado} />
             </div>
           ) : null}
-          <Button variant="outline" size="sm" render={<a href={urlExport} />}>
-            <Download className="h-4 w-4" /> Exportar CSV
-          </Button>
         </div>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SelectorRango desde={desde} hasta={hasta} presets={presets} />
-        <SelectorIvr incluir={incluirIvr} />
-      </div>
-      <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
-
-      <div className="grid grid-cols-2 gap-3 md:grid-cols-5">
-        <TarjetaKpi titulo="Interacciones" valor={total.toLocaleString("es-ES")} />
-        <TarjetaKpi
-          titulo="Atendidas"
-          valor={atendidas.toLocaleString("es-ES")}
-          sub={total > 0 ? `${((atendidas / total) * 100).toFixed(1)} % del total` : undefined}
-        />
-        <TarjetaKpi
-          titulo="Abandonadas"
-          valor={abandonadas.toLocaleString("es-ES")}
-          sub={
-            inbound > 0 ? `${((abandonadas / inbound) * 100).toFixed(1)} % del inbound` : undefined
-          }
-        />
-        <TarjetaKpi titulo="AHT medio" valor={segundosLegibles(ahtMedio)} />
-        <TarjetaKpi
-          titulo="Campañas activas"
-          valor={String(porCampania.length)}
-          sub={`de ${campanias.length} contratadas`}
-        />
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Evolución diaria</CardTitle>
-          <CardDescription>
-            Interacciones de tus campañas entre {desde} y {hasta}
-          </CardDescription>
-        </CardHeader>
-        <CardContent>
-          <GraficaLineas
-            datos={porDia.map((d) => ({ ...d }))}
-            ejeX="fecha"
-            series={[
-              { clave: "total", nombre: "Interacciones", color: "var(--chart-1)" },
-              { clave: "atendidas", nombre: "Atendidas", color: "var(--chart-3)" },
-              { clave: "abandonadasInbound", nombre: "Abandonadas", color: "var(--chart-4)" },
-            ]}
+        {carga && acceso.servicio ? (
+          <BotonInformeMiServicio
+            peticion={{
+              servicio: acceso.servicio,
+              desde,
+              hasta,
+              tipo: carga.tipo === "todas" ? null : carga.tipo,
+              campania: carga.campania,
+            }}
+            resumen={`${acceso.servicio}, ${periodo}${filtro ? `, ${filtro}` : ""}`}
           />
-        </CardContent>
-      </Card>
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Resumen por campaña</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TablaOrdenable>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <CabeceraOrdenable col={0}>Campaña</CabeceraOrdenable>
-                    <CabeceraOrdenable col={1} numerica className="text-right">
-                      Interacciones
-                    </CabeceraOrdenable>
-                    <CabeceraOrdenable col={2} numerica className="text-right">
-                      Atendidas
-                    </CabeceraOrdenable>
-                    <CabeceraOrdenable col={3} numerica className="text-right">
-                      Abandonadas
-                    </CabeceraOrdenable>
-                    <CabeceraOrdenable col={4} numerica className="text-right">
-                      AHT
-                    </CabeceraOrdenable>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  <FilasOrdenables>
-                    {porCampania.map((c) => (
-                      <TableRow key={c.campania} data-orden={valoresOrden(c.campania, c.total, c.atendidas, c.abandonadasInbound, c.ahtSeg)}>
-                        <TableCell className="font-medium">{c.campania}</TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {c.total.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {c.atendidas.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {c.abandonadasInbound.toLocaleString("es-ES")}
-                        </TableCell>
-                        <TableCell className="text-right tabular-nums">
-                          {segundosLegibles(c.ahtSeg)}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </FilasOrdenables>
-                </TableBody>
-              </Table>
-            </TablaOrdenable>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Listas outbound</CardTitle>
-            <CardDescription>Penetración y resultados de tus listas</CardDescription>
-          </CardHeader>
-          <CardContent>
-            {listas.length === 0 ? (
-              <p className="py-6 text-center text-sm text-muted-foreground">
-                Sin campañas outbound con actividad en el período
-              </p>
-            ) : (
-              <TablaOrdenable>
-                <Table>
-                  <TableHeader>
-                    <TableRow>
-                      <CabeceraOrdenable col={0}>Lista</CabeceraOrdenable>
-                      <CabeceraOrdenable col={1} numerica className="text-right">
-                        Contactos
-                      </CabeceraOrdenable>
-                      <CabeceraOrdenable col={2} numerica className="text-right">
-                        Finalizados
-                      </CabeceraOrdenable>
-                      <CabeceraOrdenable col={3} numerica className="text-right">
-                        Éxitos
-                      </CabeceraOrdenable>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    <FilasOrdenables>
-                      {listas.map((l) => (
-                        <TableRow key={`${l.campania}-${l.lista}`} data-orden={valoresOrden(l.lista, l.totalContactos, l.done, l.exitos)}>
-                          <TableCell>
-                            <div className="font-medium">{l.lista}</div>
-                            <div className="text-xs text-muted-foreground">{l.campania}</div>
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {l.totalContactos.toLocaleString("es-ES")}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">
-                            {l.done.toLocaleString("es-ES")}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums text-emerald-700">
-                            {l.exitos.toLocaleString("es-ES")}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </FilasOrdenables>
-                  </TableBody>
-                </Table>
-              </TablaOrdenable>
-            )}
-          </CardContent>
-        </Card>
+        ) : null}
       </div>
 
-      <Glosario
-        titulo="Mi servicio"
-        claves={[
-          "interacciones",
-          "atendidas",
-          "abandonadas",
-          "abandono",
-          "aht",
-          "exitos",
-          "leads",
-          "penetracion",
-          "inboundOutbound",
-        ]}
-      />
+      <div className="flex flex-wrap items-center gap-x-6 gap-y-3">
+        {acceso.interno ? (
+          <SelectorServicioActividad servicios={acceso.opciones} valor={acceso.servicio ?? undefined} obligatorio />
+        ) : null}
+        {carga ? (
+          <FiltrosMiServicio
+            opcionesTipo={carga.opcionesTipo}
+            tipo={carga.tipo}
+            campanias={carga.campaniasFiltro}
+            campania={carga.campania}
+          />
+        ) : null}
+      </div>
+      <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+      <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes en curso" />
+
+      {!carga ? (
+        <Card>
+          <CardContent className="py-8 text-center text-sm text-muted-foreground">
+            {acceso.opciones.length === 0
+              ? "Aún no hay ningún cliente dado de alta con su servicio de Altitude. Un administrador lo hace en Administración → Clientes."
+              : "Elige un cliente para ver su panel."}
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {carga.tipo !== "todas" || carga.campania ? (
+            <p className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-100">
+              Con un tipo o una campaña elegida, las horas son las de la ficha abierta en esas campañas: las horas logadas son
+              de cada persona, que trabaja en varias campañas a la vez, y no se pueden repartir por campaña.
+            </p>
+          ) : null}
+          <PanelMiServicio carga={carga} interno={acceso.interno} />
+        </>
+      )}
     </div>
   );
 }

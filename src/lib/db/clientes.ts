@@ -1,18 +1,15 @@
-import { asc, eq } from "drizzle-orm";
+import { and, asc, eq, isNotNull, ne } from "drizzle-orm";
 import { db } from "./sqlite";
-import { clientCampaigns, clients, type Client } from "./schema";
+import { clients, type Client } from "./schema";
 
-/** Campañas (shortnames de Altitude) asignadas a un cliente. */
-export function campaniasDeCliente(clientId: number): string[] {
-  return db
-    .select({ campania: clientCampaigns.campaignShortname })
-    .from(clientCampaigns)
-    .where(eq(clientCampaigns.clientId, clientId))
-    .all()
-    .map((f) => f.campania);
-}
+// ============================================================
+// Clientes del portal «Mi servicio». Desde el 06/11/2026 cada cliente va por
+// su SERVICIO de Altitude (`service_name`), no por una lista de campañas:
+// ve todas las campañas del servicio (sin IVR ni Test). La tabla
+// client_campaigns se queda sin uso.
+// ============================================================
 
-/** Listado de clientes (activos primero, alfabético). */
+/** Listado de clientes (alfabético). */
 export function listarClientes(): Client[] {
   return db.select().from(clients).orderBy(asc(clients.nombre)).all();
 }
@@ -21,12 +18,31 @@ export function obtenerCliente(clientId: number): Client | undefined {
   return db.select().from(clients).where(eq(clients.id, clientId)).get();
 }
 
-/** Sustituye el mapeo completo de campañas de un cliente. */
-export function guardarCampaniasDeCliente(clientId: number, campanias: string[]): void {
-  db.delete(clientCampaigns).where(eq(clientCampaigns.clientId, clientId)).run();
-  if (campanias.length > 0) {
-    db.insert(clientCampaigns)
-      .values(campanias.map((campaignShortname) => ({ clientId, campaignShortname })))
-      .run();
-  }
+/**
+ * Servicios de Altitude con un cliente ACTIVO dado de alta: los que salen en
+ * el selector de «Mi servicio» (decidido 06/11/2026; los internos, como
+ * Bolsas, Socios o TMSYSTEM, no tienen cliente y no salen).
+ */
+export function serviciosConCliente(): string[] {
+  return db
+    .select({ servicio: clients.serviceName })
+    .from(clients)
+    .where(and(eq(clients.activo, true), isNotNull(clients.serviceName)))
+    .all()
+    .map((f) => f.servicio!)
+    .filter(Boolean);
+}
+
+/** ¿Hay OTRO cliente con ese servicio? (uno por servicio). */
+export function servicioOcupado(servicio: string, salvoClientId: number): boolean {
+  return !!db
+    .select({ id: clients.id })
+    .from(clients)
+    .where(and(eq(clients.serviceName, servicio), ne(clients.id, salvoClientId)))
+    .get();
+}
+
+/** Asigna (o quita, con null) el servicio de Altitude de un cliente. */
+export function guardarServicioCliente(clientId: number, servicio: string | null): void {
+  db.update(clients).set({ serviceName: servicio }).where(eq(clients.id, clientId)).run();
 }

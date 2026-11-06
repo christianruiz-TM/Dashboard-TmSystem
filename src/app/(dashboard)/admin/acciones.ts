@@ -9,7 +9,8 @@ import { clients, ROLES, users } from "@/lib/db/schema";
 import { obtenerSesion, cerrarSesionesDeUsuario } from "@/lib/auth/session";
 import { hashearPassword, validarPoliticaPassword } from "@/lib/auth/password";
 import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
-import { guardarCampaniasDeCliente } from "@/lib/db/clientes";
+import { guardarServicioCliente, servicioOcupado } from "@/lib/db/clientes";
+import { listaServicios } from "@/lib/rdb/queries/servicios";
 import { guardarAjuste } from "@/lib/db/settings";
 
 // ============================================================
@@ -191,22 +192,33 @@ export async function alternarActivoCliente(formData: FormData): Promise<void> {
   volverCon("/admin/clientes", "guardado");
 }
 
-export async function guardarMapeoCliente(formData: FormData): Promise<void> {
+/**
+ * Servicio de Altitude del cliente (06/11/2026): «Mi servicio» enseña todas
+ * sus campañas. Vacío = sin servicio. Solo servicios que existan en Altitude y
+ * uno por cliente.
+ */
+export async function guardarServicioDeCliente(formData: FormData): Promise<void> {
   const admin = await requireAdmin();
   const id = Number(formData.get("id"));
-  const campanias = formData.getAll("campanias").map(String);
-  if (!id) volverCon("/admin/clientes", "error_datos");
+  const servicio = String(formData.get("servicio") ?? "").trim() || null;
+  const cliente = id ? db.select().from(clients).where(eq(clients.id, id)).get() : undefined;
+  if (!cliente) volverCon("/admin/clientes", "error_datos");
+  if (servicio) {
+    const existe = (await listaServicios()).some((s) => s.servicio === servicio);
+    if (!existe) volverCon("/admin/clientes", "error_datos");
+    if (servicioOcupado(servicio, id)) volverCon("/admin/clientes", "error_servicio");
+  }
 
-  guardarCampaniasDeCliente(id, campanias);
+  guardarServicioCliente(id, servicio);
   registrarAuditoria({
     accion: "editar_cliente",
     userId: admin.id,
     username: admin.username,
-    detalle: `id=${id} campanias=${campanias.join(",") || "(ninguna)"}`,
+    detalle: `id=${id} servicio=${cliente.serviceName ?? "(ninguno)"} → ${servicio ?? "(ninguno)"}`,
     ip: await ipPeticion(),
   });
-  revalidatePath(`/admin/clientes/${id}`);
-  redirect(`/admin/clientes/${id}?msg=guardado`);
+  revalidatePath("/clientes");
+  volverCon("/admin/clientes", "guardado");
 }
 
 // ---------- Ajustes (las tarifas, desde el 19/10/2026, en Operaciones → Artículos) ----------

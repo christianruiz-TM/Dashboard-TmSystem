@@ -292,3 +292,13 @@ Sin registro aparte: el porqué y las cifras están en CLAUDE.md («Campana de a
 - 307 tests, `tsc` y ESLint en verde; la cadena del servidor probada contra RDBv2 sobre una copia de la SQLite de desarrollo.
 - Segunda vuelta, el mismo día: «le dan a visto y le sigue saliendo lo mismo, y está todo llamado». La versión nueva sí guardaba lo visto (4 usuarios con vistas del formato nuevo), pero había pestañas sin recargar (11 «Failed to find Server Action» de 10:21 a 10:58; Miriam y Patricia sin ninguna vista guardada) y la alerta contaba como pendientes a clientes que nos devolvían la llamada (CEFF: llamada a las 10:42, devolución a las 10:44). Ahora no cuenta la perdida de un número al que un agente ya llamó ese día (38 de 147 en Ávolo y 27 de 33 en CEFF del 01/09 al 06/11), y la campana pide recargar cuando el servidor cambia de versión.
 - Tercera vuelta: «hay contactos de Ávolo que no se tienen que llamar y los marcan como Terminados; tened en cuenta que estén pendientes». Tras cada perdida el IVR da de alta un contacto en la campaña con ese teléfono (AgentCreation, 13-92 s después): es la lista que trabajan. La alerta solo cuenta la perdida si ese contacto de hoy sigue pendiente (`status` 0/1/2); se casa por campaña, teléfono y 10 minutos porque el alta no guarda la llamada. 06/11 a las 14:13: Ávolo y CEFF a 0; sin el filtro de pendiente, la consulta encuentra los 9 contactos del día.
+
+### 27 · 06/11/2026 · «Mi servicio» con informe para el cliente y accesos de Planificación (Opus 5.5)
+
+Registro completo: `docs/registro-sesion-06-noviembre-2026-mi-servicio.md`. Detalle técnico en CLAUDE.md (regla 21 y «Planificación de turnos»). Sin commit ni despliegue todavía.
+
+- Planificación: botones «Horas» y «Ausencias» del mes en curso junto a «Hoy», y «Horas» en cada mes.
+- «Mi servicio» nuevo, para supervisión, operaciones, dirección y el rol cliente (solo el suyo): llamadas, finalizados, no válidos, éxitos y horas logadas con sus ratios, evolución, embudo, resultados, motivos de no válido y detalle por campaña, refresco cada 60 s y filtros por tipo y campaña.
+- Informe en un solo HTML de la marca (sin internet, filtrable por campaña, imprimible en A4) con comentarios; cada descarga, en la auditoría.
+- Cliente = servicio de Altitude (migración 0013); en el selector, solo los clientes dados de alta con su servicio.
+- Verificado contra RDBv2 (GH septiembre = Resultados y cajas) y en un `next build` + `next start` de una copia: pantalla, informe, PDF y que el usuario cliente solo ve lo suyo.

@@ -390,6 +390,53 @@ export async function ratiosDiariosAgenteCampania(
   return filasAgenteCampania(desdeISO, hastaISO, undefined, true);
 }
 
+/** Actividad de agente por día y campaña («Mi servicio», 06/11/2026). */
+export interface ActividadDiaCampania {
+  fecha: string;
+  campania: string;
+  /** Llamadas gestionadas (atendidas por un agente, sin preparaciones). */
+  gestionadas: number;
+  /** Sesiones de éxito, el día de la llamada (regla 17). */
+  exitos: number;
+  /** Segundos con la ficha del guion abierta (sesiones de menos de 2 h ya cerradas). */
+  guionSeg: number;
+}
+
+/**
+ * Gestionadas, éxitos y ficha abierta por día y campaña, sumando a los
+ * agentes: las MISMAS consultas que la base de los ratios (Q1 y Q2), así que
+ * la suma de los días da los totales de las cajas. `ttlMs` = caché propia
+ * (60 s en «Mi servicio» cuando el rango llega a hoy).
+ */
+export async function actividadDiariaCampania(
+  desdeISO: string,
+  hastaISO: string,
+  campanias?: string[],
+  ttlMs?: number,
+): Promise<ActividadDiaCampania[]> {
+  const sumar = (filas: (FilaDiariaRatios & Partial<TiemposSesionesRatios>)[]) => {
+    const mapa = new Map<string, ActividadDiaCampania>();
+    for (const f of filas) {
+      const clave = `${f.fecha}|${f.campania}`;
+      const a = mapa.get(clave) ?? { fecha: f.fecha, campania: f.campania, gestionadas: 0, exitos: 0, guionSeg: 0 };
+      a.gestionadas += f.atendidas;
+      a.exitos += f.exitos;
+      a.guionSeg += f.guionSeg ?? 0;
+      mapa.set(clave, a);
+    }
+    return [...mapa.values()];
+  };
+  if (esMock()) {
+    const filtro = campanias ? new Set(campanias) : null;
+    return sumar(mockRatiosDiarios(desdeISO, hastaISO).filter((f) => !filtro || filtro.has(f.campania)));
+  }
+  return conCache(
+    `rdb:ratios:diaCampania:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}${ttlMs ? `:t${ttlMs}` : ""}`,
+    ttlMs ?? ttlSegunRango(hastaISO),
+    async () => sumar(await filasAgenteCampania(desdeISO, hastaISO, campanias, true)),
+  );
+}
+
 /** Base de los ratios de HOY, cacheada 60 s (la usan los ratios y Salientes). */
 export async function baseRatiosHoy(campanias?: string[]): Promise<BaseRatiosExito> {
   const hoy = hoyISO();
@@ -416,11 +463,16 @@ export async function baseRatiosRango(
   desdeISO: string,
   hastaISO: string,
   campanias?: string[],
+  /**
+   * Caché propia con este TTL («Mi servicio» se refresca cada 60 s cuando el
+   * rango llega a hoy, 06/11/2026). Va en otra clave: no acorta la del resto.
+   */
+  ttlMs?: number,
 ): Promise<BaseRatiosExito> {
   if (esMock()) return mockBaseRatiosExito(desdeISO, hastaISO, campanias);
   return conCache(
-    `rdb:ratios:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}`,
-    ttlSegunRango(hastaISO),
+    `rdb:ratios:${desdeISO}:${hastaISO}:${claveCampanias(campanias)}${ttlMs ? `:t${ttlMs}` : ""}`,
+    ttlMs ?? ttlSegunRango(hastaISO),
     () => baseRatiosCore(desdeISO, hastaISO, campanias),
   );
 }

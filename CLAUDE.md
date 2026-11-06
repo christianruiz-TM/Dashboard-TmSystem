@@ -631,6 +631,60 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       espera, AHT, ACW, éxitos y ratios). Marca en verde la mejor solo donde
       hay mejor y peor (no en volumen).
 
+21. **«Mi servicio» (`/clientes`, decidido con Christian el 06/11/2026)**: el
+    panel de UN cliente, que en el futuro verán los propios clientes. Lo ven
+    supervisión, operaciones y dirección (`ROLES_MI_SERVICIO`, eligen
+    cliente) y el rol cliente (solo el suyo). Registro con todas las
+    decisiones: `docs/registro-sesion-06-noviembre-2026-mi-servicio.md`.
+    - **Cliente = servicio de Altitude**: `clients.service_name` (migración
+      0013, único), elegido en Administración → Clientes. `client_campaigns`
+      queda sin uso. En el selector solo salen los servicios con un cliente
+      ACTIVO dado de alta: los internos (Bolsas, Socios, TMSYSTEM: usuarios
+      `Bol_`, `Soc_`, `TM_`) no tienen cliente y no salen. El alcance lo
+      decide SIEMPRE el servidor (`lib/mi-servicio/acceso.ts`, página y
+      descarga): el rol cliente ve su servicio pida lo que pida.
+    - Siempre un cliente, IVR siempre fuera, filtros por tipo de campaña (los
+      de `/admin/resultados`) y por una campaña. Mes en curso por defecto, sin
+      comparar con el periodo anterior; si el rango llega a hoy, se refresca
+      cada 60 s con caché de 60 s en claves propias (`ttlMs`), que no acortan
+      la del resto de paneles.
+    - **Cifras**: llamadas = caja 2 (todas; gestionadas debajo); finalizados
+      = caja 3 (Resultados; el globo interno da la cifra de facturación,
+      descartada); no válidos de `/admin/resultados` («Sin configurar» si no
+      hay); éxitos = caja 4 (sesiones, día de la llamada); horas = caja 1
+      (prefijo de la línea «horas logadas», sin cambios). Ratios: llamadas y
+      éxitos por hora, finalizados por éxito, % no válidos, aprovechamiento
+      bruto y neto. El embudo y los aprovechamientos usan los **«finalizados
+      con éxito»** (contactos cerrados en éxito), con ese nombre.
+    - **Con un tipo o una campaña, las horas son las de la ficha abierta** en
+      esas campañas (las logadas son de la persona, regla 11). Descartadas:
+      las logadas enteras de quien trabajó en ellas y ocultarlas. Lo dice el
+      globo interno.
+    - Nada por agente, ni en pantalla ni en el informe. Nombres de campaña
+      de Altitude, tal cual.
+    - Fuentes por día y campaña (`lib/mi-servicio/servidor.ts`):
+      `llamadasDiaCampania` y `horasLogadasDia` (`queries/mi-servicio.ts`;
+      cada tramo de `user_log` en el día en que empieza, para que los días
+      sumen la caja), `actividadDiariaCampania` (Q1 y Q2 de los ratios) y
+      `baseResultadosRango` (la base de Resultados, misma caché). GH
+      septiembre = Resultados y las cajas al número.
+    - **Motor, vista y dibujo AUTOCONTENIDOS** (`lib/mi-servicio/motor.ts`,
+      `vista.ts`, `dibujo.ts`): sin imports ni variables de fuera, porque el
+      informe los lleva dentro con `toString()` y recalcula en el navegador
+      al quitar campañas. Los tests comprueban que la copia de texto da lo
+      mismo. esbuild (tsx, vitest) mete `__name(...)`: el programa del
+      informe lo define vacío. No añadirles imports.
+    - **Informe** (`api/export/mi-servicio`, POST con JSON): un HTML sin nada
+      de internet (logo en base64, `lib/mi-servicio/logo.ts`), ya pintado
+      (se lee sin JavaScript), con filtro de campañas, globos, glosario para
+      el cliente, comentarios de quien lo descarga, pie de contacto de
+      tmsystem.es e impresión en A4. Lleva lo que hay en pantalla (cliente,
+      periodo, filtros) y NUNCA lo interno. Cada descarga: `audit_log`
+      `informe_mi_servicio` (cliente, periodo, filtros y comentarios).
+    - Gráficas propias en SVG con la skill de visualización: paleta validada
+      en claro y oscuro (`lib/mi-servicio/estilos.ts`, el mismo CSS en
+      pantalla e informe), una escala por panel, globo en cada marca y tabla.
+
 ## Referencia del esquema RDBv2
 
 - `docs/referencia_bbdd_altitude_v85.md` — esquema completo, enumerados, relaciones
@@ -810,6 +864,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     y TODAS las Server Actions (`acciones.ts` de cada carpeta), solo
     supervisión. Cliente, nunca. Como en el resto del panel, cada `page.tsx` y
     cada acción llaman a `requireRol` (el layout de configuración es solo menú).
+    Accesos directos (06/11/2026, pedido por Christian): «Horas» (semana de
+    hoy) y «Ausencias» del mes en curso junto a «Hoy» en `/planificacion`, y
+    «Horas» en la fila de cada mes.
   - **La configuración vive en SQLite**: no hardcodear clientes, colores,
     agentes, contratos, patrones ni parámetros; se editan en
     `/planificacion/configuracion` y cada cambio queda en `audit_log`
@@ -1860,8 +1917,9 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 6. ~~KPI de ocupación (productivas / logadas) y % ready.~~ Hecho el
    22-23/10/2026 en «Salientes»: ocupación = script abierto ÷ horas logadas
    y tiempo esperando llamada (Ready sin ficha abierta), por agente y global.
-7. Cerrar o completar el portal de clientes: 0 mapeos en `client_campaigns`,
-   0 usuarios con rol `cliente` → hoy da error si alguien entra.
+7. ~~Cerrar o completar el portal de clientes~~ Rehecho el 06/11/2026 como
+   «Mi servicio» (regla 21). Falta dar de alta en producción los clientes
+   externos con su servicio y, cuando se decida, sus usuarios `cliente`.
 8. Seguimiento de callbacks del IVR: el mecanismo ya se conoce (se liga por
    el número, 16/10/2026, ver «Campañas IVR») y lo usa la alerta de Ávolo;
    falta enseñar «devuelta/pendiente» en la tarjeta IVR de Supervisión.

@@ -32,6 +32,7 @@ const ACCIONES = [
   "editar_cliente",
   "config_facturacion",
   "export",
+  "informe_mi_servicio",
   "plan_generar",
   "plan_editar",
   "plan_publicar",
