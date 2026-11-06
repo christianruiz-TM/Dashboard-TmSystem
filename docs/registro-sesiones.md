@@ -295,7 +295,7 @@ Sin registro aparte: el porqué y las cifras están en CLAUDE.md («Campana de a
 
 ### 27 · 06/11/2026 · «Mi servicio» con informe para el cliente y accesos de Planificación (Opus 5.5)
 
-Registro completo: `docs/registro-sesion-06-noviembre-2026-mi-servicio.md`. Detalle técnico en CLAUDE.md (regla 21 y «Planificación de turnos»). Sin commit ni despliegue todavía.
+Registro completo: `docs/registro-sesion-06-noviembre-2026-mi-servicio.md`. Commits `75ad403` y `815f2ae`, desplegados el 06/11 a las 14:33 (imagen `179eea0feb3c`, migración 0013, backup `dashboard_20261106_1431.db`, `despliegue-linux.md` §9). Detalle técnico en CLAUDE.md (regla 21 y «Planificación de turnos»).
 
 - Planificación: botones «Horas» y «Ausencias» del mes en curso junto a «Hoy», y «Horas» en cada mes.
 - «Mi servicio» nuevo, para supervisión, operaciones, dirección y el rol cliente (solo el suyo): llamadas, finalizados, no válidos, éxitos y horas logadas con sus ratios, evolución, embudo, resultados, motivos de no válido y detalle por campaña, refresco cada 60 s y filtros por tipo y campaña.

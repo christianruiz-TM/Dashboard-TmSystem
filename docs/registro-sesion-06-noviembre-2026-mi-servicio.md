@@ -118,10 +118,12 @@ mandar al cliente, en un solo HTML portable e interactivo.
 
 ### Pendiente
 
-- **Despliegue** (no hecho): migración 0013, así que `npm run backup` antes
-  de `up -d`. Después, dar de alta en Administración → Clientes los clientes
-  externos con su servicio (GH, UGR, CEFF, CajaRural, Ávolo…): sin eso, el
-  selector de «Mi servicio» sale vacío.
+- **Desplegado** el 06/11/2026 a las 14:33: commits `75ad403` y `815f2ae`, imagen
+  `179eea0feb3c`, migración 0013, backup `dashboard_20261106_1431.db`. Desde
+  `tareas`, GH septiembre = desarrollo al número. Falta dar de alta en
+  Administración → Clientes los clientes externos con su servicio (GH, UGR,
+  CEFF, CajaRural, Ávolo…): en producción solo hay «GrupoHuertas», inactivo y
+  sin servicio, así que el selector de «Mi servicio» sale vacío.
 - Captura `inicio` de la ayuda de Planificación, guía de Claude Docs y guía
   HTML.
 - Ávolo no tiene prefijo de usuarios (factura por leads): sus horas logadas
