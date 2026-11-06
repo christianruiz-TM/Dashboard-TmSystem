@@ -1008,6 +1008,12 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         número después, ni entrante suya atendida. Una devolución que da
         ocupado YA cuenta como hecha (decidido con Christian). Sin número de
         9 cifras no se puede devolver y no cuenta.
+      - **Números de otro país fuera** (06/11/2026): la llamada de Alemania
+        (`004923122400031`) del 05/11 a las 10:05 nadie la devolvió y dejó
+        la alerta encendida todo el día. Del 01/09 al 06/11 hubo 2 perdidas
+        de fuera (0049, 0036) y ninguna se devolvió, frente a 991 de 1.125
+        españolas en 3 días. Solo cuentan las de 9 cifras, con o sin 34,
+        0034 o +34 delante.
   - **Tarea nocturna (F5)**, `npm run planificacion:nocturno` a las 02:15:
     `nocturno.ts` (PURO, misma regla de ESLint) decide por fecha y
     `tarea-nocturna.ts` lo ejecuta. Idempotente y se pone al día sola:
@@ -1041,10 +1047,29 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   - Suena al aparecer una alerta nueva sin ver (alta o media; nunca al abrir
     la página) y recuerda las ALTAS sin ver cada N minutos (por defecto 3;
     nunca/1/3/5/10/15). «Vista», el sonido y el recordatorio son POR USUARIO
-    (`app_settings` `alertas.usuario.<id>`, sin migración); las vistas se
-    olvidan cuando la alerta desaparece, para que vuelva a sonar si vuelve.
+    (`app_settings` `alertas.usuario.<id>`, sin migración).
     Lógica pura con tests en `lib/alertas-panel.ts`; servidor en
     `lib/alertas-servidor.ts`; acciones en `(dashboard)/alertas-acciones.ts`.
+  - **Lo que se marca como visto son las PARTES de la alerta** (06/11/2026,
+    «suena todo el rato aunque la marquemos»). Antes se guardaba el `id` y se
+    olvidaba en cuanto la alerta desaparecía. La de Ávolo desaparece cada vez
+    que alguien se conecta con `Av_`. El 05/11 (Av_ de 09:20 a 11:49, de 12:00
+    a 12:18, de 13:26 a 14:40 y de 17:26 a 20:29) volvió «nueva» a las 11:49,
+    12:18, 14:40 y 20:29, y cada vez sonaba y había que marcarla otra vez.
+    - Partes (`Alerta.partes`, `planificacion/alertas.ts`): una por llamada
+      por devolver (`itr_thread.code` de su primera perdida, sin guardar el
+      teléfono); la franja bajo el mínimo; agente y hora desde la que falta
+      (la misma suelta que en la lista de más de 3); el cliente retrasado.
+      Llevan la fecha delante (`plan|YYYY-MM-DD|tipo|…`).
+    - Vista = todas sus partes vistas. Una parte nueva (otra perdida, otra
+      franja, otra desconexión) vuelve a sonar; la misma alerta que se va y
+      vuelve, no.
+    - Las vistas de HOY se guardan hasta el día siguiente aunque la alerta
+      desaparezca; las de otros días, mientras siga activa
+      (`podarVistas`).
+    - En la pestaña, lo ya salido no vuelve a ser «nuevo» (la alerta sin ver
+      que va y vuelve la recuerda el recordatorio), y una consulta que
+      salió antes de marcar no deshace el «vista».
   - Número en el título de la pestaña y `public/favicon-alerta.svg` en su
     icono; aviso de Windows solo con la dirección marcada como segura en el
     PC (HTTP: `docs/notificaciones-escritorio.md`). El navegador no deja

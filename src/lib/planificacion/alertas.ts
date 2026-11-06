@@ -17,6 +17,11 @@
 //      la tarjeta).
 //   4. Campaña saliente retrasada: horas reales de la semana por debajo del
 //      X % de lo planificado hasta ahora.
+//
+// Cada alerta lleva sus `partes` (06/11/2026): lo que la hace la MISMA
+// alerta para la campana. Una parte nueva (otra llamada por devolver, otra
+// franja bajo el mínimo, otra desconexión) vuelve a avisar; la misma alerta
+// que desaparece un rato y vuelve (alguien se conecta con Av_ y se va), no.
 // ============================================================
 
 export type TipoAlerta = "a_demanda" | "bajo_minimo" | "sin_conectar" | "retraso";
@@ -27,6 +32,8 @@ export interface Alerta {
   mensaje: string;
   cliente?: string;
   agente?: string;
+  /** Qué la hace la misma alerta: la campana la da por vista cuando ha visto todas. */
+  partes: string[];
 }
 
 export interface ClienteAlertas {
@@ -52,8 +59,11 @@ export interface DatosAlertas {
   minimosBase: readonly number[] | null;
   /** Tiempo logado HOY por agente (minutos), con el cliente del usuario. */
   logadoHoy: readonly { agenteNumero: string; inicioMin: number; finMin: number; clienteCodigo: string | null }[];
-  /** Llamadas perdidas de hoy y aún sin devolver de cada cliente a demanda (horas «HH:MM»). */
-  aDemanda: readonly { cliente: string; porDevolver: number; primera: string | null }[];
+  /**
+   * Llamadas perdidas de hoy y aún sin devolver de cada cliente a demanda
+   * (horas «HH:MM»); `hilos`, una por número pendiente (`llamadasPorDevolverHoy`).
+   */
+  aDemanda: readonly { cliente: string; porDevolver: number; primera: string | null; hilos: readonly string[] }[];
   /** Por cliente objetivo: horas planificadas y reales de la semana hasta ahora. */
   semana: readonly { cliente: string; planificadoH: number; realH: number }[];
   nombres: Readonly<Record<string, string>>;
@@ -87,6 +97,7 @@ export function evaluarAlertas(d: DatosAlertas): Alerta[] {
       tipo: "a_demanda",
       gravedad: "alta",
       cliente: x.cliente,
+      partes: x.hilos.map((h) => `${x.cliente}|${h}`),
       mensaje: `${c?.nombre ?? x.cliente}: ${x.porDevolver} ${una ? "llamada" : "llamadas"} por devolver${desde} y nadie conectado con ${usuario}: que alguien con ese usuario se conecte y ${una ? "la" : "las"} devuelva.`,
     });
   }
@@ -106,6 +117,7 @@ export function evaluarAlertas(d: DatosAlertas): Alerta[] {
         tipo: "bajo_minimo",
         gravedad: "alta",
         cliente: d.clienteBase,
+        partes: [`${d.clienteBase}|${hhmm(inicio)}`],
         mensaje: `${d.clienteBase} por debajo del mínimo: ${hay} ${hay === 1 ? "agente conectado" : "agentes conectados"} con ${grupo} para un mínimo de ${minimo} (franja ${hhmm(inicio)}-${hhmm(inicio + d.pasoMin)}).`,
       });
     }
@@ -132,6 +144,8 @@ export function evaluarAlertas(d: DatosAlertas): Alerta[] {
       gravedad: "media",
       agente: b.agenteNumero,
       cliente: b.clienteCodigo,
+      // La misma parte suelta que dentro de la lista: pasar de una a otra no vuelve a avisar
+      partes: [`${b.agenteNumero}|${hhmm(desde)}`],
       mensaje:
         ultimaSalida > b.inicioMin
           ? `${nombre(b.agenteNumero)}: planificado en ${c} y desconectado desde las ${hhmm(ultimaSalida)}.`
@@ -143,6 +157,7 @@ export function evaluarAlertas(d: DatosAlertas): Alerta[] {
     alertas.push({
       tipo: "sin_conectar",
       gravedad: "media",
+      partes: sinConectar.flatMap((a) => a.partes),
       mensaje: `${sinConectar.length} agentes planificados y sin conectar: ${resumenSin.join(", ")}.`,
     });
   } else {
@@ -158,6 +173,7 @@ export function evaluarAlertas(d: DatosAlertas): Alerta[] {
       tipo: "retraso",
       gravedad: "media",
       cliente: s.cliente,
+      partes: [s.cliente],
       mensaje: `La campaña de ${s.cliente} va retrasada: ${h2(s.realH)} h trabajadas esta semana de ${h2(s.planificadoH)} h planificadas hasta ahora (${Math.round(pct)} %).`,
     });
   }

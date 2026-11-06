@@ -473,6 +473,12 @@ export interface LlamadasPorDevolver {
   /** HH:MM de la primera y la última perdida sin devolver de hoy (null si ninguna). */
   primera: string | null;
   ultima: string | null;
+  /**
+   * Por número pendiente, el código de su primera perdida sin devolver
+   * (`itr_thread.code`): la campana sabe así si es una llamada nueva o la
+   * que ya se vio, sin guardar el teléfono.
+   */
+  hilos: string[];
 }
 
 // ------------------------------------------------------------

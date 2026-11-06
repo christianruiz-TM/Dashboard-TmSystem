@@ -1028,7 +1028,9 @@ export function mockHorariosServicio(): HorarioServicio[] {
 export function mockLlamadasPorDevolverHoy(campanias: string[]): LlamadasPorDevolver {
   const r = rng(`porDevolver|${new Date().toISOString().slice(0, 13)}|${campanias.join(",")}`);
   const n = entre(r, 0, 4);
-  return n === 0 ? { porDevolver: 0, primera: null, ultima: null } : { porDevolver: n, primera: "09:12", ultima: "11:40" };
+  return n === 0
+    ? { porDevolver: 0, primera: null, ultima: null, hilos: [] }
+    : { porDevolver: n, primera: "09:12", ultima: "11:40", hilos: Array.from({ length: n }, (_, i) => `demo${i + 1}`) };
 }
 
 // ---------- Resultados de actividad (regla 18) ----------

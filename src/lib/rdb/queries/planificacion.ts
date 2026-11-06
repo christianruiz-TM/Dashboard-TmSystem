@@ -425,13 +425,17 @@ export async function calendariosAltitude(): Promise<{ festivos: FestivoServicio
  * cruza por sus 9 últimos dígitos: la saliente lleva el account code delante
  * en `to_address` (1217614805750 → 614805750), como en la tarificación. Las
  * perdidas sin un número de 9 cifras no se pueden devolver y no cuentan.
+ * Tampoco las de otro país (06/11/2026): del 01/09 al 06/11 hubo 2 (0049… y
+ * 0036…) y no se devolvió ninguna, frente a 991 de 1.125 españolas; la
+ * alemana del 05/11 dejó la alerta encendida todo el día. Español = 9 cifras,
+ * con o sin 34, 0034 o +34 delante.
  * Se cuentan NÚMEROS, no hilos: quien llama tres veces se devuelve una vez.
  * Antes contaba todas las perdidas del día aunque ya estuvieran devueltas
  * (16/10/2026: 9 «sin atender», todas devueltas).
  */
 export async function llamadasPorDevolverHoy(campanias: string[]): Promise<LlamadasPorDevolver> {
   // Sin campañas no hay nada que vigilar (y el filtro vacío lo abriría a todas)
-  if (campanias.length === 0) return { porDevolver: 0, primera: null, ultima: null };
+  if (campanias.length === 0) return { porDevolver: 0, primera: null, ultima: null, hilos: [] };
   if (esMock()) return mockLlamadasPorDevolverHoy(campanias);
   return conCache(`rdb:plan:porDevolver:${claveCampanias(campanias)}`, TTL.supervision, async () => {
     const pool = await obtenerPool();
@@ -443,7 +447,8 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
     const r = await request.query(`
       WITH perdidas AS (
           -- Entrantes de hoy en las campañas del cliente que no acabaron atendidas
-          SELECT t.itr_global, t.start_time, RIGHT(RTRIM(g.from_address), 9) AS numero
+          SELECT t.code, t.itr_global, t.start_time, RTRIM(g.from_address) AS origen,
+                 RIGHT(RTRIM(g.from_address), 9) AS numero
           FROM itr_thread t
           INNER JOIN ph_campaign c ON t.campaign = c.code
           INNER JOIN itr_global g ON g.code = t.itr_global
@@ -461,15 +466,26 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
           WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
             AND (t.origin = 2 OR (t.origin = 1 AND t.termination_state = 1))
       )
-      SELECT COUNT(DISTINCT p.numero)                     AS porDevolver,
+      -- Una fila por número pendiente; «hilo» = su primera perdida sin
+      -- devolver (identifica la llamada en la campana sin guardar el teléfono)
+      SELECT CAST(MIN(p.code) AS varchar(20))             AS hilo,
              CONVERT(varchar(5), MIN(p.start_time), 108) AS primera,
              CONVERT(varchar(5), MAX(p.start_time), 108) AS ultima
       FROM perdidas p
       WHERE LEN(p.numero) = 9 AND p.numero NOT LIKE '%[^0-9]%'
+        AND (LEN(p.origen) = 9 OR p.origen LIKE '34_________' OR p.origen LIKE '0034_________'
+             OR p.origen LIKE '+34_________')
         AND NOT EXISTS (SELECT 1 FROM agente a WHERE a.itr_global = p.itr_global)
-        AND NOT EXISTS (SELECT 1 FROM agente a WHERE a.numero = p.numero AND a.start_time >= p.start_time);
+        AND NOT EXISTS (SELECT 1 FROM agente a WHERE a.numero = p.numero AND a.start_time >= p.start_time)
+      GROUP BY p.numero;
     `);
-    const f = r.recordset[0] as LlamadasPorDevolver;
-    return { ...f, porDevolver: f.porDevolver ?? 0 };
+    const filas = r.recordset as { hilo: string; primera: string; ultima: string }[];
+    const horas = filas.flatMap((f) => [f.primera, f.ultima]).sort();
+    return {
+      porDevolver: filas.length,
+      primera: horas[0] ?? null,
+      ultima: horas.at(-1) ?? null,
+      hilos: filas.map((f) => f.hilo).sort(),
+    };
   });
 }

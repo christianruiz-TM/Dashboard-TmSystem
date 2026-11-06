@@ -3,6 +3,7 @@
 // app_settings (`alertas.usuario.<id>`, sin migración), como pidió
 // supervisión: por usuario, iguales en cualquier PC. Lógica en alertas-panel.ts.
 import { guardarAjuste, obtenerAjuste } from "@/lib/db/settings";
+import { hoyISO } from "@/lib/fechas";
 import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
 import {
   alertasDePlanificacion,
@@ -27,24 +28,26 @@ export function guardarPreferenciasAlertas(userId: number, p: PreferenciasAlerta
  * «Hoy» (sus consultas a RDBv2 van cacheadas 60 s y compartidas entre todos
  * los que miran). Si una fuente falla, las demás siguen y se avisa.
  */
-export async function alertasCampana(): Promise<{ alertas: AlertaPanel[]; errores: string[] }> {
+export async function alertasCampana(hoy = hoyISO()): Promise<{ alertas: AlertaPanel[]; errores: string[] }> {
   const plan = await alertasPlanificacion();
   return {
-    alertas: alertasDePlanificacion(plan.alertas, plan.revisar),
+    alertas: alertasDePlanificacion(plan.alertas, plan.revisar, hoy),
     errores: plan.error ? [`Planificación: ${plan.error}`] : [],
   };
 }
 
 /**
- * Alertas y preferencias de un usuario. Las «vistas» que ya no están activas
- * se olvidan (y se guarda), para que una alerta que vuelve suene otra vez.
- * Si la consulta falló, no se olvida nada: no se sabe qué sigue activo.
+ * Alertas y preferencias de un usuario. Las «vistas» de otros días que ya no
+ * están activas se olvidan (y se guarda); las de hoy se quedan hasta mañana
+ * (`podarVistas`). Si la consulta falló, no se olvida nada: no se sabe qué
+ * sigue activo.
  */
 export async function campanaDeUsuario(userId: number) {
-  const { alertas, errores } = await alertasCampana();
+  const hoy = hoyISO();
+  const { alertas, errores } = await alertasCampana(hoy);
   const preferencias = preferenciasAlertas(userId);
   if (errores.length === 0) {
-    const vistas = podarVistas(preferencias.vistas, alertas);
+    const vistas = podarVistas(preferencias.vistas, alertas, hoy);
     if (vistas.length !== preferencias.vistas.length) {
       preferencias.vistas = vistas;
       guardarPreferenciasAlertas(userId, preferencias);

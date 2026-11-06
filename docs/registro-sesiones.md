@@ -280,3 +280,13 @@ Sin registro aparte: el porqué y las cifras están en CLAUDE.md (regla 6, «Los
 - Commit `fceff23`, desplegado el 05/11 a las 12:55 (imagen `c0a2b232ccc9`, backup `dashboard_20261105_1254.db`, `despliegue-linux.md` §9), con los dos agregados recalculados desde el 01/06/2025. Comprobado en producción: CEFF 04/11 = informe y octubre, agregado = en vivo.
 - Las entrantes desbordadas (estado 9, Overflow; 1.361 en GH desde el 01/09, todas con su hilo del IVR) siguen la misma regla, decidido el mismo día.
 - La caja «Llamadas» (la 2 de las 12) cuenta TODAS las llamadas, contesten o no, y las gestionadas salen debajo. Lo pidió Christian porque supervisión contaba 192 llamadas hechas en gh_bbdd_autoclasse el 04/11 y la caja decía 124; ahora dice 194 (189 salientes + 5 entrantes). Llamadas por hora y por éxito siguen con las gestionadas. Commit `98753b4`, desplegado el 05/11 a las 13:28 (imagen `40cbc1e13790`, backup `dashboard_20261105_1326.db`).
+
+### 26 · 06/11/2026 · La campana de alertas sonaba todo el rato con Ávolo (Opus 5.5)
+
+Sin registro aparte: el porqué y las cifras están en CLAUDE.md («Campana de alertas» y la alerta de Ávolo en «Alertas» de Planificación).
+
+- «Siempre muestra la misma aunque la marquemos como leída y no hay contactos de Ávolo para llamar»: el 05/11 sonaba toda la tarde por la llamada de las 10:05.
+- Dos causas. Esa llamada venía de Alemania (`004923122400031`) y nadie la devolvió: las otras 20 perdidas del día sí. Y la campana olvidaba el «vista» cada vez que la alerta desaparecía, que en Ávolo es cada vez que alguien se conecta con `Av_`: a las 11:49, 12:18, 14:40 y 20:29 volvía «nueva» y sonaba.
+- La alerta de Ávolo solo cuenta números españoles: del 01/09 al 06/11 hubo 2 perdidas de fuera y ninguna se devolvió, frente a 991 de 1.125 españolas. El 05/11 cierra a 0; el 03 y el 04/11 quedó una española en cada uno, que no se ha devuelto nunca.
+- La campana marca como vistas las PARTES de cada alerta (cada llamada por devolver, la franja, la desconexión de cada agente), con la fecha, y las de hoy se guardan hasta mañana. Una parte nueva vuelve a sonar; la misma alerta que va y vuelve, no.
+- 307 tests, `tsc` y ESLint en verde; la cadena del servidor probada contra RDBv2 sobre una copia de la SQLite de desarrollo.

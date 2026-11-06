@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTitle, PopoverTrigger } from "@/components/ui/popover";
 import { Switch } from "@/components/ui/switch";
 import {
+  estaVista,
   NOMBRE_ORIGEN,
   RECORDATORIOS_MIN,
   sinVer,
@@ -54,8 +55,11 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
   const [permiso, setPermiso] = useState<PermisoEscritorio>("no_disponible");
   const [abierta, setAbierta] = useState(false);
   const [, iniciar] = useTransition();
+  /** Partes que ya han salido en esta pestaña: si se van y vuelven, no son nuevas. */
   const antes = useRef<Set<string> | null>(null);
   const ultimoSonido = useRef(0);
+  /** Marcadas aquí y quizá aún sin guardar: una consulta que salió antes no las deshace. */
+  const marcadasAqui = useRef(new Set<string>());
 
   const consultar = useCallback(async () => {
     try {
@@ -63,17 +67,20 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
       if (r.status === 401) return; // sesión caducada: la página ya llevará a entrar
       if (!r.ok) throw new Error(String(r.status));
       const d = (await r.json()) as { alertas: AlertaPanel[]; errores: string[]; preferencias: PreferenciasAlertas };
+      const guardadas = new Set(d.preferencias.vistas);
+      for (const v of marcadasAqui.current) if (guardadas.has(v)) marcadasAqui.current.delete(v);
+      const prefs = { ...d.preferencias, vistas: [...guardadas, ...marcadasAqui.current] };
       setAlertas(d.alertas);
-      setPreferencias(d.preferencias);
+      setPreferencias(prefs);
       setErrores(d.errores);
       const toca = sonidoQueToca({
         antes: antes.current,
         alertas: d.alertas,
-        preferencias: d.preferencias,
+        preferencias: prefs,
         ultimoSonidoMs: ultimoSonido.current,
         ahoraMs: Date.now(),
       });
-      antes.current = new Set(d.alertas.map((a) => a.id));
+      antes.current = new Set([...(antes.current ?? []), ...d.alertas.flatMap((a) => a.partes)]);
       if (toca) {
         tocarSonido(toca.sonido);
         ultimoSonido.current = Date.now();
@@ -105,6 +112,7 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
     };
   }, [consultar]);
 
+  const vistasSet = new Set(preferencias.vistas);
   const pendientes = sinVer(alertas, preferencias.vistas);
   const hayAlta = pendientes.some((a) => a.gravedad === "alta");
 
@@ -115,13 +123,16 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
   }, [pendientes.length, pathname]);
   useEffect(() => () => marcarPestana(0), []);
 
-  const marcarVistas = (ids: string[]) => {
-    if (ids.length === 0) return;
-    setPreferencias((p) => ({ ...p, vistas: [...new Set([...p.vistas, ...ids])] }));
+  const marcarVistas = (marcadas: AlertaPanel[]) => {
+    const partes = [...new Set(marcadas.flatMap((a) => a.partes))];
+    if (partes.length === 0) return;
+    for (const p of partes) marcadasAqui.current.add(p);
+    setPreferencias((p) => ({ ...p, vistas: [...new Set([...p.vistas, ...partes])] }));
     iniciar(async () => {
       try {
-        await marcarAlertasVistas(ids);
+        await marcarAlertasVistas(partes);
       } catch {
+        for (const p of partes) marcadasAqui.current.delete(p);
         setErrores(["No se ha podido guardar: vuelve a intentarlo."]);
       }
     });
@@ -162,7 +173,7 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
         <div className="flex items-center justify-between gap-2 border-b px-3 py-2">
           <PopoverTitle className="text-sm font-semibold">Alertas</PopoverTitle>
           {pendientes.length > 0 ? (
-            <Button size="xs" variant="ghost" onClick={() => marcarVistas(pendientes.map((a) => a.id))}>
+            <Button size="xs" variant="ghost" onClick={() => marcarVistas(pendientes)}>
               <CheckCheck /> Marcar todas como vistas
             </Button>
           ) : null}
@@ -179,7 +190,7 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
           ) : (
             <ul>
               {alertas.map((a) => {
-                const vista = preferencias.vistas.includes(a.id);
+                const vista = estaVista(a, vistasSet);
                 return (
                   <li key={a.id} className={cn("flex gap-2 border-b px-3 py-2 text-sm last:border-0", vista ? "opacity-60" : "bg-accent/40")}>
                     {ICONO[a.gravedad]}
@@ -195,7 +206,7 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
                         {vista ? (
                           <span>Vista</span>
                         ) : (
-                          <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => marcarVistas([a.id])}>
+                          <button type="button" className="underline underline-offset-2 hover:text-foreground" onClick={() => marcarVistas([a])}>
                             Marcar como vista
                           </button>
                         )}

@@ -611,7 +611,7 @@ export async function datosHoy(ahora = new Date()): Promise<DatosHoy> {
       .map(async (c) => {
         const campanias = (await campaniasEfectivas(c.servicioAltitude!, false)) ?? [];
         const r = await q.llamadasPorDevolverHoy(campanias);
-        return { cliente: c.codigo, porDevolver: r.porDevolver, primera: r.primera };
+        return { cliente: c.codigo, porDevolver: r.porDevolver, primera: r.primera, hilos: r.hilos };
       }),
   );
 

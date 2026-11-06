@@ -25,7 +25,7 @@ const BASE: DatosAlertas = {
     { agenteNumero: "0892", inicioMin: 538, finMin: 629, clienteCodigo: "BD" },
     { agenteNumero: "0925", inicioMin: 600, finMin: 625, clienteCodigo: "UGR" },
   ],
-  aDemanda: [{ cliente: "AV", porDevolver: 0, primera: null }],
+  aDemanda: [{ cliente: "AV", porDevolver: 0, primera: null, hilos: [] }],
   semana: [],
   nombres: { "0851": "Lourdes", "0925": "Bego" },
   parametros: { minutosConexion: 15, pctRetraso: 80, horasMinRetraso: 2 },
@@ -41,13 +41,21 @@ describe("alertas de planificación", () => {
     expect(evaluarAlertas({ ...BASE, logadoHoy: BASE.logadoHoy.map((t) => ({ ...t, finMin: t.agenteNumero === "0925" ? 625 : 630 })) })).toEqual([]);
     const tarde = evaluarAlertas({ ...BASE, ahoraMin: 641, logadoHoy: BASE.logadoHoy.map((t) => ({ ...t, finMin: t.agenteNumero === "0925" ? 625 : 641 })) });
     expect(tarde).toEqual([
-      { tipo: "sin_conectar", gravedad: "media", agente: "0925", cliente: "UGR", mensaje: "0925 Bego: planificado en UGR y desconectado desde las 10:25." },
+      {
+        tipo: "sin_conectar",
+        gravedad: "media",
+        agente: "0925",
+        cliente: "UGR",
+        partes: ["0925|10:25"],
+        mensaje: "0925 Bego: planificado en UGR y desconectado desde las 10:25.",
+      },
     ]);
   });
 
   it("agente planificado que no se ha conectado", () => {
     const r = evaluarAlertas({ ...BASE, logadoHoy: BASE.logadoHoy.filter((t) => t.agenteNumero !== "0925").map((t) => ({ ...t, finMin: 630 })) });
     expect(r.map((a) => a.mensaje)).toEqual(["0925 Bego: planificado en UGR desde las 10:00 y sin conectar."]);
+    expect(r[0].partes).toEqual(["0925|10:00"]);
   });
 
   it("más de 3 sin conectar: una sola alerta con la lista", () => {
@@ -57,6 +65,8 @@ describe("alertas de planificación", () => {
       {
         tipo: "sin_conectar",
         gravedad: "media",
+        // Las mismas partes que sueltas: si baja a 3, no vuelve a avisar
+        partes: ["0851|09:00", "0892|09:00", "0925|09:00", "0940|09:00"],
         mensaje:
           "4 agentes planificados y sin conectar: 0851 Lourdes (GH desde las 09:00), 0892 (GH desde las 09:00), 0925 Bego (GH desde las 09:00), 0940 (GH desde las 09:00).",
       },
@@ -71,6 +81,7 @@ describe("alertas de planificación", () => {
         tipo: "bajo_minimo",
         gravedad: "alta",
         cliente: "GH",
+        partes: ["GH|10:00"],
         mensaje: "GH por debajo del mínimo: 1 agente conectado con GH/BD para un mínimo de 2 (franja 10:00-11:00).",
       },
     ]);
@@ -82,22 +93,24 @@ describe("alertas de planificación", () => {
   });
 
   it("Ávolo con llamadas por devolver y nadie con Av_; si alguien está conectado, nada", () => {
-    const pendientes = { ...BASE, logadoHoy: BASE.logadoHoy.map((t) => ({ ...t, finMin: 630 })), aDemanda: [{ cliente: "AV", porDevolver: 3, primera: "09:49" }] };
+    const pendientes = { ...BASE, logadoHoy: BASE.logadoHoy.map((t) => ({ ...t, finMin: 630 })), aDemanda: [{ cliente: "AV", porDevolver: 3, primera: "09:49", hilos: ["101", "105", "109"] }] };
     expect(evaluarAlertas(pendientes)).toEqual([
       {
         tipo: "a_demanda",
         gravedad: "alta",
         cliente: "AV",
+        // Una por llamada pendiente: otra perdida vuelve a avisar, alguien que se conecta y se va no
+        partes: ["AV|101", "AV|105", "AV|109"],
         mensaje: "Ávolo: 3 llamadas por devolver (la más antigua, de las 09:49) y nadie conectado con Av_: que alguien con ese usuario se conecte y las devuelva.",
       },
     ]);
-    expect(evaluarAlertas({ ...pendientes, aDemanda: [{ cliente: "AV", porDevolver: 1, primera: "13:04" }] }).map((a) => a.mensaje)).toEqual([
+    expect(evaluarAlertas({ ...pendientes, aDemanda: [{ cliente: "AV", porDevolver: 1, primera: "13:04", hilos: ["120"] }] }).map((a) => a.mensaje)).toEqual([
       "Ávolo: 1 llamada por devolver (de las 13:04) y nadie conectado con Av_: que alguien con ese usuario se conecte y la devuelva.",
     ]);
     const atendiendo = { ...pendientes, logadoHoy: [...pendientes.logadoHoy, { agenteNumero: "0985", inicioMin: 620, finMin: 630, clienteCodigo: "AV" }] };
     expect(evaluarAlertas(atendiendo)).toEqual([]);
     // Perdidas, pero todas devueltas (aunque dieran ocupado): nada pendiente
-    expect(evaluarAlertas({ ...pendientes, aDemanda: [{ cliente: "AV", porDevolver: 0, primera: null }] })).toEqual([]);
+    expect(evaluarAlertas({ ...pendientes, aDemanda: [{ cliente: "AV", porDevolver: 0, primera: null, hilos: [] }] })).toEqual([]);
   });
 
   it("campaña saliente retrasada por debajo del 80 % (y solo pasadas las horas mínimas)", () => {
@@ -109,6 +122,7 @@ describe("alertas de planificación", () => {
         tipo: "retraso",
         gravedad: "media",
         cliente: "UGR",
+        partes: ["UGR"],
         mensaje: "La campaña de UGR va retrasada: 12,50 h trabajadas esta semana de 20,00 h planificadas hasta ahora (63 %).",
       },
     ]);
