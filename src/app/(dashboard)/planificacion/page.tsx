@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Activity, AlertTriangle, CheckCircle2, Eye, Settings } from "lucide-react";
+import { Activity, AlertTriangle, CalendarOff, CheckCircle2, Clock, Eye, Settings } from "lucide-react";
 import { BotonAyuda } from "@/components/planificacion/ayuda";
 import { BotonGenerar } from "@/components/planificacion/boton-generar";
 import { Badge } from "@/components/ui/badge";
@@ -59,6 +59,10 @@ export default async function PaginaPlanificacion() {
   // Lo que hay que publicar o descartar: solo para quien puede hacerlo
   const pendientes = editar ? pendientesRevision() : [];
   const tarea = estadoTareaNocturna();
+  // Accesos directos al mes en curso (06/11/2026, pedido por Christian): «Horas»
+  // abre la semana de hoy (lo que la pestaña enseña por defecto) y «Ausencias»,
+  // lo que más se toca a diario, sin pasar por el tablero
+  const mesActual = hoyISO().slice(0, 7);
   const quien = (numero: string, nombre: string | null) => (nombre ? `${numero} ${nombre}` : numero);
   const cuantos = (n: number, uno: string, varios: string) => `${n} ${n === 1 ? uno : varios}`;
 
@@ -76,6 +80,12 @@ export default async function PaginaPlanificacion() {
           <BotonAyuda pantalla="inicio" />
           <Button variant="outline" render={<Link href="/planificacion/hoy" />}>
             <Activity /> Hoy
+          </Button>
+          <Button variant="outline" render={<Link href={`/planificacion/${mesActual}/horas`} />}>
+            <Clock /> Horas
+          </Button>
+          <Button variant="outline" render={<Link href={`/planificacion/${mesActual}/ausencias`} />}>
+            <CalendarOff /> Ausencias
           </Button>
           {editar ? (
             <Button variant="outline" render={<Link href="/planificacion/configuracion" />}>
@@ -277,7 +287,10 @@ export default async function PaginaPlanificacion() {
                             <Button variant="ghost" size="sm" render={<Link href={`/planificacion/${m.mes}/versiones`} />}>
                               Versiones
                             </Button>
-                            {m.mes <= hoyISO().slice(0, 7) ? (
+                            <Button variant="ghost" size="sm" render={<Link href={`/planificacion/${m.mes}/horas`} />}>
+                              Horas
+                            </Button>
+                            {m.mes <= mesActual ? (
                               <Button variant="ghost" size="sm" render={<Link href={`/planificacion/${m.mes}/adherencia`} />}>
                                 Seguimiento
                               </Button>

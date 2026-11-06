@@ -63,10 +63,10 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     intro: "Es la primera pantalla. Te dice si los datos están al día y qué meses tienen plan.",
     captura: "inicio",
     queVeo: [
-      "El botón «Hoy»: lo que está pasando ahora mismo (quién está conectada y las alertas).",
+      "Los botones de arriba. «Hoy»: lo que está pasando ahora mismo (quién está conectada y las alertas). «Horas» y «Ausencias»: las de este mes, sin pasar por el tablero.",
       "«Estado de los datos»: si todo sale en verde, se puede preparar el plan. Si algo sale en amarillo, léelo: dice qué hacer.",
       "La lista de meses. Cada mes tiene su borrador (el plan que se está preparando) y su versión publicada (el plan que vale).",
-      "Los botones de cada mes: «Ver tablero», «Versiones», «Seguimiento» y «Generar borrador».",
+      "Los botones de cada mes: «Ver tablero», «Versiones», «Horas», «Seguimiento» y «Generar borrador».",
     ],
     queHacer: [
       "Mira que «Estado de los datos» esté en verde.",
@@ -641,7 +641,7 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
     tema: "ausencias",
     palabras: "ausencia libranza festivo rto medico baja permiso falta",
     pasos: [
-      "Abre el mes y entra en la pestaña «Ausencias».",
+      "En Planificación, pulsa «Ausencias» (este mes) o abre el mes que sea y entra en la pestaña «Ausencias».",
       "Elige la persona y el tipo: VAC (vacaciones), FEST (libranza por festivo), RTO o AUS (otras).",
       "Pon desde qué día hasta qué día. Si son solo unas horas, márcalo y pon las horas.",
       "Deja marcada «Quitar del borrador…» y pulsa «Dar de alta».",
@@ -818,7 +818,7 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
     tema: "horas",
     palabras: "horas contrato conectadas logadas efectivas planificadas dia semana mes panel",
     pasos: [
-      "Abre el mes y entra en «Horas».",
+      "En Planificación, pulsa «Horas» (abre la semana de hoy). Para otro mes, pulsa «Horas» en su fila.",
       "Elige «Día», «Semana» o «Mes» y, con las flechas, cuál.",
       "Mira las tres cifras de arriba y, en cada persona, su barra y la última columna.",
     ],
