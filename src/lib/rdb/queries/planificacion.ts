@@ -443,9 +443,15 @@ export async function calendariosAltitude(): Promise<{ festivos: FestivoServicio
  * 92 s después; el alta no guarda la llamada, así que se casa por campaña,
  * teléfono y los 10 minutos siguientes). Es la lista que trabajan las
  * supervisoras: los que no hay que llamar los cierran («Terminado») sin
- * llamar. Del 01/10 al 06/11, 432 de las 553 perdidas de Ávolo tuvieron su
- * contacto; las otras no salen en esa lista y tampoco aquí. Pendiente =
- * `activity.status` 0, 1 o 2 (los «vivos» de `estadoListas`).
+ * llamar. Pendiente = `activity.status` 0, 1 o 2 (los «vivos» de
+ * `estadoListas`). El teléfono del contacto se lee de
+ * `activity.resch_phone_value` (10/11/2026): el perfil (`ph_contact_profile`)
+ * se crea SIN teléfono y se rellena más tarde, cuando ya la han devuelto. Con
+ * el del perfil, la perdida nunca casaba mientras estaba pendiente y la
+ * alerta no salió en todo el 09/11 (unos 12 tramos sin nadie con Av_); al
+ * revisarlo a posteriori sí casaba. Del 01/10 al 09/11, 481 de las 605
+ * perdidas de Ávolo casan con su contacto así (449 por el perfil, y todas
+ * ellas también así); las otras no salen en esa lista y tampoco aquí.
  * Se cuentan NÚMEROS, no hilos: quien llama tres veces se devuelve una vez.
  * Antes contaba todas las perdidas del día aunque ya estuvieran devueltas
  * (16/10/2026: 9 «sin atender», todas devueltas).
@@ -489,13 +495,13 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
             AND (t.origin = 2 OR (t.origin = 1 AND t.termination_state = 1))
       ),
       contactos AS (
-          -- Contactos dados de alta hoy para devolver una perdida (el IVR los
-          -- crea con el teléfono en phone_01 y en el móvil), aún pendientes
+          -- Contactos dados de alta hoy para devolver una perdida, aún
+          -- pendientes. El teléfono, de resch_phone_value: el del perfil
+          -- llega vacío y se rellena después (10/11/2026)
           SELECT a.campaign, h.event_moment AS alta,
-                 RIGHT(RTRIM(COALESCE(NULLIF(RTRIM(pf.phone_01_value), ''), pf.mobile_phone_value)), 9) AS numero
+                 RIGHT(RTRIM(a.resch_phone_value), 9) AS numero
           FROM activity_history h
           INNER JOIN activity a ON a.code = h.activity AND a.status IN (0, 1, 2)
-          INNER JOIN ph_contact_profile pf ON pf.code = a.contact_profile
           WHERE h.event_moment >= @desde AND h.event_moment < @hastaExcl AND h.event_action = @alta
       )
       -- Una fila por número pendiente; «hilo» = su primera perdida sin

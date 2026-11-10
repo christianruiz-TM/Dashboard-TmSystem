@@ -302,3 +302,12 @@ Registro completo: `docs/registro-sesion-06-noviembre-2026-mi-servicio.md`. Comm
 - Informe en un solo HTML de la marca (sin internet, filtrable por campaña, imprimible en A4) con comentarios; cada descarga, en la auditoría.
 - Cliente = servicio de Altitude (migración 0013); en el selector, solo los clientes dados de alta con su servicio.
 - Verificado contra RDBv2 (GH septiembre = Resultados y cajas) y en un `next build` + `next start` de una copia: pantalla, informe, PDF y que el usuario cliente solo ve lo suyo.
+
+### 28 · 10/11/2026 · La alerta de Ávolo no salió en todo el 09/11 (Opus 5.5)
+
+Sin registro aparte: el porqué y las cifras están en CLAUDE.md (alerta de Ávolo en «Alertas» de Planificación) y en el comentario de `llamadasPorDevolverHoy`.
+
+- «Ayer no nos llegó ningún aviso de contactos de Ávolo, cuando sí que hubo»: el 09/11 hubo 33 perdidas, todas devueltas, pero con unos 12 tramos sin nadie con `Av_` (el primero de 09:01 a 09:23).
+- Causa: el filtro del 06/11 («solo si su contacto sigue pendiente») casaba la perdida con su contacto por el teléfono del PERFIL, que el IVR crea vacío y se rellena más tarde. Mientras la llamada estaba por devolver, nunca casaba. Se validó con el día ya cerrado, cuando el perfil ya tenía el teléfono.
+- Visto en vivo el 10/11 a las 08:22 (VW_Ubeda): contacto pendiente, perfil sin teléfono y el número en `activity.resch_phone_value`. La consulta pasa a usar ese campo: Ávolo, del 01/10 al 09/11, 481 de 605 perdidas casan (449 por el perfil, todas incluidas). Con la corrección, 1 por devolver a las 08:27; con la de producción, 0.
+- 326 tests y ESLint en verde.

@@ -1085,14 +1085,25 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         como Terminados»). Tras cada perdida, el IVR (usuarios `IVRnn`, tipo
         3) da de alta un contacto en la campaña con ese teléfono
         (`ContactEventActionType` AgentCreation, por `rdb_enums`; de 13 a 92 s
-        después, con el número en `phone_01_value` y en el móvil). Esa es la
+        después). Esa es la
         lista que trabajan: lo llaman y lo cierran, o lo cierran sin llamar.
         El alta NO guarda la llamada (`activity_history.itr_thread` vacío;
         el `itr_thread.contact` del hilo del IVR es OTRO contacto, de
         IVR_Avolo): se casa por campaña, teléfono y 10 minutos. Pendiente =
-        `activity.status` 0, 1 o 2. Del 01/10 al 06/11, 432 de 553 perdidas
-        de Ávolo tuvieron contacto; las demás no salen en su lista y tampoco
-        cuentan (el 06/11: 09:23 Nissan_Linares, 09:41 VW, 11:21 Seat_Cupra).
+        `activity.status` 0, 1 o 2.
+      - **El teléfono del contacto, de `activity.resch_phone_value`**
+        (10/11/2026, «ayer no nos llegó ningún aviso de Ávolo»). El perfil
+        (`ph_contact_profile`) se crea SIN teléfono y se rellena más tarde,
+        ya devuelta la llamada: casando por `phone_01_value`/móvil, la
+        perdida nunca casaba mientras estaba pendiente y la alerta no salió
+        en todo el 09/11 (unos 12 tramos sin nadie con `Av_`, de 09:01 a
+        16:53). Al revisarlo a posteriori sí casaba: por eso no se vio el
+        06/11. Visto en vivo el 10/11 a las 08:22 (perfil vacío, teléfono en
+        `resch_phone_value`). Del 01/10 al 09/11, 481 de 605 perdidas de
+        Ávolo casan así (449 por el perfil, todas incluidas); las demás no
+        salen en su lista y tampoco cuentan (el 06/11: 09:23 Nissan_Linares,
+        09:41 VW, 11:21 Seat_Cupra). **No validar la alerta solo con días
+        cerrados**: los datos del contacto cambian después.
         Solo cuentan los contactos de HOY: en Ávolo quedan 6 pendientes de
         2024-2026 y en CEFF 3 ya reprogramados, que la encenderían siempre.
   - **Tarea nocturna (F5)**, `npm run planificacion:nocturno` a las 02:15:
