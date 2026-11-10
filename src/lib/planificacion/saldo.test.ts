@@ -13,6 +13,8 @@ const DIAS: DiaParaSaldo[] = [
 ];
 // Turno de 9 h el lunes (9-14 y 16-20) y de 6 h el resto
 const TURNO = { "2026-10-12": 9, "2026-10-13": 6, "2026-10-14": 6, "2026-10-15": 6, "2026-10-16": 6 };
+// Semana corta de 37 h (L-X 9 h, J-V 5 h)
+const TURNO_37 = { "2026-10-12": 9, "2026-10-13": 9, "2026-10-14": 9, "2026-10-15": 5, "2026-10-16": 5 };
 
 describe("saldo", () => {
   it("días cerrados con lo logado, el resto con lo planificado; el festivo cuenta las horas de su turno", () => {
@@ -74,7 +76,7 @@ describe("saldo", () => {
 
   it("contrato según el turno: el festivo y la semana partida salen a cero (04/11/2026)", () => {
     // La misma semana con su turno entero conocido (9 + 6 × 4 = 33 h) y 33 h de contrato
-    const semana = new Map([["2026-10-12", 33]]);
+    const semana = new Map([["2026-10-12", { horas: 33, ultimoDia: "2026-10-16" }]]);
     const r = saldoAgente({
       contratoSemanalH: 33,
       fechaDatos: "2026-10-01",
@@ -100,10 +102,28 @@ describe("saldo", () => {
       realH: {},
       justificadasH: {},
       turnoH: { "2026-10-12": 9 },
-      turnoSemanaH: new Map([["2026-10-12", 30]]),
+      turnoSemanaH: new Map([["2026-10-12", { horas: 30, ultimoDia: "2026-10-16" }]]),
       ajustesH: {},
     })!;
     expect(lunes.dias[0]).toMatchObject({ contrato: 9, saldo: 0 });
+  });
+
+  it("38 h de contrato y 37 h de turno: cada día su turno y el viernes la hora que falta (10/11/2026)", () => {
+    const r = saldoAgente({
+      contratoSemanalH: 38,
+      fechaDatos: "2026-10-01",
+      dias: DIAS.map((d) => ({ ...d, festivo: false })),
+      planH: TURNO_37,
+      realH: {},
+      justificadasH: {},
+      turnoH: TURNO_37,
+      turnoSemanaH: new Map([["2026-10-12", { horas: 37, ultimoDia: "2026-10-16" }]]),
+      ajustesH: {},
+    })!;
+    // Cumpliendo su turno: a cero de lunes a jueves, −1 el viernes; sin decimales
+    expect(r.dias.map((d) => d.contrato)).toEqual([9, 9, 9, 5, 6, 0, 0]);
+    expect(r.dias.map((d) => d.saldo)).toEqual([0, 0, 0, 0, -1, 0, 0]);
+    expect(r.totales.previsto.contrato).toBe(38);
   });
 
   it("sin contrato no hay saldo", () => {

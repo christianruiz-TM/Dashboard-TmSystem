@@ -559,7 +559,7 @@ function construirResumen(
   const contratoDias = (a: AgenteMotor, contratoSemanalH: number) => {
     const semanas = horasTurnoSemanas(fechas, a.turnos, a.turnosFuera);
     return entrada.dias.reduce(
-      (h, d) => h + contratoDelDia(contratoSemanalH, d.diaSemana < 5, horasTurno(a.turnos[d.fecha]), semanas.get(d.lunes)),
+      (h, d) => h + contratoDelDia(contratoSemanalH, d.diaSemana < 5, d.fecha, horasTurno(a.turnos[d.fecha]), semanas.get(d.lunes)),
       0,
     );
   };

@@ -1011,9 +1011,16 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       festivo justifica las horas de su turno de ese día (si se trabaja,
       cuentan las trabajadas y se compensa con FEST). Antes restaba 1/5 del
       contrato y con 38 h salían saldos de −0,40 h.
-      **Contrato del día = su parte del semanal según el TURNO** (04/11/2026,
-      decidido con Christian; `motor/contrato.ts`): semanal × turno del día ÷
-      turno de la semana ENTERA, festivos incluidos. Antes era el semanal ÷ 5
+      **Contrato del día = las horas de su TURNO ese día, y el ÚLTIMO día con
+      turno de la semana lleva además la diferencia semanal − turno de la
+      semana ENTERA** (10/11/2026, pedido por supervisión: «1.781,17 h de
+      contrato no tiene sentido»; `motor/contrato.ts`, leyenda
+      `NotaContratoDia` en Horas y Saldos). Sin decimales: noviembre 2026
+      1.780 h (antes 1.781,17), lunes 30/11 de María 9 h (antes 9,24). Si ese
+      último día es del mes siguiente, la diferencia va allí; el del 28/09
+      cae el 02/10, así que el arrastre de octubre se movió entre −1,40 y
+      +0,69 h según la persona. Del 04/11 al 10/11 fue semanal × turno del
+      día ÷ turno de la semana ENTERA, festivos incluidos. Antes era el semanal ÷ 5
       de lunes a viernes y, como los lunes son de 9 h y los viernes de 4-5 h,
       las semanas partidas daban saldos que no eran: el lunes 30/11 salía +3 h
       (30 h de contrato) y el 1-2/10 (el saldo empieza un jueves) dejó en el

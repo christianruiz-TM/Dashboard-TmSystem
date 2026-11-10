@@ -9,6 +9,7 @@ import {
   horasPorAgente,
   horasPorCliente,
   nombreMes,
+  notasSemanaPartida,
   posicionPct,
   saldosPrevistos,
   saldoTexto,
@@ -98,6 +99,20 @@ describe("tablero", () => {
     expect(posicionPct(1200, 1260, 480, 1200).width).toBe(0);
   });
 
+  it("notas de las semanas partidas: dónde cuenta la diferencia de contrato (10/11/2026)", () => {
+    // Noviembre 2026: empieza en domingo (su semana acabó en octubre) y el 30 es lunes
+    expect(notasSemanaPartida("2026-11")).toEqual([
+      "La semana del lunes 30/11 acaba en diciembre: noviembre cuenta solo el turno de sus días de este mes y la diferencia de esa semana se cuenta en diciembre.",
+    ]);
+    // Octubre 2026: empieza en jueves (su viernes, aquí) y acaba en sábado
+    expect(notasSemanaPartida("2026-10")).toEqual([
+      "La semana del lunes 28/09 empezó en septiembre: su diferencia se cuenta en octubre, el último día con turno de esa semana.",
+    ]);
+    // Diciembre 2026: acaba en jueves; febrero 2027, semanas enteras
+    expect(notasSemanaPartida("2026-12")).toHaveLength(2);
+    expect(notasSemanaPartida("2027-02")).toEqual([]);
+  });
+
   it("nombre del mes", () => {
     expect(nombreMes("2026-11")).toBe("Noviembre 2026");
   });
@@ -143,15 +158,17 @@ describe("tablero", () => {
     expect(semana("2026-10-26")).toEqual({ plan: 31, justificadas: 0, contrato: 30, saldo: 1 });
     expect(saldos.get("0851|mes")).toEqual({ plan: 115, justificadas: 12, contrato: 132, saldo: -5 });
     expect(saldosPrevistos(entrada, [{ ...agente, contratoSemanalH: null }], bloques, () => true).size).toBe(0);
-    // Con el turno de los días de septiembre de esa semana (04/11/2026): lunes
-    // y martes de 9 h y miércoles de 6 h → 36 h; el 1 y 2/10 llevan 30 × 12 ÷ 36
+    // Con el turno de los días de septiembre de esa semana: lunes y martes de
+    // 9 h y miércoles de 6 h → 36 h de turno para 30 de contrato. Desde el
+    // 10/11/2026 cada día lleva su turno (6 h) y el último día con turno, el
+    // viernes 2/10, además la diferencia de la semana (30 − 36 = −6): 6 + 0
     const nueve = [{ inicioMin: 540, finMin: 1080 }];
     const conFuera = { ...agente, turnosFuera: { "2026-09-28": nueve, "2026-09-29": nueve, "2026-09-30": turnos["2026-10-01"] } };
     expect(saldosPrevistos(entrada, [conFuera], bloques, (t) => t === "VAC").get("0851|2026-09-28")).toEqual({
       plan: 12,
       justificadas: 0,
-      contrato: 10,
-      saldo: 2,
+      contrato: 6,
+      saldo: 6,
     });
     expect([saldoTexto(1), saldoTexto(-6), saldoTexto(0.004)]).toEqual(["+1,00 h", "−6,00 h", "0,00 h"]);
 

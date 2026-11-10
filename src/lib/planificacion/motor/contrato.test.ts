@@ -32,29 +32,48 @@ describe("contrato del día según el turno (04/11/2026)", () => {
     const semanas = horasTurnoSemanas(fechas, turnos(fechas));
     expect(semanas.has("2026-11-30")).toBe(false);
     expect(semanas.has("2026-10-26")).toBe(false);
-    expect(semanas.get("2026-11-02")).toBe(30);
+    expect(semanas.get("2026-11-02")).toEqual({ horas: 30, ultimoDia: "2026-11-06" });
   });
 
-  it("lunes 30/11 de 9 h con 30 h de contrato: 9 h de contrato, no 6 (saldo +3)", () => {
+  it("lunes 30/11 de 9 h: 9 h de contrato, sin decimales (10/11/2026)", () => {
     const fechas = noviembre.map((d) => d.fecha);
     const semanas = horasTurnoSemanas(fechas, turnos(fechas), turnos(fuera.map((d) => d.fecha)));
-    expect(semanas.get("2026-11-30")).toBe(30);
-    expect(contratoDelDia(30, true, 9, semanas.get("2026-11-30"))).toBe(9);
-    // Antes: ÷ 5
-    expect(contratoDelDia(30, true, 9, undefined)).toBe(6);
+    // El último día con turno de esa semana es el viernes 04/12, de diciembre
+    expect(semanas.get("2026-11-30")).toEqual({ horas: 30, ultimoDia: "2026-12-04" });
+    expect(contratoDelDia(30, true, "2026-11-30", 9, semanas.get("2026-11-30"))).toBe(9);
+    // Con 38 h y una semana de 37 h de turno, también 9 h (antes 38 × 9 ÷ 37 = 9,24)
+    expect(contratoDelDia(38, true, "2026-11-30", 9, { horas: 37, ultimoDia: "2026-12-04" })).toBe(9);
+    // Sin el turno de la semana: ÷ 5
+    expect(contratoDelDia(30, true, "2026-11-30", 9, undefined)).toBe(6);
     // El domingo 01/11 no tiene turno: no lleva contrato
-    expect(contratoDelDia(30, false, 0, semanas.get("2026-10-26"))).toBe(0);
+    expect(contratoDelDia(30, false, "2026-11-01", 0, semanas.get("2026-10-26"))).toBe(0);
   });
 
-  it("una semana entera suma el contrato; 38 h con un patrón de 39 h deja el +1 de la semana", () => {
-    const dias = [9, 9, 9, 8, 4];
-    expect(dias.reduce((s, h) => s + contratoDelDia(30, true, h, 39), 0)).toBeCloseTo(30, 10);
-    const saldo = dias.reduce((s, h) => s + h - contratoDelDia(38, true, h, 39), 0);
-    expect(saldo).toBeCloseTo(1, 10);
+  it("cada día su turno y el último día la diferencia: la semana suma el contrato", () => {
+    const semana = { horas: 39, ultimoDia: "2026-11-06" };
+    const dias: [string, number][] = [
+      ["2026-11-02", 9],
+      ["2026-11-03", 9],
+      ["2026-11-04", 9],
+      ["2026-11-05", 8],
+      ["2026-11-06", 4],
+    ];
+    const contratos = dias.map(([f, h]) => contratoDelDia(38, true, f, h, semana));
+    // 38 h con un patrón de 39 h: de lunes a jueves, su turno; el viernes, 4 − 1
+    expect(contratos).toEqual([9, 9, 9, 8, 3]);
+    expect(contratos.reduce((a, b) => a + b, 0)).toBe(38);
+    // 30 h de contrato con 26 h de turno: el viernes lleva +4
+    expect(contratoDelDia(30, true, "2026-11-06", 4, { horas: 26, ultimoDia: "2026-11-06" })).toBe(8);
+  });
+
+  it("el último día es el último CON turno (sábado y domingo sin turno no cuentan)", () => {
+    const fechas = noviembre.map((d) => d.fecha);
+    const semanas = horasTurnoSemanas(fechas, turnos(fechas));
+    expect(semanas.get("2026-11-23")).toEqual({ horas: 30, ultimoDia: "2026-11-27" });
   });
 
   it("sin turno en la semana, el semanal ÷ 5 de lunes a viernes", () => {
-    expect(contratoDelDia(25, true, 0, 0)).toBe(5);
-    expect(contratoDelDia(25, false, 0, 0)).toBe(0);
+    expect(contratoDelDia(25, true, "2026-11-02", 0, { horas: 0, ultimoDia: null })).toBe(5);
+    expect(contratoDelDia(25, false, "2026-11-07", 0, { horas: 0, ultimoDia: null })).toBe(0);
   });
 });

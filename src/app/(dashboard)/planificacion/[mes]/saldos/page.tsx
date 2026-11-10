@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { SelectNativo } from "@/components/admin/select-nativo";
 import { CabeceraMes } from "@/components/planificacion/cabecera-mes";
+import { NotaContratoDia } from "@/components/planificacion/nota-contrato-dia";
 import { Campo } from "@/components/planificacion/campos";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
@@ -86,6 +87,7 @@ export default async function PaginaSaldos({
                 «Arrastre»: saldo real de los meses anteriores. «Previsto a fin de mes»: arrastre + lo real + lo que queda
                 planificado.
               </CardDescription>
+              <NotaContratoDia mes={mes} />
             </CardHeader>
             <CardContent className="overflow-x-auto">
               <Table>

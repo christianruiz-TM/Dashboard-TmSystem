@@ -482,7 +482,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     siPasa: [
       {
         caso: "¿Cómo se calcula?",
-        haz: "Cada día: horas trabajadas + horas de ausencias que cuentan (vacaciones, libranzas, RTO) − horas de contrato de ese día. El contrato de la semana se reparte según su turno: si el lunes es de 9 h y el viernes de 4 h, el lunes lleva más contrato. Así un día con su turno de siempre sale a cero o casi.",
+        haz: "Cada día: horas trabajadas + horas de ausencias que cuentan (vacaciones, libranzas, RTO) − horas de contrato de ese día. El contrato de cada día son las horas de su turno: si el lunes trabaja 9 h, el lunes cuenta 9 h. Así un día con su turno de siempre sale a cero. El último día con turno de la semana (normalmente el viernes) se suma o se resta lo que le falta o le sobra al turno de la semana para llegar al contrato: con 38 h de contrato y una semana de 37 h, ese viernes sale −1; con una de 39 h, +1.",
       },
       {
         caso: "La primera o la última semana del mes tiene pocos días.",
@@ -522,7 +522,7 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     siPasa: [
       {
         caso: "¿Cuántas horas de contrato tiene un día?",
-        haz: "Su parte del contrato semanal según su turno: si el lunes es de 9 h y el viernes de 4 h, el lunes lleva más contrato. Una semana entera suma justo el contrato.",
+        haz: "Las horas de su turno ese día: si el lunes trabaja 9 h, el lunes cuenta 9 h. El último día con turno de la semana (normalmente el viernes) lleva además la diferencia entre su contrato y el turno de la semana (+1 o −1 en las semanas de 37 y 39 h con 38 h de contrato). Una semana entera suma justo el contrato. Si esa semana acaba en el mes siguiente, la diferencia se cuenta allí.",
       },
       {
         caso: "La semana va por la mitad y las efectivas parecen pocas.",
@@ -914,8 +914,8 @@ export const GLOSARIO_AYUDA: [string, string][] = [
   ["Aviso (amarillo)", "Algo raro que puede estar bien: se publica explicando el motivo."],
   ["Conectada (logada)", "Con la sesión abierta en Altitude."],
   ["Saldo", "Horas que le sobran (+) o le faltan (−) a una persona para su contrato."],
-  ["Contrato del día", "La parte del contrato semanal que toca ese día, según su turno: un lunes de 9 h lleva más que un viernes de 4 h."],
-  ["Semana partida", "La primera o la última semana del mes, que tiene días de otro mes. Cada mes lleva el saldo de sus días."],
+  ["Contrato del día", "Las horas de su turno ese día; el último día con turno de la semana, además, lo que falta o sobra para llegar al contrato semanal."],
+  ["Semana partida", "La primera o la última semana del mes, que tiene días de otro mes. Cada mes lleva el saldo de sus días; la diferencia con el contrato de esa semana va al mes de su último día con turno."],
   ["Arrastre", "El saldo que trae de los meses anteriores."],
   ["Adherencia", "Si se cumplió el plan: conectada cuando y donde tocaba."],
   ["Cubierto por otro", "Conectada con un usuario que cubre ese cliente sin ser el suyo (BD o LX en GH; en GH esperando a Ávolo)."],
@@ -1018,7 +1018,7 @@ export const PUNTOS_AYUDA = {
   "horas-contrato": {
     titulo: "Contrato, planificadas y efectivas",
     texto:
-      "Planificadas: las del plan. Efectivas: desde que entra en Altitude hasta que sale, con cualquiera de sus usuarios, hasta ayer. Contrato: su parte del contrato semanal según su turno de cada día, también los festivos, las vacaciones y las libranzas.",
+      "Planificadas: las del plan. Efectivas: las que estuvo conectada, con cualquier usuario, hasta ayer. Contrato: su turno de cada día, festivos, vacaciones y libranzas incluidos; el último día de la semana, además, la diferencia con su contrato.",
   },
   "horas-cliente": {
     titulo: "Horas por cliente",

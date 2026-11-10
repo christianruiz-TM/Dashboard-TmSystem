@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { CabeceraMes } from "@/components/planificacion/cabecera-mes";
+import { NotaContratoDia } from "@/components/planificacion/nota-contrato-dia";
 import { PuntoAyuda } from "@/components/planificacion/punto-ayuda";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { requireRol, ROLES_PLAN_LECTURA } from "@/lib/auth/rbac";
@@ -252,7 +253,7 @@ export default async function PaginaHoras({
           titulo="Contrato"
           valor={horasLegibles(equipo.contrato)}
           sub={equipo.terminado || !equipo.empezado ? "Lo que pide el contrato de todos" : `${horasLegibles(equipo.contratoHastaAyer)} hasta ayer`}
-          ayuda="La parte del contrato semanal de cada persona que toca en esos días, según su turno. Cuenta también los festivos, las vacaciones y las libranzas, aunque esos días no se trabajen."
+          ayuda="Las horas de turno de cada persona en esos días, y el último día con turno de cada semana, la diferencia con su contrato semanal. Cuenta también los festivos, las vacaciones y las libranzas, aunque esos días no se trabajen."
         />
         <TarjetaKpi
           titulo="Planificadas"
@@ -271,6 +272,7 @@ export default async function PaginaHoras({
           ayuda="Las horas que estuvo conectada de verdad, con cualquiera de sus usuarios. Solo de los días que ya han pasado."
         />
       </div>
+      <NotaContratoDia mes={mes} />
 
       {/* Por persona */}
       <Card>

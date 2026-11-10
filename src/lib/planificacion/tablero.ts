@@ -1,6 +1,10 @@
 import {
+  desplazarMes,
   diasSinTrabajoEquipo,
+  fechasDelMes,
   franjaDentro,
+  lunesDe,
+  sumarDias,
   horasTurnoSemanas,
   generarFranjas,
   horasTexto,
@@ -402,6 +406,35 @@ export function saldosPrevistos(
     saldos.set(`${a.numero}|mes`, mes);
   }
   return saldos;
+}
+
+/**
+ * Semanas partidas del mes y en qué mes cuenta su diferencia de contrato
+ * (10/11/2026): el contrato del día son las horas de su turno y el último
+ * día con turno de la semana (normalmente el viernes) lleva la diferencia
+ * entre el contrato semanal y el turno de la semana. Solo las que importan:
+ * la del principio si su viernes cae en este mes y la del final si su
+ * viernes cae en el siguiente. Texto para la leyenda de Horas y Saldos.
+ */
+export function notasSemanaPartida(mes: string): string[] {
+  const fechas = fechasDelMes(mes);
+  const primero = fechas[0];
+  const ultimo = fechas[fechas.length - 1];
+  const notas: string[] = [];
+  const lunesIni = lunesDe(primero);
+  if (lunesIni !== primero && sumarDias(lunesIni, 4) >= primero) {
+    notas.push(
+      `La semana del lunes ${fechaDiaMes(lunesIni)} empezó en ${mesEnMinusculas(desplazarMes(mes, -1))}: su diferencia se cuenta en ${mesEnMinusculas(mes)}, el último día con turno de esa semana.`,
+    );
+  }
+  const lunesFin = lunesDe(ultimo);
+  if (ultimo < sumarDias(lunesFin, 4)) {
+    const siguiente = mesEnMinusculas(desplazarMes(mes, 1));
+    notas.push(
+      `La semana del lunes ${fechaDiaMes(lunesFin)} acaba en ${siguiente}: ${mesEnMinusculas(mes)} cuenta solo el turno de sus días de este mes y la diferencia de esa semana se cuenta en ${siguiente}.`,
+    );
+  }
+  return notas;
 }
 
 /** «+1,00 h» / «−2,50 h» / «0,00 h». */
