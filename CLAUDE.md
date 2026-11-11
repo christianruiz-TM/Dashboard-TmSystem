@@ -275,7 +275,36 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     `script_session.business_status = 3` en todas las campañas; se ven en
     Supervisión (Tiempo real e Histórico, `components/kpi/ratios-exito.tsx`).
     SQL en `queries/ratios-exito.ts`; cálculo PURO con tests en
-    `lib/ratios-exito.ts`. Verificado en septiembre 2026:
+    `lib/ratios-exito.ts`.
+    - **Y TIPIFICADA** (11/11/2026, decidido con Christian al cuadrar Bolsas
+      con el informe de seguimiento de Altitude de las supervisoras): la
+      sesión tiene que tener fila en `ph_activity_outcome`. Una ficha en
+      «éxito reprogramado» (`activity.business_status` 9, SuccessScheduled,
+      sigue abierta) conserva el estado y CADA sesión que la reabre sale
+      Success sin pedido nuevo ni tipificación. Bol_0260, contacto 1326779:
+      un pedido tipificado el 04/11 y otras 4 sesiones sin tipificar el 04 y
+      el 05/11 → antes 5 éxitos, ahora 1. Bolsas 03-10/11: 162 → 156 (el
+      informe de Altitude, 154, cuenta contactos CERRADOS en éxito, y no
+      incluye Bolsas_GC ni este contacto, que sigue abierto). Fuera de
+      Bolsas casi nada (sep.: GH −3; oct.: GH −3, CEFF −2).
+      - Condición única en `queries/util.ts`: `sqlApplyTipificada` +
+        `sqlExito` en los recuentos (SQL Server no admite subconsultas dentro
+        de un SUM) y `sqlExitoWhere` en los WHERE. Nunca un JOIN directo con
+        `ph_activity_outcome`: hay sesiones con varias tipificaciones
+        (590.098 filas para 588.509 sesiones).
+      - La usan los ratios (Q1, Q2 y `tiemposExitos`), la Q3 de Supervisión,
+        `metricasDiariasPorCampania` (agregados y unidad facturable
+        «Éxitos») y la conversión por intento de Salientes. Mismo tiempo:
+        un mes de todos los clientes, +0,1-0,2 s.
+      - Descartada «solo la primera sesión de éxito de cada contacto»: se
+        deja éxitos de verdad tipificados sobre una ficha que ya estaba en
+        éxito, y combinada con la tipificación cuenta algunos contactos dos
+        veces.
+      - Los agregados anteriores (`agg_daily_campaign.exitos`,
+        `agg_daily_agent_campaign`) hay que recalcularlos con
+        `npm run agregados -- --desde 2025-06-01` tras desplegar.
+
+    Verificado en septiembre 2026:
     - **Los éxitos se cuentan en `script_session`, NUNCA uniendo con
       `itr_thread`** (`itr_thread.script_session` liga los dos). En Bolsas,
       Socios y UGR una sesión agrupa 2-3 llamadas atendidas del mismo

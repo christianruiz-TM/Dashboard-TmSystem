@@ -119,7 +119,7 @@ export const CALCULO_UNIDAD: Record<UnidadFacturacion, string> = {
   exitos_finalizados: "Contactos cerrados en el mes con estado de éxito.",
   leads: "Contactos cerrados en el mes, fechados por su último intento.",
   interacciones: "Llamadas atendidas por un agente. No es artículo de GS.",
-  exitos: "Sesiones de script marcadas como éxito. No es artículo de GS.",
+  exitos: "Sesiones de script marcadas como éxito y tipificadas. No es artículo de GS.",
 };
 
 /** Unidades que no se miden: las apunta Operaciones (cargos puntuales, «U» en GS). */

@@ -138,7 +138,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   kpiExitos: {
     termino: "Éxitos",
     definicion:
-      "Sesiones de guion marcadas como éxito (venta, cita u objetivo), el día de la llamada. Debajo, qué % de las llamadas gestionadas acaba en éxito. Puede diferir en unos pocos de los éxitos del aprovechamiento, que cuenta contactos cerrados con éxito el día del cierre.",
+      "Sesiones de guion marcadas como éxito (venta, cita u objetivo) y tipificadas por el agente, el día de la llamada. Si una ficha que ya estaba en éxito se vuelve a abrir sin tipificar nada nuevo, no cuenta otra vez. Debajo, qué % de las llamadas gestionadas acaba en éxito. Puede diferir en unos pocos de los éxitos del aprovechamiento, que cuenta contactos cerrados con éxito el día del cierre.",
   },
   kpiLlamadasHora: {
     termino: "Llamadas por hora",

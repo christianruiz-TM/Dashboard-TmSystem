@@ -5,8 +5,10 @@ import type { BaseRatiosExito, FilaBaseRatios } from "@/lib/rdb/types";
 // Christian). Lógica PURA: sin I/O, la comparten la página, la API de
 // polling y los tests. Recibe la base de queries/ratios-exito.ts.
 //
-// - Éxito = sesión de script con business_status 3 (Success), en todas
-//   las campañas (los casos especiales se tratarán cuando salgan).
+// - Éxito = sesión de script con business_status 3 (Success) Y con su
+//   tipificación (ph_activity_outcome), en todas las campañas. Lo segundo
+//   desde el 11/11/2026: una ficha en «éxito reprogramado» sale Success cada
+//   vez que se reabre (ver sqlExito en queries/util.ts).
 // - Conversión, con DOS denominadores:
 //     · contactos = sesiones de script (contactos gestionados). Es la que
 //       vale para todas las campañas: en Bolsas una sesión agrupa ~1,9

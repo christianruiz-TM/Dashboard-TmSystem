@@ -16,7 +16,9 @@ import {
   filtroCampanias,
   limitesRango,
   redondear2,
+  sqlApplyTipificada,
   sqlEmail,
+  sqlExito,
   sqlJoinGlobal,
   sqlLlamada,
   sqlPreparacion,
@@ -222,15 +224,16 @@ async function kpisCampaniasCore(
     reqExitos.input("hastaExcl", sql.DateTime, hastaExcl);
     const filtroExitos = filtroCampanias(reqExitos, campanias, "c.shortname");
     const exitos = reqExitos.query(`
-      -- Sesiones de script por campaña: las calificadas Success (éxitos, de
-      -- cualquier usuario, como siempre) y las de agente humano (contactos
-      -- trabajados, la misma cuenta que los ratios de éxito)
+      -- Sesiones de script por campaña: los éxitos (Success Y tipificada,
+      -- 11/11/2026; de cualquier usuario, como siempre) y las de agente
+      -- humano (contactos trabajados, la misma cuenta que los ratios de éxito)
       SELECT RTRIM(c.shortname) AS campania,
-             SUM(CASE WHEN s.business_status = 3 THEN 1 ELSE 0 END) AS exitos,
-             SUM(CASE WHEN u.type = 1 THEN 1 ELSE 0 END)            AS contactos
+             SUM(CASE WHEN ${sqlExito()} THEN 1 ELSE 0 END)  AS exitos,
+             SUM(CASE WHEN u.type = 1 THEN 1 ELSE 0 END)     AS contactos
       FROM script_session s
       INNER JOIN ph_campaign c ON s.campaign = c.code
       LEFT JOIN ph_e_user u ON s.e_user = u.code
+      ${sqlApplyTipificada()}
       WHERE s.start_time >= @desde AND s.start_time < @hastaExcl${filtroExitos}
       GROUP BY RTRIM(c.shortname);
     `);

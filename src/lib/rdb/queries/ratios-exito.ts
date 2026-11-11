@@ -11,7 +11,16 @@ import type {
 import { calcularRatiosExito, type ResultadoRatios } from "@/lib/ratios-exito";
 import { hoyISO } from "@/lib/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
-import { claveCampanias, filtroCampanias, limitesRango, sqlJoinGlobal, sqlLlamada } from "./util";
+import {
+  claveCampanias,
+  filtroCampanias,
+  limitesRango,
+  sqlApplyTipificada,
+  sqlExito,
+  sqlExitoWhere,
+  sqlJoinGlobal,
+  sqlLlamada,
+} from "./util";
 
 // ============================================================
 // Base de los ratios de éxito por agente y campaña (Supervisión).
@@ -92,24 +101,26 @@ async function filasAgenteCampania(
   const filtroSesiones = filtroCampanias(reqSesiones, campanias, "c.shortname");
   const sesiones = reqSesiones.query(`
     -- business_status: 1=NonQualified · 2=Qualified · 3=Success · 4=Unsuccessful
+    -- Éxito = Success Y tipificada (11/11/2026, ver sqlExito en util.ts)
     SELECT ${dia("s")}        AS fecha,
            RTRIM(u.usr_name)  AS agente,
            RTRIM(u.fullname)  AS nombre,
            RTRIM(c.shortname) AS campania,
            COUNT(*)           AS sesiones,
-           SUM(CASE WHEN s.business_status = 3 THEN 1 ELSE 0 END) AS exitos,
+           SUM(CASE WHEN ${sqlExito()} THEN 1 ELSE 0 END) AS exitos,
            SUM(CASE WHEN s.business_status = 4 THEN 1 ELSE 0 END) AS sinExito,
            -- Script abierto (DÉCIMAS → segundos), sin las de 2 h o más ni las
            -- aún abiertas (duration NULL): la hora de la campaña (21/10/2026)
            SUM(CASE WHEN s.duration < @maxDecimas
                     THEN CAST(s.duration AS BIGINT) ELSE 0 END) / 10.0 AS guionSeg,
-           SUM(CASE WHEN ISNULL(s.business_status, 0) <> 3 AND s.duration < @maxDecimas
+           SUM(CASE WHEN NOT ${sqlExito()} AND s.duration < @maxDecimas
                     THEN 1 ELSE 0 END) AS noExitosConGestion,
-           SUM(CASE WHEN ISNULL(s.business_status, 0) <> 3 AND s.duration < @maxDecimas
+           SUM(CASE WHEN NOT ${sqlExito()} AND s.duration < @maxDecimas
                     THEN CAST(s.duration AS BIGINT) ELSE 0 END) / 10.0 AS gestionNoExitosSeg
     FROM script_session s
     INNER JOIN ph_e_user   u ON s.e_user   = u.code AND u.type = 1
     INNER JOIN ph_campaign c ON s.campaign = c.code
+    ${sqlApplyTipificada()}
     WHERE s.start_time >= @desde AND s.start_time < @hastaExcl${filtroSesiones}
     GROUP BY ${grupoDia("s")}RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
   `);
@@ -133,20 +144,22 @@ async function filasAgenteCampania(
            SUM(CASE WHEN t.duration < @maxDecimas
                     THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 10.0 AS productivoSeg,
            -- Duración de las llamadas según acabe en éxito su sesión de script
-           -- (22/10/2026); sin sesión cuenta como «no éxito»
-           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ss.business_status = 3
+           -- (22/10/2026); sin sesión cuenta como «no éxito». Éxito = Success
+           -- Y tipificada (11/11/2026, sqlExito)
+           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ${sqlExito("ss")}
                     THEN 1 ELSE 0 END) AS llamadasExito,
-           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ss.business_status = 3
+           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ${sqlExito("ss")}
                     THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 10.0 AS duracionLlamadasExitoSeg,
-           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ISNULL(ss.business_status, 0) <> 3
+           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND NOT ${sqlExito("ss")}
                     THEN 1 ELSE 0 END) AS llamadasNoExito,
-           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND ISNULL(ss.business_status, 0) <> 3
+           SUM(CASE WHEN ${sqlLlamada()} AND t.duration < @maxDecimas AND NOT ${sqlExito("ss")}
                     THEN CAST(t.duration AS BIGINT) ELSE 0 END) / 10.0 AS duracionLlamadasNoExitoSeg
     FROM itr_thread t
     INNER JOIN ph_e_user   u ON t.e_user   = u.code AND u.type = 1
     INNER JOIN ph_campaign c ON t.campaign = c.code
     ${sqlJoinGlobal()}
     LEFT JOIN script_session ss ON ss.code = t.script_session
+    ${sqlApplyTipificada("ss")}
     WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
       AND t.termination_state = 1${filtroHilos}
     GROUP BY ${grupoDia("t")}RTRIM(u.usr_name), RTRIM(u.fullname), RTRIM(c.shortname);
@@ -245,7 +258,7 @@ async function tiemposExitos(
         FROM script_session s
         INNER JOIN ph_campaign c ON s.campaign = c.code
         WHERE s.start_time >= @desde AND s.start_time < @hastaExcl
-          AND s.business_status = 3${filtro}
+          AND ${sqlExitoWhere()}${filtro}
     ),
     conv AS (
         -- Conversación de las atendidas de cada éxito, en décimas. Sin las

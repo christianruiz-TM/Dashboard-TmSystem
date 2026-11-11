@@ -126,3 +126,47 @@ export function sqlLlamada(t = "t", g = "g"): string {
     ` AND (ISNULL(${t}.origin, 0) <> 2 OR NULLIF(LTRIM(RTRIM(${g}.to_address)), '') IS NOT NULL))`
   );
 }
+
+// ------------------------------------------------------------
+// ÉXITO de una sesión de script (decidido 11/11/2026 con Christian, al
+// cuadrar los éxitos de Bolsas con el informe de Altitude): calificada
+// Success (`business_status = 3`) Y con su tipificación en
+// `ph_activity_outcome`. Un contacto que queda «éxito reprogramado»
+// (SuccessScheduled) conserva el estado: cada vez que se vuelve a abrir, la
+// sesión sale como Success aunque no haya pedido nuevo ni tipificación.
+// Bol_0260, contacto 1326779: un pedido tipificado el 04/11 a las 08:03 y
+// otras 4 sesiones sin tipificar el 04 y el 05/11, todas Success (antes, 5
+// éxitos). Bolsas 03-10/11: 162 → 156 (= las 154 del informe de Altitude,
+// la de Bolsas_GC, que su informe no incluye, y la de este contacto).
+// Fuera de Bolsas casi no cambia (septiembre: GH −3; octubre: GH −3, CEFF
+// −2; Ávolo, UGR, Socios y CajaRural, nada).
+// Una sesión puede tener varias tipificaciones (590.098 filas para 588.509
+// sesiones): nunca un JOIN directo, o duplicaría la sesión.
+// SQL Server no admite subconsultas dentro de un SUM: en los recuentos va
+// el OUTER APPLY (`sqlApplyTipificada` + `sqlExito`); en un WHERE basta
+// `sqlExitoWhere`.
+// ------------------------------------------------------------
+
+/** OUTER APPLY: `${alias}.tipificada` = 1 si la sesión `s` tiene tipificación, NULL si no. */
+export function sqlApplyTipificada(s = "s", alias = "tip"): string {
+  return (
+    `OUTER APPLY (SELECT TOP 1 1 AS tipificada FROM ph_activity_outcome ${alias}_o` +
+    ` WHERE ${alias}_o.script_session = ${s}.code) ${alias}`
+  );
+}
+
+/**
+ * La sesión `s` es un éxito (para un CASE dentro de un SUM; necesita
+ * `sqlApplyTipificada(s, tip)`). Nunca NULL: `NOT (...)` es «no éxito».
+ */
+export function sqlExito(s = "s", tip = "tip"): string {
+  return `(ISNULL(${s}.business_status, 0) = 3 AND ISNULL(${tip}.tipificada, 0) = 1)`;
+}
+
+/** La sesión `s` es un éxito (para un WHERE, sin OUTER APPLY). */
+export function sqlExitoWhere(s = "s"): string {
+  return (
+    `(${s}.business_status = 3 AND EXISTS (SELECT 1 FROM ph_activity_outcome ${s}_ex` +
+    ` WHERE ${s}_ex.script_session = ${s}.code))`
+  );
+}

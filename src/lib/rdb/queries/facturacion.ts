@@ -15,14 +15,23 @@ import type {
   UnidadesCampania,
 } from "../types";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
-import { claveCampanias, filtroCampanias, limitesRango, redondear2, sqlJoinGlobal, sqlLlamada } from "./util";
+import {
+  claveCampanias,
+  filtroCampanias,
+  limitesRango,
+  redondear2,
+  sqlApplyTipificada,
+  sqlExito,
+  sqlJoinGlobal,
+  sqlLlamada,
+} from "./util";
 
 // ============================================================
 // Unidades facturables por campaña. Tres fuentes:
 //  - itr_thread      → interacciones (volumen: todos los hilos), atendidas (lo
 //                      que se factura como «interacciones gestionadas») y
 //                      horas productivas (gestión real)
-//  - script_session  → éxitos (business_status = 3 Success)
+//  - script_session  → éxitos (business_status = 3 Success y tipificada, sqlExito)
 //  - activity        → leads finalizados (status = 3 Done), fechados por el
 //                      último event_moment de activity_history
 //
@@ -105,9 +114,11 @@ export async function metricasDiariasPorCampania(
           CONVERT(varchar(10), s.start_time, 23)  AS fecha,
           RTRIM(c.shortname)                      AS campania,
           COUNT(*)                                AS sesiones,
-          SUM(CASE WHEN s.business_status = 3 THEN 1 ELSE 0 END) AS exitos
+          -- Éxito = Success Y tipificada (11/11/2026, sqlExito en util.ts)
+          SUM(CASE WHEN ${sqlExito()} THEN 1 ELSE 0 END) AS exitos
       FROM script_session s
       INNER JOIN ph_campaign c ON s.campaign = c.code
+      ${sqlApplyTipificada()}
       WHERE s.start_time >= @desde AND s.start_time < @hastaExcl${filtroExitos}
       GROUP BY CONVERT(varchar(10), s.start_time, 23), RTRIM(c.shortname)
       -- RECOMPILE: el texto es el mismo para un día que para un mes y SQL

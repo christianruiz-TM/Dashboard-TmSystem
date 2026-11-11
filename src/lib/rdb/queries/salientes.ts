@@ -5,7 +5,15 @@ import { esMock, obtenerPool, sql } from "../pool";
 import type { BaseSalientes, FilaAlcanceSalientes, FilaFranjaSalientes, FilaIntentoExito, FilaRellamadas } from "../types";
 import { hoyISO } from "@/lib/fechas";
 import { sqlFinIntervalo, sqlCtesIslas } from "./islas";
-import { claveCampanias, filtroCampanias, limitesRango, sqlJoinGlobal, sqlLlamada, sqlPreparacion } from "./util";
+import {
+  claveCampanias,
+  filtroCampanias,
+  limitesRango,
+  sqlExitoWhere,
+  sqlJoinGlobal,
+  sqlLlamada,
+  sqlPreparacion,
+} from "./util";
 import { mockBaseSalientes } from "../mock";
 import { calcularSalientes, type ResultadoSalientes } from "@/lib/salientes";
 import { baseRatiosHoy, baseRatiosRango } from "./ratios-exito";
@@ -170,7 +178,7 @@ async function salientesCore(desdeISO: string, hastaISO: string, campanias?: str
         INNER JOIN ph_e_user u2 ON s.e_user = u2.code AND u2.type = 1
         INNER JOIN ph_campaign c2 ON s.campaign = c2.code
         WHERE s.start_time >= @desde AND s.start_time < @hastaExcl
-          AND s.business_status = 3${filtroSesiones}
+          AND ${sqlExitoWhere()}${filtroSesiones}
     ),
     n AS (
         SELECT ex.agente, ex.nombre, ex.campania, x.intentos

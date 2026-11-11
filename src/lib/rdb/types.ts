@@ -91,7 +91,7 @@ export interface KpiCampaniaHoy {
    */
   atendidasInbound: number;
   abandonadasInbound: number;
-  exitos: number; // sesiones de script con business_status = 3 (Success)
+  exitos: number; // sesiones de script Success (3) y tipificadas (sqlExito, 11/11/2026)
   ahtSeg: number | null;
   acwSeg: number | null;
   /**
@@ -175,7 +175,7 @@ export interface FilaConteosRatios {
   campania: string;
   /** Sesiones de script = contactos gestionados (cualquier calificación). */
   sesiones: number;
-  exitos: number; // business_status = 3 (Success)
+  exitos: number; // business_status = 3 (Success) y tipificada (sqlExito, 11/11/2026)
   sinExito: number; // business_status = 4 (Unsuccessful)
   /** Hilos atendidos (termination_state = 1) del agente en la campaña. */
   atendidas: number;
