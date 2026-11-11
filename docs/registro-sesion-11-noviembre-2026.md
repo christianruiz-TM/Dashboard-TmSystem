@@ -4,6 +4,11 @@ Primer paquete de la auditoría de Fable 5.2 del 11/11/2026
 (`docs/auditoria-2026-11-11.md`), elegido con Christian: arreglos pequeños que
 no cambian ninguna cifra. Todo comprobado contra RDBv2 en solo lectura.
 
+Commit `2a5944b`, desplegado el 11/11/2026 a las 13:30 (imagen
+`3b1995bab5b7`, sin migraciones, backup `dashboard_20261111_1323.db`, vuelta
+atrás `dashboard-app:anterior` = `3fe774ce5355`; `despliegue-linux.md` §9).
+El build salió a la primera, sin «database is locked».
+
 ## 1. Qué se cambió
 
 | Punto | Cambio | Comprobación |
@@ -33,5 +38,5 @@ y `typecheck` en verde.
   F2 (copia de los backups fuera del servidor) y las decisiones del tope de
   sesión (F3) y del CSV (F4).
 - Añadir esta sesión a `docs/registro-sesiones.md` (tenía cambios preparados
-  de otra sesión y no se tocó) y confirmar que el build de la imagen ya no da
-  «database is locked».
+  de otra sesión y no se tocó). Que el build no vuelva a dar «database is
+  locked» se confirma del todo tras varios builds (el primero, bien).
