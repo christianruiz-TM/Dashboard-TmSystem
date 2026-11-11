@@ -302,7 +302,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         veces.
       - Los agregados anteriores (`agg_daily_campaign.exitos`,
         `agg_daily_agent_campaign`) hay que recalcularlos con
-        `npm run agregados -- --desde 2025-06-01` tras desplegar.
+        `npm run agregados -- --desde 2025-06-01 --hasta <ayer>` tras desplegar
+        (con solo `--desde` hace un único día). Hecho en producción el
+        11/11/2026 a las 14:45 (`b93dab0`): Bolsas 03-10/11 = 156.
 
     Verificado en septiembre 2026:
     - **Los éxitos se cuentan en `script_session`, NUNCA uniendo con
