@@ -19,7 +19,11 @@ export function limitesRango(desdeISO: string, hastaISO: string): { desde: Date;
 
 /**
  * Añade el filtro opcional de campañas como parámetros (@camp0, @camp1...).
- * Devuelve el fragmento SQL a concatenar (cadena vacía si no hay filtro).
+ * Devuelve el fragmento SQL a concatenar:
+ * - `undefined` = sin filtro (todas las campañas): cadena vacía.
+ * - `[]` = NINGUNA campaña: `AND 1 = 0`. Antes una lista vacía significaba
+ *   «todas» y un cliente con solo campañas IVR (o filtrado a nada) enseñaba
+ *   las cifras de TODOS los clientes con su nombre encima (auditoría 11/11/2026).
  * Los valores SIEMPRE van parametrizados: nunca concatenar nombres.
  * Nota: ph_campaign.shortname es char(20); la comparación con CHAR ignora
  * los espacios de relleno, no hace falta RTRIM en el WHERE.
@@ -29,7 +33,8 @@ export function filtroCampanias(
   campanias: string[] | undefined,
   columna: string,
 ): string {
-  if (!campanias || campanias.length === 0) return "";
+  if (!campanias) return "";
+  if (campanias.length === 0) return " AND 1 = 0";
   const marcadores = campanias.map((nombre, i) => {
     request.input(`camp${i}`, sql.VarChar(20), nombre);
     return `@camp${i}`;
@@ -37,9 +42,10 @@ export function filtroCampanias(
   return ` AND ${columna} IN (${marcadores.join(", ")})`;
 }
 
-/** Clave de cache estable para un conjunto de campañas (o "todas"). */
+/** Clave de cache estable para un conjunto de campañas («todas» o «ninguna»). */
 export function claveCampanias(campanias?: string[]): string {
-  if (!campanias || campanias.length === 0) return "todas";
+  if (!campanias) return "todas";
+  if (campanias.length === 0) return "ninguna";
   return [...campanias].sort().join(",");
 }
 

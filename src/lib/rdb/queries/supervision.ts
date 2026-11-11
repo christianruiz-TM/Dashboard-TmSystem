@@ -500,7 +500,11 @@ export async function metricasIvr(
       // Mismos parámetros @camp* para los dos filtros (entrantes IVR y logados).
       let filtroIvr = "";
       let filtroLog = "";
-      if (campanias && campanias.length > 0) {
+      if (campanias && campanias.length === 0) {
+        // Ninguna campaña: nada (una lista vacía no es «todas»)
+        filtroIvr = " AND 1 = 0";
+        filtroLog = " AND 1 = 0";
+      } else if (campanias) {
         const marcadores = campanias.map((nombre, i) => {
           request.input(`camp${i}`, sql.VarChar(20), nombre);
           return `@camp${i}`;

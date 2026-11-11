@@ -15,8 +15,15 @@ export const TTL = {
   diaEnCurso: 5 * 60_000,
   /** Rangos de días ya cerrados: 12 h */
   historico: 12 * 60 * 60_000,
-  /** Maestros (campañas, enums): 24 h */
+  /** Maestros que casi no cambian (enums, tablas de resultados): 24 h */
   maestros: 24 * 60 * 60_000,
+  /**
+   * Servicios y campañas: 10 min. Todos los paneles filtran con esa lista,
+   * así que con 24 h una campaña creada por la mañana (una tanda nueva de
+   * bbdd) no salía en ningún panel hasta el día siguiente (auditoría
+   * 11/11/2026). Las dos consultas tardan menos de 0,3 s.
+   */
+  campanias: 10 * 60_000,
 } as const;
 
 const cache = new LRUCache<string, object>({ max: 500, ttl: TTL.diaEnCurso });

@@ -763,10 +763,17 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   un `SelectorServicio` (dropdown `?servicio=<nombre>`, vacío = todos; en
   Operaciones, vacío = ninguno y `todos` = todos). El server
   resuelve el servicio a sus campañas con `campaniasDeServicio()`
-  (`queries/servicios.ts`, cacheado 24 h, excluye `Test_*`) y las pasa como el
-  parámetro `campanias?` que ya filtra las queries EN EL SQL (`filtroCampanias`).
+  (`queries/servicios.ts`, cacheado 10 min, `TTL.campanias`; excluye `Test_*`)
+  y las pasa como el parámetro `campanias?` que ya filtra las queries EN EL SQL
+  (`filtroCampanias`).
   Para añadir el scope a una query nueva: acepta `campanias?: string[]`, mete
   `claveCampanias(campanias)` en la clave de cache y aplica `filtroCampanias`.
+  **`undefined` = todas; `[]` = NINGUNA** (`AND 1 = 0`, desde el 11/11/2026):
+  antes `[]` era «todas» y un cliente con solo campañas IVR, o un
+  `?servicio=` mal escrito, enseñaba las cifras de todos los clientes con su
+  nombre encima. Un servicio que no existe da `[]`; las páginas lo tratan
+  como sin cliente y lo avisan (`AvisoServicio`). Una consulta que monte su
+  propio `IN` tiene que respetar lo mismo.
   Supervisión filtra también en su API de polling (`/api/supervision/datos`).
 - **Campañas IVR**: son automáticas (locución/enrutado), prefijo `IVR_` (helper
   `esIvr`). **Por defecto NO se cuentan** en los KPIs: cada panel lleva un check
@@ -1207,12 +1214,18 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 - `npm run seed:admin` — crear usuario admin inicial (parámetros por env vars)
 - `npm run introspect` — validar esquema real de RDBv2 → `docs/esquema-real.md`
 - `npm run agregados [-- --desde 2026-01-01 --hasta 2026-01-31]` — agregados diarios
-  (sin argumentos: ayer, en hora local). Cada lote de 7 días REEMPLAZA sus días
+  (sin argumentos, desde el 11/11/2026: desde el día siguiente al último
+  agregado y, como mínimo, los últimos 7 días, hasta ayer en hora local;
+  `lib/agregados-rango.ts`. Antes solo ayer: una noche fallida dejaba el
+  hueco para siempre y los finalizados de días ya agregados no se
+  actualizaban). Cada lote de 7 días REEMPLAZA sus días
   enteros, así que re-ejecutar un rango lo deja idéntico a RDBv2. Recalculado
   entero el 29/09/2026 (01/06/2025 → 28/09/2026, 37 s). Desde el 09/10/2026
   rellena también `agg_daily_agent_campaign` (ratios de éxito, regla 17) en
   los mismos lotes: 16 meses en 49 s.
 - `npm run backup` — backup consistente del SQLite a `./backups/`
+- `npm run typecheck` — `tsc` sin los tipos de `.next` (`tsconfig.typecheck.json`:
+  tras borrar una ruta, `.next/types` se queda viejo y `tsc` a secas falla).
 - `npm test` — tests unitarios con Vitest (`vitest.config.mts`, junto al código
   como `*.test.ts`). Vitest 5, que exige Node ≥ 22.12; `@types/node` va en
   ^22, el mínimo del servidor, para que no se cuele ninguna API exclusiva de
@@ -1297,6 +1310,10 @@ histórico: `docs/despliegue-linux.md`. Reglas que no se ven en el código:
   SVG; GHSA-673q-mjm6-r5xr, `use cache`) y uno alto de Server Actions, todos
   en 16.0-16.4.0. `eslint-config-next` a la misma versión. Tras subirlo:
   `npm audit --omit=dev` sin críticos (2 altos y 3 moderados de siempre).
+- **`npm audit fix`** (11/11/2026, sin `--force`): zod 4.4 → 4.6, msal-node
+  5 → 7 (llega por `mssql`; no usamos su login de Azure), source-map-js y
+  brace-expansion. `npm audit --omit=dev` queda en 2 moderados (`uuid`, por
+  `exceljs`/`mssql`, solo con un cambio de versión mayor).
 - **Disco justo** (unos 5 GB libres). Para limpiar imágenes viejas:
   `docker image prune --filter label=org.opencontainers.image.title=dashboard-tmsystem`.
   NUNCA un `prune` sin filtro: las imágenes `<none>` son la vuelta atrás de
@@ -1946,12 +1963,13 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 10. F5: 2FA, HTTPS en el nginx del compose (el bloque TLS ya está comentado en
     `docker/nginx.conf`) y `COOKIE_SECURE=1`. `TRUST_PROXY=1` ya está puesto.
     Solo es urgente si se decide exponer a internet.
-11. **«database is locked» al compilar la imagen** (cada vez más a menudo: dos
+11. ~~**«database is locked» al compilar la imagen**~~ (cada vez más a menudo: dos
     builds seguidos el 04/11/2026). Al recoger la configuración de las
-    rutas, varios procesos de `next build` abren a la vez la SQLite
-    desechable y el `PRAGMA journal_mode = WAL` de `sqlite.ts` choca.
-    Arreglo propuesto: reintentar ese pragma (y la migración) con una
-    espera corta si da SQLITE_BUSY. Mientras tanto, repetir el build.
+    rutas, varios procesos de `next build` abrían a la vez la SQLite
+    desechable y el `PRAGMA journal_mode = WAL` de `sqlite.ts` chocaba.
+    Arreglado de raíz el 11/11/2026 (auditoría de Fable): `db` es un
+    intermediario que abre y migra la base la PRIMERA VEZ QUE SE USA, no al
+    importar el módulo. Pendiente de confirmar en el primer build de la imagen.
 
 **Módulo «Planificación de turnos»** (aprobado 30/09/2026, rama
 `feature/planificacion`): plan por fases F1-F6 en `docs/plan-planificacion.md`.

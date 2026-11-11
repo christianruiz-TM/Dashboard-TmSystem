@@ -3,7 +3,7 @@ import { Suspense } from "react";
 import { Download, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
-import { AvisoRango } from "@/components/filtros/aviso-rango";
+import { AvisoRango, AvisoServicio } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicioActividad } from "@/components/filtros/selector-servicio-actividad";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
@@ -72,6 +72,7 @@ export default async function PaginaOperaciones({
   const todos = elegido === TODOS_SERVICIOS;
   const servicio = todos || !servicios.some((s) => s.servicio === elegido) ? undefined : elegido;
   const hayCliente = todos || servicio != null;
+  const servicioInexistente = elegido && !todos && !servicio ? elegido : null;
   const incluirIvr = params.ivr === "1";
 
   const urlExport = (formato: string) =>
@@ -152,6 +153,7 @@ export default async function PaginaOperaciones({
           <SelectorIvr incluir={incluirIvr} />
         </div>
       </div>
+      <AvisoServicio pedido={servicioInexistente} alternativa="la lista de clientes para elegir uno" />
       <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
       <AvisoMsg msg={params.msg} detalle={params.detalle} />
 

@@ -3,12 +3,14 @@
 # TZ=Europe/Madrid, así que no se mueven con el cambio de hora aunque el
 # servidor esté en UTC.
 #
-# Las tres son idempotentes y se ponen al día solas si alguna noche no corren.
+# Las tres son idempotentes. Las dos de agregados se ponen al día solas si
+# alguna noche no corren (agregados: desde el último día agregado y siempre la
+# última semana; planificación: desde `planificacion.agregados_hasta`).
 # supercronic no lanza una tarea si la anterior ejecución sigue en marcha.
 # Salida: `docker compose logs tareas`. Para lanzar una a mano:
 #   docker compose exec tareas npm run backup
 
-# Agregados diarios (ayer, en hora local).
+# Agregados diarios: huecos de noches fallidas y los últimos 7 días, hasta ayer.
 0 2 * * * npm run agregados
 
 # Planificación: agregados propios, borrador del mes siguiente desde el día 20 y

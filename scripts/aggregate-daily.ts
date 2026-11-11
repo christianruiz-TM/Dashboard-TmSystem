@@ -1,10 +1,12 @@
 /**
- * Job de agregados diarios por campaña → tabla SQLite agg_daily_campaign.
- * Pensado para la tarea programada de Windows a las 02:00 (día anterior)
- * y para el backfill inicial del histórico.
+ * Job de agregados diarios por campaña → tablas SQLite agg_daily_campaign y
+ * agg_daily_agent_campaign. Lo lanza la tarea de las 02:00 (servicio `tareas`
+ * del docker-compose) y sirve para el backfill del histórico.
  *
  * Uso:
- *   npm run agregados                                     → ayer
+ *   npm run agregados   → desde el día siguiente al último agregado (huecos de
+ *                         noches fallidas) y, como mínimo, los últimos 7 días,
+ *                         hasta ayer (`lib/agregados-rango.ts`)
  *   npm run agregados -- --desde 2025-06-01 --hasta 2026-06-10   → backfill por lotes
  *
  * Cada lote REEMPLAZA sus días completos (borra y vuelve a escribir), así que
@@ -31,17 +33,22 @@ async function main() {
 
   const { metricasDiariasPorCampania } = await import("../src/lib/rdb/queries/facturacion");
   const { ratiosDiariosAgenteCampania } = await import("../src/lib/rdb/queries/ratios-exito");
-  const { reemplazarMetricasDiarias, reemplazarRatiosDiarios } = await import(
+  const { estadoAgregados, reemplazarMetricasDiarias, reemplazarRatiosDiarios } = await import(
     "../src/lib/db/agregados"
   );
   const { esMock } = await import("../src/lib/rdb/pool");
   const { ayerISO, esquemaFechaISO } = await import("../src/lib/fechas");
+  const { rangoAutomaticoAgregados } = await import("../src/lib/agregados-rango");
 
   // «Ayer» en hora LOCAL. Antes se sacaba de toISOString() (UTC): con la tarea
   // programada antes de las 02:00 (01:00 en invierno) daba ANTEAYER y el día
   // de ayer no se agregaba nunca.
-  const desde = leerArgumento("desde") ?? ayerISO();
-  const hasta = leerArgumento("hasta") ?? desde;
+  const argDesde = leerArgumento("desde");
+  const argHasta = leerArgumento("hasta");
+  // Sin argumentos: se pone al día sola y rehace la última semana (11/11/2026)
+  const automatico = !argDesde && !argHasta ? rangoAutomaticoAgregados(estadoAgregados().ultimaFecha, ayerISO()) : null;
+  const desde = automatico?.desde ?? argDesde ?? ayerISO();
+  const hasta = automatico?.hasta ?? argHasta ?? desde;
   if (
     !esquemaFechaISO.safeParse(desde).success ||
     !esquemaFechaISO.safeParse(hasta).success ||

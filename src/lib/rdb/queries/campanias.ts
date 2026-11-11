@@ -6,12 +6,12 @@ import type { CampaniaInfo } from "../types";
 
 /**
  * Maestro de campañas (ph_campaign) con su tipo traducido vía rdb_enums.
- * Cacheado 24 h: cambia poquísimo. Es la fuente del mapeo cliente↔campaña
+ * Cacheado 10 min (TTL.campanias). Es la fuente del mapeo cliente↔campaña
  * del admin y de los selectores de campaña.
  */
 export async function listadoCampanias(): Promise<CampaniaInfo[]> {
   if (esMock()) return mockListadoCampanias();
-  return conCache("rdb:campanias", TTL.maestros, async () => {
+  return conCache("rdb:campanias", TTL.campanias, async () => {
     const pool = await obtenerPool();
     const r = await pool.request().query(`
       -- Maestro de campañas con tipo (el nombre del tipo se traduce en TS via rdb_enums)

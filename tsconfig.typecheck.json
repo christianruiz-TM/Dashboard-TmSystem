@@ -1,0 +1,7 @@
+{
+  "//": "Comprobación de tipos del código (npm run typecheck) sin los tipos que Next genera en .next/types: tras borrar una ruta se quedan viejos hasta el siguiente build y `tsc` fallaba sin que el código tuviera errores (auditoría 11/11/2026).",
+  "extends": "./tsconfig.json",
+  "compilerOptions": { "incremental": false },
+  "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", "**/*.mts"],
+  "exclude": ["node_modules", ".next"]
+}

@@ -74,8 +74,10 @@ export interface TendenciaMes {
  * Filtro opcional por campañas (scoping por servicio/cliente).
  */
 export function tendenciaMensual(meses = 12, campanias?: string[]): TendenciaMes[] {
+  // Lista vacía = ninguna campaña (no «todas»)
+  if (campanias && campanias.length === 0) return [];
   const filtro =
-    campanias && campanias.length > 0
+    campanias
       ? inArray(aggDailyCampaign.campaignShortname, campanias)
       : undefined;
   const filas = db
@@ -159,8 +161,10 @@ export interface TendenciaConversionMes {
 
 /** Tendencia mensual de la conversión (últimos `meses` meses con agregados). */
 export function tendenciaConversionMensual(meses = 12, campanias?: string[]): TendenciaConversionMes[] {
+  // Lista vacía = ninguna campaña (no «todas»)
+  if (campanias && campanias.length === 0) return [];
   const filtro =
-    campanias && campanias.length > 0
+    campanias
       ? inArray(aggDailyAgentCampaign.campaignShortname, campanias)
       : undefined;
   const mes = sql<string>`substr(${aggDailyAgentCampaign.fecha}, 1, 7)`;

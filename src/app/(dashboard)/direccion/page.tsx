@@ -3,7 +3,7 @@ import { format, subMonths } from "date-fns";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { GraficaBarras } from "@/components/graficas/grafica-barras";
 import { GraficaLineas } from "@/components/graficas/grafica-lineas";
-import { AvisoRango } from "@/components/filtros/aviso-rango";
+import { AvisoRango, AvisoServicio } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicioActividad } from "@/components/filtros/selector-servicio-actividad";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
@@ -89,11 +89,12 @@ export default async function PaginaDireccion({
   // Scoping por cliente/servicio; IVR excluido salvo que se marque el check
   const incluirIvr = params.ivr === "1";
   const servicios = await listaServicios();
-  const camp = await campaniasEfectivas(params.servicio, incluirIvr);
-  // Sin cliente elegido (o uno que no existe): visión por cliente
+  // Sin cliente elegido (o uno que no existe, con aviso): visión por cliente
   const servicioElegido = servicios.some((s) => s.servicio === params.servicio)
     ? params.servicio
     : undefined;
+  const servicioInexistente = params.servicio && !servicioElegido ? params.servicio : null;
+  const camp = await campaniasEfectivas(servicioElegido, incluirIvr);
 
   // Usuarios del cliente (GH_…): solo sus horas van a los totales (23/10/2026)
   const prefijo = prefijoUsuariosDe(servicioElegido);
@@ -186,10 +187,11 @@ export default async function PaginaDireccion({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <SelectorRango desde={desde} hasta={hasta} presets={presets} />
         <div className="flex flex-wrap items-center gap-4">
-          <SelectorServicioActividad servicios={servicios.map((s) => s.servicio)} valor={params.servicio} />
+          <SelectorServicioActividad servicios={servicios.map((s) => s.servicio)} valor={servicioElegido} />
           <SelectorIvr incluir={incluirIvr} />
         </div>
       </div>
+      <AvisoServicio pedido={servicioInexistente} alternativa="la visión por cliente" />
       <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
 
       {/* Las 12 cajas principales (22/10/2026), las mismas que en Supervisión */}

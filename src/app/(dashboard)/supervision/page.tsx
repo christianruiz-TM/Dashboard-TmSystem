@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { AvisoRango } from "@/components/filtros/aviso-rango";
+import { AvisoRango, AvisoServicio } from "@/components/filtros/aviso-rango";
 import { ROLES_SUPERVISION, requireRol } from "@/lib/auth/rbac";
 import { umbralSlaSeg } from "@/lib/db/settings";
 import { esquemaRango, hoyISO, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
@@ -73,16 +73,19 @@ export default async function PaginaSupervision({
   // Métricas principales: IVR excluido salvo check. La tarjeta IVR usa siempre
   // las campañas del servicio (incluidas las IVR), va aparte del toggle.
   const incluirIvr = params.ivr === "1";
-  const camp = await campaniasEfectivas(params.servicio, incluirIvr);
-  const campServicio = await campaniasDeServicio(params.servicio);
+  // Un cliente que no existe (enlace viejo, nombre mal escrito) se trata como
+  // sin cliente elegido, con aviso
+  const servicio = params.servicio && nombresServicios.includes(params.servicio) ? params.servicio : undefined;
+  const servicioInexistente = params.servicio && !servicio ? params.servicio : null;
+  const camp = await campaniasEfectivas(servicio, incluirIvr);
+  const campServicio = await campaniasDeServicio(servicio);
   // Tiempo real e Histórico: la tabla de campañas se agrupa por los tipos de
   // campaña del cliente (Bolsas: cartera; GH: BBDD) y el comparador agrupa
   // las campañas por cliente
-  const tiposCliente =
-    params.servicio && nombresServicios.includes(params.servicio) ? tiposCampaniaDe(params.servicio) : [];
+  const tiposCliente = servicio ? tiposCampaniaDe(servicio) : [];
   const servicioDe = Object.fromEntries(mapaCampaniaServicio(servicios));
   // Usuarios del cliente (GH_…): solo sus horas van a los totales (23/10/2026)
-  const prefijo = params.servicio && nombresServicios.includes(params.servicio) ? prefijoUsuariosDe(params.servicio) : null;
+  const prefijo = servicio ? prefijoUsuariosDe(servicio) : null;
 
   if (vista === "resultados") {
     // Por defecto el mes en curso: con un solo día la muestra por agente es pequeña
@@ -95,8 +98,7 @@ export default async function PaginaSupervision({
     const { desde, hasta } = rango.success ? rango.data : mes;
     // Siempre por cliente: sin uno elegido no se consulta nada (todos los
     // servicios a la vez tardaba demasiado en abrir la pestaña)
-    const servicioElegido =
-      params.servicio && nombresServicios.includes(params.servicio) ? params.servicio : undefined;
+    const servicioElegido = servicio;
     // Tipos de campaña del cliente (GH: BBDD): se filtra la lista antes de consultar
     const tipos = servicioElegido ? tiposCampaniaDe(servicioElegido) : [];
     const tipo = seleccionTipo(params.tipo, tipos);
@@ -138,11 +140,12 @@ export default async function PaginaSupervision({
       <div className="space-y-6">
         <TabsSupervision
           vista="resultados"
-          servicio={params.servicio}
+          servicio={servicio}
           incluirIvr={incluirIvr}
           desde={params.desde}
           hasta={params.hasta}
         />
+        <AvisoServicio pedido={servicioInexistente} alternativa="la lista de clientes para elegir uno" />
         <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes en curso" />
         <PanelResultados
           resultado={resultado}
@@ -185,11 +188,12 @@ export default async function PaginaSupervision({
       <div className="space-y-6">
         <TabsSupervision
           vista="historico"
-          servicio={params.servicio}
+          servicio={servicio}
           incluirIvr={incluirIvr}
           desde={params.desde}
           hasta={params.hasta}
         />
+        <AvisoServicio pedido={servicioInexistente} alternativa="todos los clientes" />
         <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el día de ayer" />
         <PanelHistorico
           kpis={kpis}
@@ -205,7 +209,7 @@ export default async function PaginaSupervision({
           presets={presets}
           servicios={nombresServicios}
           ordenServicios={orden}
-          servicio={params.servicio}
+          servicio={servicio}
           incluirIvr={incluirIvr}
           tipos={tiposCliente}
           servicioDe={servicioDe}
@@ -228,13 +232,14 @@ export default async function PaginaSupervision({
   ]);
   return (
     <div className="space-y-6">
-      <TabsSupervision vista="tiempo-real" servicio={params.servicio} incluirIvr={incluirIvr} />
+      <TabsSupervision vista="tiempo-real" servicio={servicio} incluirIvr={incluirIvr} />
+      <AvisoServicio pedido={servicioInexistente} alternativa="todos los clientes" />
       <PanelSupervision
         // Remonta al cambiar de servicio o de toggle IVR
-        key={`${params.servicio ?? "todos"}|${incluirIvr ? "ivr" : "noivr"}`}
+        key={`${servicio ?? "todos"}|${incluirIvr ? "ivr" : "noivr"}`}
         servicios={nombresServicios}
         ordenServicios={orden}
-        servicio={params.servicio}
+        servicio={servicio}
         incluirIvr={incluirIvr}
         tipos={tiposCliente}
         servicioDe={servicioDe}

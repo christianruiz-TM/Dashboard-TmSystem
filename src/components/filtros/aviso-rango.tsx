@@ -15,3 +15,19 @@ export function AvisoRango({ motivo, alternativa }: { motivo: string | null; alt
     </Alert>
   );
 }
+
+/**
+ * Aviso cuando el cliente de la URL (`?servicio=`) no existe: un enlace viejo
+ * o un nombre mal escrito. La vista sigue como sin cliente elegido, pero lo
+ * dice: antes se enseñaban todos los clientes en silencio (auditoría 11/11/2026).
+ */
+export function AvisoServicio({ pedido, alternativa }: { pedido: string | null; alternativa: string }) {
+  if (!pedido) return null;
+  return (
+    <Alert>
+      <AlertDescription>
+        No existe el cliente «{pedido}». Se muestra {alternativa}.
+      </AlertDescription>
+    </Alert>
+  );
+}

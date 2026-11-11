@@ -24,7 +24,7 @@ export function esTest(shortname: string): boolean {
 // Servicios = clientes. En esta instalación de Altitude cada cliente
 // tiene un servicio (ph_service) y sus campañas se relacionan vía
 // cp_general_cfg. Se usa para agrupar/filtrar los paneles por cliente.
-// Cacheado 24 h: es configuración, cambia poquísimo.
+// Cacheado 10 min (TTL.campanias): una campaña nueva sale enseguida.
 // ============================================================
 
 /**
@@ -33,7 +33,7 @@ export function esTest(shortname: string): boolean {
  */
 export async function listaServicios(): Promise<ServicioConCampanias[]> {
   if (esMock()) return mockServicios();
-  return conCache("rdb:servicios", TTL.maestros, async () => {
+  return conCache("rdb:servicios", TTL.campanias, async () => {
     const pool = await obtenerPool();
     const r = await pool.request().query(`
       -- Servicio (cliente) → campañas reales asociadas
@@ -60,22 +60,26 @@ export async function listaServicios(): Promise<ServicioConCampanias[]> {
 
 /**
  * Resuelve el parámetro `?servicio=` a la lista de campañas a filtrar.
- * Devuelve `undefined` (= todos) si no hay servicio o no existe. Ese
- * `undefined` encaja con el parámetro `campanias?` de las queries.
+ * Devuelve `undefined` (= todos) solo si NO se pide servicio; si se pide uno
+ * que no existe, `[]` (ninguna campaña). Antes daba `undefined` y un
+ * `?servicio=GrupoHuertass` enseñaba todos los clientes (auditoría
+ * 11/11/2026). Las páginas avisan con `AvisoServicio` y pasan `undefined`.
  */
 export async function campaniasDeServicio(
   servicio: string | undefined,
 ): Promise<string[] | undefined> {
   if (!servicio) return undefined;
   const servicios = await listaServicios();
-  return servicios.find((s) => s.servicio === servicio)?.campanias;
+  return servicios.find((s) => s.servicio === servicio)?.campanias ?? [];
 }
 
 /**
  * Lista de campañas efectiva para los paneles: parte del servicio (o todas) y,
  * salvo que `incluirIvr` sea true, EXCLUYE las campañas IVR (`IVR_*`). Las IVR
  * son automáticas (locución/enrutado) y por defecto no se cuentan en los KPIs.
- * Devuelve `undefined` solo cuando no hay scope alguno (todas, IVR incluidas).
+ * Con servicio, devuelve siempre una lista, aunque quede vacía (un cliente con
+ * solo campañas IVR, o uno que no existe): vacía = NINGUNA campaña en las
+ * queries (`filtroCampanias`), nunca «todas».
  */
 export async function campaniasEfectivas(
   servicio: string | undefined,
@@ -83,7 +87,7 @@ export async function campaniasEfectivas(
 ): Promise<string[] | undefined> {
   const base = await campaniasDeServicio(servicio);
   // Con servicio elegido, listaServicios() ya excluyó las Test_* en el SQL
-  if (base) return incluirIvr ? base : base.filter((c) => !esIvr(c));
+  if (servicio && base) return incluirIvr ? base : base.filter((c) => !esIvr(c));
   // Sin servicio hay que enumerar el maestro completo, y ese SÍ trae las
   // campañas de pruebas: si no se filtran aquí, la vista "todos los
   // servicios" las cuenta en los KPIs (24 de 201 campañas en esta
@@ -97,7 +101,9 @@ export async function campaniasEfectivas(
 /**
  * Mapa campaña→servicio (cliente). Para resolver la facturación a nivel de
  * servicio. Si una campaña estuviese en varios servicios (cp_general_cfg es
- * 1:N) gana el de más campañas (la lista viene ordenada así).
+ * 1:N) gana el PRIMERO por orden alfabético del servicio (`listaServicios`
+ * va de la A a la Z desde el 04/11/2026). Verificado el 11/11/2026: ninguna
+ * de las 181 campañas está en dos servicios.
  */
 export function mapaCampaniaServicio(servicios: ServicioConCampanias[]): Map<string, string> {
   const mapa = new Map<string, string>();

@@ -203,15 +203,39 @@ async function salientesCore(desdeISO: string, hastaISO: string, campanias?: str
   const agendado = lista(reqRell, "ag", agendadoTrasAgente);
   const filtroEventos = filtroCampanias(reqRell, campanias, "c.shortname");
   const filtroProgramadas = filtroEventos.replace("c.shortname", "c3.shortname");
+  const filtroCtc = filtroEventos.replace("c.shortname", "c5.shortname");
   const rellamadas = reqRell.query(`
     SET NOCOUNT ON;
+    IF OBJECT_ID('tempdb..#ctc') IS NOT NULL DROP TABLE #ctc;
     IF OBJECT_ID('tempdb..#ll') IS NOT NULL DROP TABLE #ll;
-    -- Llamadas de salida con número desde el inicio (o 30 días atrás) hasta ahora
+    -- Contactos que miran los dos pasos de abajo: los agendados por un agente
+    -- en el rango y los que tienen momento de rellamada en los últimos 30 días,
+    -- de las campañas pedidas. Antes #ll copiaba TODAS las salientes de la casa
+    -- desde el inicio del rango hasta hoy (un rango de hace un año, un año
+    -- entero de todos los clientes; auditoría 11/11/2026). Mismas cifras: #ll
+    -- solo se cruza por contacto con estos dos conjuntos.
+    SELECT h.activity AS contact
+    INTO #ctc
+    FROM activity_history h
+    INNER JOIN activity a5 ON a5.code = h.activity
+    INNER JOIN ph_campaign c5 ON c5.code = a5.campaign
+    WHERE h.event_moment >= @desde AND h.event_moment < @hastaExcl
+      AND h.schedule_status IN (${prog}) AND h.event_action IN (${acciones})${filtroCtc}
+    UNION
+    SELECT a5.code
+    FROM activity a5
+    INNER JOIN ph_campaign c5 ON c5.code = a5.campaign
+    WHERE a5.man_sch_moment >= DATEADD(day, -@diasVencidas, GETDATE())${filtroCtc};
+    CREATE UNIQUE CLUSTERED INDEX ix_ctc ON #ctc (contact);
+
+    -- Llamadas de salida con número a esos contactos, desde el inicio (o 30
+    -- días atrás) hasta ahora (índice de itr_thread por contacto)
     SELECT t.contact, t.start_time
     INTO #ll
-    FROM itr_thread t
+    FROM #ctc k
+    INNER JOIN itr_thread t ON t.contact = k.contact
     ${sqlJoinGlobal()}
-    WHERE t.start_time >= @desdeLl AND t.origin = 2 AND t.contact IS NOT NULL AND ${sqlLlamada()};
+    WHERE t.start_time >= @desdeLl AND t.origin = 2 AND ${sqlLlamada()};
     CREATE CLUSTERED INDEX ix_ll ON #ll (contact, start_time);
 
     -- Agendadas en el rango: eventos de un agente que dejan el contacto
@@ -269,6 +293,7 @@ async function salientesCore(desdeISO: string, hastaISO: string, campanias?: str
     GROUP BY agente, campania;
 
     DROP TABLE #ll;
+    DROP TABLE #ctc;
   `);
 
   // --- 5) tiempo en Ready y esperando llamada por agente ---
