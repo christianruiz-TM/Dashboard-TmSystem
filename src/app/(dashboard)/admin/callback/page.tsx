@@ -10,6 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { requireRol } from "@/lib/auth/rbac";
 import { configCallback, ultimosTicketsCallback } from "@/lib/callback-servidor";
 import { estadoCorreo } from "@/lib/correo";
+import { estadoTickets } from "@/lib/tickets";
 import { compararTexto } from "@/lib/orden";
 import { nombresCalendarios } from "@/lib/planificacion/calendarios";
 import { esIvr, listaServicios } from "@/lib/rdb/queries/servicios";
@@ -18,6 +19,7 @@ import {
   guardarAlertaCallback,
   guardarServicioCallback,
   quitarServicioCallback,
+  ticketPruebaCallback,
 } from "./acciones";
 
 export const metadata: Metadata = { title: "Callback" };
@@ -35,6 +37,7 @@ export default async function PaginaCallbackAdmin({
   const config = configCallback();
   const tickets = ultimosTicketsCallback(config);
   const correo = estadoCorreo();
+  const api = estadoTickets();
   const calendarios = nombresCalendarios();
   const servicios = (await listaServicios()).slice().sort((a, b) => compararTexto(a.servicio, b.servicio));
   const editando = editar ? servicios.find((s) => s.servicio === editar) : null;
@@ -166,9 +169,10 @@ export default async function PaginaCallbackAdmin({
           <CardTitle className="text-base">Alerta «callback sin funcionar»</CardTitle>
           <CardDescription>
             Salta si un cliente acumula este número de llamadas rechazadas seguidas, en horario de atención y en campañas
-            con callback, sin que el IVR cree ninguna ficha. Sale en la campana y abre un ticket mandando un correo a la
-            herramienta de tickets (como mucho uno por cliente y día; la tarea programada mira cada 10 minutos, de lunes a
-            sábado de 8 a 22 h). Con el callback funcionando, la racha más larga medida fue de 9 (gente que cuelga
+            con callback, sin que el IVR cree ninguna ficha. Sale en la campana y abre un ticket en la herramienta de
+            tickets por su API (como mucho uno por cliente y día; la tarea programada mira cada 10 minutos, de lunes a
+            sábado de 8 a 22 h). Si la API falla, manda un correo de aviso: el correo solo no abre ticket, porque la
+            herramienta lee una carpeta de Gmail a la que no llegan los correos de su propia cuenta. Con el callback funcionando, la racha más larga medida fue de 9 (gente que cuelga
             enseguida); en el corte de GrupoHuertas de julio a octubre de 2026 entraban unas 38 rechazadas al día.
           </CardDescription>
         </CardHeader>
@@ -179,11 +183,23 @@ export default async function PaginaCallbackAdmin({
               <Input id="umbral" name="umbral" type="number" min="1" max="500" defaultValue={config.umbralAlerta} required />
             </div>
             <div className="w-72 space-y-1.5">
-              <Label htmlFor="destinatario">Correo de la herramienta de tickets</Label>
+              <Label htmlFor="destinatario">Correo de aviso (si la API falla)</Label>
               <Input id="destinatario" name="destinatario" type="email" defaultValue={config.destinatario} required />
             </div>
             <Button type="submit">Guardar</Button>
           </form>
+          <div className="flex flex-wrap items-center gap-3 text-sm">
+            <span className={api.configurado ? "text-muted-foreground" : "text-destructive"}>
+              API de tickets: {api.descripcion}
+            </span>
+            {api.configurado ? (
+              <form action={ticketPruebaCallback}>
+                <Button type="submit" variant="outline" size="sm">
+                  Crear un ticket de prueba
+                </Button>
+              </form>
+            ) : null}
+          </div>
           <div className="flex flex-wrap items-center gap-3 text-sm">
             <span className={correo.configurado ? "text-muted-foreground" : "text-destructive"}>
               Servidor de correo: {correo.descripcion}

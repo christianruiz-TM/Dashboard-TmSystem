@@ -5,6 +5,7 @@
 import { format } from "date-fns";
 import { registrarAuditoria } from "@/lib/auth/audit";
 import { enviarCorreo, estadoCorreo } from "@/lib/correo";
+import { crearTicket, estadoTickets } from "@/lib/tickets";
 import { guardarAjuste, obtenerAjuste } from "@/lib/db/settings";
 import { hoyISO } from "@/lib/fechas";
 import { calendarioPlan } from "@/lib/planificacion/calendarios";
@@ -81,15 +82,18 @@ const claveTicket = (servicio: string) => `callback.ticket.${servicio}`;
 
 export interface ResultadoTickets {
   alertas: AlertaCallback[];
+  /** «GrupoHuertas: ticket TCK-0123» o «GrupoHuertas: correo (la API falló)». */
   enviados: string[];
   yaEnviados: string[];
   errores: string[];
 }
 
 /**
- * Abre un ticket (correo al destinatario de la configuración) por cada
- * cliente con el callback sin funcionar, como mucho uno por cliente y día
- * (`callback.ticket.<servicio>` = fecha del último). Lo lanza la tarea
+ * Abre un ticket por cada cliente con el callback sin funcionar, como mucho
+ * uno por cliente y día (`callback.ticket.<servicio>` = fecha del último).
+ * Por la API de la herramienta de tickets (lib/tickets.ts); si no está
+ * configurada o falla, un correo de aviso al destinatario de la
+ * configuración (el correo NO abre ticket: 12/11/2026). Lo lanza la tarea
  * programada (`npm run alertas:callback`, cada 10 minutos en horario), no
  * la pantalla: así sale aunque nadie tenga el panel abierto.
  */
@@ -107,22 +111,37 @@ export async function enviarTicketsCallback(opciones: { simular?: boolean } = {}
     const panel = url ? `${url.replace(/\/+$/, "")}/supervision?servicio=${encodeURIComponent(a.servicio)}` : null;
     const correo = correoAlertaCallback(a, panel);
     if (opciones.simular) {
-      res.enviados.push(a.servicio);
+      res.enviados.push(`${a.servicio}: ${estadoTickets().configurado ? "ticket por la API" : "correo"}`);
       continue;
     }
+    const resumen = `${a.servicio}: ${a.rechazadas} rechazadas desde ${a.desde} sin ficha`;
+    let fallo: string | null = null;
+    if (estadoTickets().configurado) {
+      try {
+        const codigo = await crearTicket({ asunto: correo.asunto, descripcion: correo.texto, prioridad: "high" });
+        guardarAjuste(claveTicket(a.servicio), hoy);
+        res.enviados.push(`${a.servicio}: ticket ${codigo}`);
+        registrarAuditoria({ accion: "ticket_callback", username: "tarea programada", detalle: `${resumen} → ticket ${codigo}` });
+        continue;
+      } catch (e) {
+        fallo = e instanceof Error ? e.message : String(e);
+        res.errores.push(`${a.servicio}: ${fallo}`);
+      }
+    }
+    // Sin API o si ha fallado: al menos un correo de aviso
     if (!estadoCorreo().configurado) {
-      res.errores.push(`${a.servicio}: no hay servidor de correo configurado (SMTP_HOST)`);
+      if (!fallo) res.errores.push(`${a.servicio}: no hay API de tickets ni servidor de correo configurados`);
       continue;
     }
     try {
-      await enviarCorreo({ para: config.destinatario, ...correo });
-      guardarAjuste(claveTicket(a.servicio), hoy);
-      res.enviados.push(a.servicio);
-      registrarAuditoria({
-        accion: "ticket_callback",
-        username: "tarea programada",
-        detalle: `${a.servicio}: ${a.rechazadas} rechazadas desde ${a.desde} sin ficha → ${config.destinatario}`,
+      await enviarCorreo({
+        para: config.destinatario,
+        asunto: correo.asunto,
+        texto: fallo ? `${correo.texto}\n\n(No se pudo abrir el ticket por la API: ${fallo})` : correo.texto,
       });
+      guardarAjuste(claveTicket(a.servicio), hoy);
+      res.enviados.push(`${a.servicio}: correo a ${config.destinatario}${fallo ? " (la API falló)" : ""}`);
+      registrarAuditoria({ accion: "ticket_callback", username: "tarea programada", detalle: `${resumen} → correo a ${config.destinatario}` });
     } catch (e) {
       res.errores.push(`${a.servicio}: ${e instanceof Error ? e.message : String(e)}`);
     }

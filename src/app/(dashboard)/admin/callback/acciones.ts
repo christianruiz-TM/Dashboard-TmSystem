@@ -7,6 +7,7 @@ import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { configCallback, guardarConfigCallback } from "@/lib/callback-servidor";
 import { leerConfigCallback, type ConfigCallbackServicio } from "@/lib/callback";
 import { enviarCorreo } from "@/lib/correo";
+import { crearTicket } from "@/lib/tickets";
 import { nombresCalendarios } from "@/lib/planificacion/calendarios";
 import { esIvr, listaServicios } from "@/lib/rdb/queries/servicios";
 
@@ -83,7 +84,26 @@ export async function guardarAlertaCallback(formData: FormData): Promise<void> {
   volverCon("guardado");
 }
 
-/** Correo de prueba al destinatario de los tickets (para comprobar el SMTP). */
+/** Ticket de prueba por la API de la herramienta de tickets. */
+export async function ticketPruebaCallback(): Promise<void> {
+  await requireAdmin();
+  let codigo: string;
+  try {
+    codigo = await crearTicket({
+      asunto: "[Dashboard] Prueba del aviso de callback",
+      descripcion:
+        "Ticket de prueba del dashboard de TmSystem (Administración → Callback).\n\n" +
+        "Si se ha creado, el aviso «callback sin funcionar» abrirá tickets solo. Este se puede cerrar sin más.",
+      prioridad: "low",
+    });
+  } catch (e) {
+    volverCon("error_ticket", e instanceof Error ? e.message : String(e));
+  }
+  await auditar(`ticket de prueba ${codigo}`);
+  volverCon("ticket_creado", codigo);
+}
+
+/** Correo de prueba al destinatario del aviso (para comprobar el SMTP). */
 export async function correoPruebaCallback(): Promise<void> {
   await requireAdmin();
   const config = configCallback();
