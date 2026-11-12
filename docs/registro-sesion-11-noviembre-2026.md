@@ -89,9 +89,22 @@ y `typecheck` en verde.
     escriba un cliente).
 - 351 tests (7 nuevos: caducidad y XLSX), ESLint y `typecheck` en verde.
 
-## 5. Pendiente
+## 5. Despliegue de F1, F3 y F4
 
-- Commit y despliegue de F1, F3 y F4.
+Commit `51250eb`, desplegado el 12/11/2026 a las 07:58 (imagen
+`369c1616f1ec`, sin migraciones, backup `dashboard_20261112_0756.db`, vuelta
+atrás `dashboard-app:anterior` = `0a826e69ee8e`). La imagen lleva también
+`b93dab0` (éxitos solo tipificados), que otra sesión desplegó el 11/11 a las
+14:40. Build a la primera, sin «database is locked» (el segundo seguido).
+Una sola sesión abierta en producción, de menos de 12 h: no se cerró
+ninguna. Los agregados de esa noche ya corrieron con el modo nuevo.
+
+## 6. Pendiente
+
+- Añadir esta sesión a `docs/registro-sesiones.md` (tenía cambios
+  preparados de otra sesión).
+- De la auditoría están hechos F1-F9 (F2 sin código); quedan los de menor
+  gravedad (F10-F16) y las mejoras.
 - Añadir esta sesión a `docs/registro-sesiones.md` (tenía cambios preparados
   de otra sesión y no se tocó). Que el build no vuelva a dar «database is
   locked» se confirma del todo tras varios builds (el primero, bien).
