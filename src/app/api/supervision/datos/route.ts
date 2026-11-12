@@ -18,6 +18,7 @@ import { tiposCampaniaDe } from "@/lib/db/resultados";
 import { totalResultados } from "@/lib/resultados-cabecera";
 import { prefijoUsuariosDe } from "@/lib/facturacion";
 import { resumenSalientes } from "@/lib/rdb/queries/salientes";
+import { callbackPeriodo } from "@/lib/callback-servidor";
 
 /**
  * Datos de supervisión intradía (polling cada 60 s desde el panel).
@@ -37,7 +38,7 @@ export async function GET(peticion: NextRequest) {
     const campServicio = await campaniasDeServicio(servicio);
     // Usuarios del cliente (GH_…): solo sus horas van a los totales
     const prefijo = prefijoUsuariosDe(servicio);
-    const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados, salientes] = await Promise.all([
+    const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados, salientes, callback] = await Promise.all([
       estadoAgentes(camp),
       kpisCampaniasHoy(umbral, camp),
       agentesHoy(camp),
@@ -47,6 +48,11 @@ export async function GET(peticion: NextRequest) {
       calidadBaseDatosRango(hoyISO(), hoyISO(), camp),
       totalResultados(hoyISO(), hoyISO(), camp, prefijo),
       resumenSalientes(hoyISO(), hoyISO(), camp, prefijo),
+      // Callback (12/11/2026): si falla, el panel sigue sin la sección
+      callbackPeriodo(hoyISO(), hoyISO(), servicio).catch((e) => {
+        console.error("[supervision] callback:", e);
+        return null;
+      }),
     ]);
     // Los tipos de campaña del cliente agrupan la tabla, igual que en la página
     const tipos = servicio ? tiposCampaniaDe(servicio) : [];
@@ -55,6 +61,7 @@ export async function GET(peticion: NextRequest) {
       kpis,
       top,
       ivr,
+      callback,
       plan,
       ratios,
       resultados,

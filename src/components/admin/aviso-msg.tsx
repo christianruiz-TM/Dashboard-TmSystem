@@ -36,6 +36,8 @@ const MENSAJES: Record<string, { texto: string; error: boolean }> = {
     texto: "El objetivo necesita al menos un umbral (aprovechamiento, neto o % no válidos) y fechas válidas.",
     error: true,
   },
+  correo_enviado: { texto: "Correo de prueba enviado: comprueba que ha llegado a la herramienta de tickets.", error: false },
+  error_correo: { texto: "No se pudo enviar el correo:", error: true },
   error_horas_logadas: {
     texto:
       "Las horas logadas van por servicio (cliente) y necesitan el prefijo de sus usuarios (p. ej. GH).",

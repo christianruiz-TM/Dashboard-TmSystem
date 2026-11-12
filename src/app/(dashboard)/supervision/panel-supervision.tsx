@@ -19,6 +19,8 @@ import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { CabeceraSupervision } from "@/components/kpi/cabecera-supervision";
 import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
+import { Callback } from "@/components/kpi/callback";
+import type { ResultadoCallback } from "@/lib/callback";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { TablaKpisCampania } from "@/components/kpi/tabla-kpis-campania";
@@ -48,6 +50,8 @@ interface DatosSupervision {
   kpis: KpiCampaniaHoy[];
   top: AgenteHoy[];
   ivr: MetricasIvr;
+  /** Callback de hoy de los clientes con callback (null si no hay ninguno en el alcance). */
+  callback: ResultadoCallback | null;
   /** Alertas de planificación (equipo multicliente), independientes del servicio elegido. */
   plan: { alertas: Alerta[]; error: string | null; revisar?: PendienteRevision[] };
   ratios: ResultadoRatios;
@@ -170,6 +174,8 @@ export function PanelSupervision({
       <TarjetaAlertasPlan alertas={datos.plan.alertas} error={datos.plan.error} revisar={datos.plan.revisar ?? []} />
 
       <TarjetaIvr ivr={datos.ivr} />
+
+      <Callback callback={datos.callback} enVivo />
 
       <div className="grid gap-6 xl:grid-cols-2">
         <Card>

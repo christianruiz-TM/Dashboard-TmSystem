@@ -43,6 +43,12 @@ export interface CampaniaMiServicio {
   nombre: string;
   /** Tipo de campaña del cliente (/admin/resultados), o null. */
   tipo: string | null;
+  /**
+   * ¿Salen sus horas? Solo en las campañas que se facturan por horas (o sin
+   * facturación configurada): las bbdd de GH se cobran por contactos y no
+   * llevan horas (12/11/2026).
+   */
+  horas: boolean;
 }
 
 /** Botón de tipo del informe: qué campañas marca. */
@@ -70,9 +76,11 @@ export interface DatosMiServicio {
   filas: FilaMiServicio[];
   resultados: FilaResultadoMiServicio[];
   /**
-   * Horas logadas de los usuarios del cliente (la caja 1), total y por día.
-   * null con un filtro de tipo o de campaña: entonces las horas son las de
-   * la ficha abierta en esas campañas (decidido 06/11/2026).
+   * Horas logadas de los usuarios del cliente, total y por día: con el
+   * cliente entero, las de la caja 1; con un tipo («Sin BBDD»), las de
+   * Supervisión → Resultados con ese tipo (los usuarios que trabajaron en
+   * sus campañas, 12/11/2026). null con una campaña o con un tipo que no se
+   * factura por horas: entonces, las de la ficha abierta (o ninguna).
    */
   horas: { total: number; dia: Record<string, number> } | null;
 }
@@ -89,7 +97,8 @@ export interface ExtrasInternos {
 // Lo que calcula el motor
 // ------------------------------------------------------------
 
-export type TipoHoras = "logadas" | "ficha";
+/** «ninguna»: ninguna campaña de la selección se factura por horas. */
+export type TipoHoras = "logadas" | "ficha" | "ninguna";
 
 export interface KpisMiServicio {
   llamadas: number;
@@ -102,8 +111,6 @@ export interface KpisMiServicio {
   finalizadosExito: number;
   horas: number | null;
   tipoHoras: TipoHoras;
-  llamadasHora: number | null;
-  exitosHora: number | null;
   finalizadosPorExito: number | null;
   brutoPct: number | null;
   netoPct: number | null;
@@ -149,9 +156,8 @@ export interface CampaniaCalculada {
   pctNv: number | null;
   ex: number;
   fe: number;
-  horasFicha: number;
-  llamadasHora: number | null;
-  exitosHora: number | null;
+  /** Horas con la ficha abierta; null si la campaña no se factura por horas. */
+  horasFicha: number | null;
   brutoPct: number | null;
   netoPct: number | null;
 }

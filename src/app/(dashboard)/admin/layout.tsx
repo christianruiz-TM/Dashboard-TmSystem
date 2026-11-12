@@ -7,6 +7,7 @@ const SECCIONES = [
   { ruta: "/admin/clientes", etiqueta: "Clientes" },
   { ruta: "/admin/facturacion", etiqueta: "Facturación y SLA" },
   { ruta: "/admin/resultados", etiqueta: "Resultados" },
+  { ruta: "/admin/callback", etiqueta: "Callback" },
   { ruta: "/admin/auditoria", etiqueta: "Auditoría" },
 ];
 

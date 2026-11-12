@@ -1,6 +1,7 @@
 import { format } from "date-fns";
 import { configsResultados, tiposCampaniaDe } from "@/lib/db/resultados";
-import { prefijoUsuariosDe } from "@/lib/facturacion";
+import { configuracionFacturacion, prefijoUsuariosDe } from "@/lib/facturacion";
+import { facturaPorHoras } from "@/lib/facturacion-campania";
 import { hoyISO } from "@/lib/fechas";
 import { calcularRatiosExito, esUsuarioDelCliente } from "@/lib/ratios-exito";
 import { TTL } from "@/lib/rdb/cache";
@@ -20,13 +21,19 @@ import type { DatosMiServicio, ExtrasInternos } from "./tipos";
 // IVR (siempre fuera) ni las de pruebas; filtros por tipo de campaña y por
 // una campaña. Si el rango llega a hoy, todo con caché de 60 s (la pantalla
 // se refresca cada 60 s).
+//
+// 12/11/2026 (pedido por Christian): un cliente con tipos de campaña (GH)
+// no tiene «Todas», empieza en el primero («Sin BBDD»); con un tipo, las
+// horas logadas son las de Supervisión → Resultados con ese tipo (usuarios
+// del cliente que trabajaron en sus campañas); y las campañas que no se
+// facturan por horas (las bbdd) no llevan horas.
 // ============================================================
 
 export interface PeticionMiServicio {
   servicio: string;
   desde: string;
   hasta: string;
-  /** Tipo de campaña (?tipo=, como en Resultados): «todas», «resto» o «solo:<tipo>». */
+  /** Tipo de campaña (?tipo=, como en Resultados): «resto» o «solo:<tipo>» («todas» sin tipos). */
   tipo?: string;
   campania?: string;
 }
@@ -48,17 +55,24 @@ export async function cargarMiServicio(p: PeticionMiServicio): Promise<MiServici
   // Solo un servicio que exista: con uno desconocido, campaniasEfectivas daría TODAS
   const delServicio = ((await campaniasDeServicio(p.servicio)) ?? []).filter((c) => !esIvr(c));
   const tipos = tiposCampaniaDe(p.servicio);
-  const tipo = seleccionTipo(p.tipo, tipos);
+  // Sin «Todas» si el cliente tiene tipos (12/11/2026): el primero, «Sin BBDD»
+  const opciones = opcionesTipo(tipos).filter((o) => o.valor !== "todas");
+  const elegido = seleccionTipo(p.tipo, tipos);
+  const tipo: SeleccionTipo = elegido === "todas" && opciones.length > 0 ? opciones[0].valor : elegido;
   const campTipo = filtrarPorTipo(delServicio, tipos, tipo).sort(compararTexto);
   const campania = p.campania && campTipo.includes(p.campania) ? p.campania : null;
   const camp = campania ? [campania] : campTipo;
-  // Con un tipo o una campaña, las horas son las de la ficha abierta (06/11/2026)
-  const filtrado = tipo !== "todas" || campania != null;
+  // Campañas que no se facturan por horas: sin horas (las bbdd de GH)
+  const factura = configuracionFacturacion();
+  const sinHoras = delServicio.filter((c) => facturaPorHoras(factura, c, p.servicio) === false);
+  const conHoras = camp.filter((c) => !sinHoras.includes(c));
+  // Horas logadas: con el cliente entero o un tipo con horas; con una
+  // campaña, las de la ficha abierta (la hora logada es de la persona)
+  const logadas = campania == null && conHoras.length > 0;
   const enVivo = p.hasta >= hoyISO();
   const ttl = enVivo ? TTL.supervision : undefined;
   const prefijo = prefijoUsuariosDe(p.servicio);
   const configs = configsResultados();
-  const opciones = opcionesTipo(tipos);
 
   // Lista vacía = nada que consultar (en el SQL, vacía significaría «todas»)
   const hay = camp.length > 0;
@@ -66,14 +80,16 @@ export async function cargarMiServicio(p: PeticionMiServicio): Promise<MiServici
     hay ? llamadasDiaCampania(p.desde, p.hasta, camp, ttl) : [],
     hay ? actividadDiariaCampania(p.desde, p.hasta, camp, ttl) : [],
     baseResultadosRango(p.desde, p.hasta, camp, configs, ttl),
-    hay && !filtrado ? baseRatiosRango(p.desde, p.hasta, camp, ttl) : null,
-    hay && !filtrado ? horasLogadasDia(p.desde, p.hasta, ttl) : null,
+    logadas ? baseRatiosRango(p.desde, p.hasta, conHoras, ttl) : null,
+    logadas ? horasLogadasDia(p.desde, p.hasta, ttl) : null,
   ]);
 
   // Horas logadas: las de la caja 1 (mismos usuarios que calcularRatiosExito)
+  // o, con un tipo, las de Resultados con ese tipo: sin los usuarios logados
+  // sin actividad, que no se sabe de qué tipo son (sinActividad = false)
   let horas: EntradaMiServicio["horas"] = null;
   if (base && horasDia) {
-    const ratios = calcularRatiosExito(base, prefijo, true);
+    const ratios = calcularRatiosExito(base, prefijo, tipo === "todas");
     horas = {
       total: ratios.total.horasLogadas,
       usuarios: ratios.agentes.map((a) => a.agente).filter((a) => esUsuarioDelCliente(a, prefijo)),
@@ -96,6 +112,7 @@ export async function cargarMiServicio(p: PeticionMiServicio): Promise<MiServici
     resultados,
     // Con «no válidos» configurados (y válidos) en /admin/resultados
     configurado: resultados.serviciosConfigurados.includes(p.servicio),
+    sinHoras,
     horas,
   });
   return {

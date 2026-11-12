@@ -6,6 +6,8 @@ import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { Glosario } from "@/components/glosario";
 import { CabeceraSupervision } from "@/components/kpi/cabecera-supervision";
 import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
+import { Callback } from "@/components/kpi/callback";
+import type { ResultadoCallback } from "@/lib/callback";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { TablaKpisCampania } from "@/components/kpi/tabla-kpis-campania";
@@ -33,6 +35,7 @@ export function PanelHistorico({
   kpis,
   agentes,
   ivr,
+  callback,
   ratios,
   resultados,
   salientes,
@@ -51,6 +54,8 @@ export function PanelHistorico({
   kpis: KpiCampaniaHoy[];
   agentes: AgenteHoy[];
   ivr: MetricasIvr;
+  /** Callback de los clientes con callback (null si no hay ninguno en el alcance). */
+  callback: ResultadoCallback | null;
   ratios: ResultadoRatios;
   /** Totales de Resultados del período (contactos cerrados), para las cajas principales. */
   resultados: ResultadoResultados["total"] | null;
@@ -91,6 +96,8 @@ export function PanelHistorico({
       <CabeceraSupervision kpis={kpis} ratios={ratios} resultados={resultados} umbral={umbral} />
 
       <TarjetaIvr ivr={ivr} />
+
+      <Callback callback={callback} />
 
       <Card>
         <CardHeader>

@@ -21,9 +21,12 @@ export interface EntradaMiServicio {
   actividad: ActividadDiaCampania[];
   resultados: BaseResultados;
   configurado: boolean;
+  /** Campañas que NO se facturan por horas (no llevan horas: bbdd de GH). */
+  sinHoras?: string[];
   /**
-   * Horas logadas (caja 1) y los usuarios que cuentan en ella; null con un
-   * filtro de tipo o de campaña (entonces van las de la ficha abierta).
+   * Horas logadas y los usuarios que cuentan en ellas (las de la caja 1 o, con
+   * un tipo, las de Resultados con ese tipo); null con una campaña o con un
+   * tipo que no se factura por horas.
    */
   horas: { total: number; usuarios: string[]; porUsuarioDia: HorasUsuarioDia[] } | null;
 }
@@ -99,7 +102,11 @@ export function armarDatosMiServicio(e: EntradaMiServicio): { datos: DatosMiServ
     desde: e.desde,
     hasta: e.hasta,
     generado: e.generado,
-    campanias: nombres.map((nombre) => ({ nombre, tipo: tipoDeCampania(nombre, e.tipos) })),
+    campanias: nombres.map((nombre) => ({
+      nombre,
+      tipo: tipoDeCampania(nombre, e.tipos),
+      horas: !(e.sinHoras ?? []).includes(nombre),
+    })),
     opcionesTipo: opciones.length > 1 ? opciones : [],
     filtro: e.filtro,
     configurado: e.configurado,

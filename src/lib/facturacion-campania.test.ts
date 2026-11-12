@@ -7,6 +7,7 @@ import {
   etiquetaCampania,
   agruparPorServicio,
   aplicarAjustes,
+  facturaPorHoras,
   facturarCampanias,
   importeVigente,
   filasDeCierre,
@@ -94,6 +95,17 @@ const extras = {
     ["gh_bbdd_x", new Set(["2026-09"])],
   ]),
 };
+
+describe("facturaPorHoras", () => {
+  it("la campaña hereda las horas de su servicio; la bbdd con config propia, no", () => {
+    expect(facturaPorHoras(config, "gh_toyota", "GrupoHuertas")).toBe(true);
+    expect(facturaPorHoras(config, "gh_bbdd_x", "GrupoHuertas")).toBe(false);
+  });
+  it("sin ninguna línea no se sabe (null)", () => {
+    expect(facturaPorHoras(config, "otra", "OtroCliente")).toBeNull();
+    expect(facturaPorHoras(config, "suelta", null)).toBeNull();
+  });
+});
 
 describe("facturarCampanias", () => {
   const r = facturarCampanias(config, unidades, mapa, extras);

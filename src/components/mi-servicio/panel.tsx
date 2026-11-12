@@ -89,9 +89,11 @@ export function PanelMiServicio({ carga, interno }: { carga: MiServicioCargado; 
     ...(datos.configurado ? (["noValidos"] as const) : []),
     "exitos",
     "finalizadosExito",
-    panel.kpis.tipoHoras === "logadas" ? "horasLogadas" : "horasFicha",
-    "llamadasHora",
-    "exitosHora",
+    ...(panel.kpis.tipoHoras === "logadas"
+      ? (["horasLogadas"] as const)
+      : panel.kpis.tipoHoras === "ficha"
+        ? (["horasFicha"] as const)
+        : []),
     "finalizadosPorExito",
     "bruto",
     ...(datos.configurado ? (["neto"] as const) : []),
@@ -236,7 +238,10 @@ export function PanelMiServicio({ carga, interno }: { carga: MiServicioCargado; 
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Por campaña</CardTitle>
-          <CardDescription>Finalizados de cada campaña y su aprovechamiento. Las horas, con la ficha abierta en cada una.</CardDescription>
+          <CardDescription>
+            Finalizados de cada campaña y su aprovechamiento.
+            {datos.campanias.some((c) => c.horas) ? " Las horas, con la ficha abierta en cada una." : ""}
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <Svg html={leyenda} />

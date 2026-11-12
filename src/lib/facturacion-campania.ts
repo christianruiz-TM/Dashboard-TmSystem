@@ -302,6 +302,23 @@ function lineasDeCargos(
 }
 
 /**
+ * ¿Se factura la campaña por horas (logadas del cliente o productivas)? Con
+ * la misma resolución que la factura: su config de campaña → la de su
+ * servicio. null si no tiene ninguna línea (no se sabe). Lo usa «Mi
+ * servicio» para no enseñar horas en las campañas que se cobran de otra
+ * forma (las bbdd de GH, por contactos; pedido el 12/11/2026).
+ */
+export function facturaPorHoras(
+  config: ConfigFacturacion,
+  campania: string,
+  servicio: string | null | undefined,
+): boolean | null {
+  const lineas = config.porCampania.get(campania) ?? (servicio ? config.porServicio.get(servicio) : undefined);
+  if (!lineas || lineas.length === 0) return null;
+  return lineas.some((l) => l.unidad === "horas_logadas" || l.unidad === "horas");
+}
+
+/**
  * Líneas de cada campaña. Por campaña aplica, por este orden: su config de
  * campaña (excepción) → la de su servicio (lo normal) → nada. Salen las
  * campañas con actividad y también las que solo tienen minutos o DDIs (una

@@ -3,7 +3,8 @@ import { mockBaseRatiosExito, mockMetricasDiarias } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import { listaFechasRango } from "@/lib/mi-servicio/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
-import { claveCampanias, filtroCampanias, limitesRango, sqlJoinGlobal, sqlLlamada } from "./util";
+import { campaniasLlamadas } from "./servicios";
+import { claveCampanias, filtroCampanias, limitesRango, sqlLlamadasPorGlobal } from "./util";
 
 // ============================================================
 // Consultas propias de «Mi servicio» (06/11/2026). Las cifras salen de las
@@ -22,9 +23,10 @@ export interface LlamadasDiaCampania {
 }
 
 /**
- * TODAS las llamadas por día y campaña: entrantes y salientes con número,
- * contesten o no, sin preparaciones, emails ni el tramo rechazado o
- * desbordado del IVR (sqlLlamada). Suman la caja «Llamadas».
+ * TODAS las llamadas por día y campaña, una por itr_global (la condición de
+ * la caja «Llamadas», sqlLlamadasPorGlobal, 12/11/2026): con el cliente
+ * entero, también las que no llegaron a ninguna campaña, en su campaña IVR.
+ * Suman la caja «Llamadas».
  */
 export async function llamadasDiaCampania(
   desdeISO: string,
@@ -48,22 +50,9 @@ export async function llamadasDiaCampania(
       const request = pool.request();
       request.input("desde", sql.DateTime, desde);
       request.input("hastaExcl", sql.DateTime, hastaExcl);
-      const filtro = filtroCampanias(request, campanias, "c.shortname");
-      const r = await request.query(`
-        -- Día en hora local de la centralita (regla 14)
-        SELECT CONVERT(varchar(10), t.start_time, 23) AS fecha,
-               RTRIM(c.shortname) AS campania,
-               COUNT(*) AS llamadas
-        FROM itr_thread t
-        INNER JOIN ph_campaign c ON t.campaign = c.code
-        ${sqlJoinGlobal()}
-        WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
-          AND ${sqlLlamada()}${filtro}
-        GROUP BY CONVERT(varchar(10), t.start_time, 23), RTRIM(c.shortname)
-        -- RECOMPILE: el texto es el mismo para un día que para un mes y SQL
-        -- Server reutilizaría el plan del primero (incidencia del 20/10/2026)
-        OPTION (RECOMPILE);
-      `);
+      const filtro = filtroCampanias(request, await campaniasLlamadas(campanias), "c.shortname");
+      // Día en hora local de la centralita (regla 14)
+      const r = await request.query(`-- Mi servicio: llamadas por día${sqlLlamadasPorGlobal(filtro, true)}`);
       return r.recordset as LlamadasDiaCampania[];
     },
   );

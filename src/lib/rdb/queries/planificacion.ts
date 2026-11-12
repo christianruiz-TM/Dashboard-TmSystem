@@ -10,7 +10,7 @@ import {
   mockLlamadasPorDevolverHoy,
   mockUsuariosAgente,
 } from "../mock";
-import { obtenerEnums } from "../enums";
+import { codigoAltaAgente, sqlAltaCallback } from "./callback";
 import { esMock, obtenerPool, sql } from "../pool";
 import type {
   CierresDia,
@@ -461,16 +461,13 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
   if (campanias.length === 0) return { porDevolver: 0, primera: null, ultima: null, hilos: [] };
   if (esMock()) return mockLlamadasPorDevolverHoy(campanias);
   return conCache(`rdb:plan:porDevolver:${claveCampanias(campanias)}`, TTL.supervision, async () => {
-    const altas = Object.entries((await obtenerEnums()).ContactEventActionType ?? {})
-      .filter(([, nombre]) => nombre === "AgentCreation")
-      .map(([valor]) => Number(valor));
-    if (altas.length !== 1) throw new Error("rdb_enums no tiene ContactEventActionType.AgentCreation");
+    const alta = await codigoAltaAgente();
     const pool = await obtenerPool();
     const request = pool.request();
     const { desde, hastaExcl } = limitesRango(hoyISO(), hoyISO());
     request.input("desde", sql.DateTime, desde);
     request.input("hastaExcl", sql.DateTime, hastaExcl);
-    request.input("alta", sql.Int, altas[0]);
+    request.input("alta", sql.Int, alta);
     const filtro = filtroCampanias(request, campanias, "c.shortname");
     const r = await request.query(`
       WITH perdidas AS (
@@ -495,14 +492,18 @@ export async function llamadasPorDevolverHoy(campanias: string[]): Promise<Llama
             AND (t.origin = 2 OR (t.origin = 1 AND t.termination_state = 1))
       ),
       contactos AS (
-          -- Contactos dados de alta hoy para devolver una perdida, aún
-          -- pendientes. El teléfono, de resch_phone_value: el del perfil
-          -- llega vacío y se rellena después (10/11/2026)
+          -- Fichas de callback dadas de alta hoy para devolver una perdida,
+          -- aún pendientes (la misma definición que el callback de
+          -- Supervisión, sqlAltaCallback: altas del IVR; 12/11/2026, del 01/10
+          -- al 12/11 casan las mismas 538 perdidas que con cualquier alta).
+          -- El teléfono, de resch_phone_value: el del perfil llega vacío y se
+          -- rellena después (10/11/2026)
           SELECT a.campaign, h.event_moment AS alta,
                  RIGHT(RTRIM(a.resch_phone_value), 9) AS numero
           FROM activity_history h
           INNER JOIN activity a ON a.code = h.activity AND a.status IN (0, 1, 2)
-          WHERE h.event_moment >= @desde AND h.event_moment < @hastaExcl AND h.event_action = @alta
+          WHERE h.event_moment >= @desde AND h.event_moment < @hastaExcl
+            AND ${sqlAltaCallback("h")}
       )
       -- Una fila por número pendiente; «hilo» = su primera perdida sin
       -- devolver (identifica la llamada en la campana sin guardar el teléfono)

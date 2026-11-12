@@ -52,6 +52,8 @@ function entrada(cambios: Partial<EntradaMiServicio> = {}): EntradaMiServicio {
       { ...fila("gh_leads", "2026-11-03", [null, null, null], 3, 0, 0), categoria: "administrativo", agente: null },
     ]),
     configurado: true,
+    // La bbdd se factura por contactos: sin horas (12/11/2026)
+    sinHoras: ["gh_bbdd_x"],
     horas: {
       total: 15.5,
       usuarios: ["GH_0851", "GH_0900"],
@@ -72,8 +74,8 @@ describe("armado de los datos", () => {
     expect(cerrados).toBe(23);
     // Sin datos, la campaña no sale; de la A a la Z
     expect(datos.campanias).toEqual([
-      { nombre: "gh_bbdd_x", tipo: "BBDD" },
-      { nombre: "gh_leads", tipo: null },
+      { nombre: "gh_bbdd_x", tipo: "BBDD", horas: false },
+      { nombre: "gh_leads", tipo: null, horas: true },
     ]);
     expect(datos.filas).toEqual([
       { c: "gh_bbdd_x", f: "2026-11-02", ll: 40, ge: 0, ex: 0, gu: 0, fi: 0, fe: 0, nv: 0 },

@@ -15,6 +15,8 @@ import { totalResultados } from "@/lib/resultados-cabecera";
 import { prefijoUsuariosDe } from "@/lib/facturacion";
 import { resumenSalientes } from "@/lib/rdb/queries/salientes";
 import { Salientes } from "@/components/kpi/salientes";
+import { Callback } from "@/components/kpi/callback";
+import { callbackPeriodo } from "@/lib/callback-servidor";
 import { Suspense } from "react";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
@@ -322,6 +324,11 @@ export default async function PaginaDireccion({
         <SeccionSalientes desde={desde} hasta={hasta} campanias={camp} prefijo={prefijo} />
       </Suspense>
 
+      {/* Callback de los clientes que lo tienen (12/11/2026) */}
+      <Suspense fallback={<p className="text-sm text-muted-foreground">Cargando el callback…</p>}>
+        <SeccionCallback desde={desde} hasta={hasta} servicio={servicioElegido} />
+      </Suspense>
+
       <TablaCampanias grupos={grupos} />
 
       <CalidadBaseDatos
@@ -398,4 +405,12 @@ async function SeccionSalientes({
 }) {
   const datos = await resumenSalientes(desde, hasta, campanias, prefijo);
   return datos ? <Salientes datos={datos} periodo="en el período" /> : null;
+}
+
+async function SeccionCallback({ desde, hasta, servicio }: { desde: string; hasta: string; servicio?: string }) {
+  const callback = await callbackPeriodo(desde, hasta, servicio).catch((e) => {
+    console.error("[direccion] callback:", e);
+    return null;
+  });
+  return <Callback callback={callback} />;
 }

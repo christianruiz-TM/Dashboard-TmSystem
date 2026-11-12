@@ -20,6 +20,9 @@ export type AccionAuditoria =
   | "facturacion_cierre"
   // Resultados de actividad: columnas, no válidos y objetivos
   | "config_resultados"
+  // Callback (12/11/2026): configuración y cada ticket enviado por correo
+  | "config_callback"
+  | "ticket_callback"
   | "export"
   // «Mi servicio»: cada informe descargado (cliente, periodo, filtros y comentarios)
   | "informe_mi_servicio"

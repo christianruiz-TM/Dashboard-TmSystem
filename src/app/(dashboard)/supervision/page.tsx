@@ -41,6 +41,7 @@ import { ordenServicios } from "@/components/filtros/selector-servicio-actividad
 import { PanelHistorico } from "./panel-historico";
 import { PanelResultados } from "./panel-resultados";
 import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
+import { callbackPeriodo } from "@/lib/callback-servidor";
 import { PanelSupervision } from "./panel-supervision";
 import { TabsSupervision } from "./tabs-supervision";
 
@@ -175,7 +176,7 @@ export default async function PaginaSupervision({
       hasta: params.hasta ?? ayer.hasta,
     });
     const { desde, hasta } = rango.success ? rango.data : ayer;
-    const [kpis, agentes, ivr, ratios, intentos, resultados, salientes] = await Promise.all([
+    const [kpis, agentes, ivr, ratios, intentos, resultados, salientes, callback] = await Promise.all([
       kpisCampaniasRango(desde, hasta, umbral, camp),
       agentesProductividadRango(desde, hasta, camp),
       metricasIvr(desde, hasta, campServicio),
@@ -183,6 +184,11 @@ export default async function PaginaSupervision({
       calidadBaseDatosRango(desde, hasta, camp),
       totalResultados(desde, hasta, camp, prefijo),
       resumenSalientes(desde, hasta, camp, prefijo),
+      // Callback de los clientes que lo tienen (12/11/2026); si falla, sin la sección
+      callbackPeriodo(desde, hasta, servicio).catch((e) => {
+        console.error("[supervision] callback:", e);
+        return null;
+      }),
     ]);
     return (
       <div className="space-y-6">
@@ -199,6 +205,7 @@ export default async function PaginaSupervision({
           kpis={kpis}
           agentes={agentes}
           ivr={ivr}
+          callback={callback}
           ratios={ratios}
           resultados={resultados}
           salientes={salientes}
@@ -219,7 +226,7 @@ export default async function PaginaSupervision({
   }
 
   // Tiempo real (hoy, en vivo con polling)
-  const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados, salientes] = await Promise.all([
+  const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados, salientes, callback] = await Promise.all([
     estadoAgentes(camp),
     kpisCampaniasHoy(umbral, camp),
     agentesHoy(camp),
@@ -229,6 +236,10 @@ export default async function PaginaSupervision({
     calidadBaseDatosRango(hoyISO(), hoyISO(), camp),
     totalResultados(hoyISO(), hoyISO(), camp, prefijo),
     resumenSalientes(hoyISO(), hoyISO(), camp, prefijo),
+    callbackPeriodo(hoyISO(), hoyISO(), servicio).catch((e) => {
+      console.error("[supervision] callback:", e);
+      return null;
+    }),
   ]);
   return (
     <div className="space-y-6">
@@ -248,6 +259,7 @@ export default async function PaginaSupervision({
           kpis,
           top,
           ivr,
+          callback,
           plan,
           ratios,
           resultados,

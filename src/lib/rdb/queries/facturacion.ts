@@ -312,6 +312,10 @@ const ALTA_CONTACTO = /^(LoaderCreation|SupervisorCreation|AgentCreation|MoveToC
  * vez aunque tenga varias altas en el rango; va a la campaña en la que está.
  * Septiembre 2026: los leads web de GH entran como AgentCreation (12.924) y
  * no por el cargador (500), así que valen todas las altas, no solo el cargador.
+ * Menos las que hace el IVR (usuario de tipo 3, 12/11/2026, decidido con
+ * Christian): las fichas de callback para devolver una llamada rechazada y la
+ * ficha que el IVR crea en su propia campaña IVR_* con cada llamada. No son
+ * leads que nos pase el cliente.
  */
 export async function leadsRecibidosPorCampania(
   desdeISO: string,
@@ -338,13 +342,15 @@ export async function leadsRecibidosPorCampania(
     const filtro = filtroCampanias(request, campanias, "c.shortname");
     const r = await request.query(`
       -- Contactos dados de alta en el rango (activity_history, índice por
-      -- event_moment), uno por actividad, en su campaña actual
+      -- event_moment), uno por actividad, en su campaña actual; sin las
+      -- altas del IVR (callback y fichas de las campañas IVR_*)
       SELECT RTRIM(c.shortname) AS campania, COUNT(DISTINCT h.activity) AS leads
       FROM activity_history h
       INNER JOIN activity    a ON a.code = h.activity
       INNER JOIN ph_campaign c ON c.code = a.campaign
       WHERE h.event_moment >= @desde AND h.event_moment < @hastaExcl
         AND h.event_action IN (${marcadores.join(", ")})${filtro}
+        AND NOT EXISTS (SELECT 1 FROM ph_e_user ui WHERE ui.code = h.event_agent AND ui.type = 3)
       GROUP BY RTRIM(c.shortname)
       -- RECOMPILE: el texto es el mismo para un día que para un mes y SQL
       -- Server reutilizaría el plan del primero (incidencia del 20/10/2026)

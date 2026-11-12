@@ -3,7 +3,7 @@
 # TZ=Europe/Madrid, así que no se mueven con el cambio de hora aunque el
 # servidor esté en UTC.
 #
-# Las tres son idempotentes. Las dos de agregados se ponen al día solas si
+# Las tres nocturnas son idempotentes. Las dos de agregados se ponen al día solas si
 # alguna noche no corren (agregados: desde el último día agregado y siempre la
 # última semana; planificación: desde `planificacion.agregados_hasta`).
 # supercronic no lanza una tarea si la anterior ejecución sigue en marcha.
@@ -19,3 +19,8 @@
 
 # Backup de la SQLite a ./backups (conserva los 30 últimos).
 30 2 * * * npm run backup
+
+# Alerta «callback sin funcionar» (12/11/2026): cada 10 minutos en horario, de
+# lunes a sábado. Si un cliente con callback acumula rechazadas sin ninguna
+# ficha, manda un correo a la herramienta de tickets (uno por cliente y día).
+*/10 8-21 * * 1-6 npm run --silent alertas:callback

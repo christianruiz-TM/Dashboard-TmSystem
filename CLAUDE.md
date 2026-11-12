@@ -602,6 +602,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         (cargador, agente, supervisor o movidos; por nombre en rdb_enums). Los
         leads web de GH entran como `AgentCreation` (12.924 eventos frente a
         500 del cargador en septiembre), así que no basta con el cargador.
+        **Sin las altas del IVR** (usuario tipo 3, 12/11/2026): fichas de
+        callback y la ficha por llamada de las campañas `IVR_*`. Octubre: GH
+        7.943 → 7.875, `IVR_GrupoHuertas` 7.539 → 0, Ávolo casi todo.
       - CONTACTOS FINALIZADOS EN «EXITO» (`exitos_finalizados`) = cerrados con
         estado Success* (GH septiembre: 2.597, con los cierres administrativos).
       - BASE DE DATOS y PREPARACIÓN DE CAMPAÑA (`base_datos`, `preparacion`,
@@ -691,10 +694,16 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       éxitos por hora, finalizados por éxito, % no válidos, aprovechamiento
       bruto y neto. El embudo y los aprovechamientos usan los **«finalizados
       con éxito»** (contactos cerrados en éxito), con ese nombre.
-    - **Con un tipo o una campaña, las horas son las de la ficha abierta** en
-      esas campañas (las logadas son de la persona, regla 11). Descartadas:
-      las logadas enteras de quien trabajó en ellas y ocultarlas. Lo dice el
-      globo interno.
+    - **Horas** (cambiado el 12/11/2026, pedido por Christian): un cliente
+      con tipos de campaña (GH) NO tiene «Todas»: empieza en el primero
+      («Sin BBDD»), y con un tipo las horas logadas son las de Supervisión →
+      Resultados con ese tipo (`calcularRatiosExito(..., sinActividad =
+      false)`: GH octubre 1.206,16 h en los dos). Las campañas que NO se
+      facturan por horas (`facturaPorHoras`, misma resolución que la
+      factura: config de campaña → la de su servicio; las bbdd de GH) no
+      llevan horas: con «Solo BBDD» no hay caja ni panel de horas. Con una
+      campaña, las de la ficha abierta. Sin cifras «por hora» y sin
+      «gestionadas» bajo la caja de llamadas (siguen en la tabla).
     - Nada por agente, ni en pantalla ni en el informe. Nombres de campaña
       de Altitude, tal cual.
     - Fuentes por día y campaña (`lib/mi-servicio/servidor.ts`):
@@ -719,6 +728,43 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     - Gráficas propias en SVG con la skill de visualización: paleta validada
       en claro y oscuro (`lib/mi-servicio/estilos.ts`, el mismo CSS en
       pantalla e informe), una escala por panel, globo en cada marca y tabla.
+
+22. **Callback de las entrantes (12/11/2026, estudiado y decidido con
+    Christian)**. Lógica pura con tests en `lib/callback.ts`, SQL en
+    `queries/callback.ts`, servidor en `lib/callback-servidor.ts`, sección
+    `components/kpi/callback.tsx` (Supervisión Tiempo real e Histórico y
+    Dirección; el cliente NUNCA) y configuración en `/admin/callback`
+    (`app_settings` `callback.config`, sin migración).
+    - **Ficha de callback** = alta `AgentCreation` (rdb_enums) hecha por un
+      usuario del IVR (`ph_e_user.type = 3`) en una campaña de agentes (no
+      `IVR_*`): `sqlAltaCallback`, la MISMA condición en la alerta de Ávolo
+      (casa igual: 538 de 731 perdidas del 01/10 al 12/11). Teléfono en
+      `activity.resch_phone_value`. Se casa con su entrante por campaña, 9
+      últimos dígitos y los 10 minutos siguientes.
+    - **Devuelta** = un agente TOCA la ficha: saliente a ella (con número =
+      llamada; sin número = gestión sin llamada en la herramienta del
+      cliente) o sesión de guion. «Hablamos» = segmento `state = 6`. Se
+      cuenta por ficha.
+    - **Tiempo hasta devolver SOLO en horario de atención** del calendario
+      del cliente (el de Planificación: copia de `horarios_servicio` +
+      cambios a mano; `horarioDeCalendario`, misma regla que
+      `horarioPorFecha`). Sin calendario, reloj (CEFF).
+    - Qué clientes y campañas tienen callback lo dice el admin (no se
+      deduce): GH y Ávolo todas, CEFF solo `Curso_maquinista`.
+    - **El callback de GH no creó ninguna ficha del 03/07/2026 10:43 al
+      26/10/2026 09:23** (~3.450 rechazadas; Christian: «no se apagó»).
+    - **Alerta «callback sin funcionar»**: N rechazadas seguidas (por
+      defecto 10) en horario y en campañas con callback sin ninguna ficha
+      del cliente desde la primera (10 min de margen). Con el callback
+      funcionando la racha más larga fue 4 (GH), 6 (Ávolo) y 9 (CEFF);
+      simulada del 01/09 al 11/11 salta los 38 días laborables del corte de
+      GH y ninguno más. Sale en la campana (origen `callback`) y abre un
+      ticket por correo (`npm run alertas:callback`, cada 10 min de 8 a 22 h
+      de lunes a sábado en `docker/crontab`; uno por cliente y día,
+      `callback.ticket.<servicio>`; destinatario en el admin, por defecto
+      dtecnico@tmsystem.es; SMTP en `.env`, `SMTP_*`, con nodemailer).
+    - Medido del 01/09 al 11/11: 2,5 s la consulta; mediana en horario GH
+      2,98 min, Ávolo 11,01, CEFF 4,25.
 
 ## Referencia del esquema RDBv2
 
@@ -1281,7 +1327,12 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   como `*.test.ts`). Vitest 5, que exige Node ≥ 22.12; `@types/node` va en
   ^22, el mínimo del servidor, para que no se cuele ninguna API exclusiva de
   Node 24. El test del motor usa un fixture real sin nombres y un snapshot:
-  si cambia a propósito, `npx vitest -u` y explicarlo en el commit.
+  si cambia a propósito, `npm test -- run -u` y explicarlo en el commit.
+  **Lanzar los tests con `npm test`, no con `npx vitest`** (12/11/2026):
+  `scripts/test.mjs` arranca Vitest con la unidad en MAYÚSCULA; desde
+  «c:\…» (como abre la terminal de VS Code) Vitest 5.1 carga su runtime dos
+  veces y todos fallan con «Cannot read properties of undefined (reading
+  'config')».
 - `npm run guia:html [-- --salida <ruta>]` — guía de planificación para
   supervisión en un solo HTML (de `ayuda-contenido.ts` y las capturas).
 - `npm run planificacion:semilla` — clientes, prefijos, patrones, contratos y
@@ -1828,6 +1879,19 @@ Orden fijado por Christian, el MISMO en todas las vistas de Supervisión
     los clientes en octubre = 68.806.
   - Debajo salen las gestionadas: siguen siendo la base de las cajas 4, 5 y
     6 («de las gestionadas» en su texto).
+  - **Desde el 12/11/2026, UNA por `itr_global`** (`sqlLlamadasPorGlobal`,
+    decidido con Christian tras cuadrar con el informe «GH_General» de
+    Altitude): también las que acaban en el IVR (rechazadas o desbordadas
+    sin agentes, cuelgues en el menú), que van a la campaña IVR del cliente,
+    «no a ninguna campaña»; una transferencia ya no cuenta dos veces. La
+    fila del IVR solo entra con el cliente ENTERO en el alcance
+    (`campaniasLlamadas`): «Incluir IVR» no cambia la caja; con un tipo o
+    una campaña, no cuenta. GH 01-11/11: 7.737 frente a 7.732 del informe
+    (cada día igual o ±2: el informe es de 8 a 21 h). Por campaña NO
+    cuadra con Altitude (pone 781 en IVR_GrupoHuertas, el dashboard 422:
+    las que pasan por un agente van a su campaña). UGR cuenta sus llamadas
+    del IVR (628 en octubre). Gestionadas, reparto por agente y % de
+    abandono, sin cambios; el volumen de Dirección sigue por tramos.
 - 6 = llamadas gestionadas ÷ éxitos (el % va debajo). 11 y 12 = `itr_thread.duration`
   de las llamadas según su sesión de script sea éxito o no (sin sesión = no
   éxito), Q2 de `filasAgenteCampania` con `LEFT JOIN script_session`.

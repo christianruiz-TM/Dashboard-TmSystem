@@ -9,8 +9,8 @@ function datosEjemplo(cambios: Partial<DatosMiServicio> = {}): DatosMiServicio {
     hasta: "2026-11-04",
     generado: "06/11/2026 10:00",
     campanias: [
-      { nombre: "gh_bbdd_x", tipo: "BBDD" },
-      { nombre: "gh_leads", tipo: null },
+      { nombre: "gh_bbdd_x", tipo: "BBDD", horas: true },
+      { nombre: "gh_leads", tipo: null, horas: true },
     ],
     opcionesTipo: [],
     filtro: { tipo: null, campania: null },
@@ -50,9 +50,8 @@ describe("motor de Mi servicio", () => {
       finalizadosExito: 21,
       horas: 20,
       tipoHoras: "logadas",
-      llamadasHora: 6.5,
-      exitosHora: 0.85,
     });
+    expect(p.kpis).not.toHaveProperty("llamadasHora");
     expect(p.kpis.pctNoValidos).toBe(24.44);
     expect(p.kpis.pctExitoLlamada).toBe(13.08);
     expect(p.kpis.brutoPct).toBe(23.33);
@@ -66,7 +65,6 @@ describe("motor de Mi servicio", () => {
     expect(p.todas).toBe(false);
     expect(p.kpis.tipoHoras).toBe("ficha");
     expect(p.kpis.horas).toBe(7.5);
-    expect(p.kpis.llamadasHora).toBe(12); // 90 ÷ 7,5
     expect(p.serie.puntos.map((x) => x.ho)).toEqual([5, 2.5, 0]);
     expect(p.campanias.map((c) => c.nombre)).toEqual(["gh_leads"]);
   });
@@ -75,6 +73,23 @@ describe("motor de Mi servicio", () => {
     const p = m.calcular(datosEjemplo({ horas: null }));
     expect(p.kpis.tipoHoras).toBe("ficha");
     expect(p.kpis.horas).toBe(11.5);
+  });
+
+  it("las campañas que no se facturan por horas no llevan horas (12/11/2026)", () => {
+    const sinHorasBbdd = (d: DatosMiServicio) => ({
+      ...d,
+      campanias: d.campanias.map((c) => (c.nombre === "gh_bbdd_x" ? { ...c, horas: false } : c)),
+    });
+    // Toda la selección: horas de la ficha, sin las de la bbdd
+    const ficha = m.calcular(sinHorasBbdd(datosEjemplo({ horas: null })));
+    expect(ficha.kpis.tipoHoras).toBe("ficha");
+    expect(ficha.kpis.horas).toBe(7.5);
+    expect(ficha.serie.puntos.map((x) => x.ho)).toEqual([5, 2.5, 0]);
+    expect(ficha.campanias.find((c) => c.nombre === "gh_bbdd_x")?.horasFicha).toBeNull();
+    // Solo la bbdd: ninguna hora
+    const solo = m.calcular(sinHorasBbdd(datosEjemplo({ horas: null })), ["gh_bbdd_x"]);
+    expect(solo.kpis.tipoHoras).toBe("ninguna");
+    expect(solo.kpis.horas).toBeNull();
   });
 
   it("sin «no válidos» configurados no hay no válidos, ni su %, ni neto, ni etapa de válidos", () => {

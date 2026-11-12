@@ -119,6 +119,47 @@ export function sqlEmail(t = "t"): string {
  * número) ni el tramo rechazado o desbordado de una entrante del IVR
  * (estados 7 y 9).
  */
+/**
+ * LLAMADAS de la caja «Llamadas» (12/11/2026, cuadrado con el informe
+ * «GH_General» de Altitude, una fila por Interacción Global): UNA por
+ * `itr_global`, también las que acaban en el IVR, y en UNA campaña. Va a la
+ * última campaña de agentes que la tuvo (sin contar un tramo rechazado o
+ * desbordado); si no llegó a ninguna, a su campaña IVR (las rechazadas «no
+ * van a ninguna campaña», decidido con Christian). Fuera las preparaciones
+ * de llamada manual y los emails (regla 6). Antes se contaban tramos: una
+ * transferencia contaba dos veces y las que acababan en el IVR, ninguna.
+ * `filtro` se aplica a la campaña asignada (alias `c`); con `porDia`, una
+ * columna `fecha` (día del primer tramo, hora local). Columnas: [fecha,]
+ * campania, llamadas.
+ */
+export function sqlLlamadasPorGlobal(filtro: string, porDia = false): string {
+  return `
+    WITH hilos AS (
+        SELECT COALESCE(t.itr_global, -t.code) AS llamada, t.start_time, t.campaign,
+               -- 0: campaña de agentes; 1: IVR; 2: tramo rechazado o desbordado
+               CASE WHEN cc.shortname LIKE 'IVR[_]%' THEN 1
+                    WHEN t.origin = 1 AND t.termination_state IN (7, 9) THEN 2 ELSE 0 END AS prioridad
+        FROM itr_thread t
+        INNER JOIN ph_campaign cc ON cc.code = t.campaign
+        ${sqlJoinGlobal()}
+        WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+          AND ISNULL(t.media_type, 1) = 1
+          AND CASE WHEN ${sqlPreparacion()} THEN 1 ELSE 0 END = 0
+    ),
+    orden AS (
+        SELECT llamada, campaign, MIN(start_time) OVER (PARTITION BY llamada) AS ini,
+               ROW_NUMBER() OVER (PARTITION BY llamada ORDER BY prioridad, start_time DESC) AS n
+        FROM hilos
+    )
+    SELECT ${porDia ? "CONVERT(varchar(10), o.ini, 23) AS fecha, " : ""}RTRIM(c.shortname) AS campania, COUNT(*) AS llamadas
+    FROM orden o
+    INNER JOIN ph_campaign c ON c.code = o.campaign
+    WHERE o.n = 1${filtro}
+    GROUP BY ${porDia ? "CONVERT(varchar(10), o.ini, 23), " : ""}RTRIM(c.shortname)
+    -- RECOMPILE: el texto es el mismo para un día que para un mes (incidencia del 20/10/2026)
+    OPTION (RECOMPILE);`;
+}
+
 export function sqlLlamada(t = "t", g = "g"): string {
   return (
     `(ISNULL(${t}.media_type, 1) = 1` +

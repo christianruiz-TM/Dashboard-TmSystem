@@ -99,6 +99,28 @@ export async function campaniasEfectivas(
 }
 
 /**
+ * Campañas en las que se cuentan las LLAMADAS de un alcance (caja
+ * «Llamadas», 12/11/2026): las del alcance y, de cada cliente que está
+ * ENTERO en él (todas sus campañas de agentes), también sus campañas IVR.
+ * Todas las entrantes entran por el IVR, y las que no llegan a una campaña
+ * (rechazadas o desbordadas sin agentes, cuelgues en el menú) son llamadas
+ * del cliente pero de ninguna campaña: con un tipo o una campaña elegida no
+ * cuentan. Así el check «Incluir IVR» no cambia las llamadas. `undefined` =
+ * todas.
+ */
+export async function campaniasLlamadas(campanias: string[] | undefined): Promise<string[] | undefined> {
+  if (!campanias) return undefined;
+  const alcance = new Set(campanias);
+  for (const s of await listaServicios()) {
+    const deAgentes = s.campanias.filter((c) => !esIvr(c));
+    if (deAgentes.length > 0 && deAgentes.every((c) => alcance.has(c))) {
+      for (const c of s.campanias) if (esIvr(c)) alcance.add(c);
+    }
+  }
+  return [...alcance];
+}
+
+/**
  * Mapa campaña→servicio (cliente). Para resolver la facturación a nivel de
  * servicio. Si una campaña estuviese en varios servicios (cp_general_cfg es
  * 1:N) gana el PRIMERO por orden alfabético del servicio (`listaServicios`

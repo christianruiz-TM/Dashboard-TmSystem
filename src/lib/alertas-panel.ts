@@ -21,12 +21,13 @@
 // marcarla de nuevo (el 05/11, toda la tarde por una llamada de Alemania).
 // ============================================================
 
+import type { AlertaCallback } from "./callback";
 import type { Alerta } from "./planificacion/alertas";
 
-export type OrigenAlerta = "planificacion";
+export type OrigenAlerta = "planificacion" | "callback";
 export type GravedadPanel = "alta" | "media" | "info";
 
-export const NOMBRE_ORIGEN: Record<OrigenAlerta, string> = { planificacion: "Planificación" };
+export const NOMBRE_ORIGEN: Record<OrigenAlerta, string> = { planificacion: "Planificación", callback: "Callback" };
 
 export interface AlertaPanel {
   /** Estable mientras dura el problema (tipo, cliente y agente). */
@@ -97,6 +98,27 @@ export function alertasDePlanificacion(
       return { id, partes: [id], origen: "planificacion" as const, gravedad: "info" as const, mensaje: p.texto, enlace: p.enlace };
     }),
   ];
+}
+
+/**
+ * «Callback sin funcionar» de cada cliente (12/11/2026). Una parte por
+ * cliente y día: vista una vez, no vuelve a sonar ese día aunque sigan
+ * entrando rechazadas (el ticket ya ha salido por correo).
+ */
+export function alertasDeCallback(alertas: readonly AlertaCallback[], hoy: string): AlertaPanel[] {
+  return alertas.map((a) => {
+    const id = `callback|${a.servicio}`;
+    return {
+      id,
+      partes: [`callback|${hoy}|${a.servicio}`],
+      origen: "callback" as const,
+      gravedad: "alta" as const,
+      mensaje:
+        `Callback de ${a.servicio} sin funcionar: ${a.rechazadas} llamadas rechazadas desde las ${a.desde.slice(11, 16)} ` +
+        `y el IVR no ha creado ninguna ficha para devolverlas${a.ultimaFicha ? ` (la última, a las ${a.ultimaFicha.slice(11, 16)})` : " hoy"}.`,
+      enlace: { href: `/supervision?servicio=${encodeURIComponent(a.servicio)}`, etiqueta: "Ver Supervisión" },
+    };
+  });
 }
 
 /**

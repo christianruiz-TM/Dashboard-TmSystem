@@ -114,10 +114,10 @@ export default async function PaginaMiServicio({
         </Card>
       ) : (
         <>
-          {carga.tipo !== "todas" || carga.campania ? (
+          {carga.campania && carga.datos.campanias.some((c) => c.horas) ? (
             <p className="rounded-md border border-amber-300/70 bg-amber-50 px-3 py-2 text-xs text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/30 dark:text-amber-100">
-              Con un tipo o una campaña elegida, las horas son las de la ficha abierta en esas campañas: las horas logadas son
-              de cada persona, que trabaja en varias campañas a la vez, y no se pueden repartir por campaña.
+              Con una campaña elegida, las horas son las de la ficha abierta en esa campaña: las horas logadas son de cada
+              persona, que trabaja en varias campañas a la vez, y no se pueden repartir por campaña.
             </p>
           ) : null}
           <PanelMiServicio carga={carga} interno={acceso.interno} />

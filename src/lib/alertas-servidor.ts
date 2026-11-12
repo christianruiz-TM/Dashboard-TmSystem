@@ -5,7 +5,9 @@
 import { guardarAjuste, obtenerAjuste } from "@/lib/db/settings";
 import { hoyISO } from "@/lib/fechas";
 import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
+import { alertasCallbackHoy } from "@/lib/callback-servidor";
 import {
+  alertasDeCallback,
   alertasDePlanificacion,
   leerPreferencias,
   podarVistas,
@@ -42,10 +44,17 @@ export function guardarPreferenciasAlertas(userId: number, p: PreferenciasAlerta
  * los que miran). Si una fuente falla, las demás siguen y se avisa.
  */
 export async function alertasCampana(hoy = hoyISO()): Promise<{ alertas: AlertaPanel[]; errores: string[] }> {
-  const plan = await alertasPlanificacion();
+  const [plan, callback] = await Promise.all([
+    alertasPlanificacion(),
+    // Callback sin funcionar (12/11/2026): consulta cacheada 60 s, la misma de Supervisión
+    alertasCallbackHoy().then(
+      (a) => ({ alertas: a, error: null as string | null }),
+      (e: unknown) => ({ alertas: [], error: e instanceof Error ? e.message : String(e) }),
+    ),
+  ]);
   return {
-    alertas: alertasDePlanificacion(plan.alertas, plan.revisar, hoy),
-    errores: plan.error ? [`Planificación: ${plan.error}`] : [],
+    alertas: [...alertasDePlanificacion(plan.alertas, plan.revisar, hoy), ...alertasDeCallback(callback.alertas, hoy)],
+    errores: [...(plan.error ? [`Planificación: ${plan.error}`] : []), ...(callback.error ? [`Callback: ${callback.error}`] : [])],
   };
 }
 

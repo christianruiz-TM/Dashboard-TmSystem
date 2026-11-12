@@ -11,6 +11,7 @@ import type {
 import { calcularRatiosExito, type ResultadoRatios } from "@/lib/ratios-exito";
 import { hoyISO } from "@/lib/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
+import { campaniasLlamadas } from "./servicios";
 import {
   claveCampanias,
   filtroCampanias,
@@ -20,6 +21,7 @@ import {
   sqlExitoWhere,
   sqlJoinGlobal,
   sqlLlamada,
+  sqlLlamadasPorGlobal,
 } from "./util";
 
 // ============================================================
@@ -339,23 +341,16 @@ async function baseRatiosCore(
   `);
 
   // --- Q4: TODAS las llamadas por campaña (caja «Llamadas», 05/11/2026) ---
-  // Entrantes y salientes con número, contesten o no y las coja o no un
-  // agente: lo que la supervisión llama «llamadas hechas». Sin
-  // preparaciones, emails ni el tramo rechazado o desbordado de las
-  // entrantes del IVR (sqlLlamada). Igual que el total de volumenPorCampania.
+  // Entrantes y salientes, contesten o no y las coja o no un agente: lo que
+  // la supervisión llama «llamadas hechas». Desde el 12/11/2026, UNA por
+  // itr_global como el informe de Altitude (sqlLlamadasPorGlobal), con las
+  // que acaban en el IVR en la campaña IVR del cliente cuando el alcance es
+  // el cliente entero (campaniasLlamadas): GH 01-11/11 cuadra día a día.
   const reqLlamadas = pool.request();
   reqLlamadas.input("desde", sql.DateTime, desde);
   reqLlamadas.input("hastaExcl", sql.DateTime, hastaExcl);
-  const filtroLlamadas = filtroCampanias(reqLlamadas, campanias, "c.shortname");
-  const llamadas = reqLlamadas.query(`
-    SELECT RTRIM(c.shortname) AS campania, COUNT(*) AS llamadas
-    FROM itr_thread t
-    INNER JOIN ph_campaign c ON t.campaign = c.code
-    ${sqlJoinGlobal()}
-    WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
-      AND ${sqlLlamada()}${filtroLlamadas}
-    GROUP BY RTRIM(c.shortname);
-  `);
+  const filtroLlamadas = filtroCampanias(reqLlamadas, await campaniasLlamadas(campanias), "c.shortname");
+  const llamadas = reqLlamadas.query(`-- caja «Llamadas»: una por itr_global${sqlLlamadasPorGlobal(filtroLlamadas)}`);
 
   const [conteos, tiempos, rLogado, conSinExito, rLlamadas] = await Promise.all([
     filasAgenteCampania(desdeISO, hastaISO, campanias, false),

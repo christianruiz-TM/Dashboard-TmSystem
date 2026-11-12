@@ -45,13 +45,17 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
   function paneles(panel: PanelMiServicio): PanelTira[] {
     const k = panel.kpis;
     // El total de cada panel, el de su tarjeta: la suma de los días ya
-    // redondeados no da el total de las horas
-    return [
+    // redondeados no da el total de las horas. Sin campañas que se facturen
+    // por horas, no hay panel de horas
+    const lista: PanelTira[] = [
       { clave: "ll", titulo: "Llamadas", color: "--ms-ll", formato: "entero", total: k.llamadas },
       { clave: "fi", titulo: "Finalizados", color: "--ms-fi", formato: "entero", total: k.finalizados },
       { clave: "ex", titulo: "Éxitos", color: "--ms-fe", formato: "entero", total: k.exitos },
-      { clave: "ho", titulo: tituloHoras(panel), color: "--ms-ho", formato: "horas", total: k.horas ?? 0 },
     ];
+    if (k.tipoHoras !== "ninguna") {
+      lista.push({ clave: "ho", titulo: tituloHoras(panel), color: "--ms-ho", formato: "horas", total: k.horas ?? 0 });
+    }
+    return lista;
   }
 
   function tarjetas(datos: DatosMiServicio, panel: PanelMiServicio): TarjetaMiServicio[] {
@@ -61,13 +65,13 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
       color,
     });
     const logadas = k.tipoHoras === "logadas";
-    return [
+    const lista: TarjetaMiServicio[] = [
       {
         clave: "llamadas",
         grupo: "principal",
         titulo: "Llamadas",
         valor: fmt.entero(k.llamadas),
-        sub: fmt.entero(k.gestionadas) + " gestionadas",
+        sub: null,
         serie: serie("ll", "--ms-ll"),
         anillo: null,
       },
@@ -98,7 +102,10 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
         serie: serie("ex", "--ms-fe"),
         anillo: null,
       },
-      {
+    ];
+    // Las horas, solo si alguna campaña de la selección se factura por horas
+    if (k.tipoHoras !== "ninguna") {
+      lista.push({
         clave: logadas ? "horasLogadas" : "horasFicha",
         grupo: "principal",
         titulo: tituloHoras(panel),
@@ -106,25 +113,9 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
         sub: logadas ? "del equipo de tu servicio" : "en las campañas elegidas",
         serie: serie("ho", "--ms-ho"),
         anillo: null,
-      },
-      {
-        clave: "llamadasHora",
-        grupo: "ratio",
-        titulo: "Llamadas por hora",
-        valor: fmt.dec2(k.llamadasHora),
-        sub: logadas ? "gestionadas por hora logada" : "gestionadas por hora con ficha",
-        serie: null,
-        anillo: null,
-      },
-      {
-        clave: "exitosHora",
-        grupo: "ratio",
-        titulo: "Éxitos por hora",
-        valor: fmt.dec2(k.exitosHora),
-        sub: logadas ? "por hora logada" : "por hora con ficha",
-        serie: null,
-        anillo: null,
-      },
+      });
+    }
+    lista.push(
       {
         clave: "finalizadosPorExito",
         grupo: "ratio",
@@ -152,7 +143,8 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
         serie: null,
         anillo: k.netoPct == null ? null : { pct: k.netoPct, color: "--ms-fe" },
       },
-    ];
+    );
+    return lista;
   }
 
   function leyendaComposicion(datos: DatosMiServicio): { color: string; texto: string }[] {
@@ -233,7 +225,7 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
         "Aprovechamiento: " + fmt.pct(c.brutoPct),
       ])
       .concat(datos.configurado ? ["Aprovechamiento neto: " + fmt.pct(c.netoPct)] : [])
-      .concat(["Horas con ficha abierta: " + fmt.horas(c.horasFicha)]);
+      .concat(c.horasFicha == null ? [] : ["Horas con ficha abierta: " + fmt.horas(c.horasFicha)]);
   }
 
   function itemsCampanias(datos: DatosMiServicio, panel: PanelMiServicio): ItemComposicion[] {
@@ -250,6 +242,7 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
   /** Fila de total de la tabla de campañas (horas = suma de la ficha abierta). */
   function totalCampanias(datos: DatosMiServicio, panel: PanelMiServicio): CampaniaCalculada {
     const s = { ll: 0, ge: 0, fi: 0, nv: 0, ex: 0, fe: 0, gu: 0 };
+    let conHoras = false;
     for (const c of panel.campanias) {
       s.ll += c.ll;
       s.ge += c.ge;
@@ -257,7 +250,10 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
       s.nv += c.nv || 0;
       s.ex += c.ex;
       s.fe += c.fe;
-      s.gu += c.horasFicha;
+      if (c.horasFicha != null) {
+        s.gu += c.horasFicha;
+        conHoras = true;
+      }
     }
     const conf = datos.configurado;
     return {
@@ -270,9 +266,7 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
       pctNv: conf ? r2(cociente(s.nv, s.fi, 100)) : null,
       ex: s.ex,
       fe: s.fe,
-      horasFicha: r2(s.gu) || 0,
-      llamadasHora: r2(cociente(s.ge, s.gu)),
-      exitosHora: r2(cociente(s.ex, s.gu)),
+      horasFicha: conHoras ? r2(s.gu) || 0 : null,
       brutoPct: r2(cociente(s.fe, s.fi, 100)),
       netoPct: conf ? r2(cociente(s.fe, s.fi - s.nv, 100)) : null,
     };
@@ -296,11 +290,10 @@ export function vistaMiServicio(motor: MotorMiServicio, dibujo: DibujoMiServicio
       { titulo: "Aprovechamiento", valor: (c) => fmt.pct(c.brutoPct), orden: (c) => c.brutoPct },
     );
     if (conf) cols.push({ titulo: "Neto", valor: (c) => fmt.pct(c.netoPct), orden: (c) => c.netoPct });
-    cols.push(
-      { titulo: "Horas con ficha", valor: (c) => fmt.horas(c.horasFicha), orden: (c) => c.horasFicha },
-      { titulo: "Llamadas / h", valor: (c) => fmt.dec2(c.llamadasHora), orden: (c) => c.llamadasHora },
-      { titulo: "Éxitos / h", valor: (c) => fmt.dec2(c.exitosHora), orden: (c) => c.exitosHora },
-    );
+    // Horas solo si alguna campaña se factura por horas (en las demás, «—»)
+    if (datos.campanias.some((c) => c.horas !== false)) {
+      cols.push({ titulo: "Horas con ficha", valor: (c) => fmt.horas(c.horasFicha), orden: (c) => c.horasFicha });
+    }
     return cols;
   }
 

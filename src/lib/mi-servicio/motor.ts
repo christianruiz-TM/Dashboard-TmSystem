@@ -23,10 +23,13 @@ import type {
  *  - El embudo y el aprovechamiento usan los «finalizados con éxito»
  *    (contactos cerrados en éxito), para no tener dos cifras distintas con
  *    el mismo nombre.
- *  - Horas: las logadas de los usuarios del cliente (caja 1) con todas las
- *    campañas; con una parte de ellas, las de la ficha abierta en esas
- *    campañas (las logadas son de la persona, no de la campaña, regla 11).
- *  - Por hora = gestionadas o éxitos ÷ esas horas (como en las cajas).
+ *  - Horas: las logadas de los usuarios del cliente con todas las campañas
+ *    de los datos (las del cliente entero o las de su tipo, como Resultados);
+ *    con una parte de ellas, las de la ficha abierta en esas campañas (las
+ *    logadas son de la persona, no de la campaña, regla 11).
+ *  - Solo cuentan horas de las campañas que se facturan por horas: las
+ *    demás (bbdd de GH) no llevan horas; si no queda ninguna, no hay horas.
+ *  - Sin cifras «por hora» (quitadas el 12/11/2026, pedido por Christian).
  *  - Redondeo solo del valor final (2 decimales).
  */
 export function motorMiServicio() {
@@ -109,8 +112,11 @@ export function motorMiServicio() {
     const sel = seleccion == null ? nombres : nombres.filter((n) => seleccion.indexOf(n) >= 0);
     const enSel: Record<string, boolean> = {};
     for (const n of sel) enSel[n] = true;
+    const conHoras: Record<string, boolean> = {};
+    for (const c of datos.campanias) conHoras[c.nombre] = c.horas !== false;
     const todas = sel.length === nombres.length;
     const conLogadas = todas && datos.horas != null;
+    const hayHoras = sel.some((n) => conHoras[n]);
     const conf = datos.configurado;
 
     const per = periodos(datos.desde, datos.hasta);
@@ -125,11 +131,12 @@ export function motorMiServicio() {
     for (const f of datos.filas) {
       if (!enSel[f.c]) continue;
       const c = porCampania[f.c] || (porCampania[f.c] = vacia());
+      const gu = conHoras[f.c] ? f.gu : 0;
       for (const s of [t, c]) {
         s.ll += f.ll;
         s.ge += f.ge;
         s.ex += f.ex;
-        s.gu += f.gu;
+        s.gu += gu;
         s.fi += f.fi;
         s.fe += f.fe;
         s.nv += f.nv;
@@ -141,7 +148,7 @@ export function motorMiServicio() {
         pt.ex += f.ex;
         pt.fe += f.fe;
         pt.nv += f.nv;
-        if (!conLogadas) pt.ho += f.gu;
+        if (!conLogadas) pt.ho += gu;
       }
     }
     if (conLogadas && datos.horas) {
@@ -150,7 +157,7 @@ export function motorMiServicio() {
         if (pt) pt.ho += datos.horas.dia[dia];
       }
     }
-    const horas = conLogadas && datos.horas ? datos.horas.total : t.gu;
+    const horas = conLogadas && datos.horas ? datos.horas.total : hayHoras ? t.gu : null;
     const nv = conf ? t.nv : 0;
 
     // Embudo: llamadas → finalizados → válidos (si hay no válidos) → con éxito
@@ -208,9 +215,7 @@ export function motorMiServicio() {
           pctNv: conf ? r2(cociente(s.nv, s.fi, 100)) : null,
           ex: s.ex,
           fe: s.fe,
-          horasFicha: r2(s.gu) || 0,
-          llamadasHora: r2(cociente(s.ge, s.gu)),
-          exitosHora: r2(cociente(s.ex, s.gu)),
+          horasFicha: conHoras[c.nombre] ? r2(s.gu) || 0 : null,
           brutoPct: r2(cociente(s.fe, s.fi, 100)),
           netoPct: conf ? r2(cociente(s.fe, s.fi - s.nv, 100)) : null,
         };
@@ -229,9 +234,7 @@ export function motorMiServicio() {
         pctExitoLlamada: r2(cociente(t.ex, t.ge, 100)),
         finalizadosExito: t.fe,
         horas: r2(horas),
-        tipoHoras: conLogadas ? "logadas" : "ficha",
-        llamadasHora: r2(cociente(t.ge, horas)),
-        exitosHora: r2(cociente(t.ex, horas)),
+        tipoHoras: conLogadas ? "logadas" : hayHoras ? "ficha" : "ninguna",
         finalizadosPorExito: r2(cociente(t.fi, t.fe)),
         brutoPct: r2(cociente(t.fe, t.fi, 100)),
         netoPct: conf ? r2(cociente(t.fe, t.fi - nv, 100)) : null,

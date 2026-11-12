@@ -38,8 +38,10 @@ function clavesGlosario(datos: DatosMiServicio): ClaveMiServicio[] {
   if (datos.configurado) claves.push("noValidos");
   claves.push("exitos", "finalizadosExito");
   // Con todas las campañas, horas logadas; quitando alguna, las de la ficha
+  // (solo si alguna campaña se factura por horas)
   if (datos.horas) claves.push("horasLogadas");
-  claves.push("horasFicha", "llamadasHora", "exitosHora", "finalizadosPorExito", "bruto");
+  if (datos.campanias.some((c) => c.horas !== false)) claves.push("horasFicha");
+  claves.push("finalizadosPorExito", "bruto");
   if (datos.configurado) claves.push("neto");
   return claves;
 }

@@ -15,8 +15,6 @@ export type ClaveMiServicio =
   | "exitos"
   | "horasLogadas"
   | "horasFicha"
-  | "llamadasHora"
-  | "exitosHora"
   | "finalizadosPorExito"
   | "finalizadosExito"
   | "bruto"
@@ -26,7 +24,7 @@ export const GLOSARIO_CLIENTE: Record<ClaveMiServicio, { termino: string; defini
   llamadas: {
     termino: "Llamadas",
     definicion:
-      "Todas las llamadas de tus campañas: las que recibimos y las que hacemos, contesten o no. Debajo, las gestionadas: las que atendió una persona del equipo.",
+      "Todas las llamadas de tus campañas: las que recibimos y las que hacemos, contesten o no.",
   },
   finalizados: {
     termino: "Finalizados",
@@ -55,15 +53,7 @@ export const GLOSARIO_CLIENTE: Record<ClaveMiServicio, { termino: string; defini
   horasFicha: {
     termino: "Horas con ficha abierta",
     definicion:
-      "Horas que el equipo tuvo abierta la ficha de las campañas elegidas. Con solo una parte de las campañas no se pueden dar las horas conectadas, porque cada persona trabaja en varias a la vez.",
-  },
-  llamadasHora: {
-    termino: "Llamadas por hora",
-    definicion: "Llamadas gestionadas por cada hora del equipo.",
-  },
-  exitosHora: {
-    termino: "Éxitos por hora",
-    definicion: "Éxitos por cada hora del equipo.",
+      "Horas que el equipo tuvo abierta la ficha de las campañas elegidas. Con una sola campaña no se pueden dar las horas conectadas, porque cada persona trabaja en varias a la vez.",
   },
   finalizadosPorExito: {
     termino: "Finalizados por éxito",
@@ -87,7 +77,7 @@ export function notasInternas(extras: ExtrasInternos): Partial<Record<ClaveMiSer
     : "el cliente no tiene prefijo de usuarios (línea de facturación «horas logadas»): cuentan todos los usuarios que trabajaron en sus campañas";
   return {
     llamadas:
-      "Interno: la caja «Llamadas» de Supervisión y Dirección: sin preparaciones de llamada manual, emails ni el tramo rechazado o desbordado del IVR. Descartado: contar solo las gestionadas (salen debajo).",
+      "Interno: la caja «Llamadas» de Supervisión y Dirección: sin preparaciones de llamada manual, emails ni el tramo rechazado o desbordado del IVR. Descartado: contar solo las gestionadas (salen en la tabla por campaña; quitadas de esta caja el 12/11/2026).",
     finalizados:
       "Interno: los de Resultados (caja 3), contactos cerrados que tipificó un agente, por el día del cierre. " +
       `Descartado: los de facturación, que suman también los cierres administrativos y los que no tocó nadie (${extras.cerrados.toLocaleString("es-ES")} en este periodo y alcance).`,
@@ -96,11 +86,11 @@ export function notasInternas(extras: ExtrasInternos): Partial<Record<ClaveMiSer
     exitos:
       "Interno: la caja «Éxitos» (sesiones de éxito por el día de la llamada, regla 17). El embudo y el aprovechamiento usan los «finalizados con éxito» (contactos cerrados en éxito por el día del cierre), para no tener dos cifras distintas con el mismo nombre.",
     horasLogadas:
-      `Interno: la caja «Horas logadas» (user_log; ${prefijo}). Con un tipo o una campaña elegida pasan a ser las horas con la ficha abierta en esas campañas (opción elegida el 06/11/2026). ` +
-      "Descartadas: las horas logadas enteras de los usuarios que trabajaron en esas campañas (cuentan su tiempo en las demás y no se pueden repartir por campaña) y ocultar las horas y los «por hora».",
+      `Interno: la caja «Horas logadas» (user_log; ${prefijo}). Con un tipo («Sin BBDD»), las de Supervisión → Resultados con ese tipo: los usuarios del cliente que trabajaron en sus campañas, sin los logados sin actividad (decidido el 12/11/2026). ` +
+      "Con una campaña, las de la ficha abierta. Las campañas que no se facturan por horas (bbdd) no llevan horas, y desde el 12/11/2026 no hay cifras «por hora».",
     horasFicha:
-      "Interno: opción elegida el 06/11/2026 para un tipo o una campaña: Σ script_session.duration de esas campañas (sin las sesiones de 2 h o más ni las abiertas), la hora «por campaña» de la regla 17. " +
-      "Descartadas: las horas logadas enteras de los usuarios que trabajaron en esas campañas (cuentan su tiempo en las demás y no se pueden repartir por campaña) y ocultar las horas y los «por hora».",
+      "Interno: con una campaña (o quitando campañas en el informe): Σ script_session.duration de esas campañas (sin las sesiones de 2 h o más ni las abiertas), la hora «por campaña» de la regla 17. " +
+      "Solo de las campañas que se facturan por horas. Descartado: las horas logadas enteras de los usuarios que trabajaron en esa campaña (cuentan su tiempo en las demás).",
   };
 }
 
