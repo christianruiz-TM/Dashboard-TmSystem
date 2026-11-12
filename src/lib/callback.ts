@@ -555,28 +555,192 @@ export function restarMinutos(momento: string, minutos: number): string {
   return `${t.getUTCFullYear()}-${dos(t.getUTCMonth() + 1)}-${dos(t.getUTCDate())} ${dos(t.getUTCHours())}:${dos(t.getUTCMinutes())}:${dos(t.getUTCSeconds())}`;
 }
 
-/** Asunto y cuerpo del correo que abre el ticket. */
-export function correoAlertaCallback(a: AlertaCallback, urlPanel: string | null): { asunto: string; texto: string } {
+/** Lo que lleva el ticket para encontrar el fallo sin entrar al panel. */
+export interface DiagnosticoCallback {
+  /** Rechazadas o desbordadas de HOY en las campañas de agentes (todas: el filtro por campañas con callback, en TS). */
+  rechazadasHoy: {
+    inicio: string;
+    campania: string;
+    /** itr_global.code = «Interacción Global» de los informes de Altitude. */
+    global: number;
+    /** 3 últimos dígitos del número (no se guarda entero en el ticket). */
+    finNumero: string | null;
+    estado: number;
+    conFicha: boolean;
+  }[];
+  /** Últimas fichas de callback del cliente (30 días), con el usuario del IVR que las creó. */
+  ultimasFichas: { alta: string; campania: string; usuario: string }[];
+  /** Última ficha de cada campaña en 30 días. */
+  ultimaFichaCampania: Record<string, string>;
+  /** Por día, 7 días hasta hoy: rechazadas en campañas de agentes y fichas creadas. */
+  porDia: { fecha: string; rechazadas: number; fichas: number }[];
+  /** Agentes humanos con sesión abierta ahora en sus campañas, y cuántos en Ready. */
+  agentesConectados: number;
+  agentesReady: number;
+  /** Frescura de la réplica (RDBv2): último hilo y último evento de contactos (null si ninguno en 24 h). */
+  ultimoHilo: string | null;
+  ultimoEventoContacto: string | null;
+}
+
+/** Contexto del ticket: la configuración del cliente y lo demás que no sale de RDBv2. */
+export interface ContextoTicketCallback {
+  cfg: ConfigCallbackServicio;
+  umbral: number;
+  /** Horario de atención de hoy ([] cerrado, null sin calendario). */
+  horarioHoy: readonly TramoDia[] | null;
+  /** Dirección de Supervisión del cliente, o null. */
+  urlPanel: string | null;
+  /** Ticket de prueba (Administración → Callback): lo dice en el asunto y arriba. */
+  prueba?: boolean;
+  /** Si la consulta del diagnóstico falló, su error (el ticket sale igual). */
+  errorDiagnostico?: string | null;
+}
+
+/** Máximo de llamadas sin ficha listadas una a una (el ticket admite 10.000 caracteres). */
+const MAX_LLAMADAS_TICKET = 30;
+
+const NOMBRE_ESTADO: Record<number, string> = { 7: "rechazada", 9: "desbordada" };
+
+function hhmm(min: number): string {
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(Math.round(min % 60)).padStart(2, "0")}`;
+}
+
+/**
+ * Asunto y texto del ticket «callback sin funcionar» (12/11/2026, pedido por
+ * Christian: «toda la información posible para detectar el fallo»). Con el
+ * diagnóstico (`diagnosticoCallback`): hoy en el cliente, por campaña, los
+ * últimos 7 días, las últimas fichas y quién las creó, las llamadas sin ficha
+ * una a una (con su Interacción Global para buscarlas en Altitude) y la
+ * frescura de la réplica. Sin él, lo básico. Texto plano: va igual en el
+ * ticket y en el correo de respaldo.
+ */
+export function textoTicketCallback(
+  a: AlertaCallback,
+  d: DiagnosticoCallback | null,
+  ctx: ContextoTicketCallback,
+): { asunto: string; texto: string } {
   const hora = (m: string) => m.slice(11, 16);
+  const horaSeg = (m: string) => m.slice(11, 19);
   const fecha = (m: string) => `${m.slice(8, 10)}/${m.slice(5, 7)}/${m.slice(0, 4)}`;
+  const diaMes = (m: string) => `${m.slice(8, 10)}/${m.slice(5, 7)}`;
+  const n = (x: number) => x.toLocaleString("es-ES");
+  const l: string[] = [];
+
+  if (ctx.prueba) {
+    l.push(
+      "*** TICKET DE PRUEBA (Administración → Callback). Las cifras son reales, pero el aviso no ha saltado: se puede cerrar. ***",
+      "",
+    );
+  }
+  l.push(
+    "QUÉ PASA",
+    `Desde las ${hora(a.desde)} del ${fecha(a.desde)} hay ${n(a.rechazadas)} llamadas entrantes de ${a.servicio} rechazadas o ` +
+      "desbordadas (no había ningún agente para cogerlas), en horario de atención y en campañas con callback, y el IVR no ha " +
+      `creado ninguna ficha de callback para devolverlas. El aviso salta con ${n(ctx.umbral)} seguidas.`,
+    a.ultimaFicha
+      ? `Última ficha de callback de hoy: a las ${hora(a.ultimaFicha)}.`
+      : "Hoy no se ha creado ninguna ficha de callback en este cliente.",
+  );
+
+  if (d) {
+    const deCallback = d.rechazadasHoy.filter((r) => campaniaConCallback(ctx.cfg, r.campania));
+    const sinFicha = deCallback.filter((r) => !r.conFicha);
+    const fichasHoy = d.porDia.find((x) => x.fecha === a.desde.slice(0, 10))?.fichas ?? 0;
+    l.push(
+      "",
+      `HOY (${fecha(a.desde)}) EN ${a.servicio.toUpperCase()}`,
+      `- Rechazadas o desbordadas en campañas con callback: ${n(deCallback.length)} ` +
+        `(con ficha: ${n(deCallback.length - sinFicha.length)}; sin ficha: ${n(sinFicha.length)})`,
+    );
+    const otras = d.rechazadasHoy.length - deCallback.length;
+    if (otras > 0) l.push(`- Rechazadas en campañas sin callback (no se esperan fichas): ${n(otras)}`);
+    l.push(
+      `- Fichas de callback creadas hoy: ${n(fichasHoy)}`,
+      `- Agentes conectados ahora en sus campañas: ${n(d.agentesConectados)} (en Ready: ${n(d.agentesReady)})`,
+      `- Horario de atención de hoy${ctx.cfg.calendario ? ` (calendario ${ctx.cfg.calendario})` : ""}: ` +
+        (ctx.horarioHoy == null
+          ? "sin calendario, se cuenta todo el día"
+          : ctx.horarioHoy.length === 0
+            ? "cerrado"
+            : ctx.horarioHoy.map((t) => `${hhmm(t.inicioMin)}-${hhmm(t.finMin)}`).join(", ")),
+    );
+
+    // Por campaña: las que tienen llamadas sin ficha hoy
+    const porCamp = new Map<string, string[]>();
+    for (const r of sinFicha) porCamp.set(r.campania, [...(porCamp.get(r.campania) ?? []), r.inicio]);
+    if (porCamp.size > 0) {
+      l.push("", "POR CAMPAÑA (hoy, rechazadas sin ficha)");
+      const campanias = [...porCamp].sort((x, y) => y[1].length - x[1].length || x[0].localeCompare(y[0], "es"));
+      for (const [c, inicios] of campanias) {
+        const orden = [...inicios].sort();
+        const ultima = d.ultimaFichaCampania[c];
+        l.push(
+          `- ${c}: ${n(inicios.length)} (de ${hora(orden[0])} a ${hora(orden[orden.length - 1])}) · última ficha: ` +
+            (ultima ? `${diaMes(ultima)} ${hora(ultima)}` : "ninguna en 30 días"),
+        );
+      }
+    }
+
+    if (d.porDia.length > 0) {
+      l.push("", "ÚLTIMOS 7 DÍAS (rechazadas o desbordadas en sus campañas de agentes / fichas de callback creadas)");
+      for (const x of d.porDia) l.push(`- ${diaMes(x.fecha)}: ${n(x.rechazadas)} / ${n(x.fichas)}`);
+    }
+
+    l.push("", "ÚLTIMAS FICHAS DE CALLBACK (30 días)");
+    if (d.ultimasFichas.length === 0) l.push("- Ninguna en los últimos 30 días.");
+    for (const f of d.ultimasFichas) l.push(`- ${diaMes(f.alta)} ${horaSeg(f.alta)} · ${f.campania} · creada por ${f.usuario}`);
+
+    if (sinFicha.length > 0) {
+      const cuantas =
+        sinFicha.length > MAX_LLAMADAS_TICKET ? `las ${MAX_LLAMADAS_TICKET} más recientes de ${n(sinFicha.length)}` : n(sinFicha.length);
+      l.push(
+        "",
+        `LLAMADAS SIN FICHA DE HOY (${cuantas})`,
+        "Hora · campaña · Interacción Global (para buscarla en Altitude) · cómo acabó · número",
+      );
+      for (const r of sinFicha.slice(0, MAX_LLAMADAS_TICKET)) {
+        l.push(
+          `- ${horaSeg(r.inicio)} · ${r.campania} · ${r.global} · ${NOMBRE_ESTADO[r.estado] ?? `estado ${r.estado}`} · ` +
+            (r.finNumero ? `acaba en ${r.finNumero}` : "sin número"),
+        );
+      }
+      l.push("Quien cuelga en los primeros segundos no deja ficha: es normal que alguna no la tenga, no que no la tenga ninguna.");
+    }
+
+    l.push(
+      "",
+      "DATOS DE ALTITUDE (réplica RDBv2)",
+      `- Último hilo de llamada: ${d.ultimoHilo ? `${diaMes(d.ultimoHilo)} ${horaSeg(d.ultimoHilo)}` : "ninguno en 24 h"}`,
+      `- Último evento de contactos: ${
+        d.ultimoEventoContacto ? `${diaMes(d.ultimoEventoContacto)} ${horaSeg(d.ultimoEventoContacto)}` : "ninguno en 24 h"
+      }`,
+      "Si el de contactos va muy por detrás del de llamadas, puede ser un retraso de la réplica y no del callback: " +
+        "las fichas existirían en Altitude pero aún no aquí.",
+    );
+  } else if (ctx.errorDiagnostico) {
+    l.push("", `(No se pudo sacar el detalle de RDBv2: ${ctx.errorDiagnostico})`);
+  }
+
+  l.push(
+    "",
+    "CONFIGURACIÓN EN EL DASHBOARD (Administración → Callback)",
+    `- Campañas con callback: ${ctx.cfg.campanias == null ? "todas las de agentes del servicio" : ctx.cfg.campanias.join(", ")}`,
+    `- Aviso: ${n(ctx.umbral)} rechazadas seguidas en horario sin ninguna ficha, con ${MINUTOS_MARGEN_FICHA} minutos ` +
+      "de margen para que el IVR la cree.",
+    "",
+    "QUÉ REVISAR",
+    "1. En Altitude, el callback de esas campañas: cuando la campaña rechaza la llamada, el IVR (sus usuarios IVRnn, " +
+      "los de «Últimas fichas») tiene que dar de alta un contacto en ella.",
+    "2. Si en Altitude SÍ hay contactos nuevos en esas campañas y aquí no, la réplica RDBv2 (ver «Datos de Altitude» arriba).",
+    "3. Si hay agentes en Ready y aun así se rechazan las llamadas, el enrutado de la campaña.",
+    "Precedente: entre el 03/07/2026 10:43 y el 26/10/2026 09:23 el callback de GrupoHuertas no creó ninguna ficha, " +
+      "con unas 3.450 llamadas rechazadas.",
+    ...(ctx.urlPanel ? ["", `Supervisión: ${ctx.urlPanel}`] : []),
+    "",
+    "Lo abre el dashboard de TmSystem, como mucho una vez al día por cliente mientras dure el problema.",
+  );
   return {
-    asunto: `[Dashboard] Callback sin funcionar en ${a.servicio} (${fecha(a.desde)})`,
-    texto: [
-      `El callback de ${a.servicio} parece no estar funcionando.`,
-      "",
-      `Desde las ${hora(a.desde)} del ${fecha(a.desde)} hay ${a.rechazadas} llamadas entrantes rechazadas o desbordadas ` +
-        "(sin ningún agente disponible), en horario de atención y en campañas con callback, y el IVR no ha creado " +
-        "ninguna ficha de callback para devolverlas.",
-      a.ultimaFicha
-        ? `La última ficha de callback de hoy se creó a las ${hora(a.ultimaFicha)}.`
-        : "Hoy no se ha creado ninguna ficha de callback.",
-      "",
-      "Qué revisar: la configuración del callback de esas campañas en Altitude (el IVR da de alta un contacto en la " +
-        "campaña cuando la llamada se rechaza). Entre el 03/07/2026 y el 26/10/2026 el de GrupoHuertas no creó " +
-        "ninguna ficha con unas 3.450 llamadas rechazadas.",
-      ...(urlPanel ? ["", `Supervisión: ${urlPanel}`] : []),
-      "",
-      "Este correo lo envía el dashboard de TmSystem una vez al día por cliente mientras dure el problema.",
-    ].join("\n"),
+    asunto: `${ctx.prueba ? "[PRUEBA] " : ""}[Dashboard] Callback sin funcionar en ${a.servicio} (${fecha(a.desde)})`,
+    texto: l.join("\n").slice(0, 10_000),
   };
 }

@@ -1,4 +1,11 @@
-import type { BaseCallback, CategoriaEntrante, FichaCallback, GrupoEntrantes, RechazadaCallback } from "@/lib/callback";
+import type {
+  BaseCallback,
+  CategoriaEntrante,
+  DiagnosticoCallback,
+  FichaCallback,
+  GrupoEntrantes,
+  RechazadaCallback,
+} from "@/lib/callback";
 import { hoyISO } from "@/lib/fechas";
 import { conCache, TTL, ttlSegunRango } from "../cache";
 import { obtenerEnums } from "../enums";
@@ -252,4 +259,107 @@ export async function baseCallbackHoy(servicios: string[]): Promise<BaseCallback
   const hoy = hoyISO();
   const clave = `rdb:callback:hoy:${hoy}:${[...servicios].sort().join(",")}`;
   return conCache(clave, TTL.supervision, () => callbackCore(hoy, hoy, servicios, DIAS_PENDIENTES));
+}
+
+// ------------------------------------------------------------
+// Diagnóstico para el ticket de «callback sin funcionar» (12/11/2026)
+// ------------------------------------------------------------
+
+export async function diagnosticoCallback(servicio: string): Promise<DiagnosticoCallback> {
+  const alta = await codigoAltaAgente();
+  const pool = await obtenerPool();
+  const { desde: hoy, hastaExcl: manana } = limitesRango(hoyISO(), hoyISO());
+  const hace7 = new Date(hoy);
+  hace7.setDate(hace7.getDate() - 6);
+  const hace30 = new Date(hoy);
+  hace30.setDate(hace30.getDate() - 30);
+  const ayer = new Date(Date.now() - 24 * 3600_000);
+  const request = pool.request();
+  request.input("hoy", sql.DateTime, hoy);
+  request.input("manana", sql.DateTime, manana);
+  request.input("hace7", sql.DateTime, hace7);
+  request.input("hace30", sql.DateTime, hace30);
+  request.input("hace24h", sql.DateTime, ayer);
+  request.input("alta", sql.Int, alta);
+  request.input("servicio", sql.VarChar(100), servicio);
+  const r = await request.query(`-- callback: diagnóstico para el ticket «callback sin funcionar»
+    IF OBJECT_ID('tempdb..#dgcamp') IS NOT NULL DROP TABLE #dgcamp;
+    IF OBJECT_ID('tempdb..#dgcb') IS NOT NULL DROP TABLE #dgcb;
+    IF OBJECT_ID('tempdb..#dgrech') IS NOT NULL DROP TABLE #dgrech;
+
+    SELECT c.code, RTRIM(c.shortname) COLLATE DATABASE_DEFAULT AS nombre
+    INTO #dgcamp
+    FROM ph_campaign c
+    INNER JOIN (SELECT campaign, MIN(service) AS service FROM cp_general_cfg GROUP BY campaign) cs ON cs.campaign = c.code
+    INNER JOIN ph_service s ON s.code = cs.service
+    WHERE s.name = @servicio AND c.shortname NOT LIKE 'IVR[_]%';
+
+    -- Fichas de callback de 30 días (misma definición que el resto: sqlAltaCallback)
+    SELECT h.event_moment AS alta, k.nombre AS campania, RTRIM(u.usr_name) AS usuario,
+           RIGHT(RTRIM(a.resch_phone_value), 9) COLLATE DATABASE_DEFAULT AS numero
+    INTO #dgcb
+    FROM activity_history h
+    INNER JOIN activity a ON a.code = h.activity
+    INNER JOIN #dgcamp k ON k.code = a.campaign
+    INNER JOIN ph_e_user u ON u.code = h.event_agent
+    WHERE h.event_moment >= @hace30 AND h.event_moment < @manana
+      AND ${sqlAltaCallback("h")};
+
+    -- Rechazadas o desbordadas de 7 días en las campañas de agentes
+    SELECT t.start_time AS inicio, k.nombre AS campania, t.itr_global AS global, t.termination_state AS estado,
+           RIGHT(RTRIM(g.from_address), 9) COLLATE DATABASE_DEFAULT AS numero
+    INTO #dgrech
+    FROM itr_thread t
+    INNER JOIN #dgcamp k ON k.code = t.campaign
+    LEFT JOIN itr_global g ON g.code = t.itr_global
+    WHERE t.start_time >= @hace7 AND t.start_time < @manana
+      AND t.origin = 1 AND t.termination_state IN (7, 9)
+    OPTION (RECOMPILE);
+
+    SELECT CONVERT(varchar(19), r.inicio, 120) AS inicio, r.campania, r.global, RIGHT(r.numero, 3) AS finNumero, r.estado,
+           CASE WHEN EXISTS (SELECT 1 FROM #dgcb k WHERE k.campania = r.campania AND k.numero = r.numero
+                               AND k.alta >= r.inicio AND k.alta < DATEADD(MINUTE, 10, r.inicio)) THEN 1 ELSE 0 END AS conFicha
+    FROM #dgrech r WHERE r.inicio >= @hoy ORDER BY r.inicio DESC;
+
+    SELECT TOP 10 CONVERT(varchar(19), alta, 120) AS alta, campania, usuario FROM #dgcb ORDER BY alta DESC;
+
+    SELECT campania, CONVERT(varchar(19), MAX(alta), 120) AS alta FROM #dgcb GROUP BY campania;
+
+    SELECT d.fecha, ISNULL(r.n, 0) AS rechazadas, ISNULL(f.n, 0) AS fichas
+    FROM (SELECT DISTINCT CONVERT(varchar(10), inicio, 23) AS fecha FROM #dgrech
+          UNION SELECT CONVERT(varchar(10), alta, 23) FROM #dgcb WHERE alta >= @hace7) d
+    LEFT JOIN (SELECT CONVERT(varchar(10), inicio, 23) AS fecha, COUNT(*) AS n FROM #dgrech GROUP BY CONVERT(varchar(10), inicio, 23)) r ON r.fecha = d.fecha
+    LEFT JOIN (SELECT CONVERT(varchar(10), alta, 23) AS fecha, COUNT(*) AS n FROM #dgcb WHERE alta >= @hace7 GROUP BY CONVERT(varchar(10), alta, 23)) f ON f.fecha = d.fecha
+    ORDER BY d.fecha;
+
+    -- Agentes con sesión abierta ahora (op_type 0 sin cerrar) y en Ready (op_type 1 sin cerrar)
+    SELECT COUNT(DISTINCT CASE WHEN l.op_type = 0 THEN l.agent END) AS conectados,
+           COUNT(DISTINCT CASE WHEN l.op_type = 1 THEN l.agent END) AS ready
+    FROM ag_in_cp_log l
+    INNER JOIN #dgcamp k ON k.code = l.campaign
+    INNER JOIN ph_e_user u ON u.code = l.agent AND u.type = 1
+    WHERE l.start_time >= @hoy AND l.start_time < @manana AND l.duration IS NULL AND l.op_type IN (0, 1);
+
+    -- Frescura de la réplica
+    SELECT (SELECT CONVERT(varchar(19), MAX(start_time), 120) FROM itr_thread WHERE start_time >= @hace24h) AS ultimoHilo,
+           (SELECT CONVERT(varchar(19), MAX(event_moment), 120) FROM activity_history WHERE event_moment >= @hace24h) AS ultimoEventoContacto;
+  `);
+  const [rech, ultimas, porCamp, dias, agentes, frescura] = r.recordsets as unknown as [
+    { inicio: string; campania: string; global: number; finNumero: string | null; estado: number; conFicha: number }[],
+    { alta: string; campania: string; usuario: string }[],
+    { campania: string; alta: string }[],
+    { fecha: string; rechazadas: number; fichas: number }[],
+    { conectados: number; ready: number }[],
+    { ultimoHilo: string | null; ultimoEventoContacto: string | null }[],
+  ];
+  return {
+    rechazadasHoy: rech.map((x) => ({ ...x, global: Number(x.global), conFicha: x.conFicha === 1 })),
+    ultimasFichas: ultimas,
+    ultimaFichaCampania: Object.fromEntries(porCamp.map((x) => [x.campania, x.alta])),
+    porDia: dias,
+    agentesConectados: agentes[0]?.conectados ?? 0,
+    agentesReady: agentes[0]?.ready ?? 0,
+    ultimoHilo: frescura[0]?.ultimoHilo ?? null,
+    ultimoEventoContacto: frescura[0]?.ultimoEventoContacto ?? null,
+  };
 }

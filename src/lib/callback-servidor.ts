@@ -9,11 +9,12 @@ import { crearTicket, estadoTickets } from "@/lib/tickets";
 import { guardarAjuste, obtenerAjuste } from "@/lib/db/settings";
 import { hoyISO } from "@/lib/fechas";
 import { calendarioPlan } from "@/lib/planificacion/calendarios";
-import { baseCallbackHoy, baseCallbackRango } from "@/lib/rdb/queries/callback";
+import { baseCallbackHoy, baseCallbackRango, diagnosticoCallback } from "@/lib/rdb/queries/callback";
 import {
   alertasCallback,
   calcularCallback,
-  correoAlertaCallback,
+  enHorario,
+  textoTicketCallback,
   horarioDeCalendario,
   leerConfigCallback,
   type AlertaCallback,
@@ -108,8 +109,7 @@ export async function enviarTicketsCallback(opciones: { simular?: boolean } = {}
       res.yaEnviados.push(a.servicio);
       continue;
     }
-    const panel = url ? `${url.replace(/\/+$/, "")}/supervision?servicio=${encodeURIComponent(a.servicio)}` : null;
-    const correo = correoAlertaCallback(a, panel);
+    const correo = await textoTicket(a, config, url);
     if (opciones.simular) {
       res.enviados.push(`${a.servicio}: ${estadoTickets().configurado ? "ticket por la API" : "correo"}`);
       continue;
@@ -147,6 +147,55 @@ export async function enviarTicketsCallback(opciones: { simular?: boolean } = {}
     }
   }
   return res;
+}
+
+/**
+ * Texto del ticket con el diagnóstico de RDBv2 (lo que haga falta para
+ * encontrar el fallo sin entrar al panel). Si el diagnóstico falla, el
+ * ticket sale igual con lo básico y el error.
+ */
+async function textoTicket(a: AlertaCallback, config: ConfigCallback, url: string | undefined, prueba = false) {
+  const cfg = config.servicios.find((s) => s.servicio === a.servicio) ?? { servicio: a.servicio, calendario: null, campanias: null };
+  const horario = horariosCallback(config)[a.servicio];
+  let diagnostico = null;
+  let errorDiagnostico: string | null = null;
+  try {
+    diagnostico = await diagnosticoCallback(a.servicio);
+  } catch (e) {
+    errorDiagnostico = e instanceof Error ? e.message : String(e);
+  }
+  return textoTicketCallback(a, diagnostico, {
+    cfg,
+    umbral: config.umbralAlerta,
+    horarioHoy: horario ? horario(hoyISO()) : null,
+    urlPanel: url ? `${url.replace(/\/+$/, "")}/supervision?servicio=${encodeURIComponent(a.servicio)}` : null,
+    prueba,
+    errorDiagnostico,
+  });
+}
+
+/**
+ * Ticket de PRUEBA (Administración → Callback) con las cifras reales de hoy
+ * de un cliente (el primero configurado, si no se dice): así se ve cómo
+ * llegará el de verdad. Devuelve el código del ticket.
+ */
+export async function crearTicketPruebaCallback(servicio?: string): Promise<string> {
+  const config = configCallback();
+  const cfg = config.servicios.find((s) => s.servicio === servicio) ?? config.servicios[0];
+  if (!cfg) throw new Error("No hay ningún cliente con callback configurado");
+  const base = await baseCallbackHoy([cfg.servicio]);
+  const horario = horariosCallback(config)[cfg.servicio] ?? (() => null);
+  const hoy = hoyISO();
+  const altas = base.fichas.filter((f) => f.servicio === cfg.servicio && f.alta.slice(0, 10) === hoy).map((f) => f.alta).sort();
+  const ultimaFicha = altas.at(-1) ?? null;
+  const sin = base.rechazadas
+    .filter((r) => r.servicio === cfg.servicio && r.inicio.slice(0, 10) === hoy && (!ultimaFicha || r.inicio > ultimaFicha))
+    .filter((r) => (cfg.campanias == null || cfg.campanias.includes(r.campania)) && enHorario(r.inicio, horario))
+    .map((r) => r.inicio)
+    .sort();
+  const alerta: AlertaCallback = { servicio: cfg.servicio, rechazadas: sin.length, desde: sin[0] ?? ahoraLocal(), ultimaFicha };
+  const t = await textoTicket(alerta, config, process.env.URL_PANEL?.trim(), true);
+  return crearTicket({ asunto: t.asunto, descripcion: t.texto, prioridad: "low" });
 }
 
 /** Último ticket enviado de cada cliente configurado (para el admin). */

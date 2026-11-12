@@ -759,10 +759,27 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       funcionando la racha más larga fue 4 (GH), 6 (Ávolo) y 9 (CEFF);
       simulada del 01/09 al 11/11 salta los 38 días laborables del corte de
       GH y ninguno más. Sale en la campana (origen `callback`) y abre un
-      ticket por correo (`npm run alertas:callback`, cada 10 min de 8 a 22 h
-      de lunes a sábado en `docker/crontab`; uno por cliente y día,
-      `callback.ticket.<servicio>`; destinatario en el admin, por defecto
-      dtecnico@tmsystem.es; SMTP en `.env`, `SMTP_*`, con nodemailer).
+      ticket (`npm run alertas:callback`, cada 10 min de 8 a 22 h de lunes a
+      sábado en `docker/crontab`; uno por cliente y día,
+      `callback.ticket.<servicio>`).
+    - **El ticket va por la API de la herramienta de tickets** (`lib/tickets.ts`:
+      `POST /api/auth/login` y `/api/tickets`, usuario propio
+      `dtecnico+dashboard@tmsystem.es`, rol «Usuario final»: entra con prioridad
+      media; `TICKETS_*` en el `.env`). El CORREO NO abre ticket (probado el
+      12/11/2026): la herramienta lee la carpeta «Tickets» del Gmail de
+      dtecnico@, a la que no llega un correo de dtecnico@ a sí mismo o a
+      soporte@, y uno DESDE soporte@ lo descarta como bucle. El correo
+      (`SMTP_*` copiado de la herramienta, remitente dtecnico@) queda de
+      respaldo si la API falla.
+    - **El ticket lleva el diagnóstico** (`diagnosticoCallback` +
+      `textoTicketCallback`, pedido por Christian: «toda la información
+      posible»): hoy en el cliente (rechazadas con y sin ficha, fichas, agentes
+      conectados y en Ready, horario), por campaña con su última ficha, 7 días
+      de rechazadas/fichas, las 10 últimas fichas con el usuario IVR que las
+      creó (Ávolo: IVR06-20; GH: IVR41-60), las llamadas sin ficha con su
+      Interacción Global y los 3 últimos dígitos, y la frescura de la réplica.
+      0,2-0,7 s. El de prueba (Administración → Callback) sale con las cifras
+      reales de hoy y «[PRUEBA]».
     - Medido del 01/09 al 11/11: 2,5 s la consulta; mediana en horario GH
       2,98 min, Ávolo 11,01, CEFF 4,25.
 

@@ -9,5 +9,9 @@ const cwd = process.platform === "win32" ? process.cwd().replace(/^[a-z]:/, (u) 
 // vitest.mjs no está en sus «exports»: la ruta del paquete y el fichero de su «bin»
 const vitest = `${cwd}/node_modules/vitest/vitest.mjs`;
 const args = process.argv.slice(2);
-const r = spawnSync(process.execPath, [vitest, ...(args.length ? args : ["run"])], { cwd, stdio: "inherit" });
+if (args.length === 0) args.push("run");
+// Como mucho 4 procesos (12/11/2026): con los 46 de una vez y el next dev en marcha, alguno se
+// caía al arrancar (código 2147483651) y faltaban ficheros en el recuento, sin ningún test fallido.
+if (!args.some((a) => a.startsWith("--maxWorkers"))) args.push("--maxWorkers=4");
+const r = spawnSync(process.execPath, [vitest, ...args], { cwd, stdio: "inherit" });
 process.exit(r.status ?? 1);
