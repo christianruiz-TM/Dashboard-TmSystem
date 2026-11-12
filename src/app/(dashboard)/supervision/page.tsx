@@ -126,7 +126,7 @@ export default async function PaginaSupervision({
           ratiosExitoRango(desde, hasta, campTipo, prefijo, sinActividad),
         ])
       : [null, null];
-    // CSV de contactos finalizados (solo GH): con los mismos filtros de la pestaña
+    // Excel de contactos finalizados (solo GH): con los mismos filtros de la pestaña
     let urlCsv: string | null = null;
     if (servicioElegido && definicionExportContactos(servicioElegido)) {
       const p = new URLSearchParams({ servicio: servicioElegido, desde, hasta });

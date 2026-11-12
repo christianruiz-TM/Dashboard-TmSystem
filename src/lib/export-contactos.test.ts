@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   EXPORT_CONTACTOS,
   definicionExportContactos,
+  fechaParaExcel,
   filasExportContactos,
   nombreArchivoExport,
   type ContactoExport,
@@ -16,7 +17,7 @@ const contacto: ContactoExport = {
   actividad: { nombre_campdig: "HUE1306_SKODA_PROPIA_VN_SCALA_LIQUIDACION_05082026" },
 };
 
-describe("CSV de contactos finalizados", () => {
+describe("Excel de contactos finalizados", () => {
   it("GH: las columnas de su listado, en orden y sin idcall", () => {
     const titulos = definicionExportContactos("GrupoHuertas")!.map((c) => c.titulo);
     expect(titulos).toEqual([
@@ -43,11 +44,19 @@ describe("CSV de contactos finalizados", () => {
       "Ahmed",
       "Venta",
       null,
-      "01/09/2026 09:04:02",
+      new Date(Date.UTC(2026, 8, 1, 9, 4, 2)),
       "HUE1306_SKODA_PROPIA_VN_SCALA_LIQUIDACION_05082026",
       8200814,
       "602837994",
       null,
+    ]);
+  });
+
+  it("la fecha para Excel lleva en UTC la hora local (exceljs escribe en UTC)", () => {
+    const local = new Date(2026, 9, 25, 2, 30, 15); // día del cambio de hora
+    const excel = fechaParaExcel(local);
+    expect([excel.getUTCDate(), excel.getUTCHours(), excel.getUTCMinutes(), excel.getUTCSeconds()]).toEqual([
+      25, 2, 30, 15,
     ]);
   });
 
@@ -58,10 +67,10 @@ describe("CSV de contactos finalizados", () => {
 
   it("nombre del fichero con el cliente, el rango y si va filtrado", () => {
     expect(nombreArchivoExport("GrupoHuertas", "2026-09-01", "2026-09-30", false)).toBe(
-      "contactos_GrupoHuertas_2026-09-01_2026-09-30.csv",
+      "contactos_GrupoHuertas_2026-09-01_2026-09-30.xlsx",
     );
     expect(nombreArchivoExport("GrupoHuertas", "2026-09-01", "2026-09-30", true)).toBe(
-      "contactos_GrupoHuertas_2026-09-01_2026-09-30_filtrado.csv",
+      "contactos_GrupoHuertas_2026-09-01_2026-09-30_filtrado.xlsx",
     );
   });
 });

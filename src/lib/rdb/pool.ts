@@ -40,9 +40,81 @@ function configuracion(): sql.config {
     },
     pool: { max: 10, min: 0, idleTimeoutMillis: 30_000 },
     connectionTimeout: 15_000,
-    // Las queries analíticas sobre rangos largos pueden tardar
+    // Solo cuenta hasta el PRIMER paquete de la respuesta: tedious para el
+    // reloj en cuanto llega (connection.js, «request timer is stopped on
+    // first data package»). El límite de verdad, de principio a fin, es
+    // MAX_MS_CONSULTA (abajo). Se deja como respaldo.
     requestTimeout: 120_000,
   };
+}
+
+// ------------------------------------------------------------
+// Límite de tiempo REAL de cada consulta (auditoría 11/11/2026, F1).
+// El requestTimeout de 120 s no corta una consulta que ya ha empezado a
+// devolver datos: reproducido el 11/11 con un límite de 3 s, un primer
+// resultado grande seguido de una espera de 6 s acababa a los 7,7 s SIN
+// error. Así corrió `tiemposExitos` 390-440 s el 20/10/2026: nginx cortaba a
+// los 180 s, la consulta seguía en SQL Server y cada recarga lanzaba otra.
+// Todas las consultas salen de `pool.request()`, así que el reloj se pone
+// ahí, una vez, para las de ahora y las que se añadan.
+// ------------------------------------------------------------
+
+/** Máximo de una consulta, de principio a fin (ms). `RDB_MAX_MS` lo cambia. */
+export const MAX_MS_CONSULTA = Number(process.env.RDB_MAX_MS) > 0 ? Number(process.env.RDB_MAX_MS) : 120_000;
+
+/** A partir de aquí la consulta sale en el log como lenta (ms). */
+export const LENTA_MS = 5_000;
+
+/**
+ * Nombre legible de una consulta para el log: su primer comentario `--`
+ * (todas las del proyecto lo llevan) o, si no tiene, el principio del texto.
+ */
+export function nombreConsulta(texto: string): string {
+  const comentario = /^\s*--\s*(.+)$/m.exec(texto);
+  const base = comentario ? comentario[1] : texto.replace(/\s+/g, " ").trim();
+  return base.length > 100 ? `${base.slice(0, 97)}...` : base;
+}
+
+/**
+ * Pone a `request.query` un reloj de `maxMs`: al vencer, cancela la consulta
+ * en SQL Server (`request.cancel()`, que manda la señal de atención del
+ * protocolo y espera a que el servidor la pare) y la promesa falla con un
+ * mensaje claro. Las que pasan de LENTA_MS se apuntan en el log.
+ */
+export function conLimite(request: sql.Request, maxMs: number = MAX_MS_CONSULTA): sql.Request {
+  const crudo = request.query as unknown as (...a: unknown[]) => Promise<sql.IResult<unknown>>;
+  const original = (comando: string) => crudo.call(request, comando);
+  const limitada = async (comando: unknown, ...resto: unknown[]) => {
+    // En el proyecto siempre es un texto; cualquier otra forma, tal cual
+    if (typeof comando !== "string" || resto.length > 0) {
+      return crudo.call(request, comando, ...resto);
+    }
+    const inicio = Date.now();
+    let vencida = false;
+    const reloj = setTimeout(() => {
+      vencida = true;
+      request.cancel();
+    }, maxMs);
+    try {
+      const resultado = await original(comando);
+      const ms = Date.now() - inicio;
+      if (ms >= LENTA_MS) console.warn(`[rdb] consulta lenta: ${(ms / 1000).toFixed(1)} s · ${nombreConsulta(comando)}`);
+      return resultado;
+    } catch (err) {
+      if (!vencida) throw err;
+      const segundos = (Date.now() - inicio) / 1000;
+      console.error(`[rdb] consulta CANCELADA a los ${segundos.toFixed(1)} s · ${nombreConsulta(comando)}`);
+      throw new Error(
+        `La consulta a RDBv2 se ha cancelado al pasar de ${Math.round(maxMs / 1000)} s (${nombreConsulta(comando)})`,
+        { cause: err },
+      );
+    } finally {
+      clearTimeout(reloj);
+    }
+  };
+  // `request.query` se sustituye solo en ESTA petición
+  Object.defineProperty(request, "query", { value: limitada, configurable: true, writable: true });
+  return request;
 }
 
 declare global {
@@ -59,6 +131,9 @@ export function obtenerPool(): Promise<sql.ConnectionPool> {
     // proceso entero. La query afectada ya recibe su propio error; aquí solo
     // se registra.
     pool.on("error", (err) => console.error("[rdb] error en el pool de RDBv2:", err));
+    // Cada petición sale con el límite de tiempo real (conLimite)
+    const peticion = pool.request.bind(pool);
+    pool.request = () => conLimite(peticion());
     globalThis.__rdbPool = pool
       .connect()
       .catch((err) => {

@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -92,6 +93,7 @@ export function PanelSupervision({
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
+  const router = useRouter();
   const refrescar = useCallback(async () => {
     setCargando(true);
     try {
@@ -102,6 +104,11 @@ export function PanelSupervision({
         ? `/api/supervision/datos?${qs.toString()}`
         : "/api/supervision/datos";
       const respuesta = await fetch(url, { cache: "no-store" });
+      // Sesión caducada (tope de 12 h): al login, en vez de quedarse con datos viejos
+      if (respuesta.status === 401) {
+        router.push("/login");
+        return;
+      }
       if (!respuesta.ok) throw new Error(`HTTP ${respuesta.status}`);
       setDatos(await respuesta.json());
       setError(null);
@@ -110,7 +117,7 @@ export function PanelSupervision({
     } finally {
       setCargando(false);
     }
-  }, [servicio, incluirIvr]);
+  }, [servicio, incluirIvr, router]);
 
   useEffect(() => {
     const intervalo = setInterval(refrescar, REFRESCO_MS);

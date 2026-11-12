@@ -1,6 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 import { AlertTriangle, RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -37,10 +38,16 @@ export function PanelHoy({ inicial }: { inicial: DatosHoy }) {
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
+  const router = useRouter();
   const refrescar = useCallback(async () => {
     setCargando(true);
     try {
       const r = await fetch("/api/planificacion/hoy", { cache: "no-store" });
+      // Sesión caducada (tope de 12 h): al login, en vez de quedarse con datos viejos
+      if (r.status === 401) {
+        router.push("/login");
+        return;
+      }
       if (!r.ok) throw new Error(`HTTP ${r.status}`);
       setDatos(await r.json());
       setError(null);
@@ -49,7 +56,7 @@ export function PanelHoy({ inicial }: { inicial: DatosHoy }) {
     } finally {
       setCargando(false);
     }
-  }, []);
+  }, [router]);
 
   useEffect(() => {
     const id = setInterval(refrescar, REFRESCO_MS);

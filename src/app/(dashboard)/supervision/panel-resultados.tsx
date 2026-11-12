@@ -53,7 +53,7 @@ export function PanelResultados({
   esAdmin: boolean;
   /** Dato del contacto por el que se puede filtrar (null si el cliente no tiene). */
   campo: { etiqueta: string; filtro: Filtro | null } | null;
-  /** Descarga del CSV de contactos finalizados con los filtros de la vista (solo GH). */
+  /** Descarga del Excel de contactos finalizados con los filtros de la vista (solo GH). */
   urlCsv: string | null;
 }) {
   const sinConfigurar = resultado?.serviciosSinConfigurar ?? [];
@@ -97,7 +97,7 @@ export function PanelResultados({
               render={<a href={urlCsv} download />}
               title="Los finalizados que se ven aquí, con los filtros de fechas, tipo de campaña y dato del contacto"
             >
-              <Download className="h-4 w-4" /> CSV de contactos ({resultado.total.finalizados.toLocaleString("es-ES")})
+              <Download className="h-4 w-4" /> Excel de contactos ({resultado.total.finalizados.toLocaleString("es-ES")})
             </Button>
           ) : null}
         </div>

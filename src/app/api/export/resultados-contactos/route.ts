@@ -3,7 +3,7 @@ import { ROLES_SUPERVISION } from "@/lib/auth/rbac";
 import { obtenerSesion } from "@/lib/auth/session";
 import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { campoContactoDe, configsResultados, tiposCampaniaDe } from "@/lib/db/resultados";
-import { generarCsv, respuestaCsv } from "@/lib/export/csv";
+import { FORMATO_FECHA_HORA, generarXlsx, respuestaXlsx } from "@/lib/export/xlsx";
 import {
   definicionExportContactos,
   filasExportContactos,
@@ -15,7 +15,7 @@ import { contactosFinalizadosExport } from "@/lib/rdb/queries/resultados-activid
 import { campaniasEfectivas, listaServicios } from "@/lib/rdb/queries/servicios";
 
 /**
- * CSV de contactos finalizados de Supervisión → Resultados (solo los clientes
+ * Excel de contactos finalizados de Supervisión → Resultados (solo los clientes
  * con columnas definidas en lib/export-contactos.ts: GrupoHuertas). Mismos
  * filtros que la pestaña: ?servicio=&desde=&hasta=&tipo=&campo=&modo=&ivr=,
  * así que salen exactamente los finalizados que se están viendo.
@@ -34,7 +34,7 @@ export async function GET(peticion: NextRequest) {
   const servicio = params.get("servicio") ?? "";
   const columnas = definicionExportContactos(servicio);
   if (!columnas || !(await listaServicios()).some((s) => s.servicio === servicio)) {
-    return NextResponse.json({ error: "Este cliente no tiene el CSV de contactos" }, { status: 404 });
+    return NextResponse.json({ error: "Este cliente no tiene el Excel de contactos" }, { status: 404 });
   }
 
   // Las campañas y el dato del contacto, como en la página (supervision/page.tsx)
@@ -64,11 +64,22 @@ export async function GET(peticion: NextRequest) {
       `${tipo !== "todas" ? `, ${tipo}` : ""}${filtro ? `, ${campo?.etiqueta} ${filtro.modo} «${filtro.valor}»` : ""})`,
     ip: await ipPeticion(),
   });
-  return respuestaCsv(
+  // XLSX y no CSV (11/11/2026): textos como texto (nada se lee como fórmula,
+  // los teléfonos conservan el + y el 0) y la fecha como fecha
+  const filas = filasExportContactos(columnas, contactos, textos).map((f) =>
+    Object.fromEntries(f.map((v, i) => [`c${i}`, v])),
+  );
+  return respuestaXlsx(
     nombreArchivoExport(servicio, desde, hasta, filtro != null || tipo !== "todas"),
-    generarCsv(
-      columnas.map((c) => c.titulo),
-      filasExportContactos(columnas, contactos, textos),
+    await generarXlsx(
+      "Contactos",
+      columnas.map((c, i) => ({
+        cabecera: c.titulo,
+        clave: `c${i}`,
+        ancho: c.origen.tipo === "fecha" ? 20 : 18,
+        formato: c.origen.tipo === "fecha" ? FORMATO_FECHA_HORA : undefined,
+      })),
+      filas,
     ),
   );
 }

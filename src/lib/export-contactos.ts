@@ -1,13 +1,18 @@
-import { format } from "date-fns";
-
 // ============================================================
-// CSV de contactos finalizados de Supervisión → Resultados (pedido por
+// Excel de contactos finalizados de Supervisión → Resultados (pedido por
 // Christian el 19/10/2026, solo para GrupoHuertas): una fila por contacto
 // finalizado del período con los filtros de la pestaña (fechas, tipo de
 // campaña y dato del contacto), con las columnas de su listado de siempre.
 // «idcall» (ao_GrupoHuertas) se quitó a petición suya: solo está relleno en
 // 2 de 126.305 tipificaciones. Lógica PURA; el SQL, en
 // queries/resultados-actividad.ts (contactosFinalizadosExport).
+//
+// Era un CSV hasta el 11/11/2026 (auditoría de Fable, F4, decidido con
+// Christian): Excel leía como FÓRMULA las celdas que empiezan por «=», «+»,
+// «-» o «@» (en octubre, «@Morenilla» salía #¿NOMBRE?, y un nombre escrito a
+// propósito en el formulario web podía ser un enlace), les quitaba el «+» y
+// el 0 de delante a los teléfonos (unos 40 al mes) y la fecha era texto. En
+// un XLSX los textos van como texto y la fecha, como fecha.
 // ============================================================
 
 /** Columnas de ph_contact_profile que se pueden exportar (fijas, no vienen de fuera). */
@@ -30,7 +35,7 @@ export interface ColumnaExport {
   origen: OrigenColumna;
 }
 
-/** Columnas del CSV por cliente. Solo los clientes de aquí tienen el botón. */
+/** Columnas del Excel por cliente. Solo los clientes de aquí tienen el botón. */
 export const EXPORT_CONTACTOS: Readonly<Record<string, readonly ColumnaExport[]>> = {
   GrupoHuertas: [
     { titulo: "Campaña", origen: { tipo: "campania" } },
@@ -70,22 +75,40 @@ function texto(valor: string | number | null | undefined): string | number | nul
 }
 
 /**
- * Filas del CSV en el orden de las columnas. Los resultados salen como
- * texto (el código si no hay texto, como «#123»); la fecha, en hora local
- * de la centralita (regla 14) y con segundos: dd/MM/yyyy HH:mm:ss.
+ * Fecha para exceljs: escribe las fechas en UTC, así que una hora local de la
+ * centralita (regla 14) saldría desplazada 1-2 h. Se le pasa una fecha cuyos
+ * campos UTC son los locales: en Excel se ve la hora de la centralita.
+ */
+export function fechaParaExcel(fecha: Date): Date {
+  return new Date(
+    Date.UTC(
+      fecha.getFullYear(),
+      fecha.getMonth(),
+      fecha.getDate(),
+      fecha.getHours(),
+      fecha.getMinutes(),
+      fecha.getSeconds(),
+    ),
+  );
+}
+
+/**
+ * Filas del Excel en el orden de las columnas. Los resultados salen como
+ * texto (el código si no hay texto, como «#123»); la fecha, como fecha (con
+ * `fechaParaExcel`, en hora local) y con segundos en su formato de celda.
  */
 export function filasExportContactos(
   columnas: readonly ColumnaExport[],
   contactos: readonly ContactoExport[],
   textos: Readonly<Record<number, string>>,
-): (string | number | null)[][] {
+): (string | number | Date | null)[][] {
   return contactos.map((c) =>
     columnas.map(({ origen }) => {
       switch (origen.tipo) {
         case "campania":
           return c.campania;
         case "fecha":
-          return format(c.cierre, "dd/MM/yyyy HH:mm:ss");
+          return fechaParaExcel(c.cierre);
         case "nivel": {
           const codigo = c.niveles[origen.indice] ?? null;
           return codigo == null ? null : (textos[codigo] ?? `#${codigo}`);
@@ -101,7 +124,7 @@ export function filasExportContactos(
   );
 }
 
-/** «contactos_GrupoHuertas_2026-09-01_2026-09-30.csv» (con «_origen» si hay filtro). */
+/** «contactos_GrupoHuertas_2026-09-01_2026-09-30.xlsx» (con «_filtrado» si hay filtro). */
 export function nombreArchivoExport(servicio: string, desde: string, hasta: string, filtrado: boolean): string {
-  return `contactos_${servicio}_${desde}_${hasta}${filtrado ? "_filtrado" : ""}.csv`;
+  return `contactos_${servicio}_${desde}_${hasta}${filtrado ? "_filtrado" : ""}.xlsx`;
 }

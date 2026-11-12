@@ -4,6 +4,9 @@ import { cabeceraAdjunto } from "./adjunto";
 /** Formato numérico de Excel para tiempos: 2 decimales fijos (8,50 y no 8,5). */
 export const FORMATO_2_DECIMALES = "#,##0.00";
 
+/** Fecha y hora con segundos (las fechas, con `fechaParaExcel` antes). */
+export const FORMATO_FECHA_HORA = "dd/mm/yyyy hh:mm:ss";
+
 export interface HojaXlsx {
   nombre: string;
   columnas: { cabecera: string; clave: string; ancho?: number; formato?: string }[];

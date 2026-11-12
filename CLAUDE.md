@@ -478,7 +478,11 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         Cambiar de cliente lo quita (`SelectorServicio`).
       - GH septiembre: 75 valores; «contiene granada» 454 finalizados y bruto
         40,75 %; sin origen 2.576. 1,1-1,3 s al mes (sin filtro, 1,35 s).
-    - **CSV de contactos finalizados** (19/10/2026, solo GH): botón en la
+    - **Excel de contactos finalizados** (19/10/2026, solo GH; era un CSV
+      hasta el 11/11/2026: Excel leía como fórmula las celdas que empiezan
+      por «=», «+», «-» o «@» y quitaba el «+» y el 0 a los teléfonos; en el
+      XLSX todo texto es texto y la fecha es fecha en hora local con
+      `fechaParaExcel`, porque exceljs escribe en UTC): botón en la
       pestaña con los MISMOS filtros (fechas, tipo, dato del contacto); una
       fila por finalizado. Columnas del listado de Christian
       (`lib/export-contactos.ts`): Campaña, ID único del perfil, nombre y id
@@ -745,7 +749,23 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   Auto-migra al arrancar (`src/lib/db/sqlite.ts`).
 - **RDBv2** (mssql) en `src/lib/rdb/` — pool singleton (`pool.ts`), enums cacheados
   (`enums.ts`), cache TTL (`cache.ts`), queries por dominio en `queries/*.ts`.
-- **Auth propia**: sesiones en BBDD + cookie httpOnly (`src/lib/auth/`). Roles:
+  **Límite de tiempo real** (11/11/2026): cada `pool.request()` sale con un
+  reloj (`conLimite`) que CANCELA la consulta en SQL Server a los 120 s de
+  principio a fin (`MAX_MS_CONSULTA`, `RDB_MAX_MS` lo cambia) y apunta en el
+  log las de más de 5 s (`[rdb] consulta lenta`, con su primer comentario
+  `--`). El `requestTimeout` de mssql NO basta: se para con el primer paquete
+  de la respuesta (reproducido: límite de 3 s, terminó a los 7,7 s sin
+  error). Lanzar las consultas siempre con `pool.request()` y empezar el SQL
+  con un comentario `--` que diga qué es. Una consulta con tablas temporales
+  las borra al EMPEZAR (`IF OBJECT_ID('tempdb..#x')…`): tras una
+  cancelación la conexión vuelve al pool.
+- **Auth propia**: sesiones en BBDD + cookie httpOnly (`src/lib/auth/`).
+  Sesión deslizante de `SESSION_HORAS` (8 h) con **tope absoluto de
+  `SESSION_MAX_HORAS` (12 h) desde el login** (11/11/2026, decidido con
+  Christian; `auth/caducidad.ts`, puro con tests): la campana y los paneles
+  que se refrescan solos renovaban la sesión cada 60 s y con una pestaña
+  abierta no caducaba nunca. Tiempo real y «Hoy» llevan al login si su
+  consulta recibe un 401. Roles:
   `admin | direccion | operaciones | supervision | cliente`. Dirección ve
   también Operaciones y Supervisión (`ROLES_OPERACIONES`/`ROLES_SUPERVISION`
   en `rbac.ts`, 13/10/2026). El proxy
@@ -1671,9 +1691,10 @@ Registro completo en `docs/registro-sesion-20-octubre-2026.md`.
       Server y 0,5 s con uno nuevo. `OPTION (HASH JOIN)` (`52329c1`),
       desplegado a las 09:12 (backup `dashboard_20261020_0911.db`, sin
       migraciones). Las 9 consultas de la página, en 0,1-1,0 s.
-- [ ] El timeout de 120 s de mssql no saltó con esa consulta (terminó
+- [x] El timeout de 120 s de mssql no saltó con esa consulta (terminó
       sin error a los 392 s y a los 438 s): cada recarga dejaba otra en
-      marcha. Va con la mejora 3.
+      marcha. Resuelto el 11/11/2026 con el límite propio de `pool.ts`
+      (ver «Arquitectura → RDBv2»).
 - [ ] El usuario SQL `DashTmsystem` no puede ver planes ni bloqueos (`VIEW SERVER
       STATE`, `SHOWPLAN`). RDBv2: SQL Server 2019 RTM sin CU, nivel de
       compatibilidad 100, RCSI desactivado y estadísticas de
@@ -1969,9 +1990,8 @@ Orden de recomendación (1 = primero). La 2 está a medias; el resto sin empezar
 3. Degradación elegante cuando RDBv2 no responde (hoy: `ConnectionError` de
    Next sin más). `error.tsx` por vista + banner de salud visible (ya existe
    `saludRdb()`, solo lo ve /admin).
-   Además, un límite propio por consulta: el 20/10/2026 una tardó 390-440 s
-   sin que saltase el timeout de mssql, nginx cortaba a los 180 s y cada
-   recarga de la página lanzaba otra (`registro-sesion-20-octubre-2026.md`).
+   ~~Además, un límite propio por consulta~~: hecho el 11/11/2026
+   (`conLimite` en `pool.ts`, 120 s de principio a fin con cancelación).
 4. Alertas proactivas en Supervisión (SLA bajo, abandono alto, Not Ready largo,
    campaña con entrantes y cero agentes logados). **A medias** (06/10/2026):
    las de planificación (F4 del módulo) ya salen en Supervisión, incluida

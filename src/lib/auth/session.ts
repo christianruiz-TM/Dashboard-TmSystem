@@ -4,19 +4,18 @@ import { cookies } from "next/headers";
 import { and, eq, gt, lt, sql } from "drizzle-orm";
 import { db } from "@/lib/db/sqlite";
 import { sessions, users, type User } from "@/lib/db/schema";
+import { caducidadInicial, horasMaximas, horasVentana, renovacion, sesionVigente } from "./caducidad";
 
 // ============================================================
 // Sesiones propias en SQLite + cookie httpOnly.
 // - En la cookie viaja el token en claro; en BBDD solo su SHA-256.
 // - Expiración deslizante: cada petición renueva si queda menos
 //   de la mitad de la ventana (solo toca BBDD, no la cookie).
+// - Tope absoluto de SESSION_MAX_HORAS (12 h) desde que se entró, aunque
+//   haya una pestaña abierta refrescándose (11/11/2026, `caducidad.ts`).
 // ============================================================
 
 export const NOMBRE_COOKIE = "tm_sesion";
-
-function horasSesion(): number {
-  return Number(process.env.SESSION_HORAS ?? 8);
-}
 
 function hashearToken(token: string): string {
   return createHash("sha256").update(token).digest("hex");
@@ -25,7 +24,7 @@ function hashearToken(token: string): string {
 /** Crea sesión en BBDD y deja la cookie. Solo desde Server Actions. */
 export async function crearSesion(userId: number, ip: string | null, userAgent: string | null) {
   const token = randomBytes(32).toString("base64url");
-  const expiresAt = new Date(Date.now() + horasSesion() * 3600_000);
+  const expiresAt = caducidadInicial(new Date(), horasVentana(), horasMaximas());
   db.insert(sessions)
     .values({ tokenHash: hashearToken(token), userId, expiresAt, ip, userAgent })
     .run();
@@ -65,7 +64,12 @@ export const obtenerSesion = cache(async (): Promise<User | null> => {
 
   const ahora = new Date();
   const fila = db
-    .select({ usuario: users, expiresAt: sessions.expiresAt, tokenHash: sessions.tokenHash })
+    .select({
+      usuario: users,
+      expiresAt: sessions.expiresAt,
+      createdAt: sessions.createdAt,
+      tokenHash: sessions.tokenHash,
+    })
     .from(sessions)
     .innerJoin(users, eq(sessions.userId, users.id))
     .where(and(eq(sessions.tokenHash, hashearToken(token)), gt(sessions.expiresAt, ahora)))
@@ -73,13 +77,17 @@ export const obtenerSesion = cache(async (): Promise<User | null> => {
 
   if (!fila || !fila.usuario.activo) return null;
 
-  // Renovación deslizante si queda menos de media ventana
-  const mitadVentanaMs = (horasSesion() * 3600_000) / 2;
-  if (fila.expiresAt.getTime() - ahora.getTime() < mitadVentanaMs) {
-    db.update(sessions)
-      .set({ expiresAt: new Date(ahora.getTime() + horasSesion() * 3600_000) })
-      .where(eq(sessions.tokenHash, fila.tokenHash))
-      .run();
+  // Pasado el tope absoluto desde que se entró, fuera (y se borra)
+  const maxHoras = horasMaximas();
+  if (!sesionVigente(fila.expiresAt, fila.createdAt, ahora, maxHoras)) {
+    db.delete(sessions).where(eq(sessions.tokenHash, fila.tokenHash)).run();
+    return null;
+  }
+
+  // Renovación deslizante si queda menos de media ventana, sin pasar del tope
+  const nueva = renovacion(fila.expiresAt, fila.createdAt, ahora, horasVentana(), maxHoras);
+  if (nueva) {
+    db.update(sessions).set({ expiresAt: nueva }).where(eq(sessions.tokenHash, fila.tokenHash)).run();
   }
   return fila.usuario;
 });
