@@ -120,27 +120,27 @@ export function sqlEmail(t = "t"): string {
  * (estados 7 y 9).
  */
 /**
- * LLAMADAS de la caja «Llamadas» (12/11/2026, cuadrado con el informe
- * «GH_General» de Altitude, una fila por Interacción Global): UNA por
- * `itr_global`, también las que acaban en el IVR, y en UNA campaña. Va a la
- * última campaña de agentes que la tuvo (sin contar un tramo rechazado o
- * desbordado); si no llegó a ninguna, a su campaña IVR (las rechazadas «no
- * van a ninguna campaña», decidido con Christian). Fuera las preparaciones
- * de llamada manual y los emails (regla 6). Antes se contaban tramos: una
- * transferencia contaba dos veces y las que acababan en el IVR, ninguna.
- * `filtro` se aplica a la campaña asignada (alias `c`); con `porDia`, una
- * columna `fecha` (día del primer tramo, hora local). Columnas: [fecha,]
- * campania, llamadas.
+ * LLAMADAS de la caja «Llamadas» (12-13/11/2026, cuadrado con los informes
+ * «GH_General», «CEFF_General» y «Avo_Cli_v2_Concesiones» de Altitude, una
+ * fila por Interacción Global): UNA por `itr_global`, en la campaña del
+ * TRAMO QUE TERMINA EL ÚLTIMO (inicio + duración), la regla de Altitude:
+ * acierta en 7.991 de sus 7.992 filas (la otra, un empate al milisegundo).
+ * Así, la que acaba en el IVR (rechazada sin agentes, cuelgue en el menú,
+ * encuesta tras el agente) va a la campaña IVR, y solo cuenta si el alcance
+ * la incluye: sin «Incluir IVR», no (decidido con Christian el 13/11/2026:
+ * «las IVR no deben contar, en ninguna caja»). Una transferencia cuenta una
+ * vez. Fuera las preparaciones de llamada manual y los emails (regla 6).
+ * Un tramo en curso (sin duración) termina «ahora». `filtro` se aplica a la
+ * campaña asignada (alias `c`); con `porDia`, una columna `fecha` (día del
+ * primer tramo, hora local). Columnas: [fecha,] campania, llamadas.
  */
 export function sqlLlamadasPorGlobal(filtro: string, porDia = false): string {
   return `
     WITH hilos AS (
-        SELECT COALESCE(t.itr_global, -t.code) AS llamada, t.start_time, t.campaign,
-               -- 0: campaña de agentes; 1: IVR; 2: tramo rechazado o desbordado
-               CASE WHEN cc.shortname LIKE 'IVR[_]%' THEN 1
-                    WHEN t.origin = 1 AND t.termination_state IN (7, 9) THEN 2 ELSE 0 END AS prioridad
+        SELECT COALESCE(t.itr_global, -t.code) AS llamada, t.code, t.start_time, t.campaign,
+               CASE WHEN t.duration IS NULL THEN GETDATE()
+                    ELSE DATEADD(MILLISECOND, CAST(t.duration AS bigint) * 100, t.start_time) END AS fin
         FROM itr_thread t
-        INNER JOIN ph_campaign cc ON cc.code = t.campaign
         ${sqlJoinGlobal()}
         WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
           AND ISNULL(t.media_type, 1) = 1
@@ -148,7 +148,7 @@ export function sqlLlamadasPorGlobal(filtro: string, porDia = false): string {
     ),
     orden AS (
         SELECT llamada, campaign, MIN(start_time) OVER (PARTITION BY llamada) AS ini,
-               ROW_NUMBER() OVER (PARTITION BY llamada ORDER BY prioridad, start_time DESC) AS n
+               ROW_NUMBER() OVER (PARTITION BY llamada ORDER BY fin DESC, code DESC) AS n
         FROM hilos
     )
     SELECT ${porDia ? "CONVERT(varchar(10), o.ini, 23) AS fecha, " : ""}RTRIM(c.shortname) AS campania, COUNT(*) AS llamadas

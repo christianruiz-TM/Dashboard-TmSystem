@@ -11,7 +11,6 @@ import type {
 import { calcularRatiosExito, type ResultadoRatios } from "@/lib/ratios-exito";
 import { hoyISO } from "@/lib/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
-import { campaniasLlamadas } from "./servicios";
 import {
   claveCampanias,
   filtroCampanias,
@@ -343,13 +342,12 @@ async function baseRatiosCore(
   // --- Q4: TODAS las llamadas por campaña (caja «Llamadas», 05/11/2026) ---
   // Entrantes y salientes, contesten o no y las coja o no un agente: lo que
   // la supervisión llama «llamadas hechas». Desde el 12/11/2026, UNA por
-  // itr_global como el informe de Altitude (sqlLlamadasPorGlobal), con las
-  // que acaban en el IVR en la campaña IVR del cliente cuando el alcance es
-  // el cliente entero (campaniasLlamadas): GH 01-11/11 cuadra día a día.
+  // itr_global, en la campaña de su último tramo, como los informes de
+  // Altitude (sqlLlamadasPorGlobal). Las del IVR solo con «Incluir IVR».
   const reqLlamadas = pool.request();
   reqLlamadas.input("desde", sql.DateTime, desde);
   reqLlamadas.input("hastaExcl", sql.DateTime, hastaExcl);
-  const filtroLlamadas = filtroCampanias(reqLlamadas, await campaniasLlamadas(campanias), "c.shortname");
+  const filtroLlamadas = filtroCampanias(reqLlamadas, campanias, "c.shortname");
   const llamadas = reqLlamadas.query(`-- caja «Llamadas»: una por itr_global${sqlLlamadasPorGlobal(filtroLlamadas)}`);
 
   const [conteos, tiempos, rLogado, conSinExito, rLlamadas] = await Promise.all([

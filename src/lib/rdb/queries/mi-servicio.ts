@@ -3,7 +3,6 @@ import { mockBaseRatiosExito, mockMetricasDiarias } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import { listaFechasRango } from "@/lib/mi-servicio/fechas";
 import { sqlCtesIslas, sqlFinIntervalo } from "./islas";
-import { campaniasLlamadas } from "./servicios";
 import { claveCampanias, filtroCampanias, limitesRango, sqlLlamadasPorGlobal } from "./util";
 
 // ============================================================
@@ -23,9 +22,9 @@ export interface LlamadasDiaCampania {
 }
 
 /**
- * TODAS las llamadas por día y campaña, una por itr_global (la condición de
- * la caja «Llamadas», sqlLlamadasPorGlobal, 12/11/2026): con el cliente
- * entero, también las que no llegaron a ninguna campaña, en su campaña IVR.
+ * TODAS las llamadas por día y campaña, una por itr_global en la campaña
+ * de su último tramo (la condición de la caja «Llamadas»,
+ * sqlLlamadasPorGlobal). Las del IVR nunca: «Mi servicio» no las incluye.
  * Suman la caja «Llamadas».
  */
 export async function llamadasDiaCampania(
@@ -50,7 +49,7 @@ export async function llamadasDiaCampania(
       const request = pool.request();
       request.input("desde", sql.DateTime, desde);
       request.input("hastaExcl", sql.DateTime, hastaExcl);
-      const filtro = filtroCampanias(request, await campaniasLlamadas(campanias), "c.shortname");
+      const filtro = filtroCampanias(request, campanias, "c.shortname");
       // Día en hora local de la centralita (regla 14)
       const r = await request.query(`-- Mi servicio: llamadas por día${sqlLlamadasPorGlobal(filtro, true)}`);
       return r.recordset as LlamadasDiaCampania[];

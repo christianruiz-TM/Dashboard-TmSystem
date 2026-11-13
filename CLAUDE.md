@@ -1896,19 +1896,19 @@ Orden fijado por Christian, el MISMO en todas las vistas de Supervisión
     los clientes en octubre = 68.806.
   - Debajo salen las gestionadas: siguen siendo la base de las cajas 4, 5 y
     6 («de las gestionadas» en su texto).
-  - **Desde el 12/11/2026, UNA por `itr_global`** (`sqlLlamadasPorGlobal`,
-    decidido con Christian tras cuadrar con el informe «GH_General» de
-    Altitude): también las que acaban en el IVR (rechazadas o desbordadas
-    sin agentes, cuelgues en el menú), que van a la campaña IVR del cliente,
-    «no a ninguna campaña»; una transferencia ya no cuenta dos veces. La
-    fila del IVR solo entra con el cliente ENTERO en el alcance
-    (`campaniasLlamadas`): «Incluir IVR» no cambia la caja; con un tipo o
-    una campaña, no cuenta. GH 01-11/11: 7.737 frente a 7.732 del informe
-    (cada día igual o ±2: el informe es de 8 a 21 h). Por campaña NO
-    cuadra con Altitude (pone 781 en IVR_GrupoHuertas, el dashboard 422:
-    las que pasan por un agente van a su campaña). UGR cuenta sus llamadas
-    del IVR (628 en octubre). Gestionadas, reparto por agente y % de
-    abandono, sin cambios; el volumen de Dirección sigue por tramos.
+  - **Desde el 12-13/11/2026, UNA por `itr_global`, en la campaña del tramo
+    que TERMINA el último** (`sqlLlamadasPorGlobal`): la regla de Altitude,
+    que acierta en 7.991 de las 7.992 filas de los informes «GH_General»
+    (01-11/11), «CEFF_General» y «Avo_Cli_v2_Concesiones» (12/11). La que
+    acaba en el IVR (rechazada sin agentes, cuelgue en el menú, encuesta) va
+    a la campaña IVR y **solo cuenta con «Incluir IVR»**, en esta caja y en
+    todas, también en «Mi servicio» (decidido con Christian el 13/11/2026;
+    el 12/11 había decidido lo contrario). Una transferencia cuenta una vez.
+    Sin IVR: GH 01-11/11 igual cada día (el 04/11, +1 por un empate al
+    milisegundo), CEFF 12/11 178 y Ávolo 22; con IVR, 189 y 41. **Los emails
+    no son llamadas** (regla 6) y los informes SÍ los llevan («Tipo de
+    Canal» = Email): CEFF 12/11, 202 filas = 189 + 13 emails; Ávolo, 58 = 41
+    + 17. Gestionadas, reparto por agente y % de abandono, sin cambios.
 - 6 = llamadas gestionadas ÷ éxitos (el % va debajo). 11 y 12 = `itr_thread.duration`
   de las llamadas según su sesión de script sea éxito o no (sin sesión = no
   éxito), Q2 de `filasAgenteCampania` con `LEFT JOIN script_session`.
