@@ -875,7 +875,14 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   salientes|callback` (`lib/direccion-secciones.ts`). `direccion/datos.ts`
   da cada consulta como función perezosa y compartida (se lanza la primera
   vez que un bloque la pide); cada bloque (`direccion/secciones.tsx`) va en
-  su `<Suspense>` y la página no espera a nada. Operaciones, pendiente.
+  su `<Suspense>` y la página no espera a nada. **Operaciones, igual**
+  (13/11/2026; `lib/operaciones-secciones.ts`): sigue en `?vista=` (los
+  enlaces de antes valen) con `facturacion` (Factura: cifras, factura por
+  campaña, cierre y cargos), `horas`, `unidades`, `cerrados`, `listas` y
+  `pausas`. Las tres primeras salen de la misma `facturacionCompleta`
+  (`SeccionFacturacion parte=`). Las acciones (cerrar mes, cargos, ajustes)
+  vuelven a la factura, donde están sus formularios. Los maestros (Artículos,
+  DDIs, Códigos GS, Reparto), en un menú «Maestros» de la barra.
 - **Animación de carga** (13/11/2026, pedida por Christian: con consultas
   largas la pantalla parecía colgada). `components/cargando.tsx` (rueda
   amarilla, `AvisoCargando`, `SeccionCargando` para los `<Suspense>`) y la

@@ -48,6 +48,7 @@ import {
   reabrirMes,
 } from "./acciones";
 import { SeccionCargando } from "@/components/cargando";
+import { ayudaDe } from "@/lib/glosario";
 
 // ============================================================
 // Secciones de Operaciones (server components asíncronos). La página las
@@ -303,10 +304,11 @@ export async function KpisOperaciones({
         valor={horasLegibles(reales.horasLogadas)}
         sub="Global, sin duplicar por campaña"
       />
-      <TarjetaKpi titulo="Interacciones" valor={totales.interacciones.toLocaleString("es-ES")} />
-      <TarjetaKpi titulo="Atendidas" valor={totales.atendidas.toLocaleString("es-ES")} />
-      <TarjetaKpi titulo="Éxitos" valor={totales.exitos.toLocaleString("es-ES")} />
-      <TarjetaKpi titulo="Leads finalizados" valor={totales.leads.toLocaleString("es-ES")} />
+      {/* Los mismos nombres que en el resto del panel (13/11/2026): antes «Atendidas» y «Leads finalizados» */}
+      <TarjetaKpi titulo="Interacciones" valor={totales.interacciones.toLocaleString("es-ES")} ayuda={ayudaDe("interacciones")} />
+      <TarjetaKpi titulo="Llamadas gestionadas" valor={totales.atendidas.toLocaleString("es-ES")} ayuda={ayudaDe("atendidas")} />
+      <TarjetaKpi titulo="Éxitos" valor={totales.exitos.toLocaleString("es-ES")} ayuda={ayudaDe("exitos")} />
+      <TarjetaKpi titulo="Contactos cerrados" valor={totales.leads.toLocaleString("es-ES")} ayuda={ayudaDe("leads")} />
       <TarjetaKpi
         titulo="Importe estimado"
         valor={importeTotal != null ? euros(importeTotal) : "—"}
@@ -403,12 +405,19 @@ function RepartoCampanias({ cliente }: { cliente: FacturacionHorasLogadas }) {
   );
 }
 
+/**
+ * Una parte de la facturación (13/11/2026, Operaciones en secciones): la
+ * factura con el cierre y los cargos, las horas logadas por cliente o las
+ * unidades por campaña. Las tres salen de la misma `facturacionCompleta`.
+ */
 export async function SeccionFacturacion({
   ctx,
   datos,
+  parte,
 }: {
   ctx: ContextoFacturacion;
   datos: Promise<FacturacionCompleta>;
+  parte: "factura" | "horas" | "unidades";
 }) {
   const completa = await datos;
   const { facturacion, porCliente, factura } = completa;
@@ -453,6 +462,7 @@ export async function SeccionFacturacion({
 
   return (
     <div className="space-y-4">
+      {parte === "factura" && (
       <Card>
         <CardHeader>
           <CardTitle className="flex flex-wrap items-center gap-2 text-base">
@@ -562,10 +572,17 @@ export async function SeccionFacturacion({
           )}
         </CardContent>
       </Card>
+      )}
 
-      {servicio && <CargosPuntuales ctx={ctx} mes={mes} cerrado={cierre != null} />}
+      {parte === "factura" && servicio && <CargosPuntuales ctx={ctx} mes={mes} cerrado={cierre != null} />}
 
-      {porCliente.length > 0 && (
+      {parte === "horas" && porCliente.length === 0 && (
+        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          Ningún cliente de lo que estás viendo factura por horas logadas (se configura en «Artículos y tarifas»).
+        </p>
+      )}
+
+      {parte === "horas" && porCliente.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Horas logadas por cliente</CardTitle>
@@ -637,6 +654,7 @@ export async function SeccionFacturacion({
         </Card>
       )}
 
+      {parte === "unidades" && (
       <Card>
         <CardHeader>
           <CardTitle className="text-base">Unidades por campaña</CardTitle>
@@ -799,6 +817,7 @@ export async function SeccionFacturacion({
           </TablaOrdenable>
         </CardContent>
       </Card>
+      )}
     </div>
   );
 }

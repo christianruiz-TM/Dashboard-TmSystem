@@ -349,7 +349,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
       "Descarga una fila por cada contacto finalizado que se está viendo (con los filtros de fechas, tipo de campaña y dato del contacto): campaña, ID único del perfil, nombre, resultado, subresultado, fecha y hora de cierre, campaña digital, id de llamada y los dos primeros teléfonos. De momento solo en GrupoHuertas. Se abre con Excel (separado por punto y coma).",
   },
   leads: {
-    termino: "Leads finalizados",
+    termino: "Contactos cerrados (antes «Leads finalizados»)",
     definicion:
       "Contactos de campañas de salida (outbound) cuya gestión se dio por cerrada (estado Done), fechados por su último intento.",
   },
