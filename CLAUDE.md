@@ -857,6 +857,60 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   siempre de un cliente).
   Las queries comparten un `*Core(desde, hasta)`; las variantes `*Hoy` cachean 60 s
   y las `*Rango` con `ttlSegunRango`.
+  **Pestañas por sección** (12/11/2026, pedido por Christian: «mucho scroll y
+  es difícil perderse entre secciones»): Tiempo real e Histórico ya no apilan
+  los 13 bloques; cada sección es una URL (`?seccion=resumen|agentes|
+  campanias|exitos|salientes|entrantes`) y CONSULTA solo lo suyo
+  (`lib/supervision-secciones.ts`, puro con tests: qué datos y qué glosario
+  lleva cada una; `lib/supervision-servidor.ts`, la carga común a la página y
+  a `/api/supervision/datos`, que también recibe `seccion`). El IVR (~42 s el
+  mes de GH) solo lo pide «Entrantes e IVR». Arriba, `BarraPanel`
+  (`components/layout/barra-panel.tsx`, fija al bajar: pestañas, filtros y
+  secciones; también en Resultados, sin secciones). En Tiempo real, debajo,
+  la franja «Ahora» (`FranjaAhora`: plantilla y entrantes de hoy) y las
+  alertas de planificación solo si hay alguna, en todas las pestañas. El
+  estado de agentes sigue de la A a la Z por código (decidido el mismo día).
+  **Dirección, igual** (13/11/2026; medía 13.736 px de alto, ahora el
+  Resumen 1.313 px): `?seccion=resumen|tendencias|campanias|exitos|
+  salientes|callback` (`lib/direccion-secciones.ts`). `direccion/datos.ts`
+  da cada consulta como función perezosa y compartida (se lanza la primera
+  vez que un bloque la pide); cada bloque (`direccion/secciones.tsx`) va en
+  su `<Suspense>` y la página no espera a nada. Operaciones, pendiente.
+- **Animación de carga** (13/11/2026, pedida por Christian: con consultas
+  largas la pantalla parecía colgada). `components/cargando.tsx` (rueda
+  amarilla, `AvisoCargando`, `SeccionCargando` para los `<Suspense>`) y la
+  capa `components/layout/carga-navegacion.tsx`, montada en el layout sobre
+  el `<main>`: al pulsar un enlace interno o cambiar un selector, el
+  contenido se emborrona con «Cargando datos…» hasta que cambia la URL (200
+  ms de espera para no parpadear, 130 s como mucho; nunca en descargas,
+  `/api/` ni pestañas nuevas). Lo que navega con `router.push` avisa antes
+  con `avisarNavegacion(destino)` (`lib/navegacion.ts`): selectores de
+  cliente, fechas, IVR y dato del contacto, filtros de Mi servicio y la
+  campana. **Un `router.push` nuevo tiene que llamarlo**, o no saldrá la capa.
+- **Vista mensual** (13/11/2026, medido en frío: casi todo 1-7 s):
+  - **`metricasIvr` reescrita** (`sqlMetricasIvr`): el EXISTS «¿había un
+    agente logado?» recorría, por cada no atendida, todas las sesiones desde
+    el inicio del rango (cuadrático: GH octubre 84 s; todos los clientes no
+    acababa en 120 s). Ahora las sesiones se funden en tramos (unión de
+    intervalos) en tablas temporales y cada llamada se mira contra ellos:
+    octubre de todos 0,5 s, GH 0,6 s. Comparada con la de antes: mismas
+    cifras en GH (1 y 7 días), Ávolo (octubre) y todos (3 días y hoy).
+  - **Caché persistente** (migración 0014, `cache_consultas`;
+    `lib/db/cache-consultas.ts`, `lib/serializar.ts` con Map/Set/Date):
+    `conCache` mira y guarda también la SQLite cuando el TTL es de rango
+    cerrado. `ttlSegunRango`: hoy 5 min; acabado en los 3 últimos días,
+    `historico` 12 h; antes, `archivo` 30 días. Solo en el servidor del panel
+    (`NEXT_RUNTIME`) y en `npm run precalentar` (`CACHE_PERSISTENTE=1`): los
+    scripts de agregados no la llenan. Versión = `.next/BUILD_ID` en
+    producción (un despliegue no lee lo de antes); en desarrollo, una por
+    arranque. `vaciarCache()` la vacía también. En la SQLite nada dura más
+    de 23 h (la tarea de la noche lo rehace): una pasada son 121 consultas,
+    11,2 MB; con 30 días crecía ~100 MB (y cada backup).
+  - **`npm run precalentar`** (02:45 en `docker/crontab`): mes anterior,
+    periodos con los que compara Dirección y «Ayer» de Supervisión, para
+    todos y cada cliente activo, con las MISMAS claves que las páginas
+    (`rangoAnterior` está en `lib/direccion-secciones.ts` para eso).
+    `--simular` dice qué haría.
 - **Operaciones** (rehecha el 15/10/2026 para que abra rápido):
   - Empieza SIN cliente y sin consultar nada. «Todos los clientes» es una
     opción explícita del selector (`?servicio=todos`, `TODOS_SERVICIOS` en
@@ -1338,6 +1392,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   rellena también `agg_daily_agent_campaign` (ratios de éxito, regla 17) en
   los mismos lotes: 16 meses en 49 s.
 - `npm run backup` — backup consistente del SQLite a `./backups/`
+- `npm run precalentar [-- --simular]` — deja en la caché persistente
+  (`cache_consultas`) el mes anterior, las comparaciones de Dirección y el
+  «Ayer» de Supervisión (13/11/2026; ver «Vista mensual» en Arquitectura).
 - `npm run typecheck` — `tsc` sin los tipos de `.next` (`tsconfig.typecheck.json`:
   tras borrar una ruta, `.next/types` se queda viejo y `tsc` a secas falla).
 - `npm test` — tests unitarios con Vitest (`vitest.config.mts`, junto al código
@@ -1399,7 +1456,8 @@ histórico: `docs/despliegue-linux.md`. Reglas que no se ven en el código:
 - Tres servicios con una sola imagen (`docker/app.Dockerfile`):
   - `web`: nginx, el único puerto publicado.
   - `app`: `next start`.
-  - `tareas`: supercronic con `docker/crontab`, a las 02:00, 02:15 y 02:30.
+  - `tareas`: supercronic con `docker/crontab`, a las 02:00, 02:15, 02:30 y
+    02:45 (precalentado, desde el 13/11/2026), y la alerta del callback.
 - **El servidor está en UTC.** Los contenedores llevan `TZ=Europe/Madrid`
   (regla 14) y la crontab va en hora de Madrid. Nunca programar tareas del
   dashboard en el cron del host: correrían en UTC (y no admite `CRON_TZ`).
@@ -1860,7 +1918,9 @@ aprobada antes de tocar producción (los KPIs van también a Dirección).
       AHT, éxitos con % por llamada y por contacto, éxitos/h logada, gestión
       por éxito y sin éxito) y «Entrantes» (solo si hay recibidas). Las
       tarjetas de «Rendimiento por éxitos» se ocultan en Supervisión
-      (`sinTarjetas`); en Dirección siguen, con su variación. Resultados, en
+      (`sinTarjetas`); ~~en Dirección siguen, con su variación~~ desde el
+      12/11/2026 también en Dirección (Christian: repetían o se confundían
+      con las 12; «las propias las haremos en otro panel»). Resultados, en
       dos filas con las horas logadas.
 - [x] Commit `1cf6c87`, desplegado el 22/10/2026 a las 10:31 (imagen
       `1a4858f13931`, sin migraciones, backup `dashboard_20261022_1026.db`),

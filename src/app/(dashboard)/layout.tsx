@@ -1,9 +1,11 @@
+import { Suspense } from "react";
 import { LogOut, KeyRound } from "lucide-react";
 import Link from "next/link";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { LogoTm } from "@/components/logo-tm";
 import { NavLateral } from "@/components/layout/nav-lateral";
+import { CargaNavegacion } from "@/components/layout/carga-navegacion";
 import { CampanaAlertas } from "@/components/alertas/campana-alertas";
 import { preferenciasAlertas } from "@/lib/alertas-servidor";
 import { requireSesion, rutasVisibles, veAlertas } from "@/lib/auth/rbac";
@@ -96,7 +98,13 @@ export default async function LayoutDashboard({
           </div>
         </div>
 
-        <main className="flex-1 space-y-6 p-4 md:p-6 lg:p-8">{children}</main>
+        <main className="relative flex-1 space-y-6 p-4 md:p-6 lg:p-8">
+          {children}
+          {/* Contenido borroso con la rueda mientras llega la página siguiente (12/11/2026) */}
+          <Suspense fallback={null}>
+            <CargaNavegacion />
+          </Suspense>
+        </main>
       </div>
     </div>
   );

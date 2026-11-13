@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { avisarNavegacion } from "@/lib/navegacion";
 
 const CLASE_SELECT =
   "h-8 max-w-64 rounded-lg border border-border bg-background px-2 text-sm outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50";
@@ -30,7 +31,10 @@ export function FiltrosMiServicio({
       if (valor) siguientes.set(clave, valor);
       else siguientes.delete(clave);
     }
-    router.push(`${ruta}?${siguientes.toString()}`);
+    const destino = `${ruta}?${siguientes.toString()}`;
+    // La capa de «Cargando» (layout/carga-navegacion.tsx)
+    avisarNavegacion(destino);
+    router.push(destino);
   }
 
   return (

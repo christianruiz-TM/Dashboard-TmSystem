@@ -99,6 +99,13 @@
       "when": 1793957806340,
       "tag": "0013_cliente_servicio",
       "breakpoints": true
+    },
+    {
+      "idx": 14,
+      "version": "6",
+      "when": 1794558023621,
+      "tag": "0014_cache_consultas",
+      "breakpoints": true
     }
   ]
 }

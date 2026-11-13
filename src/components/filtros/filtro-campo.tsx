@@ -11,6 +11,7 @@ import {
   type ValorCampo,
 } from "@/lib/resultados-actividad";
 import { cn } from "@/lib/utils";
+import { avisarNavegacion } from "@/lib/navegacion";
 
 // ============================================================
 // Buscador con autocompletado de un dato del contacto (Supervisión →
@@ -88,7 +89,10 @@ export function FiltroCampo({
     }
     setAbierto(false);
     setTexto("");
-    router.push(`${ruta}?${siguientes.toString()}`);
+    const destino = `${ruta}?${siguientes.toString()}`;
+    // La capa de «Cargando» (layout/carga-navegacion.tsx)
+    avisarNavegacion(destino);
+    router.push(destino);
   }
 
   function mover(delta: number) {

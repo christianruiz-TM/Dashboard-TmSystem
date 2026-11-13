@@ -14,6 +14,7 @@
     "introspect": "tsx scripts/introspect-rdb.ts",
     "agregados": "tsx scripts/aggregate-daily.ts",
     "backup": "tsx scripts/backup-sqlite.ts",
+    "precalentar": "tsx scripts/precalentar.ts",
     "verificar": "tsx scripts/verificar-auditoria.ts",
     "test": "node scripts/test.mjs",
     "planificacion:agregados": "tsx scripts/planificacion-agregados.ts",

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -13,56 +13,20 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
+import { BarraPanel } from "@/components/layout/barra-panel";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
-import { Glosario } from "@/components/glosario";
-import { CabeceraSupervision } from "@/components/kpi/cabecera-supervision";
-import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
-import { Callback } from "@/components/kpi/callback";
-import type { ResultadoCallback } from "@/lib/callback";
-import { RatiosExito } from "@/components/kpi/ratios-exito";
-import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
-import { TablaKpisCampania } from "@/components/kpi/tabla-kpis-campania";
+import { FranjaAhora } from "@/components/kpi/cabecera-supervision";
 import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
 import { valoresOrden } from "@/lib/orden";
-import type { ResultadoRatios } from "@/lib/ratios-exito";
-import type { ResultadoResultados } from "@/lib/resultados-actividad";
 import type { TipoCampania } from "@/lib/resultados-actividad";
-import {
-  METRICAS_SUPERVISION,
-  agruparKpisPorTipo,
-  filasCampaniaSupervision,
-} from "@/lib/supervision";
 import { TarjetaAlertasPlan } from "@/components/planificacion/alertas-plan";
-import type { Alerta } from "@/lib/planificacion/alertas";
-import type { PendienteRevision } from "@/lib/planificacion/vistas";
-import { TablaAgentesSupervision } from "@/components/kpi/tabla-agentes-supervision";
-import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
-import { Salientes } from "@/components/kpi/salientes";
-import type { ResultadoSalientes } from "@/lib/salientes";
-import type { ResultadoCalidadBd } from "@/lib/calidad-bd";
-import type { AgenteEstado, AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
+import type { DatosSupervisionHoy } from "@/lib/supervision-servidor";
+import { NOMBRE_SECCION, type SeccionSupervision } from "@/lib/supervision-secciones";
+import type { AgenteEstado } from "@/lib/rdb/types";
 import { cn } from "@/lib/utils";
-
-interface DatosSupervision {
-  agentes: AgenteEstado[];
-  kpis: KpiCampaniaHoy[];
-  top: AgenteHoy[];
-  ivr: MetricasIvr;
-  /** Callback de hoy de los clientes con callback (null si no hay ninguno en el alcance). */
-  callback: ResultadoCallback | null;
-  /** Alertas de planificación (equipo multicliente), independientes del servicio elegido. */
-  plan: { alertas: Alerta[]; error: string | null; revisar?: PendienteRevision[] };
-  ratios: ResultadoRatios;
-  /** Totales de Resultados de hoy (contactos cerrados), para las cajas principales. */
-  resultados: ResultadoResultados["total"] | null;
-  /** KPIs de salida de hoy (global, por campaña y por agente). */
-  salientes: ResultadoSalientes | null;
-  calidad: ResultadoCalidadBd;
-  umbral: number;
-  actualizado: string;
-}
+import { SeccionPeriodo } from "./secciones-supervision";
 
 const REFRESCO_MS = 60_000;
 
@@ -73,8 +37,79 @@ const COLOR_ESTADO: Record<string, string> = {
   Deslogado: "bg-zinc-100 text-zinc-600 border-zinc-200",
 };
 
+/** Estado de cada agente ahora mismo, de la A a la Z por su usuario de Altitude. */
+function TablaEstadoAgentes({ agentes }: { agentes: AgenteEstado[] }) {
+  return (
+    <Card>
+      <CardHeader>
+        <CardTitle className="text-base">Estado de agentes ahora ({agentes.length})</CardTitle>
+      </CardHeader>
+      <CardContent>
+        {/* De la A a la Z por usuario de Altitude; pulsando una cabecera, por esa columna */}
+        <TablaOrdenable>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <CabeceraOrdenable col={0}>Agente</CabeceraOrdenable>
+                <CabeceraOrdenable col={1}>Campaña</CabeceraOrdenable>
+                <CabeceraOrdenable col={2}>Estado</CabeceraOrdenable>
+                <CabeceraOrdenable col={3}>Motivo</CabeceraOrdenable>
+                <CabeceraOrdenable col={4} numerica className="text-right">
+                  Desde hace
+                </CabeceraOrdenable>
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {agentes.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={5} className="text-center text-muted-foreground">
+                    Ningún agente con actividad hoy
+                  </TableCell>
+                </TableRow>
+              ) : (
+                <FilasOrdenables>
+                  {agentes.map((a) => (
+                    <TableRow
+                      key={`${a.agente}-${a.campania}`}
+                      data-orden={valoresOrden(a.agente, a.campania, a.estado, a.motivo, a.desdeMin)}
+                    >
+                      <TableCell>
+                        <div className="font-medium">{a.agente}</div>
+                        <div className="text-xs text-muted-foreground">{a.nombre}</div>
+                      </TableCell>
+                      <TableCell>{a.campania}</TableCell>
+                      <TableCell>
+                        <Badge variant="outline" className={COLOR_ESTADO[a.estado] ?? "bg-zinc-100 text-zinc-700"}>
+                          {a.estado}
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="text-sm text-muted-foreground">{a.motivo ?? "—"}</TableCell>
+                      <TableCell className="text-right tabular-nums">{a.desdeMin} min</TableCell>
+                    </TableRow>
+                  ))}
+                </FilasOrdenables>
+              )}
+            </TableBody>
+          </Table>
+        </TablaOrdenable>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * Supervisión → Tiempo real. Desde el 12/11/2026, en pestañas por sección
+ * (lib/supervision-secciones.ts): arriba la barra fija con los filtros y las
+ * secciones y la franja «Ahora» (plantilla y entrantes de hoy, y las alertas
+ * si hay alguna), que se ven en todas; debajo, solo la sección abierta. El
+ * refresco de cada 60 s pide únicamente esa sección.
+ */
 export function PanelSupervision({
   inicial,
+  seccion,
+  secciones,
+  pestanas,
+  avisos,
   servicios,
   ordenServicios,
   servicio,
@@ -82,7 +117,14 @@ export function PanelSupervision({
   tipos,
   servicioDe,
 }: {
-  inicial: DatosSupervision;
+  inicial: DatosSupervisionHoy;
+  seccion: SeccionSupervision;
+  /** Las pestañas de sección ya con su enlace (las monta la página). */
+  secciones: { valor: string; etiqueta: string; href: string }[];
+  /** Pestañas principales de Supervisión (Tiempo real, Histórico, Resultados). */
+  pestanas: ReactNode;
+  /** Avisos de la página (cliente que no existe…), debajo de la barra. */
+  avisos?: ReactNode;
   servicios: string[];
   /** Clientes por actividad para el selector (null: en el orden de `servicios`). */
   ordenServicios?: { activos: ServicioOrdenado[]; parados: ServicioOrdenado[] };
@@ -93,7 +135,7 @@ export function PanelSupervision({
   /** Cliente de cada campaña (para el comparador sin cliente elegido). */
   servicioDe: Record<string, string>;
 }) {
-  const [datos, setDatos] = useState<DatosSupervision>(inicial);
+  const [datos, setDatos] = useState<DatosSupervisionHoy>(inicial);
   const [error, setError] = useState<string | null>(null);
   const [cargando, setCargando] = useState(false);
 
@@ -104,6 +146,7 @@ export function PanelSupervision({
       const qs = new URLSearchParams();
       if (servicio) qs.set("servicio", servicio);
       if (incluirIvr) qs.set("ivr", "1");
+      if (seccion !== "resumen") qs.set("seccion", seccion);
       const url = qs.toString()
         ? `/api/supervision/datos?${qs.toString()}`
         : "/api/supervision/datos";
@@ -121,41 +164,52 @@ export function PanelSupervision({
     } finally {
       setCargando(false);
     }
-  }, [servicio, incluirIvr, router]);
+  }, [servicio, incluirIvr, seccion, router]);
 
   useEffect(() => {
     const intervalo = setInterval(refrescar, REFRESCO_MS);
     return () => clearInterval(intervalo);
   }, [refrescar]);
 
-  // Plantilla ahora mismo (una fila por agente; el resumen del día lo calcula la cabecera)
-  const enEstado = (estado: string) => datos.agentes.filter((a) => a.estado === estado).length;
+  // Plantilla ahora mismo (una fila por agente y campaña)
+  const enEstado = (estado: string) =>
+    new Set(datos.agentes.filter((a) => a.estado === estado).map((a) => a.agente)).size;
   const conectados = new Set(datos.agentes.filter((a) => a.estado !== "Deslogado").map((a) => a.agente)).size;
+  const plan = datos.plan;
+  const hayAlertas = plan.alertas.length > 0 || (plan.revisar?.length ?? 0) > 0 || plan.error != null;
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div>
-          <h1 className="text-xl font-semibold">Supervisión · hoy</h1>
-          <p className="text-sm text-muted-foreground">
-            Datos de replicación casi en tiempo real · refresco automático cada 60 s ·
-            actualizado a las{" "}
-            {new Date(datos.actualizado).toLocaleTimeString("es-ES", {
-              hour: "2-digit",
-              minute: "2-digit",
-              second: "2-digit",
-            })}
-          </p>
-        </div>
-        <div className="flex flex-wrap items-center gap-3">
-          <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} />
-          <SelectorIvr incluir={incluirIvr} />
-          <Button variant="outline" size="sm" onClick={refrescar} disabled={cargando}>
-            <RefreshCw className={cn("h-4 w-4", cargando && "animate-spin")} />
-            Actualizar
-          </Button>
-        </div>
-      </div>
+      <BarraPanel
+        pestanas={pestanas}
+        filtros={
+          <>
+            <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} />
+            <SelectorIvr incluir={incluirIvr} />
+          </>
+        }
+        secciones={secciones}
+        actual={seccion}
+        estado={
+          <>
+            <span>
+              Actualizado a las{" "}
+              {new Date(datos.actualizado).toLocaleTimeString("es-ES", {
+                hour: "2-digit",
+                minute: "2-digit",
+                second: "2-digit",
+              })}{" "}
+              · cada 60 s
+            </span>
+            <Button variant="ghost" size="sm" className="h-7 px-2" onClick={refrescar} disabled={cargando}>
+              <RefreshCw className={cn("h-3.5 w-3.5", cargando && "animate-spin")} />
+              Actualizar
+            </Button>
+          </>
+        }
+      />
+
+      {avisos}
 
       {error ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
@@ -163,169 +217,30 @@ export function PanelSupervision({
         </div>
       ) : null}
 
-      <CabeceraSupervision
+      <FranjaAhora
         kpis={datos.kpis}
-        ratios={datos.ratios}
-        resultados={datos.resultados}
         umbral={datos.umbral}
         equipo={{ ready: enEstado("Ready"), noDisponibles: enEstado("NotReady"), conectados }}
       />
 
-      <TarjetaAlertasPlan alertas={datos.plan.alertas} error={datos.plan.error} revisar={datos.plan.revisar ?? []} />
+      {/* Las alertas, solo si hay algo que mirar (la campana de arriba las tiene siempre) */}
+      {hayAlertas ? (
+        <TarjetaAlertasPlan alertas={plan.alertas} error={plan.error} revisar={plan.revisar ?? []} />
+      ) : null}
 
-      <TarjetaIvr ivr={datos.ivr} />
+      {seccion === "agentes" ? <TablaEstadoAgentes agentes={datos.agentes} /> : null}
 
-      <Callback callback={datos.callback} enVivo />
-
-      <div className="grid gap-6 xl:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">Campañas hoy</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <TablaKpisCampania
-              grupos={agruparKpisPorTipo(datos.kpis, tipos)}
-              vacio="Sin actividad registrada hoy"
-            />
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">
-              Estado de agentes ({datos.agentes.length})
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {/* De la A a la Z por usuario de Altitude; pulsando una cabecera, por esa columna */}
-            <TablaOrdenable>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <CabeceraOrdenable col={0}>Agente</CabeceraOrdenable>
-                    <CabeceraOrdenable col={1}>Campaña</CabeceraOrdenable>
-                    <CabeceraOrdenable col={2}>Estado</CabeceraOrdenable>
-                    <CabeceraOrdenable col={3}>Motivo</CabeceraOrdenable>
-                    <CabeceraOrdenable col={4} numerica className="text-right">
-                      Desde hace
-                    </CabeceraOrdenable>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {datos.agentes.length === 0 ? (
-                    <TableRow>
-                      <TableCell colSpan={5} className="text-center text-muted-foreground">
-                        Ningún agente con actividad hoy
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    <FilasOrdenables>
-                      {datos.agentes.map((a) => (
-                        <TableRow key={`${a.agente}-${a.campania}`} data-orden={valoresOrden(a.agente, a.campania, a.estado, a.motivo, a.desdeMin)}>
-                          <TableCell>
-                            <div className="font-medium">{a.agente}</div>
-                            <div className="text-xs text-muted-foreground">{a.nombre}</div>
-                          </TableCell>
-                          <TableCell>{a.campania}</TableCell>
-                          <TableCell>
-                            <Badge
-                              variant="outline"
-                              className={COLOR_ESTADO[a.estado] ?? "bg-zinc-100 text-zinc-700"}
-                            >
-                              {a.estado}
-                            </Badge>
-                          </TableCell>
-                          <TableCell className="text-sm text-muted-foreground">
-                            {a.motivo ?? "—"}
-                          </TableCell>
-                          <TableCell className="text-right tabular-nums">{a.desdeMin} min</TableCell>
-                        </TableRow>
-                      ))}
-                    </FilasOrdenables>
-                  )}
-                </TableBody>
-              </Table>
-            </TablaOrdenable>
-          </CardContent>
-        </Card>
-      </div>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Productividad de agentes hoy</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TablaAgentesSupervision agentes={datos.top} vacio="Sin llamadas gestionadas todavía" />
-        </CardContent>
-      </Card>
-
-      <RatiosExito ratios={datos.ratios} periodo="hoy" sinTarjetas />
-
-      {datos.salientes ? <Salientes datos={datos.salientes} periodo="hoy" /> : null}
-
-      <CalidadBaseDatos datos={datos.calidad} periodo="hoy" />
-
-      {/* Se recalcula con cada refresco; las campañas elegidas se mantienen */}
-      <ComparadorCampanias
-        filas={filasCampaniaSupervision(datos.kpis, datos.ratios.campanias, servicioDe)}
-        metricas={METRICAS_SUPERVISION}
-      />
-
-      <Glosario
-        titulo="Supervisión · tiempo real"
-        claves={[
-          "kpiHorasLogadas",
-          "kpiLlamadas",
-          "kpiFinalizados",
-          "kpiExitos",
-          "kpiLlamadasHora",
-          "kpiLlamadasPorExito",
-          "kpiFinalizadosHora",
-          "kpiFinalizadosPorExito",
-          "ratioBruto",
-          "ratioNeto",
-          "kpiDuracionNoExito",
-          "kpiDuracionExito",
-          "ocupacion",
-          "contactabilidadFranja",
-          "contactosAlcanzados",
-          "rellamadas",
-          "conversionIntento",
-          "tiempoEsperando",
-          "equipoAhora",
-          "servicio",
-          "gruposCampania",
-          "comparadorCampanias",
-          "estado",
-          "pausas",
-          "recibidas",
-          "atendidas",
-          "calidadBd",
-          "conversaciones",
-          "preparacion",
-          "tiempoReloj",
-          "exitos",
-          "contactosGestionados",
-          "conversion",
-          "efectividadCierre",
-          "exitosHora",
-          "tiempoPorExito",
-          "indiceExito",
-          "abandonadas",
-          "abandono",
-          "cola",
-          "esperaAbandonadas",
-          "sla",
-          "aht",
-          "acw",
-          "talk",
-          "productivo",
-          "ivr",
-          "ivrAtendidas",
-          "ivrNoAtendidas",
-          "ivrNoAtendidasHorario",
-        ]}
+      <SeccionPeriodo
+        seccion={seccion}
+        datos={datos}
+        periodo="hoy"
+        enVivo
+        tipos={tipos}
+        servicioDe={servicioDe}
+        titulo={`Supervisión · tiempo real · ${NOMBRE_SECCION[seccion]}`}
+        claveComparador={`${servicio ?? "todos"}|${incluirIvr ? "ivr" : ""}`}
       />
     </div>
   );
 }
+

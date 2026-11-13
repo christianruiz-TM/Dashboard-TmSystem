@@ -1,23 +1,10 @@
 import type { Metadata } from "next";
 import { AvisoRango, AvisoServicio } from "@/components/filtros/aviso-rango";
 import { ROLES_SUPERVISION, requireRol } from "@/lib/auth/rbac";
-import { umbralSlaSeg } from "@/lib/db/settings";
-import { esquemaRango, hoyISO, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
-import {
-  agentesHoy,
-  agentesProductividadRango,
-  estadoAgentes,
-  kpisCampaniasHoy,
-  kpisCampaniasRango,
-  metricasIvr,
-} from "@/lib/rdb/queries/supervision";
-import { ratiosExitoHoy, ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
-import { calidadBaseDatosRango } from "@/lib/rdb/queries/calidad-bd";
-import { calidadBaseDatos } from "@/lib/calidad-bd";
+import { esquemaRango, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
+import { ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
 import { resultadosActividadRango } from "@/lib/rdb/queries/resultados-actividad";
-import { totalResultados } from "@/lib/resultados-cabecera";
 import { prefijoUsuariosDe } from "@/lib/facturacion";
-import { resumenSalientes } from "@/lib/rdb/queries/salientes";
 import {
   campoContactoDe,
   configsResultados,
@@ -32,7 +19,6 @@ import {
 } from "@/lib/resultados-actividad";
 import { definicionExportContactos } from "@/lib/export-contactos";
 import {
-  campaniasDeServicio,
   campaniasEfectivas,
   listaServicios,
   mapaCampaniaServicio,
@@ -40,8 +26,8 @@ import {
 import { ordenServicios } from "@/components/filtros/selector-servicio-actividad";
 import { PanelHistorico } from "./panel-historico";
 import { PanelResultados } from "./panel-resultados";
-import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
-import { callbackPeriodo } from "@/lib/callback-servidor";
+import { datosSupervisionHoy, datosSupervisionRango } from "@/lib/supervision-servidor";
+import { leerSeccion, pestanasSeccion } from "@/lib/supervision-secciones";
 import { PanelSupervision } from "./panel-supervision";
 import { TabsSupervision } from "./tabs-supervision";
 
@@ -60,13 +46,15 @@ export default async function PaginaSupervision({
     tipo?: string;
     campo?: string;
     modo?: string;
+    seccion?: string;
   }>;
 }) {
   const usuario = await requireRol(...ROLES_SUPERVISION);
   const params = await searchParams;
   const vista =
     params.vista === "historico" || params.vista === "resultados" ? params.vista : "tiempo-real";
-  const umbral = umbralSlaSeg();
+  // Sección de Tiempo real e Histórico (12/11/2026): cada pestaña consulta solo lo suyo
+  const seccion = leerSeccion(params.seccion);
   const servicios = await listaServicios();
   const nombresServicios = servicios.map((s) => s.servicio);
   // Clientes con actividad arriba y los parados abajo en el selector (caché de 1 h)
@@ -79,7 +67,6 @@ export default async function PaginaSupervision({
   const servicio = params.servicio && nombresServicios.includes(params.servicio) ? params.servicio : undefined;
   const servicioInexistente = params.servicio && !servicio ? params.servicio : null;
   const camp = await campaniasEfectivas(servicio, incluirIvr);
-  const campServicio = await campaniasDeServicio(servicio);
   // Tiempo real e Histórico: la tabla de campañas se agrupa por los tipos de
   // campaña del cliente (Bolsas: cartera; GH: BBDD) y el comparador agrupa
   // las campañas por cliente
@@ -138,33 +125,37 @@ export default async function PaginaSupervision({
       urlCsv = `/api/export/resultados-contactos?${p.toString()}`;
     }
     return (
-      <div className="space-y-6">
-        <TabsSupervision
-          vista="resultados"
-          servicio={servicio}
-          incluirIvr={incluirIvr}
-          desde={params.desde}
-          hasta={params.hasta}
-        />
-        <AvisoServicio pedido={servicioInexistente} alternativa="la lista de clientes para elegir uno" />
-        <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes en curso" />
-        <PanelResultados
-          resultado={resultado}
-          ratios={ratiosRes}
-          desde={desde}
-          hasta={hasta}
-          presets={presets}
-          servicios={nombresServicios}
-          ordenServicios={orden}
-          servicio={servicioElegido}
-          incluirIvr={incluirIvr}
-          esAdmin={usuario.rol === "admin"}
-          tipos={opcionesTipo(tipos)}
-          tipo={tipo}
-          campo={campo ? { etiqueta: campo.etiqueta, filtro: filtroCampo } : null}
-          urlCsv={urlCsv}
-        />
-      </div>
+      <PanelResultados
+        pestanas={
+          <TabsSupervision
+            vista="resultados"
+            servicio={servicio}
+            incluirIvr={incluirIvr}
+            desde={params.desde}
+            hasta={params.hasta}
+          />
+        }
+        avisos={
+          <>
+            <AvisoServicio pedido={servicioInexistente} alternativa="la lista de clientes para elegir uno" />
+            <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes en curso" />
+          </>
+        }
+        resultado={resultado}
+        ratios={ratiosRes}
+        desde={desde}
+        hasta={hasta}
+        presets={presets}
+        servicios={nombresServicios}
+        ordenServicios={orden}
+        servicio={servicioElegido}
+        incluirIvr={incluirIvr}
+        esAdmin={usuario.rol === "admin"}
+        tipos={opcionesTipo(tipos)}
+        tipo={tipo}
+        campo={campo ? { etiqueta: campo.etiqueta, filtro: filtroCampo } : null}
+        urlCsv={urlCsv}
+      />
     );
   }
 
@@ -176,99 +167,58 @@ export default async function PaginaSupervision({
       hasta: params.hasta ?? ayer.hasta,
     });
     const { desde, hasta } = rango.success ? rango.data : ayer;
-    const [kpis, agentes, ivr, ratios, intentos, resultados, salientes, callback] = await Promise.all([
-      kpisCampaniasRango(desde, hasta, umbral, camp),
-      agentesProductividadRango(desde, hasta, camp),
-      metricasIvr(desde, hasta, campServicio),
-      ratiosExitoRango(desde, hasta, camp, prefijo),
-      calidadBaseDatosRango(desde, hasta, camp),
-      totalResultados(desde, hasta, camp, prefijo),
-      resumenSalientes(desde, hasta, camp, prefijo),
-      // Callback de los clientes que lo tienen (12/11/2026); si falla, sin la sección
-      callbackPeriodo(desde, hasta, servicio).catch((e) => {
-        console.error("[supervision] callback:", e);
-        return null;
-      }),
-    ]);
+    const datos = await datosSupervisionRango(desde, hasta, servicio, incluirIvr, seccion);
     return (
-      <div className="space-y-6">
-        <TabsSupervision
-          vista="historico"
-          servicio={servicio}
-          incluirIvr={incluirIvr}
-          desde={params.desde}
-          hasta={params.hasta}
-        />
-        <AvisoServicio pedido={servicioInexistente} alternativa="todos los clientes" />
-        <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el día de ayer" />
-        <PanelHistorico
-          kpis={kpis}
-          agentes={agentes}
-          ivr={ivr}
-          callback={callback}
-          ratios={ratios}
-          resultados={resultados}
-          salientes={salientes}
-          calidad={calidadBaseDatos(intentos.filas, intentos.contactos, tiposCliente)}
-          umbral={umbral}
-          desde={desde}
-          hasta={hasta}
-          presets={presets}
-          servicios={nombresServicios}
-          ordenServicios={orden}
-          servicio={servicio}
-          incluirIvr={incluirIvr}
-          tipos={tiposCliente}
-          servicioDe={servicioDe}
-        />
-      </div>
-    );
-  }
-
-  // Tiempo real (hoy, en vivo con polling)
-  const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados, salientes, callback] = await Promise.all([
-    estadoAgentes(camp),
-    kpisCampaniasHoy(umbral, camp),
-    agentesHoy(camp),
-    metricasIvr(hoyISO(), hoyISO(), campServicio),
-    alertasPlanificacion(),
-    ratiosExitoHoy(camp, prefijo),
-    calidadBaseDatosRango(hoyISO(), hoyISO(), camp),
-    totalResultados(hoyISO(), hoyISO(), camp, prefijo),
-    resumenSalientes(hoyISO(), hoyISO(), camp, prefijo),
-    callbackPeriodo(hoyISO(), hoyISO(), servicio).catch((e) => {
-      console.error("[supervision] callback:", e);
-      return null;
-    }),
-  ]);
-  return (
-    <div className="space-y-6">
-      <TabsSupervision vista="tiempo-real" servicio={servicio} incluirIvr={incluirIvr} />
-      <AvisoServicio pedido={servicioInexistente} alternativa="todos los clientes" />
-      <PanelSupervision
-        // Remonta al cambiar de servicio o de toggle IVR
-        key={`${servicio ?? "todos"}|${incluirIvr ? "ivr" : "noivr"}`}
+      <PanelHistorico
+        datos={datos}
+        seccion={seccion}
+        secciones={pestanasSeccion({ vista: "historico", servicio, incluirIvr, desde, hasta })}
+        pestanas={
+          <TabsSupervision
+            vista="historico"
+            servicio={servicio}
+            incluirIvr={incluirIvr}
+            desde={params.desde}
+            hasta={params.hasta}
+            seccion={seccion}
+          />
+        }
+        avisos={
+          <>
+            <AvisoServicio pedido={servicioInexistente} alternativa="todos los clientes" />
+            <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el día de ayer" />
+          </>
+        }
+        desde={desde}
+        hasta={hasta}
+        presets={presets}
         servicios={nombresServicios}
         ordenServicios={orden}
         servicio={servicio}
         incluirIvr={incluirIvr}
         tipos={tiposCliente}
         servicioDe={servicioDe}
-        inicial={{
-          agentes,
-          kpis,
-          top,
-          ivr,
-          callback,
-          plan,
-          ratios,
-          resultados,
-          salientes,
-          calidad: calidadBaseDatos(intentos.filas, intentos.contactos, tiposCliente),
-          umbral,
-          actualizado: new Date().toISOString(),
-        }}
       />
-    </div>
+    );
+  }
+
+  // Tiempo real (hoy, en vivo con polling): solo la sección abierta y la franja «Ahora»
+  const inicial = await datosSupervisionHoy(servicio, incluirIvr, seccion);
+  return (
+    <PanelSupervision
+      // Remonta al cambiar de servicio, de toggle IVR o de sección
+      key={`${servicio ?? "todos"}|${incluirIvr ? "ivr" : "noivr"}|${seccion}`}
+      inicial={inicial}
+      seccion={seccion}
+      secciones={pestanasSeccion({ vista: "tiempo-real", servicio, incluirIvr })}
+      pestanas={<TabsSupervision vista="tiempo-real" servicio={servicio} incluirIvr={incluirIvr} seccion={seccion} />}
+      avisos={<AvisoServicio pedido={servicioInexistente} alternativa="todos los clientes" />}
+      servicios={nombresServicios}
+      ordenServicios={orden}
+      servicio={servicio}
+      incluirIvr={incluirIvr}
+      tipos={tiposCliente}
+      servicioDe={servicioDe}
+    />
   );
 }

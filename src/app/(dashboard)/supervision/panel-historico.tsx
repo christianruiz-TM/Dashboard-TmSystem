@@ -1,46 +1,26 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import type { ReactNode } from "react";
+import { BarraPanel } from "@/components/layout/barra-panel";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
-import { Glosario } from "@/components/glosario";
-import { CabeceraSupervision } from "@/components/kpi/cabecera-supervision";
-import { TarjetaIvr } from "@/components/kpi/tarjeta-ivr";
-import { Callback } from "@/components/kpi/callback";
-import type { ResultadoCallback } from "@/lib/callback";
-import { RatiosExito } from "@/components/kpi/ratios-exito";
-import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
-import { TablaKpisCampania } from "@/components/kpi/tabla-kpis-campania";
-import type { ResultadoRatios } from "@/lib/ratios-exito";
-import type { ResultadoResultados, TipoCampania } from "@/lib/resultados-actividad";
-import {
-  METRICAS_SUPERVISION,
-  agruparKpisPorTipo,
-  filasCampaniaSupervision,
-} from "@/lib/supervision";
-import { TablaAgentesSupervision } from "@/components/kpi/tabla-agentes-supervision";
-import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
-import { Salientes } from "@/components/kpi/salientes";
-import type { ResultadoSalientes } from "@/lib/salientes";
-import type { ResultadoCalidadBd } from "@/lib/calidad-bd";
-import type { AgenteHoy, KpiCampaniaHoy, MetricasIvr } from "@/lib/rdb/types";
+import type { TipoCampania } from "@/lib/resultados-actividad";
+import { NOMBRE_SECCION, type SeccionSupervision } from "@/lib/supervision-secciones";
+import type { DatosSupervisionPeriodo } from "@/lib/supervision-servidor";
+import { SeccionPeriodo } from "./secciones-supervision";
 
 /**
- * Vista histórica de supervisión: mismos KPIs de campaña (cola, SLA) y
- * productividad de agentes que el tiempo real, pero sobre un rango de fechas
- * elegible (ayer, últimos 7 días, mes anterior, intervalo personalizado).
- * No incluye el "estado de agentes ahora" porque solo aplica al momento actual.
+ * Vista histórica de supervisión: las mismas secciones que el tiempo real
+ * (12/11/2026, en pestañas: cada una consulta solo lo suyo) sobre un rango
+ * de fechas elegible (ayer, últimos 7 días, mes anterior, intervalo). Sin la
+ * franja «Ahora» ni el estado de agentes, que solo valen para el momento.
  */
 export function PanelHistorico({
-  kpis,
-  agentes,
-  ivr,
-  callback,
-  ratios,
-  resultados,
-  salientes,
-  calidad,
-  umbral,
+  datos,
+  seccion,
+  secciones,
+  pestanas,
+  avisos,
   desde,
   hasta,
   presets,
@@ -51,18 +31,14 @@ export function PanelHistorico({
   tipos,
   servicioDe,
 }: {
-  kpis: KpiCampaniaHoy[];
-  agentes: AgenteHoy[];
-  ivr: MetricasIvr;
-  /** Callback de los clientes con callback (null si no hay ninguno en el alcance). */
-  callback: ResultadoCallback | null;
-  ratios: ResultadoRatios;
-  /** Totales de Resultados del período (contactos cerrados), para las cajas principales. */
-  resultados: ResultadoResultados["total"] | null;
-  /** KPIs de salida del período (global, por campaña y por agente). */
-  salientes: ResultadoSalientes | null;
-  calidad: ResultadoCalidadBd;
-  umbral: number;
+  datos: DatosSupervisionPeriodo;
+  seccion: SeccionSupervision;
+  /** Las pestañas de sección ya con su enlace (las monta la página). */
+  secciones: { valor: string; etiqueta: string; href: string }[];
+  /** Pestañas principales de Supervisión (Tiempo real, Histórico, Resultados). */
+  pestanas: ReactNode;
+  /** Avisos de la página (cliente que no existe, rango inválido), debajo de la barra. */
+  avisos?: ReactNode;
   desde: string;
   hasta: string;
   presets: { etiqueta: string; desde: string; hasta: string }[];
@@ -78,111 +54,33 @@ export function PanelHistorico({
 }) {
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Supervisión · histórico</h1>
-        <p className="text-sm text-muted-foreground">
-          Actividad, éxitos y productividad de agentes en el período seleccionado ({desde} a {hasta})
-        </p>
-      </div>
-
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SelectorRango desde={desde} hasta={hasta} presets={presets} />
-        <div className="flex flex-wrap items-center gap-4">
-          <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} />
-          <SelectorIvr incluir={incluirIvr} />
-        </div>
-      </div>
-
-      <CabeceraSupervision kpis={kpis} ratios={ratios} resultados={resultados} umbral={umbral} />
-
-      <TarjetaIvr ivr={ivr} />
-
-      <Callback callback={callback} />
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Campañas en el período</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TablaKpisCampania
-            grupos={agruparKpisPorTipo(kpis, tipos)}
-            vacio="Sin actividad en el período seleccionado"
-          />
-        </CardContent>
-      </Card>
-
-      <Card>
-        <CardHeader>
-          <CardTitle className="text-base">Productividad de agentes en el período</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <TablaAgentesSupervision agentes={agentes} vacio="Sin llamadas gestionadas en el período" />
-        </CardContent>
-      </Card>
-
-      <RatiosExito ratios={ratios} periodo="en el período" sinTarjetas />
-
-      {salientes ? <Salientes datos={salientes} periodo="en el período" /> : null}
-
-      <CalidadBaseDatos datos={calidad} periodo="en el período" />
-
-      <ComparadorCampanias
-        // Remonta al cambiar de cliente o de rango: las campañas elegidas pueden no estar
-        key={`${servicio ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}`}
-        filas={filasCampaniaSupervision(kpis, ratios.campanias, servicioDe)}
-        metricas={METRICAS_SUPERVISION}
+      <BarraPanel
+        pestanas={
+          <>
+            {pestanas}
+            <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+          </>
+        }
+        filtros={
+          <>
+            <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} />
+            <SelectorIvr incluir={incluirIvr} />
+          </>
+        }
+        secciones={secciones}
+        actual={seccion}
       />
 
-      <Glosario
-        titulo="Supervisión · histórico"
-        claves={[
-          "kpiHorasLogadas",
-          "kpiLlamadas",
-          "kpiFinalizados",
-          "kpiExitos",
-          "kpiLlamadasHora",
-          "kpiLlamadasPorExito",
-          "kpiFinalizadosHora",
-          "kpiFinalizadosPorExito",
-          "ratioBruto",
-          "ratioNeto",
-          "kpiDuracionNoExito",
-          "kpiDuracionExito",
-          "ocupacion",
-          "contactabilidadFranja",
-          "contactosAlcanzados",
-          "rellamadas",
-          "conversionIntento",
-          "tiempoEsperando",
-          "servicio",
-          "gruposCampania",
-          "comparadorCampanias",
-          "recibidas",
-          "atendidas",
-          "calidadBd",
-          "conversaciones",
-          "preparacion",
-          "tiempoReloj",
-          "exitos",
-          "contactosGestionados",
-          "conversion",
-          "efectividadCierre",
-          "exitosHora",
-          "tiempoPorExito",
-          "indiceExito",
-          "abandono",
-          "cola",
-          "esperaAbandonadas",
-          "sla",
-          "aht",
-          "acw",
-          "talk",
-          "productivo",
-          "ivr",
-          "ivrAtendidas",
-          "ivrNoAtendidas",
-          "ivrNoAtendidasHorario",
-        ]}
+      {avisos}
+
+      <SeccionPeriodo
+        seccion={seccion}
+        datos={datos}
+        periodo="en el período"
+        tipos={tipos}
+        servicioDe={servicioDe}
+        titulo={`Supervisión · histórico · ${NOMBRE_SECCION[seccion]}`}
+        claveComparador={`${servicio ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}`}
       />
     </div>
   );

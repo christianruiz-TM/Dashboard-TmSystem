@@ -17,16 +17,20 @@ export function TabsSupervision({
   incluirIvr,
   desde,
   hasta,
+  seccion,
 }: {
   vista: Vista;
   servicio?: string;
   incluirIvr?: boolean;
   desde?: string;
   hasta?: string;
+  /** Sección abierta (12/11/2026): Tiempo real e Histórico tienen las mismas y se conserva al cambiar. */
+  seccion?: string;
 }) {
   function href(v: Vista) {
     const p = new URLSearchParams();
     if (v !== "tiempo-real") p.set("vista", v);
+    if (seccion && seccion !== "resumen" && v !== "resultados") p.set("seccion", seccion);
     if (servicio) p.set("servicio", servicio);
     if (incluirIvr) p.set("ivr", "1");
     // Las fechas solo tienen sentido en las pestañas de rango

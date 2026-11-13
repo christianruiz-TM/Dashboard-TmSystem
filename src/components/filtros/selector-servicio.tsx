@@ -4,6 +4,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Users } from "lucide-react";
 import { fechaCortaActividad, type ServicioOrdenado } from "@/lib/actividad-servicios";
 import { TODOS_SERVICIOS } from "@/lib/servicio-todos";
+import { avisarNavegacion } from "@/lib/navegacion";
 
 /**
  * Selector de Cliente/Servicio. Sincroniza `?servicio=<nombre>` en la URL
@@ -46,7 +47,10 @@ export function SelectorServicio({
     siguientes.delete("modo");
     siguientes.delete("tipo");
     siguientes.delete("campania");
-    router.push(`${ruta}?${siguientes.toString()}`);
+    const destino = `${ruta}?${siguientes.toString()}`;
+    // La capa de «Cargando» (layout/carga-navegacion.tsx)
+    avisarNavegacion(destino);
+    router.push(destino);
   }
 
   return (

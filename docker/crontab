@@ -20,6 +20,11 @@
 # Backup de la SQLite a ./backups (conserva los 30 últimos).
 30 2 * * * npm run backup
 
+# Precalentado (13/11/2026): deja en la SQLite el mes anterior, los periodos
+# con los que compara Dirección y el «Ayer» de Supervisión, para que salgan al
+# momento. Después del backup, para no copiar una caché a medio escribir.
+45 2 * * * npm run precalentar
+
 # Alerta «callback sin funcionar» (12/11/2026): cada 10 minutos en horario, de
 # lunes a sábado. Si un cliente con callback acumula rechazadas sin ninguna
 # ficha, manda un correo a la herramienta de tickets (uno por cliente y día).

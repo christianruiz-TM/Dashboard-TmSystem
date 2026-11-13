@@ -28,6 +28,7 @@ import {
   tocarSonido,
   type PermisoEscritorio,
 } from "./avisos-navegador";
+import { avisarNavegacion } from "@/lib/navegacion";
 
 // ============================================================
 // Campana de alertas de la barra de arriba (04/11/2026): se ve en cualquier
@@ -100,7 +101,10 @@ export function CampanaAlertas({ preferenciasIniciales }: { preferenciasIniciale
         ultimoSonido.current = Date.now();
         for (const a of d.alertas.filter((x) => toca.nuevas.includes(x.id)).slice(0, MAX_AVISOS_WINDOWS)) {
           notificarEscritorio(`Alerta de ${NOMBRE_ORIGEN[a.origen].toLowerCase()}`, a.mensaje, a.id, () => {
-            if (a.enlace) router.push(a.enlace.href);
+            if (a.enlace) {
+              avisarNavegacion(a.enlace.href);
+              router.push(a.enlace.href);
+            }
           });
         }
       }

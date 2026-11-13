@@ -517,49 +517,7 @@ export async function metricasIvr(
         filtroLog = ` AND lc.shortname IN ${inExpr}`;
       }
 
-      const r = await request.query(`
-        -- Llamadas que entran por una campaña IVR (origin 1 = inbound)
-        WITH ivr AS (
-            SELECT t.itr_global, MIN(t.start_time) AS entrada
-            FROM itr_thread t
-            INNER JOIN ph_campaign c ON t.campaign = c.code
-            WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
-              AND c.shortname LIKE 'IVR[_]%' AND t.origin = 1${filtroIvr}
-            GROUP BY t.itr_global
-        ),
-        -- ¿la atendió finalmente un agente? (hilo hermano con agente humano)
-        clasif AS (
-            SELECT ivr.itr_global, ivr.entrada,
-                MAX(CASE WHEN u.type = 1 AND sib.termination_state = 1
-                         THEN 1 ELSE 0 END) AS atendida
-            FROM ivr
-            LEFT JOIN itr_thread sib ON sib.itr_global = ivr.itr_global
-            LEFT JOIN ph_e_user  u   ON sib.e_user = u.code
-            GROUP BY ivr.itr_global, ivr.entrada
-        ),
-        -- ¿había algún agente logado en ese instante en las campañas del servicio?
-        flags AS (
-            SELECT atendida,
-                CASE WHEN atendida = 0 AND EXISTS (
-                    SELECT 1 FROM ag_in_cp_log l
-                    INNER JOIN ph_e_user  lu ON l.agent = lu.code AND lu.type = 1
-                    INNER JOIN ph_campaign lc ON l.campaign = lc.code
-                    WHERE l.op_type = 0
-                      AND l.start_time >= @desde AND l.start_time < @hastaExcl
-                      AND l.start_time <= clasif.entrada
-                      AND (l.duration IS NULL
-                           OR DATEADD(SECOND, l.duration / 10, l.start_time) >= clasif.entrada)
-                      ${filtroLog}
-                ) THEN 1 ELSE 0 END AS noAtendEnHorario
-            FROM clasif
-        )
-        SELECT
-            COUNT(*)                                     AS llamadas,
-            SUM(atendida)                                AS atendidasAgente,
-            SUM(CASE WHEN atendida = 0 THEN 1 ELSE 0 END) AS noAtendidas,
-            SUM(noAtendEnHorario)                        AS noAtendidasEnHorario
-        FROM flags;
-      `);
+      const r = await request.query(sqlMetricasIvr(filtroIvr, filtroLog));
       const f = (r.recordset[0] ?? {}) as Partial<MetricasIvr>;
       return {
         llamadas: f.llamadas ?? 0,
@@ -569,4 +527,93 @@ export async function metricasIvr(
       };
     },
   );
+}
+
+/**
+ * SQL de `metricasIvr` (13/11/2026). Antes, «¿había algún agente logado
+ * cuando entró?» era un EXISTS que, por CADA llamada no atendida, recorría
+ * todas las sesiones de agente desde el principio del rango: con un mes
+ * crecía con el cuadrado de los días (GH octubre 84 s; todos los clientes no
+ * acababa en 120 s). Ahora las sesiones del rango se funden primero en
+ * tramos «con alguien conectado» (unión de intervalos: pocos al día) y cada
+ * llamada se mira contra ellos. Mismo resultado: una llamada cae en alguna
+ * sesión si y solo si cae en su unión. Verificado el 13/11/2026 contra la
+ * versión anterior: mismas cifras en GH (1 día y 7 días), Ávolo (octubre)
+ * y todos los clientes (3 días y hoy); octubre de todos, 0,5 s; GH, 0,6 s.
+ * `filtroIvr` (sobre `c.shortname`) y `filtroLog` (sobre `lc.shortname`)
+ * los monta `metricasIvr` con parámetros `@camp*`.
+ */
+export function sqlMetricasIvr(filtroIvr: string, filtroLog: string): string {
+  return `
+        -- Tarjeta IVR: entrantes por campaña IVR, atendidas por agente y no atendidas con alguien logado
+        IF OBJECT_ID('tempdb..#ivr') IS NOT NULL DROP TABLE #ivr;
+        IF OBJECT_ID('tempdb..#ivrses') IS NOT NULL DROP TABLE #ivrses;
+        IF OBJECT_ID('tempdb..#ivrtramos') IS NOT NULL DROP TABLE #ivrtramos;
+
+        -- 1) Llamadas que entran por una campaña IVR (origin 1 = inbound), una por itr_global
+        SELECT t.itr_global, MIN(t.start_time) AS entrada
+        INTO #ivr
+        FROM itr_thread t
+        INNER JOIN ph_campaign c ON t.campaign = c.code
+        WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
+          AND c.shortname LIKE 'IVR[_]%' AND t.origin = 1${filtroIvr}
+        GROUP BY t.itr_global;
+
+        -- 2) Sesiones de agente humano (op_type 0) en las campañas del servicio,
+        --    las mismas que miraba el EXISTS de antes. Sin duración = abierta
+        --    (regla 10.b): cubre todo lo que venga después.
+        SELECT l.start_time AS ini,
+               CASE WHEN l.duration IS NULL THEN CAST('9999-12-31' AS DATETIME)
+                    ELSE DATEADD(SECOND, l.duration / 10, l.start_time) END AS fin
+        INTO #ivrses
+        FROM ag_in_cp_log l
+        INNER JOIN ph_e_user  lu ON l.agent = lu.code AND lu.type = 1
+        INNER JOIN ph_campaign lc ON l.campaign = lc.code
+        WHERE l.op_type = 0
+          AND l.start_time >= @desde AND l.start_time < @hastaExcl${filtroLog};
+
+        -- 3) Unión de intervalos (gaps & islands): empieza tramo nuevo cuando una
+        --    sesión arranca después del fin más tardío de las anteriores
+        SELECT MIN(ini) AS ini, MAX(fin) AS fin
+        INTO #ivrtramos
+        FROM (
+            SELECT ini, fin,
+                SUM(nuevo) OVER (ORDER BY ini, fin ROWS UNBOUNDED PRECEDING) AS tramo
+            FROM (
+                SELECT ini, fin,
+                    CASE WHEN ini <= MAX(fin) OVER (ORDER BY ini, fin
+                                                    ROWS BETWEEN UNBOUNDED PRECEDING AND 1 PRECEDING)
+                         THEN 0 ELSE 1 END AS nuevo
+                FROM #ivrses
+            ) s
+        ) s
+        GROUP BY tramo;
+        CREATE CLUSTERED INDEX ix_ivrtramos ON #ivrtramos (ini);
+
+        -- ¿la atendió finalmente un agente? (hilo hermano con agente humano)
+        WITH clasif AS (
+            SELECT ivr.itr_global, ivr.entrada,
+                MAX(CASE WHEN u.type = 1 AND sib.termination_state = 1
+                         THEN 1 ELSE 0 END) AS atendida
+            FROM #ivr ivr
+            LEFT JOIN itr_thread sib ON sib.itr_global = ivr.itr_global
+            LEFT JOIN ph_e_user  u   ON sib.e_user = u.code
+            GROUP BY ivr.itr_global, ivr.entrada
+        ),
+        -- ¿había algún agente logado en ese instante en las campañas del servicio?
+        flags AS (
+            SELECT atendida,
+                CASE WHEN atendida = 0 AND EXISTS (
+                    SELECT 1 FROM #ivrtramos tr
+                    WHERE tr.ini <= clasif.entrada AND tr.fin >= clasif.entrada
+                ) THEN 1 ELSE 0 END AS noAtendEnHorario
+            FROM clasif
+        )
+        SELECT
+            COUNT(*)                                     AS llamadas,
+            SUM(atendida)                                AS atendidasAgente,
+            SUM(CASE WHEN atendida = 0 THEN 1 ELSE 0 END) AS noAtendidas,
+            SUM(noAtendEnHorario)                        AS noAtendidasEnHorario
+        FROM flags;
+      `;
 }

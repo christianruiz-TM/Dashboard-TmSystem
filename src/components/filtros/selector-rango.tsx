@@ -3,6 +3,7 @@
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { avisarNavegacion } from "@/lib/navegacion";
 
 /**
  * Selector de rango de fechas compartido por las vistas. Sincroniza
@@ -27,7 +28,10 @@ export function SelectorRango({
     const siguientes = new URLSearchParams(params.toString());
     siguientes.set("desde", nuevoDesde);
     siguientes.set("hasta", nuevoHasta);
-    router.push(`${ruta}?${siguientes.toString()}`);
+    const destino = `${ruta}?${siguientes.toString()}`;
+    // La capa de «Cargando» (layout/carga-navegacion.tsx)
+    avisarNavegacion(destino);
+    router.push(destino);
   }
 
   return (

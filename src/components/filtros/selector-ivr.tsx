@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { avisarNavegacion } from "@/lib/navegacion";
 
 /**
  * Check «Incluir IVR en los datos». Por defecto DESACTIVADO: las campañas IVR
@@ -15,7 +16,10 @@ export function SelectorIvr({ incluir }: { incluir: boolean }) {
     const siguientes = new URLSearchParams(params.toString());
     if (activo) siguientes.set("ivr", "1");
     else siguientes.delete("ivr");
-    router.push(`${ruta}?${siguientes.toString()}`);
+    const destino = `${ruta}?${siguientes.toString()}`;
+    // La capa de «Cargando» (layout/carga-navegacion.tsx)
+    avisarNavegacion(destino);
+    router.push(destino);
   }
 
   return (

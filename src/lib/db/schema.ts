@@ -949,6 +949,28 @@ export const planCalendarioLaboral = sqliteTable("plan_calendario_laboral", {
     .default(sql`(unixepoch())`),
 });
 
+/**
+ * Caché PERSISTENTE de las consultas de RDBv2 de rangos ya cerrados
+ * (13/11/2026, vista mensual de Dirección y Supervisión). La caché en memoria
+ * (`rdb/cache.ts`) se pierde en cada reinicio o despliegue; aquí se guarda el
+ * resultado en JSON (con Map, Set y Date, `lib/serializar.ts`) y la tarea de
+ * madrugada (`npm run precalentar`) deja hechos el mes anterior y el «Ayer».
+ * `version` = la compilación que lo calculó: un despliegue con otras fórmulas
+ * no lee lo de antes. `caduca` en ms (epoch). Es prescindible: vaciarla solo
+ * hace que la siguiente consulta vaya a RDBv2.
+ */
+export const cacheConsultas = sqliteTable(
+  "cache_consultas",
+  {
+    clave: text("clave").primaryKey(),
+    version: text("version").notNull(),
+    valor: text("valor").notNull(),
+    caduca: integer("caduca").notNull(),
+    calculadoAt: integer("calculado_at").notNull(),
+  },
+  (t) => [index("idx_cache_consultas_caduca").on(t.caduca)],
+);
+
 // Tipos inferidos de uso frecuente
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;

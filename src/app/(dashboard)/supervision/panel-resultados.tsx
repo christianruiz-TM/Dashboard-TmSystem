@@ -1,8 +1,10 @@
+import type { ReactNode } from "react";
 import Link from "next/link";
 import { Download, Settings2, Users } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import { BarraPanel } from "@/components/layout/barra-panel";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import type { ServicioOrdenado } from "@/lib/actividad-servicios";
@@ -21,6 +23,8 @@ import { cn } from "@/lib/utils";
  * elegido (`resultado` null) no se consulta nada y se pide que se elija.
  */
 export function PanelResultados({
+  pestanas,
+  avisos,
   resultado,
   ratios,
   desde,
@@ -36,6 +40,10 @@ export function PanelResultados({
   campo,
   urlCsv,
 }: {
+  /** Pestañas principales de Supervisión (Tiempo real, Histórico, Resultados). */
+  pestanas: ReactNode;
+  /** Avisos de la página (cliente que no existe, rango inválido), debajo de la barra. */
+  avisos?: ReactNode;
   resultado: ResultadoResultados | null;
   /** Ratios de éxito del mismo alcance: las cajas de actividad de la cabecera. */
   ratios: ResultadoRatios | null;
@@ -77,31 +85,33 @@ export function PanelResultados({
   };
   return (
     <div className="space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Supervisión · resultados de actividad</h1>
-        <p className="text-sm text-muted-foreground">
-          Aprovechamiento y ratio neto de los contactos cerrados del {desde} al {hasta}, por agente,
-          campaña y fecha
-        </p>
-      </div>
+      {/* Barra fija (12/11/2026), como Tiempo real e Histórico; sin secciones: ya tiene pestañas dentro */}
+      <BarraPanel
+        pestanas={
+          <>
+            {pestanas}
+            <SelectorRango desde={desde} hasta={hasta} presets={presets} />
+          </>
+        }
+        filtros={
+          <>
+            <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} obligatorio />
+            <SelectorIvr incluir={incluirIvr} />
+            {urlCsv && resultado ? (
+              <Button
+                variant="outline"
+                size="sm"
+                render={<a href={urlCsv} download />}
+                title="Los finalizados que se ven aquí, con los filtros de fechas, tipo de campaña y dato del contacto"
+              >
+                <Download className="h-4 w-4" /> Excel de contactos ({resultado.total.finalizados.toLocaleString("es-ES")})
+              </Button>
+            ) : null}
+          </>
+        }
+      />
 
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        <SelectorRango desde={desde} hasta={hasta} presets={presets} />
-        <div className="flex flex-wrap items-center gap-4">
-          <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} obligatorio />
-          <SelectorIvr incluir={incluirIvr} />
-          {urlCsv && resultado ? (
-            <Button
-              variant="outline"
-              size="sm"
-              render={<a href={urlCsv} download />}
-              title="Los finalizados que se ven aquí, con los filtros de fechas, tipo de campaña y dato del contacto"
-            >
-              <Download className="h-4 w-4" /> Excel de contactos ({resultado.total.finalizados.toLocaleString("es-ES")})
-            </Button>
-          ) : null}
-        </div>
-      </div>
+      {avisos}
 
       {servicio && tipos.length > 0 ? (
         <div className="flex flex-wrap items-center gap-2 text-sm">

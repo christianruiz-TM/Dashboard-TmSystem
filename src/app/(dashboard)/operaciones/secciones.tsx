@@ -4,7 +4,6 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Table,
   TableBody,
@@ -48,6 +47,7 @@ import {
   deshacerAjusteCierre,
   reabrirMes,
 } from "./acciones";
+import { SeccionCargando } from "@/components/cargando";
 
 // ============================================================
 // Secciones de Operaciones (server components asíncronos). La página las
@@ -69,28 +69,13 @@ export interface ContextoFacturacion {
   esAdmin: boolean;
 }
 
-/** Hueco mientras carga una sección. */
+/** Hueco mientras carga una sección: la animación común del panel (components/cargando.tsx). */
 export function Cargando({ texto, alto = "h-40" }: { texto: string; alto?: string }) {
-  return (
-    <Card>
-      <CardHeader>
-        <CardTitle className="text-base text-muted-foreground">{texto}</CardTitle>
-      </CardHeader>
-      <CardContent>
-        <Skeleton className={`w-full ${alto}`} />
-      </CardContent>
-    </Card>
-  );
+  return <SeccionCargando texto={texto} alto={alto} />;
 }
 
 export function CargandoKpis() {
-  return (
-    <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
-      {Array.from({ length: 6 }, (_, i) => (
-        <Skeleton key={i} className="h-20" />
-      ))}
-    </div>
-  );
+  return <SeccionCargando texto="Calculando los totales…" alto="h-24" />;
 }
 
 /** Mes cerrado del rango (si lo hay) y lo que se enseña: lo cerrado o lo calculado ahora. */

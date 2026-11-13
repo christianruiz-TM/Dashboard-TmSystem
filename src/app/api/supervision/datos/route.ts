@@ -1,27 +1,13 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { ROLES_SUPERVISION } from "@/lib/auth/rbac";
 import { obtenerSesion } from "@/lib/auth/session";
-import { umbralSlaSeg } from "@/lib/db/settings";
-import { hoyISO } from "@/lib/fechas";
-import {
-  agentesHoy,
-  estadoAgentes,
-  kpisCampaniasHoy,
-  metricasIvr,
-} from "@/lib/rdb/queries/supervision";
-import { campaniasDeServicio, campaniasEfectivas } from "@/lib/rdb/queries/servicios";
-import { ratiosExitoHoy } from "@/lib/rdb/queries/ratios-exito";
-import { alertasPlanificacion } from "@/lib/planificacion/seguimiento";
-import { calidadBaseDatosRango } from "@/lib/rdb/queries/calidad-bd";
-import { calidadBaseDatos } from "@/lib/calidad-bd";
-import { tiposCampaniaDe } from "@/lib/db/resultados";
-import { totalResultados } from "@/lib/resultados-cabecera";
-import { prefijoUsuariosDe } from "@/lib/facturacion";
-import { resumenSalientes } from "@/lib/rdb/queries/salientes";
-import { callbackPeriodo } from "@/lib/callback-servidor";
+import { datosSupervisionHoy } from "@/lib/supervision-servidor";
+import { leerSeccion } from "@/lib/supervision-secciones";
 
 /**
- * Datos de supervisión intradía (polling cada 60 s desde el panel).
+ * Datos de supervisión intradía (polling cada 60 s desde el panel). Solo los
+ * de la pestaña abierta (`?seccion=`, 12/11/2026), más la franja «Ahora»
+ * (plantilla, alertas y KPIs de campaña), que se ve en todas.
  * La capa rdb ya cachea 60 s, así que aunque haya varios supervisores
  * mirando, RDBv2 recibe como mucho una tanda de queries por minuto.
  */
@@ -31,45 +17,10 @@ export async function GET(peticion: NextRequest) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   try {
-    const umbral = umbralSlaSeg();
-    const servicio = peticion.nextUrl.searchParams.get("servicio") ?? undefined;
-    const incluirIvr = peticion.nextUrl.searchParams.get("ivr") === "1";
-    const camp = await campaniasEfectivas(servicio, incluirIvr);
-    const campServicio = await campaniasDeServicio(servicio);
-    // Usuarios del cliente (GH_…): solo sus horas van a los totales
-    const prefijo = prefijoUsuariosDe(servicio);
-    const [agentes, kpis, top, ivr, plan, ratios, intentos, resultados, salientes, callback] = await Promise.all([
-      estadoAgentes(camp),
-      kpisCampaniasHoy(umbral, camp),
-      agentesHoy(camp),
-      metricasIvr(hoyISO(), hoyISO(), campServicio),
-      alertasPlanificacion(),
-      ratiosExitoHoy(camp, prefijo),
-      calidadBaseDatosRango(hoyISO(), hoyISO(), camp),
-      totalResultados(hoyISO(), hoyISO(), camp, prefijo),
-      resumenSalientes(hoyISO(), hoyISO(), camp, prefijo),
-      // Callback (12/11/2026): si falla, el panel sigue sin la sección
-      callbackPeriodo(hoyISO(), hoyISO(), servicio).catch((e) => {
-        console.error("[supervision] callback:", e);
-        return null;
-      }),
-    ]);
-    // Los tipos de campaña del cliente agrupan la tabla, igual que en la página
-    const tipos = servicio ? tiposCampaniaDe(servicio) : [];
-    return NextResponse.json({
-      agentes,
-      kpis,
-      top,
-      ivr,
-      callback,
-      plan,
-      ratios,
-      resultados,
-      salientes,
-      calidad: calidadBaseDatos(intentos.filas, intentos.contactos, tipos),
-      umbral,
-      actualizado: new Date().toISOString(),
-    });
+    const q = peticion.nextUrl.searchParams;
+    const servicio = q.get("servicio") ?? undefined;
+    const datos = await datosSupervisionHoy(servicio, q.get("ivr") === "1", leerSeccion(q.get("seccion")));
+    return NextResponse.json(datos);
   } catch (err) {
     return NextResponse.json(
       { error: err instanceof Error ? err.message : "Error consultando RDBv2" },
