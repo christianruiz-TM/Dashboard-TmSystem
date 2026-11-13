@@ -917,7 +917,10 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     periodos con los que compara Dirección y «Ayer» de Supervisión, para
     todos y cada cliente activo, con las MISMAS claves que las páginas
     (`rangoAnterior` está en `lib/direccion-secciones.ts` para eso).
-    `--simular` dice qué haría.
+    `--simular` dice qué haría. **Tras cada despliegue**, la compilación es
+    nueva y lo guardado deja de valer: relanzarlo a mano
+    (`docker compose exec tareas npm run precalentar`, ~100 s) para no
+    esperar a la noche.
 - **Operaciones** (rehecha el 15/10/2026 para que abra rápido):
   - Empieza SIN cliente y sin consultar nada. «Todos los clientes» es una
     opción explícita del selector (`?servicio=todos`, `TODOS_SERVICIOS` en
