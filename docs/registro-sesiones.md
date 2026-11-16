@@ -6,7 +6,7 @@ histórico de git.
 
 **De dónde sale cada sesión:**
 
-- Nueve tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10, 14-16/10, 19/10, 20/10, 20-21/10, 21-23/10 y 23-26/10).
+- Dieciséis tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10, 14-16/10, 19/10, 20/10, 20-21/10, 21-23/10, 23-26/10, 04/11, 06/11, 10/11, 11-12/11, 12/11, 12-13/11 y 16/11).
 - Las demás se han reconstruido el 14/10/2026 a partir de los commits, los apartados con fecha
   de CLAUDE.md, los «Estado de F…» de `docs/plan-planificacion.md` y el histórico de
   `docs/despliegue-linux.md`. De esas no hay transcripción.
@@ -46,6 +46,17 @@ histórico de git.
 | 21 | 21/10/2026 | Opus 5.5 | Calidad de la base de datos y KPIs de supervisión | `c9c5d27` | `registro-sesion-21-23-octubre-2026.md` |
 | 22 | 22-23/10/2026 | Opus 5.5 | Preparaciones, 12 cajas, Salientes y horas del cliente | `1cf6c87` `9592ab6` `bde74ba` `c741fc8` `abd4e71` `29f658f` `47e1779` | `registro-sesion-21-23-octubre-2026.md` |
 | 23 | 23-26/10/2026 | Opus 5.5 | Editar ausencias, copia del horario para las agentes (PDF y móvil) y Next 16.4.2 | `c25ab60` `ac91cc2` `e832b16` (+ documentación) | `registro-sesion-23-26-octubre-2026.md` |
+| 24 | 04-05/11/2026 | Opus 5.5 | Semana partida, pestaña «Horas», campana de alertas y orden alfabético | `2b5a24c` `07207df` | `registro-sesion-04-noviembre-2026.md` |
+| 25 | 05/11/2026 | Opus 5.5 | Emails y entrantes rechazadas o desbordadas fuera de las llamadas; caja «Llamadas» con todas | `fceff23` `98753b4` | CLAUDE.md regla 6 |
+| 26 | 06/11/2026 | Opus 5.5 | La campana sonaba todo el rato con Ávolo | `fe08c31` `bc85012` `9e700b4` | CLAUDE.md «Campana de alertas» y «Alertas» |
+| 27 | 06/11/2026 | Opus 5.5 | «Mi servicio» con informe para el cliente y accesos de Planificación | `75ad403` `815f2ae` | `registro-sesion-06-noviembre-2026-mi-servicio.md`; CLAUDE.md regla 21 |
+| 28 | 10/11/2026 | Opus 5.5 | La alerta de Ávolo no salió en todo el 09/11 | `3ec9e23` | CLAUDE.md «Alertas» |
+| 29 | 10/11/2026 | Opus 5.5 | Contrato del día con las horas de su turno | `c55a58d` | `registro-sesion-10-noviembre-2026.md` |
+| 30 | 11-12/11/2026 | Opus 5.5 | Arreglos de la auditoría de Fable del 11/11 | `2a5944b` `51250eb` | `registro-sesion-11-noviembre-2026.md`; `auditoria-2026-11-11.md` |
+| 31 | 11/11/2026 | no consta | Éxitos: solo las sesiones Success tipificadas | `b93dab0` | CLAUDE.md regla 17 |
+| 32 | 12-13/11/2026 | Opus 5.5 | Cuadre de llamadas con Altitude, callback con alerta y ticket, «Mi servicio» | `ae3efcd` `d593eef` `3013dcd` `2bcd6d7` | `registro-sesion-12-noviembre-2026.md`; CLAUDE.md regla 22 |
+| 33 | 12-13/11/2026 | Opus 5.5 | Paneles en pestañas por sección, animación de carga y vista mensual rápida | `75bc18b` `b6acfd3` | `registro-sesion-12-13-noviembre-2026.md` |
+| 34 | 16/11/2026 | Opus 5.5 | Planificación: horas restantes, regenerar desde la publicada, editar turnos y semana A↔B | `a8f0f0b` `cf2c46b` | `registro-sesion-16-noviembre-2026.md` |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -311,3 +322,48 @@ Sin registro aparte: el porqué y las cifras están en CLAUDE.md (alerta de Ávo
 - Causa: el filtro del 06/11 («solo si su contacto sigue pendiente») casaba la perdida con su contacto por el teléfono del PERFIL, que el IVR crea vacío y se rellena más tarde. Mientras la llamada estaba por devolver, nunca casaba. Se validó con el día ya cerrado, cuando el perfil ya tenía el teléfono.
 - Visto en vivo el 10/11 a las 08:22 (VW_Ubeda): contacto pendiente, perfil sin teléfono y el número en `activity.resch_phone_value`. La consulta pasa a usar ese campo: Ávolo, del 01/10 al 09/11, 481 de 605 perdidas casan (449 por el perfil, todas incluidas). Con la corrección, 1 por devolver a las 08:27; con la de producción, 0.
 - 326 tests y ESLint en verde. Commit `3ec9e23`, desplegado el 10/11 a las 08:44 (imagen `2a728e7c5062`, backup `dashboard_20261110_0842.db`, `despliegue-linux.md` §9). En producción, a las 08:44, la campana ya avisa de la de las 08:22.
+
+### 29 · 10/11/2026 · Contrato del día con las horas de su turno (Opus 5.5)
+
+Registro completo: `docs/registro-sesion-10-noviembre-2026.md`. Commit `c55a58d`, desplegado el 10/11 a las 13:28 (imagen `3fe774ce5355`, sin migraciones, backup `dashboard_20261110_1326.db`, `despliegue-linux.md` §9). Regla en CLAUDE.md («Planificación de turnos» → Saldo).
+
+- «¿Por qué María sale con −3 h la primera semana de noviembre?»: −1 h de semana B (37 h de turno, 38 h de contrato) y −2 h de los recortes del borrador v21 del 03 y 04/11. El festivo trabajado del 02/11 es neutro (falta su FEST); la RTO del 05/11 cae fuera de su turno.
+- «¿Por qué el contrato tiene decimales?» (1.781,17 h en noviembre): la semana partida del 30/11 repartía el contrato en proporción al turno. Ahora cada día cuenta las horas de su turno y el último día con turno de la semana lleva la diferencia con el contrato semanal (en el mes siguiente si cae allí). Noviembre: 1.780 h; el 30/11 de María, 9 h.
+- Leyenda «Cómo se cuenta el contrato» en «Horas» y «Saldos», con las semanas partidas del mes. Ayuda, guía de Claude Docs y guía HTML al día (11/11).
+- El arrastre de octubre se mueve entre −1,40 y +0,69 h según la persona. 329 tests en verde.
+
+### 30 · 11-12/11/2026 · Arreglos de la auditoría de Fable del 11/11 (Opus 5.5)
+
+Registro completo: `docs/registro-sesion-11-noviembre-2026.md`; la auditoría, en `docs/auditoria-2026-11-11.md`. Commits `2a5944b` (desplegado el 11/11 a las 13:30) y `51250eb` (12/11 a las 07:58), `despliegue-linux.md` §9.
+
+- Lista de campañas vacía = ninguna (antes, todas), agregados que se ponen al día solos, Salientes acotada y SQLite que se abre al primer uso (la causa del «database is locked» al compilar).
+- Límite real de 120 s por consulta con cancelación, tope de sesión de 12 h y Excel de contactos en vez de CSV.
+
+### 31 · 11/11/2026 · Éxitos: solo las sesiones Success tipificadas (no consta)
+
+Sin registro aparte: CLAUDE.md regla 17 («Y TIPIFICADA»). Commit `b93dab0`, desplegado el 11/11 a las 14:40 con los agregados recalculados. Bolsas 03-10/11: 162 → 156 éxitos.
+
+### 32 · 12-13/11/2026 · Cuadre de llamadas con Altitude, callback y «Mi servicio» (Opus 5.5)
+
+Registro completo: `docs/registro-sesion-12-noviembre-2026.md`; reglas en CLAUDE.md (caja 2 de «Las 12 cajas principales» y regla 22). Commits `ae3efcd` (12/11 13:18), `d593eef`, `3013dcd` (12/11 14:30) y `2bcd6d7` (13/11 12:58), `despliegue-linux.md` §9.
+
+- Caja «Llamadas»: una por `itr_global`, en la campaña del tramo que termina el último (la regla de Altitude) y sin las del IVR salvo «Incluir IVR».
+- Callback de las entrantes en Supervisión y Dirección, con alerta «callback sin funcionar» que abre un ticket por la API de la herramienta de tickets. El de GH no creó ninguna ficha del 03/07 al 26/10/2026.
+
+### 33 · 12-13/11/2026 · Paneles en pestañas por sección, animación de carga y vista mensual rápida (Opus 5.5)
+
+Registro completo: `docs/registro-sesion-12-13-noviembre-2026.md`. Commits `75bc18b` (13/11 13:10, migración 0014) y `b6acfd3` (13/11 13:37), `despliegue-linux.md` §9. Detalle técnico en CLAUDE.md («Arquitectura»: Supervisión, «Animación de carga» y «Vista mensual»).
+
+- «Mucho scroll y es difícil perderse entre secciones»: Supervisión, Dirección y Operaciones en pestañas por sección, cada una consulta solo lo suyo, con la barra de pestañas y filtros fija arriba. El Resumen de Dirección mide 1.313 px (antes, la página entera 13.736 px).
+- Dirección sin las 7 cajas de «Rendimiento por éxitos»; Operaciones con «Llamadas gestionadas» y «Contactos cerrados» y un menú «Maestros».
+- Animación de carga en todo el panel: el contenido se emborrona con «Cargando datos…» mientras llega la página nueva.
+- `metricasIvr` reescrita: octubre de todos los clientes, de cancelarse a los 120 s a 0,5 s, con las mismas cifras. Rangos cerrados guardados en la SQLite (migración 0014) y `npm run precalentar` a las 02:45; **relanzarlo a mano tras cada despliegue**.
+
+### 34 · 16/11/2026 · Planificación: horas restantes, regenerar desde la publicada, editar turnos y semana A↔B (Opus 5.5)
+
+Registro completo: `docs/registro-sesion-16-noviembre-2026.md`. Commit `a8f0f0b`, desplegado el 16/11 a las 09:10 (imagen `f5d7f79b6730`, sin migraciones, backup `dashboard_20261116_0909.db`, `despliegue-linux.md` §9). Reglas en CLAUDE.md («Planificación de turnos»).
+
+- «Horas restantes» (planificadas del periodo − efectivas hasta ayer) en la pestaña Horas, solo del equipo.
+- «Generar borrador» con solo la publicada: respetar sus cambios a mano o empezar de cero. La copia exacta ya existía («Nuevo borrador desde la vN»).
+- Asignaciones de turno editables y borrables, también las ya empezadas; los patrones, igual que antes.
+- Semana A↔B de una persona desde la letra del tablero: cambia su turno (contrato, saldo y avisos) y sus bloques de esa semana pasan al cliente base; se conserva al regenerar respetando los cambios.
