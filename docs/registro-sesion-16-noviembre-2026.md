@@ -52,8 +52,23 @@ existía ya y se le preguntó lo dudoso. Commit `a8f0f0b`, desplegado el
   - «Empezar de cero»: turno de 30 h y sin `semanasAlternas`.
 - No se probó en el navegador del PC de desarrollo (pide sesión).
 
-## 4. Pendiente
+## 4. Ayuda en imágenes (16/11, tarde)
 
-- Capturas de la ayuda en modo demo (Horas tiene ahora cuatro recuadros; el
-  tablero, la letra A/B), guía de Claude Docs y guía HTML.
+- **SQLite de demo nueva** en el scratchpad, con `RDB_MOCK=1`, sobre una copia del proyecto (`git worktree`, `npm ci`). Así no se tocó el `npm run dev` del 3000.
+  - `planificacion:semilla` y `planificacion:agregados` del 01/07 al 15/11.
+  - Una usuaria `supervision` sin cambio de contraseña pendiente.
+  - Octubre generado y publicado (v1) y su borrador v2 «respetando».
+  - Al agente 1008 se le cambió la semana del 28/09 (y la del 19/10), para que la captura enseñe la letra en amarillo.
+  - `next build` + `next start -p 3200`.
+  - Ojo: dos scripts auxiliares en `scripts/` rompieron el `next build` (dos `main` en el mismo ámbito); van fuera de `scripts/` o se borran antes de compilar.
+  - En Windows, parar la tarea no para el `next start`: hubo que parar su proceso (el que escuchaba en el 3200).
+- **Capturas**: solo «Horas» y «Tablero» (`ayuda-capturas.mjs --mes 2026-10 --solo horas,tablero`). En el JSON solo cambian las coordenadas de «Horas». Las demás pantallas no cambiaron.
+- **Guía de Claude Docs** (pública con enlace):
+  - Textos: los cuatro recuadros de Horas y «¿Qué son las horas restantes?»; «Al generar, te pregunta…» con la publicada; la letra A/B del tablero y el paso a paso para cambiar la semana; «Corregir o borrar un turno mal puesto» en Configuración; «Semana A / B» en Palabras; y la Guía detallada.
+  - Las dos capturas nuevas, con los números pintados con `sharp` (círculo amarillo con borde negro, como en la guía HTML).
+- **Guía HTML** regenerada (`npm run guia:html`, 1,4 MB).
+
+## 5. Pendiente
+
+- Copiar `guia-supervision.html` a la carpeta compartida de supervisión.
 - Probar en producción, con usuario de supervisión, los cuatro cambios.
