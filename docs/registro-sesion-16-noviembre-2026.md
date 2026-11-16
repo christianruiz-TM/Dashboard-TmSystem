@@ -67,6 +67,7 @@ existía ya y se le preguntó lo dudoso. Commit `a8f0f0b`, desplegado el
   - Textos: los cuatro recuadros de Horas y «¿Qué son las horas restantes?»; «Al generar, te pregunta…» con la publicada; la letra A/B del tablero y el paso a paso para cambiar la semana; «Corregir o borrar un turno mal puesto» en Configuración; «Semana A / B» en Palabras; y la Guía detallada.
   - Las dos capturas nuevas, con los números pintados con `sharp` (círculo amarillo con borde negro, como en la guía HTML).
 - **Guía HTML** regenerada (`npm run guia:html`, 1,4 MB).
+- Commit `df93bb8`, desplegado el 16/11/2026 a las 09:42 (imagen `09f3be1560f1`, backup `dashboard_20261116_0941.db`; `despliegue-linux.md` §9).
 
 ## 5. Pendiente
 
