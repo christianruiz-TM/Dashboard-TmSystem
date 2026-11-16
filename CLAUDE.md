@@ -1170,6 +1170,30 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
   - «Generar borrador» (`generar.ts`, la misma cadena que el script): si ya hay
     borrador, «respetar mis cambios» pasa sus bloques fijados o manuales como
     `fijados` al motor; «empezar de cero», no. El anterior queda «descartada».
+    **Desde el 16/11/2026, si el mes solo tiene la PUBLICADA, el diálogo
+    ofrece lo mismo sobre ella** (base = borrador ?? publicada; la publicada
+    no se toca). Solo el mes actual y los tres siguientes (decidido: los
+    pasados no). La copia EXACTA sigue siendo «Nuevo borrador desde la vN».
+  - **Semana A↔B de una persona desde el tablero** (16/11/2026, decidido con
+    Christian): la letra A/B junto al nombre (vista Agente o Día, borrador,
+    sin cambios por guardar) abre `DialogoCambiarSemana` →
+    `alternarSemanaAccion` → `guardar.ts::alternarSemanaVersion`. Cambia el
+    TURNO de esa semana en la FOTO de la versión (otro patrón de su
+    asignación; también `turnosFuera` de la semana partida), así que cambian
+    su contrato del día, su saldo y los avisos; y sus bloques de esa semana
+    se quitan (salvo fijados) y el turno nuevo entero va al cliente base
+    (manuales, `datos.accion = "semana"`). La lista va en
+    `EntradaMotor.semanasAlternas` (solo si hay alguna: el snapshot del motor
+    no cambia); el cargador la aplica (`expandirTurnos(..., alternas)`) y
+    «respetar mis cambios» y el recálculo de los lunes la conservan. Puros
+    con tests: `alternarSemanaEnFoto` y `bloquesSemanaAlterna`
+    (`edicion.ts`). Se guarda al momento y el tablero se recarga; deshacer =
+    volver a pulsar. Solo toca los días de este mes.
+  - **Turnos de cada agente** (`plan_agente_turnos`, Configuración →
+    Patrones): desde el 16/11/2026 se EDITAN y BORRAN («Editar» en la fila),
+    también los ya empezados (cambia el contrato de esos días y los saldos);
+    la auditoría guarda el antes. Los patrones, igual que antes (editar y
+    desactivar, sin borrar).
   - **Seguimiento (F4)**, `seguimiento.ts` (servidor) sobre los puros
     `adherencia.ts`, `saldo.ts` y `alertas.ts` (misma regla de ESLint). Plan
     = versión VIGENTE (la publicada; si no hay, el borrador). Lo real es
@@ -1234,6 +1258,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       contrato; mismo fondo para todas) con «Efectivas − plan», que compara
       con lo planificado de los días YA pasados. Por cliente, igual sin
       contrato (efectivas de sus usuarios de toda la empresa, como Cierre).
+      Cuarto recuadro del equipo (16/11/2026): **HORAS RESTANTES** =
+      planificadas de TODO el periodo − efectivas hasta ayer (lo que faltó en
+      días pasados se suma; negativo si se hizo de más). Solo del equipo.
       Sin justificadas ni ajustes (eso es Saldos). `seguimiento.ts::horasMes`
       (reutiliza `saldoDelMes`: `plan` y `reales` por agente y día) y
       `lib/planificacion/horas.ts` (puro, con tests). Sin Excel de momento.

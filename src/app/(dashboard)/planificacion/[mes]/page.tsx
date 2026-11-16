@@ -7,11 +7,11 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { puedeEditarPlan, requireRol, ROLES_PLAN_LECTURA } from "@/lib/auth/rbac";
 import { hoyISO } from "@/lib/fechas";
 import { lunesDe, semanasDelMes } from "@/lib/planificacion/motor";
-import { bloquesConservables } from "@/lib/planificacion/repositorio";
+import { cambiosAMano } from "@/lib/planificacion/repositorio";
 import { nombreMes, VISTAS_TABLERO, type VistaTablero } from "@/lib/planificacion/tablero";
 import { cargarTablero, mesesGenerables } from "@/lib/planificacion/vistas";
 import { generarBorradorAccion } from "../acciones";
-import { crearBorradorDesdePublicadaAccion, guardarCambiosAccion, publicarAccion } from "./acciones";
+import { alternarSemanaAccion, crearBorradorDesdePublicadaAccion, guardarCambiosAccion, publicarAccion } from "./acciones";
 
 export const metadata: Metadata = { title: "Planificación" };
 export const dynamic = "force-dynamic";
@@ -88,12 +88,18 @@ export default async function PaginaTableroMes({
   const vista: VistaTablero = VISTAS_TABLERO.includes(sp.vista as VistaTablero) ? (sp.vista as VistaTablero) : "agente";
 
   const borrador = datos.versiones.find((v) => v.estado === "borrador");
+  const publicada = datos.versiones.find((v) => v.estado === "publicada");
+  const cambios = (v: { id: number; numero: number }) => {
+    const c = cambiosAMano(v.id);
+    return { numero: v.numero, conservables: c.bloques, semanasAlternas: c.semanas };
+  };
   const acciones = generable ? (
     <BotonGenerar
       key={borrador?.id ?? "nuevo"}
       mes={mes}
       nombreMes={nombreMes(mes)}
-      borrador={borrador ? { numero: borrador.numero, conservables: bloquesConservables(borrador.id).length } : null}
+      borrador={borrador ? cambios(borrador) : null}
+      publicada={!borrador && publicada ? cambios(publicada) : null}
       accion={generarBorradorAccion}
     />
   ) : null;
@@ -112,7 +118,12 @@ export default async function PaginaTableroMes({
       puedeEditar={editar}
       accionesServidor={
         editar
-          ? { guardar: guardarCambiosAccion, publicar: publicarAccion, copiarPublicada: crearBorradorDesdePublicadaAccion }
+          ? {
+              guardar: guardarCambiosAccion,
+              publicar: publicarAccion,
+              copiarPublicada: crearBorradorDesdePublicadaAccion,
+              alternarSemana: alternarSemanaAccion,
+            }
           : undefined
       }
     />

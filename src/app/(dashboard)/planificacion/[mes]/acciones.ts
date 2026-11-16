@@ -9,7 +9,13 @@ import type { User } from "@/lib/db/schema";
 import { esquemaFechaISO, MAX_DIAS_RANGO } from "@/lib/fechas";
 import { bolsasDelMes } from "@/lib/planificacion/bolsas";
 import { esquemaOperacion, MAX_OPERACIONES_LOTE } from "@/lib/planificacion/edicion";
-import { guardarCambiosVersion, publicarBorrador, quitarAusenciaDeBorradores, resumenCambios } from "@/lib/planificacion/guardar";
+import {
+  alternarSemanaVersion,
+  guardarCambiosVersion,
+  publicarBorrador,
+  quitarAusenciaDeBorradores,
+  resumenCambios,
+} from "@/lib/planificacion/guardar";
 import { fechasDelMes, horaLarga, lunesDe, solapan } from "@/lib/planificacion/motor";
 import * as repo from "@/lib/planificacion/repositorio";
 import type { BloqueTablero } from "@/lib/planificacion/tablero";
@@ -119,6 +125,40 @@ export async function guardarCambiosAccion(peticion: unknown): Promise<Respuesta
   // «Atrás» desde otra página) tiene el plan guardado, no el de antes
   invalidarPlanificacion();
   return { ok: true, revision: r.revision, bloques: r.bloques, tramos: r.cambios.length };
+}
+
+// ---------- Cambiar la semana A↔B de una persona ----------
+
+const esquemaSemanaAlterna = z.object({
+  versionId: z.number().int().positive(),
+  revision: z.number().int().min(0),
+  agenteNumero: z.string().regex(/^\d{4}$/),
+  lunes: esquemaFechaISO,
+});
+
+export type RespuestaSemanaAlterna = { ok: true } | { ok: false; error: string; conflicto: boolean };
+
+/**
+ * Cambia la semana A↔B de una persona en el borrador, o la devuelve a la de
+ * siempre (16/11/2026). Cambia su turno de esa semana y rehace sus bloques
+ * con el turno nuevo en el cliente base (salvo los fijados). El tablero lo
+ * pide sin cambios por guardar y recarga la página al terminar.
+ */
+export async function alternarSemanaAccion(peticion: unknown): Promise<RespuestaSemanaAlterna> {
+  const usuario = await autorizar();
+  const datos = esquemaSemanaAlterna.safeParse(peticion);
+  if (!datos.success) return { ok: false, error: `Petición no válida (${primerError(datos.error)}).`, conflicto: false };
+  const r = alternarSemanaVersion({ ...datos.data, autor: usuario.username });
+  if (!r.ok) return r;
+  await auditar(
+    usuario,
+    "plan_editar",
+    `mes=${r.mes} v${r.numero} rev ${datos.data.revision}→${r.revision}: agente ${datos.data.agenteNumero} semana del ` +
+      `${datos.data.lunes} ${r.cambiada ? `cambiada a la ${r.rotacion}` : `devuelta a la ${r.rotacion} (la de siempre)`}; ` +
+      `${r.horasAntes.toFixed(2)} h → ${r.horasDespues.toFixed(2)} h; ${resumenCambios(r.cambios)}`,
+  );
+  invalidarPlanificacion();
+  return { ok: true };
 }
 
 // ---------- Publicar ----------

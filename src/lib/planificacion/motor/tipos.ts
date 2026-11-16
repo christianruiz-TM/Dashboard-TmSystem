@@ -250,6 +250,19 @@ export interface EntradaMotor {
   tasaContacto: { cliente: string; inicioMin: number; tasa: number }[];
   fijados: BloqueEntrada[];
   meta: MetaEntrada;
+  /**
+   * Semanas en que un agente hace la OTRA rotación (A↔B), cambiadas a mano
+   * desde el tablero (16/11/2026). `agentes[].turnos` ya las lleva aplicadas;
+   * esto es para enseñarlas y para que «respetar mis cambios» las conserve al
+   * regenerar. Solo aparece si hay alguna.
+   */
+  semanasAlternas?: SemanaAlterna[];
+}
+
+export interface SemanaAlterna {
+  agenteNumero: string;
+  /** Lunes de la semana. */
+  lunes: string;
 }
 
 // ------------------------------------------------------------

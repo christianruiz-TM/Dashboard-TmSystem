@@ -66,6 +66,9 @@ export function explicarBloque(bloque: BloqueExplicable, clienteBase: string): s
       if (d.accion === "relleno") {
         return `${c}: horas que vuelven a ${c} al cambiar a mano ${clienteAntes ?? "otro bloque"}${autor}.`;
       }
+      if (d.accion === "semana") {
+        return `${c}: turno de la semana ${txt(d.rotacion) ?? "contraria"}, cambiada a mano${autor}.`;
+      }
       const verbo = VERBOS_MANUAL[txt(d.accion) ?? ""] ?? "cambiado a mano";
       const antes = [
         clienteAntes && clienteAntes !== c ? clienteAntes : null,

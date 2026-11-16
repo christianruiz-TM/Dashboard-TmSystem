@@ -20,16 +20,22 @@ import { contarGravedades } from "./tablero";
 
 /**
  * - `nuevo`: no hay borrador (si lo hay, error: la pantalla pregunta antes).
- * - `respetar`: regenera conservando los bloques fijados o editados a mano del
- *   borrador actual (el motor los aplica tal cual y reparte el resto).
- * - `cero`: descarta el borrador actual y empieza de nuevo.
- * En los dos últimos, el borrador anterior queda como «descartada».
+ * - `respetar`: regenera conservando los cambios a mano de la versión vigente
+ *   (el borrador; si no hay, la publicada, desde el 16/11/2026): sus bloques
+ *   fijados o editados a mano (el motor los aplica tal cual y reparte el
+ *   resto) y las semanas cambiadas A↔B.
+ * - `cero`: empieza de nuevo, sin nada de lo cambiado a mano.
+ * Si había borrador, queda como «descartada»; la publicada no se toca.
  */
 export type ModoGenerar = "nuevo" | "respetar" | "cero";
 
 export interface ResultadoGenerar {
   id: number;
   numero: number;
+  /** Versión de la que se conservaron los cambios a mano (`respetar`). */
+  base: { numero: number; estado: string } | null;
+  /** Semanas A↔B cambiadas a mano que se han conservado. */
+  semanasAlternas: number;
   bloques: number;
   fijados: number;
   planificadoH: number;
@@ -42,28 +48,41 @@ export async function generarBorrador(opciones: {
   autor: string;
   hastaDatos?: string;
 }): Promise<ResultadoGenerar> {
-  const existente = repo.borradorMes(opciones.mes) ?? null;
+  const versiones = repo.versionesMes(opciones.mes);
+  const existente = versiones.find((v) => v.estado === "borrador") ?? null;
   if (existente && opciones.modo === "nuevo") {
     throw new Error(`Ya hay un borrador de ${opciones.mes} (v${existente.numero}): elige regenerarlo o empezar de cero`);
   }
-  const fijados: BloqueEntrada[] =
-    existente && opciones.modo === "respetar" ? repo.bloquesConservables(existente.id).map(comoFijado) : [];
+  // De qué versión se conservan los cambios a mano: el borrador o, si no hay, la publicada
+  const base = opciones.modo === "respetar" ? (existente ?? versiones.find((v) => v.estado === "publicada") ?? null) : null;
+  if (opciones.modo === "respetar" && !base) {
+    throw new Error(`${opciones.mes} no tiene borrador ni versión publicada de la que conservar los cambios`);
+  }
+  const fijados: BloqueEntrada[] = base ? repo.bloquesConservables(base.id).map(comoFijado) : [];
+  const semanasAlternas = base ? ((base.entradas as EntradaMotor | null)?.semanasAlternas ?? []) : [];
 
   // Generar es cuando se renueva la copia de los calendarios de Altitude
-  const entrada = await cargarEntradaMotor(opciones.mes, { hastaDatos: opciones.hastaDatos, fijados, sincronizar: "siempre" });
+  const entrada = await cargarEntradaMotor(opciones.mes, {
+    hastaDatos: opciones.hastaDatos,
+    fijados,
+    semanasAlternas,
+    sincronizar: "siempre",
+  });
   const salida = generarPlan(entrada);
   const v = repo.crearBorrador({
     mes: opciones.mes,
     entrada,
     salida,
     autor: opciones.autor,
-    origen: existente && opciones.modo === "respetar" ? "recalculo" : "motor",
-    basadaEnId: existente?.id ?? null,
+    origen: base ? "recalculo" : "motor",
+    basadaEnId: base?.id ?? existente?.id ?? null,
     reemplazar: existente != null,
     esperado: existente?.id ?? null,
   });
   return {
     ...v,
+    base: base ? { numero: base.numero, estado: base.estado } : null,
+    semanasAlternas: entrada.semanasAlternas?.length ?? 0,
     bloques: salida.bloques.length,
     fijados: fijados.length,
     planificadoH: salida.resumen.planificadoH,
@@ -132,6 +151,7 @@ export async function recalcularDesde(opciones: {
   const entrada = await cargarEntradaMotor(opciones.mes, {
     hastaDatos: opciones.hastaDatos,
     fijados,
+    semanasAlternas: (base.entradas as EntradaMotor | null)?.semanasAlternas ?? [],
     desde: opciones.desde,
     sincronizar: opciones.guardar ? "siempre" : "nunca",
   });

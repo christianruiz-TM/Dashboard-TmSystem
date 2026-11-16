@@ -312,8 +312,26 @@ const esquemaTurno = z
   })
   .refine((t) => t.hasta == null || t.hasta >= t.desde, { message: "«hasta» anterior a «desde»", path: ["hasta"] });
 
+/** «A=… B=… desde … hasta …» de una asignación, con los nombres de los patrones (auditoría). */
+function textoAsignacion(
+  t: { agenteNumero: string; patronAId: number | null; patronBId: number | null; desde: string; hasta: string | null },
+  nombres: Map<number, string>,
+): string {
+  const pat = (id: number | null) => (id == null ? "—" : `${id} «${nombres.get(id) ?? "?"}»`);
+  return `${t.agenteNumero} desde ${t.desde}${t.hasta ? ` hasta ${t.hasta}` : ""}: A=${pat(t.patronAId)} B=${pat(t.patronBId)}`;
+}
+
+/**
+ * Alta de una asignación de turno o, si llega `id`, corrección de una que ya
+ * existe (también las ya empezadas: decidido el 16/11/2026, para poder
+ * arreglar un error; los saldos de esos días se recalculan con lo corregido).
+ */
 export async function asignarTurnoPlan(formData: FormData): Promise<void> {
   const usuario = await autorizar();
+  const idTexto = texto(formData, "id");
+  const id = idTexto ? Number(idTexto) : undefined;
+  if (id != null && !Number.isInteger(id)) volver("patrones", "error_datos");
+  const extra = id != null ? { turno: String(id) } : undefined;
   const datos = esquemaTurno.safeParse({
     agenteNumero: texto(formData, "agenteNumero"),
     patronAId: texto(formData, "patronAId"),
@@ -321,18 +339,42 @@ export async function asignarTurnoPlan(formData: FormData): Promise<void> {
     desde: texto(formData, "desde"),
     hasta: texto(formData, "hasta"),
   });
-  if (!datos.success) volver("patrones", "error_datos", primerError(datos.error));
+  if (!datos.success) volver("patrones", "error_datos", primerError(datos.error), extra);
   const t = datos.data;
-  const ids = new Set(repo.leerPatrones().map((p) => p.id));
-  if ((t.patronAId != null && !ids.has(t.patronAId)) || (t.patronBId != null && !ids.has(t.patronBId))) {
-    volver("patrones", "error_datos", "Patrón inexistente.");
+  const patrones = repo.leerPatrones();
+  const nombres = new Map(patrones.map((p) => [p.id, p.nombre]));
+  if ((t.patronAId != null && !nombres.has(t.patronAId)) || (t.patronBId != null && !nombres.has(t.patronBId))) {
+    volver("patrones", "error_datos", "Patrón inexistente.", extra);
   }
   if (!repo.leerAgentes().some((a) => a.numero === t.agenteNumero)) {
-    volver("patrones", "error_datos", `No existe el agente ${t.agenteNumero}.`);
+    volver("patrones", "error_datos", `No existe el agente ${t.agenteNumero}.`, extra);
   }
-  repo.asignarTurno(t);
-  await auditar(usuario, `turno ${t.agenteNumero} desde ${t.desde}${t.hasta ? ` hasta ${t.hasta}` : ""}: A=${t.patronAId ?? "—"} B=${t.patronBId ?? "—"}`);
+  if (id == null) {
+    repo.asignarTurno(t);
+    await auditar(usuario, `turno ${textoAsignacion(t, nombres)}`);
+    volver("patrones", "guardado");
+  }
+  let antes;
+  try {
+    antes = repo.editarAsignacionTurno(id, t);
+  } catch (e) {
+    volver("patrones", "error_datos", e instanceof Error ? e.message : String(e), extra);
+  }
+  if (!antes) volver("patrones", "error_datos", "Esa asignación ya no existe.");
+  await auditar(usuario, `turno corregido (id ${id}): antes ${textoAsignacion(antes, nombres)} → ahora ${textoAsignacion(t, nombres)}`);
   volver("patrones", "guardado");
+}
+
+/** Borra una asignación de turno (la auditoría guarda cómo era, por si hay que volver a darla de alta). */
+export async function borrarTurnoPlan(formData: FormData): Promise<void> {
+  const usuario = await autorizar();
+  const id = Number(formData.get("id"));
+  if (!Number.isInteger(id) || id <= 0) volver("patrones", "error_datos");
+  const fila = repo.borrarAsignacionTurno(id);
+  if (!fila) volver("patrones", "error_datos", "Esa asignación ya no existe.");
+  const nombres = new Map(repo.leerPatrones().map((p) => [p.id, p.nombre]));
+  await auditar(usuario, `-turno (id ${id}) ${textoAsignacion(fila, nombres)}`);
+  volver("patrones", "borrado");
 }
 
 const esquemaTramosAprendidos = z

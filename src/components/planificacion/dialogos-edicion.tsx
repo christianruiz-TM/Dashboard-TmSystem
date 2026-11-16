@@ -536,3 +536,120 @@ export function BotonBorradorDesdePublicada({ accion, versionId, numero }: { acc
     </form>
   );
 }
+
+/** Lo que se pide al cambiar la semana A↔B de una persona. */
+export interface PeticionCambioSemana {
+  agente: string;
+  nombre: string;
+  lunes: string;
+  /** «02/11–08/11». */
+  etiquetaSemana: string;
+  /** La que hace ahora esa semana. */
+  rotacion: "A" | "B";
+  /** Ya está cambiada: el botón la devuelve a la de siempre. */
+  cambiada: boolean;
+}
+
+/**
+ * «Cambiar a la semana B» (o A) de una persona en el borrador (16/11/2026).
+ * Cambia su turno de esa semana (contrato, saldo y avisos van con él) y rehace
+ * sus bloques de esa semana con el turno nuevo entero en el cliente base,
+ * salvo los fijados. Se guarda al momento, así que pide no tener cambios
+ * pendientes.
+ */
+export function DialogoCambiarSemana({
+  peticion,
+  clienteBase,
+  pendientes,
+  onCerrar,
+  onConfirmar,
+}: {
+  peticion: PeticionCambioSemana | null;
+  clienteBase: string;
+  pendientes: number;
+  onCerrar: () => void;
+  /** Devuelve el error, o null si ha ido bien (la página se recarga). */
+  onConfirmar: (p: PeticionCambioSemana) => Promise<string | null>;
+}) {
+  const [enviando, setEnviando] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const otra = peticion?.rotacion === "A" ? "B" : "A";
+  return (
+    <Dialog
+      open={peticion != null}
+      onOpenChange={(abierto) => {
+        if (!abierto && !enviando) {
+          setError(null);
+          onCerrar();
+        }
+      }}
+    >
+      <DialogContent className="sm:max-w-md">
+        {peticion ? (
+          <>
+            <DialogHeader>
+              <DialogTitle>
+                {peticion.cambiada ? `Volver a la semana ${otra}` : `Cambiar a la semana ${otra}`}: {peticion.nombre}
+              </DialogTitle>
+              <DialogDescription>
+                Semana del {peticion.etiquetaSemana}. Ahora hace el turno de la semana {peticion.rotacion}
+                {peticion.cambiada ? " (cambiada a mano)" : ""}.
+              </DialogDescription>
+            </DialogHeader>
+            <ul className="list-disc space-y-1 pl-5 text-sm">
+              <li>
+                Su turno de esa semana pasa a ser el de la semana {otra}
+                {peticion.cambiada ? " (la de siempre)" : ""}. Con él cambian su contrato de cada día, su saldo y los avisos de
+                «fuera de turno».
+              </li>
+              <li>
+                Sus bloques de esa semana se quitan, salvo los fijados, y el turno nuevo entero va a {clienteBase}. Luego lo
+                ajustas a mano.
+              </li>
+              <li>Se guarda en el borrador al momento. Para deshacerlo, vuelve a pulsar la semana.</li>
+              <li>Solo cambian los días de este mes; si la semana sigue en el mes de al lado, ese plan no se toca.</li>
+            </ul>
+            {pendientes > 0 ? (
+              <Alert variant="destructive">
+                <AlertDescription>
+                  Tienes {pendientes} {pendientes === 1 ? "cambio" : "cambios"} sin guardar: guárdalos o descártalos antes.
+                </AlertDescription>
+              </Alert>
+            ) : null}
+            {error ? (
+              <Alert variant="destructive">
+                <AlertDescription>{error}</AlertDescription>
+              </Alert>
+            ) : null}
+            <DialogFooter>
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setError(null);
+                  onCerrar();
+                }}
+                disabled={enviando}
+              >
+                Cancelar
+              </Button>
+              <Button
+                disabled={enviando || pendientes > 0}
+                onClick={async () => {
+                  setEnviando(true);
+                  setError(null);
+                  const e = await onConfirmar(peticion);
+                  if (e) {
+                    setError(e);
+                    setEnviando(false);
+                  }
+                }}
+              >
+                {enviando ? "Cambiando…" : peticion.cambiada ? `Volver a la semana ${otra}` : `Cambiar a la semana ${otra}`}
+              </Button>
+            </DialogFooter>
+          </>
+        ) : null}
+      </DialogContent>
+    </Dialog>
+  );
+}

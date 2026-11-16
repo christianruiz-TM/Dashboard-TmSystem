@@ -31,6 +31,15 @@ describe("horas: contrato, planificadas y efectivas", () => {
     expect(r.diferencia).toBeCloseTo(-0.25, 10);
   });
 
+  it("restantes = planificadas del periodo − efectivas hasta ayer (lo que faltó se suma; negativas si sobra)", () => {
+    // 26 planificadas − 17,75 efectivas: los 8 h que quedan del plan + 0,25 h que faltaron
+    expect(resumenHoras(DIAS, FECHAS).restantes).toBeCloseTo(8.25, 10);
+    // Aún no ha empezado: todo lo planificado
+    expect(resumenHoras(DIAS, ["2026-11-05"]).restantes).toBe(4);
+    // Martes: 9 planificadas y 9,25 hechas → −0,25
+    expect(resumenHoras(DIAS, ["2026-11-03"]).restantes).toBeCloseTo(-0.25, 10);
+  });
+
   it("un día que aún no ha pasado no tiene efectivas; un fin de semana sin nada no tiene datos", () => {
     expect(resumenHoras(DIAS, ["2026-11-05"])).toMatchObject({ efectivas: 0, empezado: false, terminado: false, conDatos: true });
     expect(resumenHoras(DIAS, ["2026-11-07", "2026-11-08"]).conDatos).toBe(false);

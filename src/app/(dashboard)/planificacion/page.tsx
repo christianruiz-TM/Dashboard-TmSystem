@@ -304,6 +304,7 @@ export default async function PaginaPlanificacion() {
                             nombreMes={nombreMes(m.mes)}
                             tamano="sm"
                             borrador={m.borrador}
+                            publicada={m.borrador ? null : m.publicada}
                             accion={generarBorradorAccion}
                           />
                         ) : null}

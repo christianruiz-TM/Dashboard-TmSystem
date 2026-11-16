@@ -6,6 +6,7 @@
 //   - Contrato: su parte del contrato semanal cada día (motor/contrato.ts).
 //   - Planificadas: las del plan vigente, todo el periodo.
 //   - Efectivas: las logadas de verdad, solo de los días que ya han pasado.
+//   - Restantes: planificadas del periodo − efectivas hasta ayer (16/11/2026).
 // Mientras el periodo no ha acabado, las efectivas se comparan con lo
 // planificado HASTA AYER (si no, todo el mundo «iría corto»).
 // ============================================================
@@ -72,6 +73,12 @@ export interface ResumenHoras {
   contratoHastaAyer: number;
   /** efectivas − planificadas hasta ayer. */
   diferencia: number;
+  /**
+   * Planificadas de TODO el periodo − efectivas hasta ayer (pedido por
+   * supervisión el 16/11/2026): lo que queda por hacer, con lo que faltó en
+   * los días pasados sumado. Negativa si ya se hizo más de lo planificado.
+   */
+  restantes: number;
   /** Todos sus días han pasado. */
   terminado: boolean;
   /** Algún día ya ha pasado (si no, aún no hay efectivas). */
@@ -90,6 +97,7 @@ export function resumenHoras(dias: readonly DiaHorasLike[], fechas: readonly str
     planificadasHastaAyer: 0,
     contratoHastaAyer: 0,
     diferencia: 0,
+    restantes: 0,
     terminado: true,
     empezado: false,
     conDatos: false,
@@ -109,6 +117,7 @@ export function resumenHoras(dias: readonly DiaHorasLike[], fechas: readonly str
     if (d.contrato !== 0 || d.planificadas !== 0 || (d.efectivas ?? 0) !== 0) r.conDatos = true;
   }
   r.diferencia = r.efectivas - r.planificadasHastaAyer;
+  r.restantes = r.planificadas - r.efectivas;
   return r;
 }
 

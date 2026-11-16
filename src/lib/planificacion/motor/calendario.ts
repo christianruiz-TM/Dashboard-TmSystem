@@ -8,7 +8,7 @@ import {
   startOfISOWeek,
 } from "date-fns";
 import { rangoCorto } from "./franjas";
-import type { AusenciaMotor, ClienteMotor, DiaMotor, EntradaMotor, SemanaResumen, Tramo } from "./tipos";
+import type { AusenciaMotor, ClienteMotor, DiaMotor, EntradaMotor, SemanaAlterna, SemanaResumen, Tramo } from "./tipos";
 
 // ============================================================
 // Calendario del mes: días, semanas, rotación A/B, festivos, turnos y
@@ -323,15 +323,25 @@ export interface AsignacionTurnoLike {
   hasta: string | null;
 }
 
+/** Clave de una semana con la rotación cambiada: `${agente}|${lunes}`. */
+export const claveSemanaAlterna = (agenteNumero: string, lunes: string) => `${agenteNumero}|${lunes}`;
+
+/** Las semanas cambiadas de la foto, como conjunto de claves (vacío si no hay). */
+export function conjuntoSemanasAlternas(lista: readonly SemanaAlterna[] | undefined): Set<string> {
+  return new Set((lista ?? []).map((x) => claveSemanaAlterna(x.agenteNumero, x.lunes)));
+}
+
 /**
  * Turno de cada agente por fecha: el patrón A o B según la rotación de la
  * semana. Si varias asignaciones cubren la fecha, gana la de `desde` más
- * reciente.
+ * reciente. En las semanas de `alternas` (`${agente}|${lunes}`, cambiadas a
+ * mano desde el tablero, 16/11/2026) ese agente hace la OTRA rotación.
  */
 export function expandirTurnos(
   asignaciones: readonly AsignacionTurnoLike[],
   patrones: readonly PatronLike[],
   dias: readonly DiaMotor[],
+  alternas: ReadonlySet<string> = new Set(),
 ): Record<string, Record<string, Tramo[]>> {
   const patronPorId = new Map(patrones.map((p) => [p.id, p]));
   const porAgente = new Map<string, AsignacionTurnoLike[]>();
@@ -347,7 +357,9 @@ export function expandirTurnos(
     for (const d of dias) {
       const asig = orden.find((a) => a.desde <= d.fecha && (a.hasta == null || d.fecha <= a.hasta));
       if (!asig) continue;
-      const patronId = d.rotacion === "A" ? asig.patronAId : asig.patronBId;
+      const cambiada = alternas.has(claveSemanaAlterna(agente, d.lunes));
+      const rotacion = cambiada ? (d.rotacion === "A" ? "B" : "A") : d.rotacion;
+      const patronId = rotacion === "A" ? asig.patronAId : asig.patronBId;
       const patron = patronId != null ? patronPorId.get(patronId) : undefined;
       if (!patron) continue;
       const tramos = normalizarTramos(patron.tramos.filter((t) => t.diaSemana === d.diaSemana));

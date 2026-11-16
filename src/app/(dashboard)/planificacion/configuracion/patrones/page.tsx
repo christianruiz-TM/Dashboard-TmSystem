@@ -27,7 +27,7 @@ import { leerParametrosPlan } from "@/lib/planificacion/parametros";
 import * as repo from "@/lib/planificacion/repositorio";
 import { leerCalendarioLaboral } from "@/lib/planificacion/calendarios";
 import { cn } from "@/lib/utils";
-import { aceptarPatronAprendido, asignarTurnoPlan, guardarPatronPlan } from "../acciones";
+import { aceptarPatronAprendido, asignarTurnoPlan, borrarTurnoPlan, guardarPatronPlan } from "../acciones";
 
 export const metadata: Metadata = { title: "Patrones y turnos" };
 export const dynamic = "force-dynamic";
@@ -93,10 +93,10 @@ function Comparacion({
 export default async function PaginaPatronesPlan({
   searchParams,
 }: {
-  searchParams: Promise<{ msg?: string; detalle?: string; editar?: string; aprender?: string }>;
+  searchParams: Promise<{ msg?: string; detalle?: string; editar?: string; aprender?: string; turno?: string; pasados?: string }>;
 }) {
   await requireRol(...ROLES_PLAN_EDICION);
-  const { msg, detalle, editar, aprender } = await searchParams;
+  const { msg, detalle, editar, aprender, turno, pasados } = await searchParams;
   const p = leerParametrosPlan();
   const eq = leerEquipo(p.equipo, ayerISO());
   const nombres = nombresAgentes(eq);
@@ -115,6 +115,9 @@ export default async function PaginaPatronesPlan({
     for (const id of new Set([v?.patronAId, v?.patronBId])) if (id != null) usos.set(id, (usos.get(id) ?? 0) + 1);
   }
   const enEdicion = editar ? patrones.find((x) => x.id === Number(editar)) : undefined;
+  const turnoEnEdicion = turno ? asignaciones.find((x) => x.id === Number(turno)) : undefined;
+  const verPasados = pasados === "1";
+  const hayPasados = asignaciones.some((t) => t.hasta != null && t.hasta < hoy);
   const nombreAgente = (n: string) => `${n} ${nombres.get(n) ?? ""}`.trim();
 
   // ---------- Aprender patrones (solo si se pide: lee 8 semanas de sesiones) ----------
@@ -260,12 +263,13 @@ export default async function PaginaPatronesPlan({
         </CardContent>
       </Card>
 
-      <Card>
+      <Card id="turnos">
         <CardHeader>
           <CardTitle className="text-base">Turnos de la plantilla</CardTitle>
           <CardDescription>
             Patrón A y B de cada agente desde una fecha. Si ya hay una asignación que empieza ese día se sustituye; si no,
-            se añade y manda la de fecha más reciente.
+            se añade y manda la de fecha más reciente. Con «Editar» se corrige o se borra una asignación, también si ya ha
+            empezado. Los planes ya generados no cambian hasta que se regenera el mes.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -277,39 +281,84 @@ export default async function PaginaPatronesPlan({
                 <TableHead>Semana B</TableHead>
                 <TableHead>Desde</TableHead>
                 <TableHead>Hasta</TableHead>
+                <TableHead className="text-right">Acciones</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {eq.plantilla.flatMap((a) => {
                 const lista = asignaciones
-                  .filter((t) => t.agenteNumero === a.numero && (t.hasta == null || t.hasta >= hoy))
+                  .filter((t) => t.agenteNumero === a.numero && (verPasados || t.hasta == null || t.hasta >= hoy))
                   .sort((x, y) => x.desde.localeCompare(y.desde));
                 if (lista.length === 0) {
                   return [
                     <TableRow key={a.numero}>
                       <TableCell className="font-medium">{nombreAgente(a.numero)}</TableCell>
-                      <TableCell colSpan={4} className="text-muted-foreground">
+                      <TableCell colSpan={5} className="text-muted-foreground">
                         sin turno vigente
                       </TableCell>
                     </TableRow>,
                   ];
                 }
                 return lista.map((t, i) => (
-                  <TableRow key={t.id}>
+                  <TableRow
+                    key={t.id}
+                    className={cn(t.id === turnoEnEdicion?.id && "bg-amber-50", t.hasta != null && t.hasta < hoy && "opacity-60")}
+                  >
                     <TableCell className="font-medium">{i === 0 ? nombreAgente(a.numero) : ""}</TableCell>
                     <TableCell className="text-xs whitespace-normal">{t.patronAId != null ? porId.get(t.patronAId)?.nombre : "—"}</TableCell>
                     <TableCell className="text-xs whitespace-normal">{t.patronBId != null ? porId.get(t.patronBId)?.nombre : "—"}</TableCell>
                     <TableCell className="text-sm">{fechaCorta(t.desde)}</TableCell>
                     <TableCell className="text-sm">{t.hasta ? fechaCorta(t.hasta) : "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="outline"
+                        size="xs"
+                        render={<a href={`?turno=${t.id}${verPasados ? "&pasados=1" : ""}#turnos`} />}
+                      >
+                        Editar
+                      </Button>
+                    </TableCell>
                   </TableRow>
                 ));
               })}
             </TableBody>
           </Table>
 
-          <form action={asignarTurnoPlan} className="grid items-end gap-3 md:grid-cols-[1fr_2fr_2fr_1fr_1fr_auto]">
+          {hayPasados ? (
+            <p className="text-xs text-muted-foreground">
+              {verPasados ? (
+                <a href="?#turnos" className="underline">
+                  Ocultar las asignaciones ya terminadas
+                </a>
+              ) : (
+                <a href="?pasados=1#turnos" className="underline">
+                  Ver también las asignaciones ya terminadas
+                </a>
+              )}
+            </p>
+          ) : null}
+
+          {turnoEnEdicion ? (
+            <div className="space-y-1">
+              <p className="text-sm font-medium">
+                Corregir la asignación de {nombreAgente(turnoEnEdicion.agenteNumero)} desde el {fechaCorta(turnoEnEdicion.desde)}
+              </p>
+              {turnoEnEdicion.desde <= hoy ? (
+                <p className="text-xs text-amber-700">
+                  Ya ha empezado: si cambias los patrones o las fechas, el contrato de los días pasados cambia con ella, y
+                  con él los saldos y las horas de contrato de esos días.
+                </p>
+              ) : null}
+            </div>
+          ) : null}
+          <form
+            action={asignarTurnoPlan}
+            key={turnoEnEdicion?.id ?? "nuevo"}
+            className="grid items-end gap-3 md:grid-cols-[1fr_2fr_2fr_1fr_1fr_auto]"
+          >
+            {turnoEnEdicion ? <input type="hidden" name="id" value={turnoEnEdicion.id} /> : null}
             <Campo etiqueta="Agente">
-              <SelectNativo name="agenteNumero" required>
+              <SelectNativo name="agenteNumero" required defaultValue={turnoEnEdicion?.agenteNumero}>
                 {eq.plantilla.map((a) => (
                   <option key={a.numero} value={a.numero}>
                     {nombreAgente(a.numero)}
@@ -317,16 +366,29 @@ export default async function PaginaPatronesPlan({
                 ))}
               </SelectNativo>
             </Campo>
-            <Campo etiqueta="Semana A">{selectorPatron("patronAId")}</Campo>
-            <Campo etiqueta="Semana B">{selectorPatron("patronBId")}</Campo>
+            <Campo etiqueta="Semana A">{selectorPatron("patronAId", turnoEnEdicion?.patronAId)}</Campo>
+            <Campo etiqueta="Semana B">{selectorPatron("patronBId", turnoEnEdicion?.patronBId)}</Campo>
             <Campo etiqueta="Desde" htmlFor="desde">
-              <Input id="desde" name="desde" type="date" defaultValue={proximoLunes} required />
+              <Input id="desde" name="desde" type="date" defaultValue={turnoEnEdicion?.desde ?? proximoLunes} required />
             </Campo>
             <Campo etiqueta="Hasta (opcional)" htmlFor="hasta">
-              <Input id="hasta" name="hasta" type="date" />
+              <Input id="hasta" name="hasta" type="date" defaultValue={turnoEnEdicion?.hasta ?? ""} />
             </Campo>
-            <Button type="submit">Asignar</Button>
+            <Button type="submit">{turnoEnEdicion ? "Guardar" : "Asignar"}</Button>
           </form>
+          {turnoEnEdicion ? (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" render={<a href={`?${verPasados ? "pasados=1" : ""}#turnos`} />}>
+                Cancelar
+              </Button>
+              <form action={borrarTurnoPlan}>
+                <input type="hidden" name="id" value={turnoEnEdicion.id} />
+                <Button type="submit" variant="destructive">
+                  Borrar esta asignación
+                </Button>
+              </form>
+            </div>
+          ) : null}
         </CardContent>
       </Card>
 

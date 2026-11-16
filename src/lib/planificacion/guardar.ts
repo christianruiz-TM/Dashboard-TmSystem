@@ -13,11 +13,14 @@ import {
   validarPlan,
   type Aviso,
   type CambioPlan,
+  type EntradaMotor,
   type ResumenMotor,
 } from "./motor";
 import {
   actualizarResumen,
+  alternarSemanaEnFoto,
   aplicarOperaciones,
+  bloquesSemanaAlterna,
   construirContextoEdicion,
   durasNuevas,
   operacionesQuitarAusencias,
@@ -121,6 +124,101 @@ export function guardarCambiosVersion(opciones: {
     bloques: repo.bloquesVersion(version.id).map(aBloqueTablero),
     cambios,
     filas: contadores,
+  };
+}
+
+export type ResultadoSemanaAlterna =
+  | {
+      ok: true;
+      revision: number;
+      mes: string;
+      numero: number;
+      rotacion: "A" | "B";
+      cambiada: boolean;
+      cambios: CambioPlan[];
+      horasAntes: number;
+      horasDespues: number;
+    }
+  | { ok: false; error: string; conflicto: boolean };
+
+/**
+ * Cambia la semana A↔B de una persona en el borrador (o la devuelve a la de
+ * siempre): su turno de esa semana pasa a ser el del otro patrón de su
+ * asignación (foto de la versión: contrato del día, saldo y avisos) y sus
+ * bloques de esa semana se rehacen con el turno nuevo entero en el cliente
+ * base, salvo los fijados (decidido con supervisión el 16/11/2026). Misma
+ * revisión optimista que guardar.
+ */
+export function alternarSemanaVersion(opciones: {
+  versionId: number;
+  revision: number;
+  agenteNumero: string;
+  lunes: string;
+  autor: string;
+}): ResultadoSemanaAlterna {
+  const ctx = contextoVersion(opciones.versionId);
+  if (!ctx) return { ok: false, error: "La versión no existe.", conflicto: false };
+  const { version, datos } = ctx;
+  if (version.estado !== "borrador") {
+    return { ok: false, error: `La v${version.numero} ya no es un borrador (está ${version.estado}).`, conflicto: true };
+  }
+  if (version.revision !== opciones.revision) {
+    return { ok: false, error: "Otra persona ha guardado cambios en este borrador desde que lo abriste.", conflicto: true };
+  }
+  const foto = version.entradas as EntradaMotor;
+  const r = alternarSemanaEnFoto(foto, opciones.agenteNumero, opciones.lunes, repo.leerAsignacionesTurno(), repo.leerPatrones());
+  if (!r.ok) return { ok: false, error: r.error, conflicto: false };
+
+  // Lo que ve el tablero (lo vivo encima de la foto) con los turnos nuevos de ese agente
+  const nuevoAgente = r.foto.agentes.find((a) => a.numero === opciones.agenteNumero)!;
+  const entrada: EntradaMotor = {
+    ...datos.entrada,
+    agentes: datos.entrada.agentes.map((a) =>
+      a.numero === opciones.agenteNumero ? { ...a, turnos: nuevoAgente.turnos, turnosFuera: nuevoAgente.turnosFuera } : a,
+    ),
+    semanasAlternas: r.foto.semanasAlternas,
+  };
+  if (!entrada.semanasAlternas) delete entrada.semanasAlternas;
+  const validacion = construirContexto(entrada, calcularMinimos(entrada));
+  const edicion = construirContextoEdicion(entrada, agentesConFila(datos.activos, datos.bloques), validacion);
+
+  const original = repo.bloquesVersion(version.id);
+  const antes = original.map(aBloqueTablero);
+  const fechas = entrada.dias.filter((d) => d.lunes === opciones.lunes).map((d) => d.fecha);
+  const final = bloquesSemanaAlterna(antes, opciones.agenteNumero, fechas, r.rotacion, edicion);
+  const horas = (lista: readonly BloqueTablero[]) =>
+    lista
+      .filter((b) => b.agenteNumero === opciones.agenteNumero && fechas.includes(b.fecha))
+      .reduce((h, b) => h + (b.finMin - b.inicioMin) / 60, 0);
+
+  const resumen = version.resumen as ResumenMotor | null;
+  let filas;
+  try {
+    filas = repo.guardarEdicion({
+      versionId: version.id,
+      revision: opciones.revision,
+      original,
+      final,
+      autor: opciones.autor,
+      ahora: new Date(),
+      avisos: avisosAlDia(version.avisos, validarPlan(final, validacion)),
+      resumen: resumen ? actualizarResumen(resumen, final) : null,
+      entradas: r.foto,
+    });
+  } catch (e) {
+    if (e instanceof repo.ConflictoVersion) return { ok: false, error: e.message, conflicto: true };
+    throw e;
+  }
+  return {
+    ok: true,
+    revision: filas.revision,
+    mes: version.mes,
+    numero: version.numero,
+    rotacion: r.rotacion,
+    cambiada: r.cambiada,
+    cambios: diffPlanes(antes, final),
+    horasAntes: horas(antes),
+    horasDespues: horas(final),
   };
 }
 

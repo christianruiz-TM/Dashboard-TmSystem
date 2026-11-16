@@ -1,6 +1,10 @@
 import { z } from "zod";
 import {
+  claveSemanaAlterna,
+  conjuntoSemanasAlternas,
+  diasFueraDelMes,
   diasSinTrabajoEquipo,
+  expandirTurnos,
   horaCorta,
   normalizarTramos,
   rangoCorto,
@@ -10,7 +14,10 @@ import {
   type BloqueBasico,
   type ContextoValidacion,
   type EntradaMotor,
+  type AsignacionTurnoLike,
+  type PatronLike,
   type ResumenMotor,
+  type SemanaAlterna,
   type Tramo,
 } from "./motor";
 import type { BloqueTablero } from "./tablero";
@@ -70,7 +77,8 @@ export type Operacion = z.infer<typeof esquemaOperacion>;
 export const MAX_OPERACIONES_LOTE = 500;
 
 /** Qué hizo la persona con un bloque (datos.accion de los bloques manuales). */
-export type AccionManual = "movido" | "ajustado" | "cliente" | "creado" | "relleno" | "unido";
+/** «semana»: bloques del turno nuevo al cambiar la semana A↔B de una persona (guardar.ts, 16/11/2026). */
+export type AccionManual = "movido" | "ajustado" | "cliente" | "creado" | "relleno" | "unido" | "semana";
 
 export interface ContextoEdicion {
   pasoMin: number;
@@ -504,4 +512,133 @@ export function actualizarResumen(resumen: ResumenMotor, bloques: readonly Bloqu
       porSemana: porAgente.get(a.numero)?.porSemana ?? vacio(),
     })),
   };
+}
+
+// ---------- Cambiar la semana A↔B de una persona (16/11/2026) ----------
+
+export type ResultadoSemanaAlterna =
+  | {
+      ok: true;
+      /** Foto nueva: turnos de esa semana con la otra rotación y la lista de semanas cambiadas. */
+      foto: EntradaMotor;
+      /** Rotación que hace ahora esa semana. */
+      rotacion: "A" | "B";
+      /** true si la semana queda cambiada; false si vuelve a la de siempre. */
+      cambiada: boolean;
+    }
+  | { ok: false; error: string };
+
+/**
+ * Cambia (o deshace) la rotación de UNA semana de un agente en la foto de la
+ * versión: sus turnos de esos días pasan a ser los del otro patrón (A↔B) de
+ * su asignación, también los días de la semana que caen en el mes vecino
+ * (con ellos se reparte el contrato de la semana partida). Con el turno
+ * cambian su contrato del día, su saldo y los avisos de «fuera de turno».
+ * Los demás días y agentes no se tocan, aunque los patrones hayan cambiado
+ * desde que se generó. Error si no hay otro patrón o si A y B son iguales.
+ */
+export function alternarSemanaEnFoto(
+  foto: EntradaMotor,
+  agenteNumero: string,
+  lunes: string,
+  asignaciones: readonly AsignacionTurnoLike[],
+  patrones: readonly PatronLike[],
+): ResultadoSemanaAlterna {
+  const agente = foto.agentes.find((a) => a.numero === agenteNumero);
+  if (!agente) return { ok: false, error: `El agente ${agenteNumero} no está en la plantilla de este plan.` };
+  const dias = foto.dias.filter((d) => d.lunes === lunes);
+  if (dias.length === 0) return { ok: false, error: "Esa semana no es de este mes." };
+
+  const clave = claveSemanaAlterna(agenteNumero, lunes);
+  const antes = foto.semanasAlternas ?? [];
+  const cambiada = !antes.some((x) => claveSemanaAlterna(x.agenteNumero, x.lunes) === clave);
+  const lista: SemanaAlterna[] = cambiada
+    ? [...antes, { agenteNumero, lunes }].sort((a, b) => a.lunes.localeCompare(b.lunes) || a.agenteNumero.localeCompare(b.agenteNumero))
+    : antes.filter((x) => claveSemanaAlterna(x.agenteNumero, x.lunes) !== clave);
+  const alternas = conjuntoSemanasAlternas(lista);
+  const suyas = asignaciones.filter((a) => a.agenteNumero === agenteNumero);
+  const rotacion = (dias[0].rotacion === "A") === cambiada ? "B" : "A";
+
+  const nuevos = expandirTurnos(suyas, patrones, dias, alternas)[agenteNumero] ?? {};
+  const deSiempre = expandirTurnos(suyas, patrones, dias)[agenteNumero] ?? {};
+  const horas = (t: Record<string, Tramo[]>) => Object.values(t).flat().reduce((h, x) => h + x.finMin - x.inicioMin, 0);
+  if (cambiada && horas(nuevos) === 0) {
+    return { ok: false, error: `El agente ${agenteNumero} no tiene patrón para la semana ${rotacion} en esas fechas: no hay turno al que cambiar.` };
+  }
+  if (cambiada && JSON.stringify(nuevos) === JSON.stringify(deSiempre)) {
+    return { ok: false, error: `Las semanas A y B del agente ${agenteNumero} son iguales: cambiarla no cambia nada.` };
+  }
+
+  // Días de la semana en el mes vecino (semana partida)
+  const fuera = diasFueraDelMes(foto.dias, { servicioCalendario: foto.servicioCalendario, festivos: [] });
+  const turnosFuera =
+    agente.turnosFuera === undefined
+      ? // Foto anterior al 04/11/2026: como hace el tablero, de los patrones de ahora
+        (expandirTurnos(suyas, patrones, fuera, alternas)[agenteNumero] ?? {})
+      : {
+          ...Object.fromEntries(Object.entries(agente.turnosFuera).filter(([f]) => !fuera.some((d) => d.fecha === f && d.lunes === lunes))),
+          ...(expandirTurnos(suyas, patrones, fuera.filter((d) => d.lunes === lunes), alternas)[agenteNumero] ?? {}),
+        };
+  const fechas = new Set(dias.map((d) => d.fecha));
+  const turnos = {
+    ...Object.fromEntries(Object.entries(agente.turnos).filter(([f]) => !fechas.has(f))),
+    ...nuevos,
+  };
+
+  const nueva: EntradaMotor = {
+    ...foto,
+    agentes: foto.agentes.map((a) =>
+      a.numero === agenteNumero ? { ...a, turnos: ordenarClaves(turnos), turnosFuera: ordenarClaves(turnosFuera) } : a,
+    ),
+    semanasAlternas: lista,
+  };
+  // Sin ninguna, la foto queda como las de siempre
+  if (lista.length === 0) delete nueva.semanasAlternas;
+  return { ok: true, rotacion, cambiada, foto: nueva };
+}
+
+const ordenarClaves = <T>(o: Record<string, T>): Record<string, T> =>
+  Object.fromEntries(Object.entries(o).sort(([a], [b]) => a.localeCompare(b)));
+
+/**
+ * Bloques de un agente tras cambiar su semana A↔B (decidido con supervisión el
+ * 16/11/2026): los de esa semana se quitan, salvo los FIJADOS, y el turno
+ * nuevo entero va al cliente base (lo que el contexto da como libre: turno −
+ * ausencias, sin festivos y con el cliente base abierto), menos lo que ocupan
+ * los fijados. Luego se ajusta a mano. Los bloques nuevos son manuales: así
+ * «respetar mis cambios» los conserva al regenerar.
+ */
+export function bloquesSemanaAlterna(
+  bloques: readonly BloqueTablero[],
+  agenteNumero: string,
+  fechas: readonly string[],
+  rotacion: "A" | "B",
+  ctx: Pick<ContextoEdicion, "libre" | "clienteBase">,
+): BloqueTablero[] {
+  const semana = new Set(fechas);
+  const delAgente = (b: BloqueTablero) => b.agenteNumero === agenteNumero && semana.has(b.fecha);
+  const quedan = bloques.filter((b) => !delAgente(b) || b.fijado);
+  let proximoId = Math.min(0, ...bloques.map((b) => b.id)) - 1;
+  const nuevos: BloqueTablero[] = [];
+  for (const fecha of [...fechas].sort()) {
+    const libre = ctx.libre.get(clave(agenteNumero, fecha)) ?? [];
+    const fijados = quedan.filter((b) => b.agenteNumero === agenteNumero && b.fecha === fecha);
+    for (const t of restarTramos(libre, fijados)) {
+      nuevos.push({
+        id: proximoId--,
+        agenteNumero,
+        fecha,
+        inicioMin: t.inicioMin,
+        finMin: t.finMin,
+        clienteCodigo: ctx.clienteBase,
+        regla: "manual",
+        datos: { accion: "semana", rotacion },
+        fijado: false,
+        origen: "manual",
+        editadoPor: null,
+        editadoAt: null,
+      });
+    }
+  }
+  return [...quedan, ...nuevos];
 }

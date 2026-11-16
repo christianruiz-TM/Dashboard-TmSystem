@@ -77,6 +77,8 @@ export interface ResumenVersion {
   avisos: Record<Gravedad, number>;
   /** Bloques fijados o editados a mano (los que «regenerar respetando mis cambios» conserva). */
   conservables: number;
+  /** Semanas cambiadas A↔B en el tablero (también se conservan). */
+  semanasAlternas: number;
 }
 
 export interface FilaMes {
@@ -104,7 +106,14 @@ export function resumenMeses(): FilaMes[] {
           publicadaAt: fechaHora(v.publicadaAt),
           planificadoH: (v.resumen as ResumenMotor | null)?.planificadoH ?? null,
           avisos: contarGravedades((v.avisos as Aviso[] | null) ?? []),
-          conservables: v.estado === "borrador" ? repo.bloquesConservables(v.id).length : 0,
+          ...(() => {
+            // Solo los meses que se pueden regenerar: es lo que pregunta el diálogo
+            if (!generables.includes(v.mes) || (v.estado !== "borrador" && v.estado !== "publicada")) {
+              return { conservables: 0, semanasAlternas: 0 };
+            }
+            const c = repo.cambiosAMano(v.id);
+            return { conservables: c.bloques, semanasAlternas: c.semanas };
+          })(),
         }
       : null;
   return meses.map((mes) => {

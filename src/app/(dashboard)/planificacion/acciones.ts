@@ -46,7 +46,9 @@ export async function generarBorradorAccion(_previo: EstadoGenerar, formData: Fo
     userId: usuario.id,
     username: usuario.username,
     detalle:
-      `mes=${mes} v${resultado.numero} modo=${modo} bloques=${resultado.bloques} fijados=${resultado.fijados} ` +
+      `mes=${mes} v${resultado.numero} modo=${modo}` +
+      (resultado.base ? ` (cambios de la v${resultado.base.numero} ${resultado.base.estado})` : "") +
+      ` bloques=${resultado.bloques} fijados=${resultado.fijados} semanasAB=${resultado.semanasAlternas} ` +
       `horas=${resultado.planificadoH} duras=${resultado.avisos.dura} blandas=${resultado.avisos.blanda} ` +
       `${Date.now() - inicio} ms`,
     ip: await ipPeticion(),

@@ -104,8 +104,8 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
         haz: "Trabaja en nuestros clientes pero no está en el equipo. Si le toca, inclúyela en Configuración → Agentes.",
       },
       {
-        caso: "Al generar, te pregunta qué hacer con el borrador que ya hay.",
-        haz: "«Respetar mis cambios» guarda lo que cambiaste a mano y recalcula lo demás. «Empezar de cero» lo calcula todo de nuevo.",
+        caso: "Al generar, te pregunta qué hacer con lo que ya hay.",
+        haz: "«Respetar mis cambios» guarda lo que cambiaste a mano (recuadros movidos, cambiados o fijados, y las semanas A/B cambiadas) y recalcula lo demás. Si el mes solo tiene el plan publicado, guarda los cambios a mano del publicado, que sigue igual hasta que publiques el nuevo. «Empezar de cero» lo calcula todo de nuevo. Para una copia exacta del publicado, usa «Nuevo borrador desde la vN» en el tablero.",
       },
     ],
   },
@@ -145,6 +145,10 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       {
         caso: "Un recuadro tiene una chincheta.",
         haz: "Está fijado: no cambia aunque se vuelva a generar el plan.",
+      },
+      {
+        caso: "Junto a un nombre sale una «A» o una «B».",
+        haz: "Es la semana de turno que hace esa persona esa semana. En amarillo, se cambió a mano. En el borrador, pulsándola se cambia a la otra (ver «Cambiar a una persona la semana A por la B»).",
       },
       {
         caso: "Junto a un nombre pone «saldo −2,00 h».",
@@ -506,11 +510,11 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
     id: "horas",
     etiqueta: "Horas",
     titulo: "Horas: contrato, planificadas y efectivas",
-    intro: "Las horas de contrato, las planificadas y las efectivas (las que estuvo conectada de verdad) del equipo y de cada persona, de un día, una semana o el mes.",
+    intro: "Las horas de contrato, las planificadas y las efectivas (las que estuvo conectada de verdad) del equipo y de cada persona, y las que le quedan al equipo, de un día, una semana o el mes.",
     captura: "horas",
     queVeo: [
       "Arriba eliges «Día», «Semana» o «Mes»; con las flechas pasas al anterior o al siguiente.",
-      "Las tres cifras del equipo: contrato, planificadas y efectivas. Las efectivas llegan hasta ayer.",
+      "Las cifras del equipo: contrato, planificadas, efectivas y restantes (planificadas menos efectivas). Las efectivas llegan hasta ayer.",
       "«Por persona»: la barra clara es lo planificado, la oscura lo que hizo de verdad y la raya negra su contrato. Al lado, las cifras.",
       "«Efectivas − plan»: en verde, horas de más; en rojo, las que le faltan frente a lo planificado de los mismos días.",
     ],
@@ -527,6 +531,10 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       {
         caso: "La semana va por la mitad y las efectivas parecen pocas.",
         haz: "Es normal: las efectivas solo llegan hasta ayer. La última columna las compara con lo planificado hasta ayer, no con la semana entera.",
+      },
+      {
+        caso: "¿Qué son las horas restantes?",
+        haz: "Las planificadas de todo el periodo menos las efectivas hasta ayer: lo que le queda por hacer al equipo. Si en los días pasados se hicieron menos horas de las planificadas, esas también quedan por hacer. En negativo, ya se ha hecho más de lo planificado.",
       },
       {
         caso: "La barra clara no llega a la raya del contrato.",
@@ -590,6 +598,10 @@ export const TEMAS_AYUDA: TemaAyuda[] = [
       {
         caso: "Ha cambiado el horario de una persona.",
         haz: "En Patrones, ponle el turno nuevo desde la fecha en que empieza.",
+      },
+      {
+        caso: "Me he equivocado al poner un turno.",
+        haz: "En Patrones, en «Turnos de la plantilla», pulsa «Editar» en esa fila: corrígelo y guarda, o pulsa «Borrar esta asignación». Si ya había empezado, cambian también su contrato y su saldo de esos días.",
       },
       {
         caso: "Ha cambiado su contrato.",
@@ -692,6 +704,19 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
       "Elige «Cambiar de cliente» y el cliente nuevo.",
       "Si solo son unas horas, primero usa «Dividir» para partir el recuadro.",
       "Pulsa «Guardar cambios».",
+    ],
+  },
+  {
+    id: "cambiar-semana",
+    pregunta: "Cambiar a una persona la semana A por la B (o al revés)",
+    tema: "editar",
+    palabras: "semana a b rotacion alternar cambiar turno intercambiar",
+    pasos: [
+      "Abre el tablero del borrador en la vista «Agente» y elige la semana. Guarda antes los cambios que tengas.",
+      "Junto al nombre de la persona sale una «A» o una «B»: púlsala.",
+      "Pulsa «Cambiar a la semana B» (o A). Su turno de esa semana pasa a ser el otro, con su contrato y su saldo. Sus recuadros de esa semana se quitan (menos los fijados) y el turno nuevo entero queda en GH.",
+      "Reparte a mano las horas que tengan que ir a otros clientes y pulsa «Guardar cambios».",
+      "Para deshacerlo, vuelve a pulsar la letra (ahora en amarillo). Si regeneras el borrador respetando tus cambios, el cambio de semana se queda.",
     ],
   },
   {
@@ -860,6 +885,18 @@ export const TAREAS_AYUDA: TareaAyuda[] = [
     ],
   },
   {
+    id: "corregir-turno",
+    pregunta: "Corregir o borrar un turno mal puesto",
+    tema: "configuracion",
+    palabras: "turno error equivocado corregir borrar quitar editar asignacion patron",
+    pasos: [
+      "En Configuración, entra en «Patrones» y baja a «Turnos de la plantilla».",
+      "Pulsa «Editar» en la fila del turno. Si ya ha terminado, pulsa antes «Ver también las asignaciones ya terminadas».",
+      "Corrige lo que esté mal y pulsa «Guardar», o pulsa «Borrar esta asignación».",
+      "Vuelve a generar el borrador respetando tus cambios para que el plan lo recoja.",
+    ],
+  },
+  {
     id: "contrato",
     pregunta: "Cambiar el contrato de una persona",
     tema: "configuracion",
@@ -901,7 +938,7 @@ export const GLOSARIO_AYUDA: [string, string][] = [
   ["Recuadro (bloque)", "Unas horas de una persona en un cliente, por ejemplo «UGR 11-14»."],
   ["Franja", "Cada hora del día en el plan."],
   ["Turno", "El horario de trabajo de cada persona."],
-  ["Semana A / B", "Los turnos se alternan: una semana uno y la siguiente otro."],
+  ["Semana A / B", "Los turnos se alternan: una semana uno y la siguiente otro. A una persona se le puede cambiar una semana desde el tablero."],
   ["Cliente base", "GH: se queda las horas del turno que no van a otro cliente."],
   ["Cuenta como", "BD y LX cuentan como GH: comparten su cupo y cubren sus llamadas."],
   ["Mínimo", "Cuánta gente hace falta en GH a cada hora para atender las llamadas."],

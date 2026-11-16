@@ -526,6 +526,19 @@ export function bloquesConservables(versionId: number) {
   return bloquesVersion(versionId).filter((b) => b.fijado || b.origen === "manual");
 }
 
+/**
+ * Lo que «regenerar respetando mis cambios» conservaría de una versión: sus
+ * bloques fijados o editados a mano y sus semanas cambiadas A↔B.
+ */
+export function cambiosAMano(versionId: number): { bloques: number; semanas: number } {
+  const v = db
+    .select({ semanas: sql<number | null>`json_array_length(${planVersiones.entradas}, '$.semanasAlternas')` })
+    .from(planVersiones)
+    .where(eq(planVersiones.id, versionId))
+    .get();
+  return { bloques: bloquesConservables(versionId).length, semanas: v?.semanas ?? 0 };
+}
+
 // ---------- Edición, publicación y copias (F3) ----------
 
 /**
@@ -567,6 +580,8 @@ export function guardarEdicion(opciones: {
   ahora: Date;
   avisos: Aviso[];
   resumen: ResumenMotor | null;
+  /** Foto de entrada nueva (cambiar la semana A↔B de una persona cambia sus turnos). */
+  entradas?: EntradaMotor;
 }): { revision: number; insertados: number; actualizados: number; borrados: number } {
   const { autor, ahora } = opciones;
   const textoAhora = format(ahora, "dd/MM/yyyy HH:mm");
@@ -593,6 +608,7 @@ export function guardarEdicion(opciones: {
         revision: sql`${planVersiones.revision} + 1`,
         avisos: opciones.avisos,
         ...(opciones.resumen ? { resumen: opciones.resumen } : {}),
+        ...(opciones.entradas ? { entradas: opciones.entradas } : {}),
       })
       .where(
         and(
@@ -1065,6 +1081,37 @@ export function asignarTurno(valores: {
     if (existente) tx.update(planAgenteTurnos).set(valores).where(eq(planAgenteTurnos.id, existente.id)).run();
     else tx.insert(planAgenteTurnos).values(valores).run();
   });
+}
+
+/**
+ * Corrige una asignación de turno que ya existe (16/11/2026: un error al
+ * escribirla no tenía vuelta atrás). Vale también para las ya empezadas: el
+ * contrato del día sale del turno, así que los saldos de esos días cambian.
+ * Error si choca con otra asignación del mismo agente que empieza el mismo día.
+ * Devuelve la fila de antes (para la auditoría), o undefined si no existe.
+ */
+export function editarAsignacionTurno(
+  id: number,
+  valores: { agenteNumero: string; patronAId: number | null; patronBId: number | null; desde: string; hasta: string | null },
+) {
+  return db.transaction((tx) => {
+    const antes = tx.select().from(planAgenteTurnos).where(eq(planAgenteTurnos.id, id)).get();
+    if (!antes) return undefined;
+    const choca = tx
+      .select({ id: planAgenteTurnos.id })
+      .from(planAgenteTurnos)
+      .where(and(eq(planAgenteTurnos.agenteNumero, valores.agenteNumero), eq(planAgenteTurnos.desde, valores.desde)))
+      .all()
+      .some((x) => x.id !== id);
+    if (choca) throw new Error(`El agente ${valores.agenteNumero} ya tiene otra asignación que empieza ese día: edita esa o bórrala.`);
+    tx.update(planAgenteTurnos).set(valores).where(eq(planAgenteTurnos.id, id)).run();
+    return antes;
+  });
+}
+
+/** Borra una asignación de turno. Devuelve la fila borrada (para la auditoría). */
+export function borrarAsignacionTurno(id: number) {
+  return db.delete(planAgenteTurnos).where(eq(planAgenteTurnos.id, id)).returning().get();
 }
 
 export function guardarTipoAusencia(valores: typeof planTiposAusencia.$inferInsert, crear: boolean): void {

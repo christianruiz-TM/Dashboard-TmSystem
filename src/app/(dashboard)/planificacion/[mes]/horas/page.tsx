@@ -151,7 +151,7 @@ export default async function PaginaHoras({
       ayuda="horas"
       seccion="/horas"
       titulo="Horas"
-      descripcion="Contrato, horas planificadas y horas efectivas (las que estuvo conectada de verdad) del equipo y de cada persona. Las efectivas llegan hasta ayer."
+      descripcion="Contrato, horas planificadas y horas efectivas (las que estuvo conectada de verdad) del equipo y de cada persona, y las horas que le quedan al equipo. Las efectivas llegan hasta ayer."
     />
   );
   if (!d) {
@@ -247,8 +247,8 @@ export default async function PaginaHoras({
         </p>
       </div>
 
-      {/* Las tres cifras del equipo */}
-      <div className="grid gap-4 sm:grid-cols-3">
+      {/* Las cuatro cifras del equipo */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <TarjetaKpi
           titulo="Contrato"
           valor={horasLegibles(equipo.contrato)}
@@ -270,6 +270,18 @@ export default async function PaginaHoras({
               : "Este periodo aún no ha empezado"
           }
           ayuda="Las horas que estuvo conectada de verdad, con cualquiera de sus usuarios. Solo de los días que ya han pasado."
+        />
+        <TarjetaKpi
+          titulo="Horas restantes"
+          valor={horasLegibles(equipo.restantes)}
+          sub={
+            equipo.restantes < 0
+              ? "Ya se ha hecho más de lo planificado"
+              : equipo.empezado
+                ? "Planificadas menos efectivas"
+                : "Este periodo aún no ha empezado: todo lo planificado"
+          }
+          ayuda="Las horas planificadas de todo el periodo menos las efectivas hasta ayer. Si en los días pasados se hizo menos de lo planificado, esa diferencia también queda por hacer. En negativo, se ha hecho más de lo planificado."
         />
       </div>
       <NotaContratoDia mes={mes} />

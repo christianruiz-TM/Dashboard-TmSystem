@@ -57,6 +57,8 @@ import {
   rangoCorto,
   semanasDelMes,
   validarPlan,
+  claveSemanaAlterna,
+  conjuntoSemanasAlternas,
   type AgenteMotor,
   type Aviso,
 } from "@/lib/planificacion/motor";
@@ -87,12 +89,14 @@ import { CopiaAgentes } from "./copia-agentes";
 import { BloqueFantasma, type ClienteVista } from "./bloque";
 import {
   BotonBorradorDesdePublicada,
+  DialogoCambiarSemana,
   DialogoMoverA,
   DialogoNuevoBloque,
   DialogoPublicar,
   type AccionFormulario,
   type OpcionAgente,
   type OpcionDia,
+  type PeticionCambioSemana,
 } from "./dialogos-edicion";
 import { FilaAgente, type ContextoCeldas, type DiaColumna, type FilaAgenteDatos } from "./fila-agente";
 import { LeyendaCobertura, MapaCoberturaDia } from "./mapa-cobertura";
@@ -126,6 +130,13 @@ export interface AccionesServidor {
   guardar: (peticion: { versionId: number; revision: number; operaciones: Operacion[] }) => Promise<RespuestaGuardar>;
   publicar: AccionFormulario;
   copiarPublicada: AccionFormulario;
+  /** Cambiar la semana A↔B de una persona (se guarda al momento; [mes]/acciones.ts). */
+  alternarSemana: (peticion: {
+    versionId: number;
+    revision: number;
+    agenteNumero: string;
+    lunes: string;
+  }) => Promise<{ ok: true } | { ok: false; error: string; conflicto: boolean }>;
 }
 
 // ---------- Estado de edición: reductor PURO (deshacer / rehacer) ----------
@@ -354,6 +365,7 @@ export function Tablero({
   const [menu, setMenu] = useState<EstadoMenuBloque | null>(null);
   const [moverA, setMoverA] = useState<BloqueTablero | null>(null);
   const [nuevo, setNuevo] = useState<{ agente: string; fecha: string; inicioMin: number } | null>(null);
+  const [cambioSemana, setCambioSemana] = useState<PeticionCambioSemana | null>(null);
   const [arrastre, setArrastre] = useState<{ bloque: BloqueTablero; ancho: number } | null>(null);
   const ultimoArrastre = useRef(0);
   const pxFranja = useRef(0);
@@ -363,6 +375,10 @@ export function Tablero({
   const franjas = useMemo(() => generarFranjas(entrada.inicioDiaMin, entrada.finDiaMin, paso), [entrada, paso]);
   const semanas = useMemo(() => semanasDelMes(entrada.dias), [entrada]);
   const semanaDe = useMemo(() => Object.fromEntries(entrada.dias.map((d) => [d.fecha, d.lunes])), [entrada]);
+  // Semanas A↔B cambiadas a mano y la rotación de siempre de cada semana
+  const alternas = useMemo(() => conjuntoSemanasAlternas(entrada.semanasAlternas), [entrada]);
+  const rotacionDeSemana = useMemo(() => new Map(semanas.map((s) => [s.lunes, s.rotacion])), [semanas]);
+  const enFoto = useMemo(() => new Set(entrada.agentes.map((a) => a.numero)), [entrada]);
   const clientes = useMemo(
     () =>
       new Map<string, ClienteVista>(
@@ -532,6 +548,42 @@ export function Tablero({
     [sePuedeEditar, abrirMenu, teclado, redimensionar, paso, nuevoBloque],
   );
 
+  const pedirCambioSemana = useCallback(
+    (agente: string, lunes: string) => {
+      const s = semanas.find((x) => x.lunes === lunes);
+      const normal = rotacionDeSemana.get(lunes);
+      if (!s || !normal) return;
+      const cambiada = alternas.has(claveSemanaAlterna(agente, lunes));
+      setCambioSemana({
+        agente,
+        nombre: `${agente} ${nombres[agente] ?? ""}`.trim(),
+        lunes,
+        etiquetaSemana: `${fechaDiaMes(s.fechas[0])}–${fechaDiaMes(s.fechas[s.fechas.length - 1])}`,
+        rotacion: cambiada ? (normal === "A" ? "B" : "A") : normal,
+        cambiada,
+      });
+    },
+    [semanas, rotacionDeSemana, alternas, nombres],
+  );
+  const confirmarCambioSemana = useCallback(
+    async (p: PeticionCambioSemana): Promise<string | null> => {
+      if (!accionesServidor) return "Sin permiso para editar.";
+      try {
+        const r = await accionesServidor.alternarSemana({ versionId: version.id, revision, agenteNumero: p.agente, lunes: p.lunes });
+        if (!r.ok) {
+          if (r.conflicto) setConflicto(r.error);
+          return r.error;
+        }
+      } catch {
+        return "No se ha podido guardar (¿sin conexión?): vuelve a intentarlo.";
+      }
+      // Cambian los turnos de la foto: se vuelve a cargar el tablero entero (la URL ya lleva vista y semana)
+      window.location.reload();
+      return null;
+    },
+    [accionesServidor, version.id, revision],
+  );
+
   const ctxCeldas = useMemo<ContextoCeldas>(
     () => ({
       clientes,
@@ -541,8 +593,9 @@ export function Tablero({
       nFranjas: franjas.length,
       tiposAusencia: datos.tiposAusencia,
       edicion: accionesBloque,
+      cambiarSemana: sePuedeEditar ? pedirCambioSemana : null,
     }),
-    [clientes, base, entrada, franjas, datos.tiposAusencia, accionesBloque],
+    [clientes, base, entrada, franjas, datos.tiposAusencia, accionesBloque, sePuedeEditar, pedirCambioSemana],
   );
 
   // Foco tras una edición con teclado o menú (el bloque puede haber cambiado de celda)
@@ -695,6 +748,8 @@ export function Tablero({
         // Horas, saldo e incidencias: los de los días del mes
         const lunes = semanaDe[dias.find((d) => !d.fuera)?.fecha ?? ""] ?? "";
         const incid = incidenciasAgente.get(`${a.numero}|${lunes}`);
+        const normal = rotacionDeSemana.get(lunes) ?? null;
+        const semanaCambiada = alternas.has(claveSemanaAlterna(a.numero, lunes));
         return {
           numero: a.numero,
           nombre: nombres[a.numero] ?? "",
@@ -708,9 +763,25 @@ export function Tablero({
           ausencias,
           duras: incid?.duras ?? 0,
           blandas: incid?.blandas ?? 0,
+          rotacion: enFoto.has(a.numero) && normal ? (semanaCambiada ? (normal === "A" ? "B" : "A") : normal) : null,
+          semanaCambiada,
+          lunes,
         };
       }),
-    [agentes, porAgenteDia, bloquesFuera, datos.fuera, semanaDe, incidenciasAgente, nombres, horasAgentes, saldos],
+    [
+      agentes,
+      porAgenteDia,
+      bloquesFuera,
+      datos.fuera,
+      semanaDe,
+      incidenciasAgente,
+      nombres,
+      horasAgentes,
+      saldos,
+      rotacionDeSemana,
+      alternas,
+      enFoto,
+    ],
   );
   const filasSemana = useMemo(() => construirFilas(columnasSemana), [construirFilas, columnasSemana]);
   const filasDia = useMemo(() => (diaActual ? construirFilas([diaActual]) : []), [construirFilas, diaActual]);
@@ -1245,6 +1316,13 @@ export function Tablero({
               siguienteUnible={siguienteUnible}
               onOperacion={(op) => aplicar([op])}
               onMoverA={setMoverA}
+            />
+            <DialogoCambiarSemana
+              peticion={cambioSemana}
+              clienteBase={clientes.get(base)?.nombre ?? base}
+              pendientes={pendientes.length}
+              onCerrar={() => setCambioSemana(null)}
+              onConfirmar={confirmarCambioSemana}
             />
             <DialogoMoverA
               bloque={moverA}

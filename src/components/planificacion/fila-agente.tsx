@@ -29,6 +29,8 @@ export interface ContextoCeldas {
   tiposAusencia: Record<string, { nombre: string; color: string }>;
   /** null = solo lectura (sin arrastre, menú ni teclado). */
   edicion: (AccionesBloque & { nuevoBloque: (agente: string, fecha: string, minuto: number) => void }) | null;
+  /** Cambiar la semana A↔B de una persona (null = solo lectura). */
+  cambiarSemana: ((agente: string, lunes: string) => void) | null;
 }
 
 const CLIENTE_DESCONOCIDO = (codigo: string): ClienteVista => ({
@@ -170,12 +172,39 @@ export interface FilaAgenteDatos {
   /** Incidencias de validación del agente esa semana. */
   duras: number;
   blandas: number;
+  /** Rotación que hace esa semana (null si no tiene turno) y si se cambió a mano en el tablero. */
+  rotacion: "A" | "B" | null;
+  semanaCambiada: boolean;
+  /** Lunes de la semana que se ve. */
+  lunes: string;
 }
 
 const VACIO: never[] = [];
 
 function textoSaldo(nombre: string, s: SaldoPrevisto): string {
   return `${nombre}: ${horasTexto(s.plan)} planificadas + ${horasTexto(s.justificadas)} justificadas − ${horasTexto(s.contrato)} de contrato = ${saldoTexto(s.saldo)}`;
+}
+
+/** «A»/«B»: la semana que hace (en ámbar si se cambió a mano). Si se puede editar, al pulsarla se cambia. */
+function MarcaSemana({ fila, cambiar }: { fila: FilaAgenteDatos; cambiar: ((agente: string, lunes: string) => void) | null }) {
+  const titulo = fila.semanaCambiada
+    ? `Hace el turno de la semana ${fila.rotacion}, cambiada a mano${cambiar ? ". Pulsa para volver a la de siempre" : ""}`
+    : `Turno de la semana ${fila.rotacion}${cambiar ? ". Pulsa para cambiarla" : ""}`;
+  const clase = cn(
+    "shrink-0 rounded px-1 text-[10px] leading-4 font-semibold tabular-nums",
+    fila.semanaCambiada
+      ? "bg-amber-100 text-amber-900 ring-1 ring-amber-400 dark:bg-amber-950 dark:text-amber-200"
+      : "bg-muted text-muted-foreground",
+  );
+  return cambiar ? (
+    <button type="button" className={cn(clase, "hover:ring-2 hover:ring-primary")} title={titulo} aria-label={titulo} onClick={() => cambiar(fila.numero, fila.lunes)}>
+      {fila.rotacion}
+    </button>
+  ) : (
+    <span className={clase} title={titulo}>
+      {fila.rotacion}
+    </span>
+  );
 }
 
 /** Fila de un agente en la vista semanal: su nombre, horas y saldo previsto, y una celda por día. */
@@ -215,6 +244,7 @@ export const FilaAgente = memo(function FilaAgente({
           <span className="truncate" title={etiqueta}>
             {etiqueta}
           </span>
+          {fila.rotacion ? <MarcaSemana fila={fila} cambiar={ctx.cambiarSemana} /> : null}
           {fila.duras > 0 ? (
             <OctagonAlert className="size-3.5 shrink-0 text-destructive" aria-label={`${fila.duras} incidencias duras`} />
           ) : fila.blandas > 0 ? (

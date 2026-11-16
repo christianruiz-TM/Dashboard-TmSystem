@@ -7,6 +7,7 @@ import { ayerISO } from "@/lib/fechas";
 import { asegurarCalendarios, calendarioPlan } from "./calendarios";
 import {
   CALENDARIO_PLANTILLA,
+  conjuntoSemanasAlternas,
   ahtMedido,
   asignarCampanias,
   calcularLambda,
@@ -35,6 +36,7 @@ import {
   type DemandaMotor,
   type EntradaMotor,
   type ObjetivoSemana,
+  type SemanaAlterna,
 } from "./motor";
 import { calendariosCupo, resolverBolsas } from "./bolsas";
 import { fueraDePlantilla, leerEquipo, prefijosSinCliente, ultimaSesionAgente } from "./equipo";
@@ -46,6 +48,12 @@ export interface OpcionesCarga {
   hastaDatos?: string;
   /** Bloques que el motor debe respetar tal cual (regenerar «respetando mis cambios»). */
   fijados?: BloqueEntrada[];
+  /**
+   * Semanas en que un agente hace la otra rotación (A↔B), cambiadas a mano en
+   * el tablero: se conservan al regenerar «respetando mis cambios» y en el
+   * recálculo de los lunes. Las de otro mes se ignoran.
+   */
+  semanasAlternas?: readonly SemanaAlterna[];
   /**
    * Primer día que se planifica (recálculo de los lunes): las semanas
    * anteriores no reciben objetivo, porque sus bloques se conservan de la
@@ -123,12 +131,20 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
   const { usuarios, clienteDeUsuario, agenteDeUsuario, plantilla, numerosPlantilla } = eq;
   const asignaciones = repo.leerAsignacionesTurno();
   const patrones = repo.leerPatrones();
-  const turnos = expandirTurnos(asignaciones, patrones, dias);
+  // Semanas cambiadas a mano (A↔B) que siguen siendo de este mes
+  const lunesDelMes = new Set(dias.map((d) => d.lunes));
+  const semanasAlternas = (opciones.semanasAlternas ?? [])
+    .filter((x) => lunesDelMes.has(x.lunes))
+    .map((x) => ({ agenteNumero: x.agenteNumero, lunes: x.lunes }))
+    .sort((a, b) => a.lunes.localeCompare(b.lunes) || a.agenteNumero.localeCompare(b.agenteNumero));
+  const alternas = conjuntoSemanasAlternas(semanasAlternas);
+  const turnos = expandirTurnos(asignaciones, patrones, dias, alternas);
   // Turno de los días de otro mes en las semanas partidas: reparte el contrato
   const turnosFuera = expandirTurnos(
     asignaciones,
     patrones,
     diasFueraDelMes(dias, { servicioCalendario: CALENDARIO_PLANTILLA, festivos: cal.festivos, cierresEquipo: cal.cierresPlantilla }),
+    alternas,
   );
   const ausencias = expandirAusencias(repo.leerAusencias(inicioMes, finMes), dias);
 
@@ -419,5 +435,7 @@ export async function cargarEntradaMotor(mes: string, opciones: OpcionesCarga = 
       vigenciaHorarios: cal.vigenciaHorarios,
       avisosCarga,
     },
+    // Solo si hay alguna: las fotos de siempre (y el fixture del motor) no cambian
+    ...(semanasAlternas.length > 0 ? { semanasAlternas } : {}),
   };
 }
