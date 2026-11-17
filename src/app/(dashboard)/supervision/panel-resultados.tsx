@@ -10,11 +10,13 @@ import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
 import { FiltroCampo } from "@/components/filtros/filtro-campo";
+import { SelectorTipo } from "@/components/filtros/selector-tipo";
+import { AvisoTipo } from "@/components/filtros/aviso-tipo";
 import { Glosario } from "@/components/glosario";
 import { ResultadosActividad } from "@/components/kpi/resultados-actividad";
 import type { ResultadoRatios } from "@/lib/ratios-exito";
-import type { FiltroCampo as Filtro, ResultadoResultados, SeleccionTipo } from "@/lib/resultados-actividad";
-import { cn } from "@/lib/utils";
+import type { FiltroCampo as Filtro, ResultadoResultados } from "@/lib/resultados-actividad";
+import type { FiltroTipo } from "@/lib/tipo-panel";
 
 /**
  * Supervisión → Resultados: análisis de los resultados de actividad
@@ -35,8 +37,8 @@ export function PanelResultados({
   servicio,
   incluirIvr,
   esAdmin,
-  tipos,
-  tipo,
+  filtroTipo,
+  sinHoras,
   campo,
   urlCsv,
 }: {
@@ -47,9 +49,14 @@ export function PanelResultados({
   resultado: ResultadoResultados | null;
   /** Ratios de éxito del mismo alcance: las cajas de actividad de la cabecera. */
   ratios: ResultadoRatios | null;
-  /** Opciones del selector de tipo de campaña (vacío si el cliente no tiene tipos). */
-  tipos: { valor: SeleccionTipo; etiqueta: string }[];
-  tipo: SeleccionTipo;
+  /**
+   * Filtro por tipo de campaña (opciones vacías si el cliente no tiene tipos).
+   * Desde el 17/11/2026, el mismo selector que el resto de paneles; en GH,
+   * por defecto «Sin BBDD».
+   */
+  filtroTipo: FiltroTipo;
+  /** «Solo BBDD» de GH: sin horas logadas ni «por hora». */
+  sinHoras: boolean;
   desde: string;
   hasta: string;
   presets: { etiqueta: string; desde: string; hasta: string }[];
@@ -69,18 +76,6 @@ export function PanelResultados({
   const hrefCliente = (s: string) => {
     const p = new URLSearchParams({ vista: "resultados", servicio: s, desde, hasta });
     if (incluirIvr) p.set("ivr", "1");
-    return `/supervision?${p.toString()}`;
-  };
-  // Enlace a un tipo de campaña del cliente elegido
-  const hrefTipo = (t: SeleccionTipo) => {
-    const p = new URLSearchParams({ vista: "resultados", servicio: servicio ?? "", desde, hasta });
-    if (incluirIvr) p.set("ivr", "1");
-    if (t !== "todas") p.set("tipo", t);
-    // El filtro por un dato del contacto se mantiene al cambiar de tipo
-    if (campo?.filtro) {
-      if (campo.filtro.valor) p.set("campo", campo.filtro.valor);
-      if (campo.filtro.modo !== "exacto") p.set("modo", campo.filtro.modo);
-    }
     return `/supervision?${p.toString()}`;
   };
   return (
@@ -113,28 +108,10 @@ export function PanelResultados({
 
       {avisos}
 
-      {servicio && tipos.length > 0 ? (
-        <div className="flex flex-wrap items-center gap-2 text-sm">
-          <span className="text-muted-foreground">Tipo de campaña:</span>
-          <div className="inline-flex flex-wrap gap-1 rounded-lg bg-muted p-1">
-            {tipos.map((o) => (
-              <Link
-                key={o.valor}
-                href={hrefTipo(o.valor)}
-                aria-current={o.valor === tipo ? "page" : undefined}
-                className={cn(
-                  "rounded-md px-3 py-1 font-medium transition-colors",
-                  o.valor === tipo
-                    ? "bg-background text-foreground shadow-sm"
-                    : "text-muted-foreground hover:text-foreground",
-                )}
-              >
-                {o.etiqueta}
-              </Link>
-            ))}
-          </div>
-        </div>
+      {servicio && filtroTipo.opciones.length > 0 ? (
+        <SelectorTipo opciones={filtroTipo.opciones} valor={filtroTipo.tipo} defecto={filtroTipo.defecto} />
       ) : null}
+      <AvisoTipo filtro={filtroTipo} sinHoras={sinHoras} />
 
       {campo && resultado?.valoresCampo ? (
         <FiltroCampo etiqueta={campo.etiqueta} valores={resultado.valoresCampo} filtro={campo.filtro} />
@@ -162,7 +139,7 @@ export function PanelResultados({
       ) : null}
 
       {resultado ? (
-        <ResultadosActividad r={resultado} ratios={ratios} periodo="en el período" />
+        <ResultadosActividad r={resultado} ratios={ratios} periodo="en el período" sinHoras={sinHoras} />
       ) : (
         <Card>
           <CardHeader>

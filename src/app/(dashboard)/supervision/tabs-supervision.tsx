@@ -18,6 +18,7 @@ export function TabsSupervision({
   desde,
   hasta,
   seccion,
+  tipo,
 }: {
   vista: Vista;
   servicio?: string;
@@ -26,6 +27,8 @@ export function TabsSupervision({
   hasta?: string;
   /** Sección abierta (12/11/2026): Tiempo real e Histórico tienen las mismas y se conserva al cambiar. */
   seccion?: string;
+  /** `?tipo=` tal cual (17/11/2026): las tres pestañas usan el mismo filtro de tipo. */
+  tipo?: string;
 }) {
   function href(v: Vista) {
     const p = new URLSearchParams();
@@ -33,6 +36,7 @@ export function TabsSupervision({
     if (seccion && seccion !== "resumen" && v !== "resultados") p.set("seccion", seccion);
     if (servicio) p.set("servicio", servicio);
     if (incluirIvr) p.set("ivr", "1");
+    if (servicio && tipo) p.set("tipo", tipo);
     // Las fechas solo tienen sentido en las pestañas de rango
     if (v !== "tiempo-real" && vista !== "tiempo-real" && desde && hasta) {
       p.set("desde", desde);

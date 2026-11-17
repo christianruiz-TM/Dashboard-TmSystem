@@ -8,15 +8,13 @@ import { prefijoUsuariosDe } from "@/lib/facturacion";
 import {
   campoContactoDe,
   configsResultados,
+  filtraPanelesPorTipo,
   objetivosDeResultados,
   tiposCampaniaDe,
 } from "@/lib/db/resultados";
-import {
-  filtrarPorTipo,
-  leerFiltroCampo,
-  opcionesTipo,
-  seleccionTipo,
-} from "@/lib/resultados-actividad";
+import { filtrarPorTipo, leerFiltroCampo } from "@/lib/resultados-actividad";
+import { leerFiltroTipo, parametroTipo } from "@/lib/tipo-panel";
+import { filtroTipoPanel, sinHorasPanel } from "@/lib/tipo-panel-servidor";
 import { definicionExportContactos } from "@/lib/export-contactos";
 import {
   campaniasEfectivas,
@@ -74,6 +72,11 @@ export default async function PaginaSupervision({
   const servicioDe = Object.fromEntries(mapaCampaniaServicio(servicios));
   // Usuarios del cliente (GH_…): solo sus horas van a los totales (23/10/2026)
   const prefijo = servicio ? prefijoUsuariosDe(servicio) : null;
+  // Filtro por tipo de campaña en Tiempo real e Histórico (17/11/2026,
+  // lib/tipo-panel.ts): solo los clientes marcados en /admin/resultados (GH),
+  // por defecto «Sin BBDD». Lo que no es lo de por defecto va en los enlaces.
+  const filtroTipo = filtroTipoPanel(servicio, params.tipo);
+  const tipoUrl = parametroTipo(filtroTipo);
 
   if (vista === "resultados") {
     // Por defecto el mes en curso: con un solo día la muestra por agente es pequeña
@@ -87,13 +90,18 @@ export default async function PaginaSupervision({
     // Siempre por cliente: sin uno elegido no se consulta nada (todos los
     // servicios a la vez tardaba demasiado en abrir la pestaña)
     const servicioElegido = servicio;
-    // Tipos de campaña del cliente (GH: BBDD): se filtra la lista antes de consultar
+    // Tipos de campaña del cliente (GH: BBDD): se filtra la lista antes de
+    // consultar. Con la casilla de los paneles marcada (GH), por defecto «Sin
+    // BBDD», como el resto de Supervisión (17/11/2026); si no, «Todas».
     const tipos = servicioElegido ? tiposCampaniaDe(servicioElegido) : [];
-    const tipo = seleccionTipo(params.tipo, tipos);
+    const filtroRes = leerFiltroTipo(params.tipo, tipos, servicioElegido ? filtraPanelesPorTipo(servicioElegido) : false);
+    const tipo = filtroRes.tipo;
     // Filtro por un dato del contacto (GH: origen del lead), si el cliente lo tiene
     const campo = servicioElegido ? campoContactoDe(servicioElegido) : null;
     const filtroCampo = campo ? leerFiltroCampo(params.campo, params.modo) : null;
     const campTipo = filtrarPorTipo(camp ?? [], tipos, tipo);
+    // «Solo BBDD» de GH: sin horas logadas ni «por hora» (como Mi servicio)
+    const sinHoras = sinHorasPanel(servicioElegido, campTipo, filtroRes);
     // Con un tipo de campaña no se puede saber de qué tipo es quien no llamó:
     // los usuarios logados sin actividad solo salen con el cliente entero
     const sinActividad = tipo === "todas";
@@ -133,6 +141,7 @@ export default async function PaginaSupervision({
             incluirIvr={incluirIvr}
             desde={params.desde}
             hasta={params.hasta}
+            tipo={parametroTipo(filtroRes)}
           />
         }
         avisos={
@@ -151,8 +160,8 @@ export default async function PaginaSupervision({
         servicio={servicioElegido}
         incluirIvr={incluirIvr}
         esAdmin={usuario.rol === "admin"}
-        tipos={opcionesTipo(tipos)}
-        tipo={tipo}
+        filtroTipo={filtroRes}
+        sinHoras={sinHoras}
         campo={campo ? { etiqueta: campo.etiqueta, filtro: filtroCampo } : null}
         urlCsv={urlCsv}
       />
@@ -167,12 +176,12 @@ export default async function PaginaSupervision({
       hasta: params.hasta ?? ayer.hasta,
     });
     const { desde, hasta } = rango.success ? rango.data : ayer;
-    const datos = await datosSupervisionRango(desde, hasta, servicio, incluirIvr, seccion);
+    const datos = await datosSupervisionRango(desde, hasta, servicio, incluirIvr, seccion, params.tipo);
     return (
       <PanelHistorico
         datos={datos}
         seccion={seccion}
-        secciones={pestanasSeccion({ vista: "historico", servicio, incluirIvr, desde, hasta })}
+        secciones={pestanasSeccion({ vista: "historico", servicio, incluirIvr, desde, hasta, tipo: tipoUrl })}
         pestanas={
           <TabsSupervision
             vista="historico"
@@ -181,6 +190,7 @@ export default async function PaginaSupervision({
             desde={params.desde}
             hasta={params.hasta}
             seccion={seccion}
+            tipo={tipoUrl}
           />
         }
         avisos={
@@ -197,27 +207,31 @@ export default async function PaginaSupervision({
         servicio={servicio}
         incluirIvr={incluirIvr}
         tipos={tiposCliente}
+        filtroTipo={filtroTipo}
         servicioDe={servicioDe}
       />
     );
   }
 
   // Tiempo real (hoy, en vivo con polling): solo la sección abierta y la franja «Ahora»
-  const inicial = await datosSupervisionHoy(servicio, incluirIvr, seccion);
+  const inicial = await datosSupervisionHoy(servicio, incluirIvr, seccion, params.tipo);
   return (
     <PanelSupervision
-      // Remonta al cambiar de servicio, de toggle IVR o de sección
-      key={`${servicio ?? "todos"}|${incluirIvr ? "ivr" : "noivr"}|${seccion}`}
+      // Remonta al cambiar de servicio, de toggle IVR, de tipo o de sección
+      key={`${servicio ?? "todos"}|${incluirIvr ? "ivr" : "noivr"}|${filtroTipo.tipo}|${seccion}`}
       inicial={inicial}
       seccion={seccion}
-      secciones={pestanasSeccion({ vista: "tiempo-real", servicio, incluirIvr })}
-      pestanas={<TabsSupervision vista="tiempo-real" servicio={servicio} incluirIvr={incluirIvr} seccion={seccion} />}
+      secciones={pestanasSeccion({ vista: "tiempo-real", servicio, incluirIvr, tipo: tipoUrl })}
+      pestanas={
+        <TabsSupervision vista="tiempo-real" servicio={servicio} incluirIvr={incluirIvr} seccion={seccion} tipo={tipoUrl} />
+      }
       avisos={<AvisoServicio pedido={servicioInexistente} alternativa="todos los clientes" />}
       servicios={nombresServicios}
       ordenServicios={orden}
       servicio={servicio}
       incluirIvr={incluirIvr}
       tipos={tiposCliente}
+      filtroTipo={filtroTipo}
       servicioDe={servicioDe}
     />
   );

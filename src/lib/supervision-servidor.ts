@@ -1,5 +1,4 @@
 import { umbralSlaSeg } from "@/lib/db/settings";
-import { tiposCampaniaDe } from "@/lib/db/resultados";
 import { hoyISO } from "@/lib/fechas";
 import { calidadBaseDatos, type ResultadoCalidadBd } from "@/lib/calidad-bd";
 import { callbackPeriodo } from "@/lib/callback-servidor";
@@ -13,7 +12,8 @@ import { datosDeSeccion, type SeccionSupervision } from "@/lib/supervision-secci
 import { calidadBaseDatosRango } from "@/lib/rdb/queries/calidad-bd";
 import { ratiosExitoHoy, ratiosExitoRango } from "@/lib/rdb/queries/ratios-exito";
 import { resumenSalientes } from "@/lib/rdb/queries/salientes";
-import { campaniasDeServicio, campaniasEfectivas } from "@/lib/rdb/queries/servicios";
+import { campaniasDeServicio } from "@/lib/rdb/queries/servicios";
+import { alcanceTipo } from "@/lib/tipo-panel-servidor";
 import {
   agentesHoy,
   agentesProductividadRango,
@@ -46,6 +46,11 @@ export interface DatosSupervisionPeriodo {
   salientes: ResultadoSalientes | null;
   calidad: ResultadoCalidadBd | null;
   umbral: number;
+  /**
+   * Tipo de campaña cuyas campañas se facturan sin horas («Solo BBDD» de GH,
+   * 17/11/2026): el panel no enseña horas logadas ni cifras por hora.
+   */
+  sinHoras: boolean;
 }
 
 /** Tiempo real: además, la plantilla ahora y las alertas (la franja «Ahora», en todas las pestañas). */
@@ -68,20 +73,27 @@ async function datosPeriodo(
   incluirIvr: boolean,
   seccion: SeccionSupervision,
   enVivo: boolean,
+  tipo: string | null | undefined,
 ): Promise<DatosSupervisionPeriodo> {
   const pide = datosDeSeccion(seccion, enVivo);
   const umbral = umbralSlaSeg();
-  const camp = await campaniasEfectivas(servicio, incluirIvr);
+  // Campañas del tipo elegido (17/11/2026, lib/tipo-panel.ts): GH sin BBDD por defecto
+  const alcance = await alcanceTipo(servicio, incluirIvr, tipo);
+  const camp = alcance.campanias;
+  const { sinActividad } = alcance;
   // Usuarios del cliente (GH_…): solo sus horas van a los totales (23/10/2026)
   const prefijo = prefijoUsuariosDe(servicio);
   const [kpis, top, ivr, ratios, intentos, resultados, salientes, callback] = await Promise.all([
     si(pide.has("kpis"), () => (enVivo ? kpisCampaniasHoy(umbral, camp) : kpisCampaniasRango(desde, hasta, umbral, camp))),
     si(pide.has("agentes"), () => (enVivo ? agentesHoy(camp) : agentesProductividadRango(desde, hasta, camp))),
-    // La tarjeta del IVR usa siempre las campañas del servicio (IVR incluidas)
+    // La tarjeta del IVR usa siempre las campañas del servicio (IVR incluidas),
+    // y el callback es del cliente entero: ni uno ni otro van por tipo
     si(pide.has("ivr"), async () => metricasIvr(desde, hasta, await campaniasDeServicio(servicio))),
-    si(pide.has("ratios"), () => (enVivo ? ratiosExitoHoy(camp, prefijo) : ratiosExitoRango(desde, hasta, camp, prefijo))),
+    si(pide.has("ratios"), () =>
+      enVivo ? ratiosExitoHoy(camp, prefijo, sinActividad) : ratiosExitoRango(desde, hasta, camp, prefijo, sinActividad),
+    ),
     si(pide.has("calidad"), () => calidadBaseDatosRango(desde, hasta, camp)),
-    si(pide.has("resultados"), () => totalResultados(desde, hasta, camp, prefijo)),
+    si(pide.has("resultados"), () => totalResultados(desde, hasta, camp, prefijo, sinActividad)),
     si(pide.has("salientes"), () => resumenSalientes(desde, hasta, camp, prefijo)),
     // Callback (12/11/2026): si falla, el panel sigue sin la sección
     si(pide.has("callback"), () =>
@@ -92,7 +104,7 @@ async function datosPeriodo(
     ),
   ]);
   // Los tipos de campaña del cliente agrupan la calidad por tipo
-  const tipos = servicio ? tiposCampaniaDe(servicio) : [];
+  const tipos = alcance.tipos;
   return {
     kpis,
     top,
@@ -103,6 +115,7 @@ async function datosPeriodo(
     salientes,
     calidad: intentos ? calidadBaseDatos(intentos.filas, intentos.contactos, tipos) : null,
     umbral,
+    sinHoras: alcance.sinHoras,
   };
 }
 
@@ -111,11 +124,14 @@ export async function datosSupervisionHoy(
   servicio: string | undefined,
   incluirIvr: boolean,
   seccion: SeccionSupervision,
+  /** `?tipo=` (17/11/2026): GH sin BBDD por defecto. */
+  tipo?: string | null,
 ): Promise<DatosSupervisionHoy> {
   const hoy = hoyISO();
-  const camp = await campaniasEfectivas(servicio, incluirIvr);
+  // Estado de agentes: los que tienen abierta alguna campaña del tipo
+  const camp = (await alcanceTipo(servicio, incluirIvr, tipo)).campanias;
   const [periodo, agentes, plan] = await Promise.all([
-    datosPeriodo(hoy, hoy, servicio, incluirIvr, seccion, true),
+    datosPeriodo(hoy, hoy, servicio, incluirIvr, seccion, true, tipo),
     estadoAgentes(camp),
     alertasPlanificacion(),
   ]);
@@ -129,6 +145,8 @@ export function datosSupervisionRango(
   servicio: string | undefined,
   incluirIvr: boolean,
   seccion: SeccionSupervision,
+  /** `?tipo=` (17/11/2026): GH sin BBDD por defecto. */
+  tipo?: string | null,
 ): Promise<DatosSupervisionPeriodo> {
-  return datosPeriodo(desde, hasta, servicio, incluirIvr, seccion, false);
+  return datosPeriodo(desde, hasta, servicio, incluirIvr, seccion, false, tipo);
 }

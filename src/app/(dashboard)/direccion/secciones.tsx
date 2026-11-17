@@ -32,7 +32,7 @@ function variacion(actual: number, anterior: number): number | null {
 const suma = <T,>(filas: T[], f: (x: T) => number) => filas.reduce((acc, x) => acc + f(x), 0);
 
 /** Las 12 cajas principales (22/10/2026), las mismas que en Supervisión, con la variación. */
-export async function CajasDireccion({ datos }: { datos: CargaDireccion }) {
+export async function CajasDireccion({ datos, sinHoras = false }: { datos: CargaDireccion; sinHoras?: boolean }) {
   const [ratios, ratiosAnt, resultados, resultadosAnt] = await Promise.all([
     datos.ratios(),
     datos.ratiosAnterior(),
@@ -44,6 +44,7 @@ export async function CajasDireccion({ datos }: { datos: CargaDireccion }) {
       ratios={ratios.total}
       resultados={resultados}
       anterior={{ ratios: ratiosAnt.total, resultados: resultadosAnt }}
+      sinHoras={sinHoras}
     />
   );
 }
@@ -229,15 +230,15 @@ export async function CampaniasDireccion({
 }
 
 /** Rendimiento por éxitos, sin sus cajas (12/11/2026, como en Supervisión). */
-export async function ExitosDireccion({ datos }: { datos: CargaDireccion }) {
-  return <RatiosExito ratios={await datos.ratios()} periodo="en el período" sinTarjetas />;
+export async function ExitosDireccion({ datos, sinHoras = false }: { datos: CargaDireccion; sinHoras?: boolean }) {
+  return <RatiosExito ratios={await datos.ratios()} periodo="en el período" sinTarjetas sinHoras={sinHoras} />;
 }
 
 /** KPIs de salida y calidad de la base de datos. */
-export async function SalientesDireccion({ datos }: { datos: CargaDireccion }) {
+export async function SalientesDireccion({ datos, sinHoras = false }: { datos: CargaDireccion; sinHoras?: boolean }) {
   const salientes = await datos.salientes();
   return salientes ? (
-    <Salientes datos={salientes} periodo="en el período" />
+    <Salientes datos={salientes} periodo="en el período" sinHoras={sinHoras} />
   ) : (
     <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
       Sin llamadas de salida en el período.

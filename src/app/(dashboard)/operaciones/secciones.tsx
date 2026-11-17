@@ -48,7 +48,10 @@ import {
   reabrirMes,
 } from "./acciones";
 import { SeccionCargando } from "@/components/cargando";
+import { AvisoTipo } from "@/components/filtros/aviso-tipo";
 import { ayudaDe } from "@/lib/glosario";
+import type { AlcanceTipo } from "@/lib/tipo-panel-servidor";
+import { filtrarPorTipo } from "@/lib/resultados-actividad";
 
 // ============================================================
 // Secciones de Operaciones (server components asíncronos). La página las
@@ -414,13 +417,27 @@ export async function SeccionFacturacion({
   ctx,
   datos,
   parte,
+  tipo = null,
 }: {
   ctx: ContextoFacturacion;
   datos: Promise<FacturacionCompleta>;
   parte: "factura" | "horas" | "unidades";
+  /**
+   * Filtro por tipo de campaña (17/11/2026, lib/tipo-panel.ts), solo en las
+   * horas y las unidades: las unidades salen solo de las campañas del tipo y,
+   * si el tipo no se factura por horas («Solo BBDD» de GH), no hay horas
+   * logadas. La factura (y su cadena) sigue siendo del cliente entero.
+   */
+  tipo?: Promise<AlcanceTipo> | null;
 }) {
-  const completa = await datos;
-  const { facturacion, porCliente, factura } = completa;
+  const [completa, alcance] = await Promise.all([datos, tipo]);
+  const { porCliente, factura } = completa;
+  // Por el nombre de cada fila (no por la lista de campañas): también las que solo pagan DDIs o minutos
+  const facturacion =
+    alcance && alcance.filtro.tipo !== "todas"
+      ? completa.facturacion.filter((f) => filtrarPorTipo([f.campania], alcance.tipos, alcance.filtro.tipo).length > 0)
+      : completa.facturacion;
+  const sinHoras = alcance?.sinHoras ?? false;
   const { desde, hasta, servicio } = ctx;
   const { mes, cierre, verCierre, lineasCierre, facturaMostrada } = estadoFactura(ctx, completa);
   const ajustesCierre = lineasCierre.filter((l) => l.ajuste).length;
@@ -576,13 +593,20 @@ export async function SeccionFacturacion({
 
       {parte === "factura" && servicio && <CargosPuntuales ctx={ctx} mes={mes} cerrado={cierre != null} />}
 
-      {parte === "horas" && porCliente.length === 0 && (
+      {parte === "horas" && sinHoras && (
+        <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
+          Las campañas de este tipo no se facturan por horas logadas: se cobran por sus propios artículos (en
+          «Unidades por campaña»).
+        </p>
+      )}
+
+      {parte === "horas" && !sinHoras && porCliente.length === 0 && (
         <p className="rounded-lg border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">
           Ningún cliente de lo que estás viendo factura por horas logadas (se configura en «Artículos y tarifas»).
         </p>
       )}
 
-      {parte === "horas" && porCliente.length > 0 && (
+      {parte === "horas" && !sinHoras && porCliente.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="text-base">Horas logadas por cliente</CardTitle>
@@ -819,6 +843,29 @@ export async function SeccionFacturacion({
       </Card>
       )}
     </div>
+  );
+}
+
+/**
+ * Aviso del tipo de campaña en Operaciones (17/11/2026): qué se ve y que la
+ * factura y las descargas siguen siendo del cliente entero.
+ */
+export async function AvisoTipoOperaciones({
+  alcance,
+  conDescarga,
+}: {
+  alcance: Promise<AlcanceTipo>;
+  /** Horas y Unidades: sus descargas CSV/Excel son de todo el cliente. */
+  conDescarga: boolean;
+}) {
+  const a = await alcance;
+  return (
+    <AvisoTipo
+      filtro={a.filtro}
+      sinHoras={a.sinHoras}
+      notaHoras={false}
+      delCliente={conDescarga ? "La factura y las descargas CSV y Excel" : undefined}
+    />
   );
 }
 

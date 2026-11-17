@@ -63,6 +63,7 @@ export function SeccionPeriodo({
             resultados={datos.resultados}
             umbral={datos.umbral}
             sinEntrantes={enVivo}
+            sinHoras={datos.sinHoras}
           />
         ) : null
       ) : null}
@@ -100,12 +101,14 @@ export function SeccionPeriodo({
         </>
       ) : null}
 
-      {seccion === "exitos" && datos.ratios ? <RatiosExito ratios={datos.ratios} periodo={periodo} sinTarjetas /> : null}
+      {seccion === "exitos" && datos.ratios ? (
+        <RatiosExito ratios={datos.ratios} periodo={periodo} sinTarjetas sinHoras={datos.sinHoras} />
+      ) : null}
 
       {seccion === "salientes" ? (
         <>
           {datos.salientes ? (
-            <Salientes datos={datos.salientes} periodo={periodo} />
+            <Salientes datos={datos.salientes} periodo={periodo} sinHoras={datos.sinHoras} />
           ) : (
             <SinDatos texto={`Sin llamadas de salida ${periodo}.`} />
           )}

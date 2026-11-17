@@ -7,6 +7,7 @@ import { AvisoRango, AvisoServicio } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicioActividad } from "@/components/filtros/selector-servicio-actividad";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { SelectorTipo } from "@/components/filtros/selector-tipo";
 import { Glosario } from "@/components/glosario";
 import { BarraPanel } from "@/components/layout/barra-panel";
 import { AvisoMsg } from "@/components/admin/aviso-msg";
@@ -17,9 +18,12 @@ import { facturacionCompleta } from "@/lib/facturacion";
 import { esquemaRango, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
 import { horasAgenteReales, razonesNotReady } from "@/lib/rdb/queries/agentes";
 import { penetracionListas } from "@/lib/rdb/queries/outbound";
-import { campaniasEfectivas, listaServicios } from "@/lib/rdb/queries/servicios";
+import { listaServicios } from "@/lib/rdb/queries/servicios";
 import { TODOS_SERVICIOS } from "@/lib/servicio-todos";
+import { parametroTipo } from "@/lib/tipo-panel";
+import { alcanceTipo, filtroTipoPanel } from "@/lib/tipo-panel-servidor";
 import {
+  AvisoTipoOperaciones,
   Cargando,
   CargandoKpis,
   KpisOperaciones,
@@ -31,6 +35,7 @@ import {
 import {
   GLOSARIO_OPERACIONES,
   NOMBRE_VISTA_OPERACIONES,
+  VISTAS_CON_TIPO,
   VISTAS_FACTURACION,
   leerVistaOperaciones,
   pestanasOperaciones,
@@ -62,6 +67,7 @@ export default async function PaginaOperaciones({
     vista?: string;
     msg?: string;
     detalle?: string;
+    tipo?: string;
   }>;
 }) {
   const usuario = await requireRol(...ROLES_OPERACIONES);
@@ -84,6 +90,12 @@ export default async function PaginaOperaciones({
   const hayCliente = todos || servicio != null;
   const servicioInexistente = elegido && !todos && !servicio ? elegido : null;
   const incluirIvr = params.ivr === "1";
+  // Tipo de campaña (17/11/2026, lib/tipo-panel.ts): con un cliente marcado en
+  // /admin/resultados (GH), por defecto «Sin BBDD», y solo en Horas, Unidades,
+  // Listas y Pausas; la factura, los cierres y las descargas, del cliente entero
+  const filtroTipo = filtroTipoPanel(servicio, params.tipo);
+  const tipoUrl = parametroTipo(filtroTipo);
+  const conTipo = VISTAS_CON_TIPO.includes(vista);
 
   const urlExport = (formato: string) =>
     `/api/export/operaciones?desde=${desde}&hasta=${hasta}&formato=${formato}` +
@@ -103,11 +115,14 @@ export default async function PaginaOperaciones({
 
   // Solo se lanza lo de la pestaña abierta, y solo con cliente elegido. Las
   // promesas se pasan a las secciones (Suspense) sin esperarlas aquí.
-  const campanias = hayCliente && vista !== "cerrados" ? campaniasEfectivas(servicio, incluirIvr) : null;
+  const alcance = hayCliente && vista !== "cerrados" ? alcanceTipo(servicio, incluirIvr, params.tipo) : null;
+  // Listas y pausas, del tipo elegido; las horas reales de la factura, del cliente entero
+  const campanias = alcance ? alcance.then((a) => a.campanias) : null;
+  const campaniasCliente = alcance ? alcance.then((a) => a.campaniasCliente) : null;
   // Factura, horas logadas y unidades salen de la misma cadena de facturación
   const datosFacturacion = hayCliente && esFacturacion ? facturacionCompleta(desde, hasta, servicio, incluirIvr) : null;
   const datosHorasReales =
-    campanias && vista === "facturacion" ? campanias.then((c) => horasAgenteReales(desde, hasta, c)) : null;
+    campaniasCliente && vista === "facturacion" ? campaniasCliente.then((c) => horasAgenteReales(desde, hasta, c)) : null;
   const datosListas = campanias && vista === "listas" ? campanias.then((c) => penetracionListas(desde, hasta, c)) : null;
   const datosPausas = campanias && vista === "pausas" ? campanias.then((c) => razonesNotReady(desde, hasta, c)) : null;
 
@@ -129,10 +144,13 @@ export default async function PaginaOperaciones({
               valor={todos ? TODOS_SERVICIOS : (servicio ?? "")}
               todosExplicito
             />
+            {conTipo ? (
+              <SelectorTipo opciones={filtroTipo.opciones} valor={filtroTipo.tipo} defecto={filtroTipo.defecto} />
+            ) : null}
             <SelectorIvr incluir={incluirIvr} />
           </>
         }
-        secciones={pestanasOperaciones({ servicio: servicioUrl, desde, hasta, incluirIvr })}
+        secciones={pestanasOperaciones({ servicio: servicioUrl, desde, hasta, incluirIvr, tipo: tipoUrl })}
         actual={vista}
         estado={
           <>
@@ -170,6 +188,11 @@ export default async function PaginaOperaciones({
       <AvisoServicio pedido={servicioInexistente} alternativa="la lista de clientes para elegir uno" />
       <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
       <AvisoMsg msg={params.msg} detalle={params.detalle} />
+      {conTipo && alcance ? (
+        <Suspense fallback={null}>
+          <AvisoTipoOperaciones alcance={alcance} conDescarga={esFacturacion} />
+        </Suspense>
+      ) : null}
 
       {!hayCliente && vista !== "cerrados" && (
         <Card>
@@ -196,6 +219,7 @@ export default async function PaginaOperaciones({
             ctx={ctx}
             datos={datosFacturacion}
             parte={vista === "horas" ? "horas" : vista === "unidades" ? "unidades" : "factura"}
+            tipo={conTipo ? alcance : null}
           />
         </Suspense>
       )}

@@ -783,6 +783,35 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     - Medido del 01/09 al 11/11: 2,5 s la consulta; mediana en horario GH
       2,98 min, Ávolo 11,01, CEFF 4,25.
 
+24. **Filtro por tipo de campaña en los paneles (17/11/2026, decidido con
+    Christian: «me falta la opción con o sin base de datos en todas las
+    pestañas de GH»)**. Puro con tests en `lib/tipo-panel.ts`; servidor en
+    `lib/tipo-panel-servidor.ts` (`alcanceTipo`, el MISMO en páginas,
+    refresco de Tiempo real y `npm run precalentar`); selector
+    `components/filtros/selector-tipo.tsx` y aviso `aviso-tipo.tsx`.
+    - Solo los clientes con la casilla «Filtrar los paneles por tipo» de
+      `/admin/resultados` (`app_settings` `resultados.filtroPaneles.<servicio>`,
+      sin migración): GrupoHuertas. Bolsas tiene tipos y sigue como antes.
+      **Tras desplegar hay que marcarla en producción.**
+    - Dónde: Supervisión (Tiempo real, Histórico y Resultados), Dirección y
+      Operaciones → Horas logadas, Unidades, Listas y Pausas. NO en la
+      Factura, los Meses cerrados ni las descargas (del cliente entero).
+      Tarjeta del IVR, callback y alertas: del cliente entero, con aviso.
+    - «Todas · Sin BBDD · Solo BBDD»; por defecto «Sin BBDD» (no va en la
+      URL; «Todas» es `?tipo=todas`), también en Resultados con la casilla.
+      Los enlaces de pestañas y secciones lo conservan.
+    - Horas como en «Mi servicio» (regla 21): con un tipo, sin los logados
+      sin actividad; si todas las campañas del tipo se facturan sin horas
+      (`facturaPorHoras` = false: las bbdd) NO sale ninguna cifra de horas
+      logadas ni «por hora» (cajas 1, 5 y 7, Rendimiento por éxitos,
+      ocupación de Salientes, Resultados) ni Operaciones → Horas.
+    - Del 01/10 al 16/11/2026 los `GH_nnnn` solo trabajaron en campañas que no
+      son BBDD y los `GH_nnnn_BD` solo en `gh_bbdd_*` (sesiones, llamadas y
+      pausas): filtrar por campaña separa también a las personas. Angeles
+      (sin prefijo) abre los dos tipos: sus pausas salen en los dos.
+    - GH 01-16/11: Sin BBDD + Solo BBDD = Todas en llamadas (7.278 + 3.087),
+      gestionadas, éxitos y finalizados; horas Sin BBDD 551,23 h = Mi servicio.
+
 ## Referencia del esquema RDBv2
 
 - `docs/referencia_bbdd_altitude_v85.md` — esquema completo, enumerados, relaciones

@@ -9,7 +9,7 @@ import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
 import { db } from "@/lib/db/sqlite";
 import { objetivosResultados, resultadosConfig } from "@/lib/db/schema";
 import { esquemaFechaISO } from "@/lib/fechas";
-import { guardarCampoContacto, guardarTiposCampania } from "@/lib/db/resultados";
+import { guardarCampoContacto, guardarFiltraPanelesPorTipo, guardarTiposCampania } from "@/lib/db/resultados";
 import {
   MAX_NIVELES,
   esquemaCampoContacto,
@@ -109,8 +109,16 @@ export async function guardarTiposCampaniaAccion(formData: FormData): Promise<vo
   const servicio = String(formData.get("servicio") ?? "");
   const tipos = leerTiposCampania(String(formData.get("tipos") ?? ""));
   if (!servicio || !tipos) volver(servicio || null, "error_tipos");
+  // «Filtrar los paneles por tipo» (17/11/2026, lib/tipo-panel.ts): el
+  // selector sale también en Tiempo real, Histórico, Dirección y Operaciones
+  // y en todos empieza en el primer tipo. Sin tipos se guarda desmarcada.
+  const paneles = formData.get("filtroPaneles") === "1" && tipos!.length > 0;
   guardarTiposCampania(servicio, tipos!);
-  await auditar(admin, `${servicio}: tipos de campaña [${escribirTiposCampania(tipos!).replace(/\n/g, " | ")}]`);
+  guardarFiltraPanelesPorTipo(servicio, paneles);
+  await auditar(
+    admin,
+    `${servicio}: tipos de campaña [${escribirTiposCampania(tipos!).replace(/\n/g, " | ")}] · filtrar los paneles: ${paneles ? "sí" : "no"}`,
+  );
   volver(servicio, "guardado");
 }
 

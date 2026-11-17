@@ -457,8 +457,13 @@ export async function baseRatiosHoy(campanias?: string[]): Promise<BaseRatiosExi
  * total solo con los usuarios del cliente, y salen también los suyos logados
  * sin actividad.
  */
-export async function ratiosExitoHoy(campanias?: string[], prefijo: string | null = null): Promise<ResultadoRatios> {
-  return calcularRatiosExito(await baseRatiosHoy(campanias), prefijo);
+export async function ratiosExitoHoy(
+  campanias?: string[],
+  prefijo: string | null = null,
+  /** Como en ratiosExitoRango: con un tipo de campaña, sin los logados sin actividad. */
+  sinActividad = true,
+): Promise<ResultadoRatios> {
+  return calcularRatiosExito(await baseRatiosHoy(campanias), prefijo, sinActividad);
 }
 
 /**

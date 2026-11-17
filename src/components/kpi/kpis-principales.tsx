@@ -22,6 +22,8 @@ import type { ResultadoResultados } from "@/lib/resultados-actividad";
 //    y son la base de los «por hora» y «por éxito» (cajas 4, 5 y 6).
 //  - resultados (regla 18): contactos cerrados por un agente, por el día del
 //    cierre; aprovechamiento, finalizados por hora y por éxito.
+// Con `sinHoras` (17/11/2026, «Solo BBDD» de GH: las bbdd no se facturan por
+// horas, lib/tipo-panel.ts) no salen las cajas 1, 5 y 7.
 // Sin hooks: sirve en paneles de cliente y de servidor.
 // ============================================================
 
@@ -53,6 +55,7 @@ export function KpisPrincipales({
   resultados,
   anterior,
   extras,
+  sinHoras = false,
 }: {
   ratios: TotalRatios;
   /** null: no se pudo calcular (o no hay contactos cerrados en el alcance). */
@@ -61,6 +64,8 @@ export function KpisPrincipales({
   anterior?: { ratios: TotalRatios; resultados: TotalResultados | null };
   /** Resultados: el semáforo contra el objetivo en las cajas del aprovechamiento. */
   extras?: { bruto?: ReactNode; neto?: ReactNode };
+  /** Sin las cajas de horas (1, 5 y 7): el tipo elegido no se factura por horas. */
+  sinHoras?: boolean;
 }) {
   const r = ratios;
   const res = resultados;
@@ -70,12 +75,14 @@ export function KpisPrincipales({
 
   return (
     <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-      <TarjetaKpi
-        titulo="Horas logadas"
-        valor={horasLegibles(r.horasLogadas)}
-        variacionPct={variacion(r.horasLogadas, ra?.horasLogadas)}
-        ayuda={ayudaDe("kpiHorasLogadas")}
-      />
+      {sinHoras ? null : (
+        <TarjetaKpi
+          titulo="Horas logadas"
+          valor={horasLegibles(r.horasLogadas)}
+          variacionPct={variacion(r.horasLogadas, ra?.horasLogadas)}
+          ayuda={ayudaDe("kpiHorasLogadas")}
+        />
+      )}
       <TarjetaKpi
         titulo="Llamadas"
         valor={entero(r.llamadasTotales)}
@@ -101,13 +108,15 @@ export function KpisPrincipales({
         sub={`${pct(r.convAtendidasPct)} de las gestionadas`}
         ayuda={ayudaDe("kpiExitos")}
       />
-      <TarjetaKpi
-        titulo="Llamadas por hora"
-        valor={num2(r.llamadasHoraLogada)}
-        variacionPct={variacion(r.llamadasHoraLogada, ra?.llamadasHoraLogada)}
-        sub="Gestionadas por hora logada"
-        ayuda={ayudaDe("kpiLlamadasHora")}
-      />
+      {sinHoras ? null : (
+        <TarjetaKpi
+          titulo="Llamadas por hora"
+          valor={num2(r.llamadasHoraLogada)}
+          variacionPct={variacion(r.llamadasHoraLogada, ra?.llamadasHoraLogada)}
+          sub="Gestionadas por hora logada"
+          ayuda={ayudaDe("kpiLlamadasHora")}
+        />
+      )}
       <TarjetaKpi
         titulo="Llamadas por éxito"
         valor={num2(r.llamadasPorExito)}
@@ -116,13 +125,15 @@ export function KpisPrincipales({
         sub={`Gestionadas · ${pct(r.convAtendidasPct)} acaban en éxito`}
         ayuda={ayudaDe("kpiLlamadasPorExito")}
       />
-      <TarjetaKpi
-        titulo="Finalizados por hora"
-        valor={num2(res?.finalizadosHora)}
-        variacionPct={variacion(res?.finalizadosHora, resa?.finalizadosHora)}
-        sub={res ? "Por hora logada" : sinResultados}
-        ayuda={ayudaDe("kpiFinalizadosHora")}
-      />
+      {sinHoras ? null : (
+        <TarjetaKpi
+          titulo="Finalizados por hora"
+          valor={num2(res?.finalizadosHora)}
+          variacionPct={variacion(res?.finalizadosHora, resa?.finalizadosHora)}
+          sub={res ? "Por hora logada" : sinResultados}
+          ayuda={ayudaDe("kpiFinalizadosHora")}
+        />
+      )}
       <TarjetaKpi
         titulo="Finalizados por éxito"
         valor={num2(res?.finalizadosPorExito)}

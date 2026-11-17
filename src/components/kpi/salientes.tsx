@@ -246,7 +246,19 @@ function TablaIntentos({ filas }: { filas: FilaSalientes[] }) {
   );
 }
 
-export function Salientes({ datos, periodo }: { datos: ResultadoSalientes; periodo: string }) {
+export function Salientes({
+  datos,
+  periodo,
+  sinHoras = false,
+}: {
+  datos: ResultadoSalientes;
+  periodo: string;
+  /**
+   * «Solo BBDD» de GH (17/11/2026, lib/tipo-panel.ts): sin horas logadas ni
+   * lo que sale de ellas (la ocupación y el % esperando de las logadas).
+   */
+  sinHoras?: boolean;
+}) {
   const [verPor, setVerPor] = useState<"campanias" | "agentes">("campanias");
   const t = datos.total;
   const filasDetalle = [t, ...(verPor === "campanias" ? datos.campanias : datos.agentes)];
@@ -274,16 +286,18 @@ export function Salientes({ datos, periodo }: { datos: ResultadoSalientes; perio
 
           <TabsContent value="global">
             <div className="grid grid-cols-2 gap-3 md:grid-cols-4 xl:grid-cols-6">
-              <TarjetaKpi
-                titulo="Ocupación"
-                valor={pct(t.ocupacionPct)}
-                sub={`${horasLegibles(t.horasGuion)} con ficha de ${horasLegibles(t.horasLogadas)} logadas`}
-                ayuda={ayudaDe("ocupacion")}
-              />
+              {sinHoras ? null : (
+                <TarjetaKpi
+                  titulo="Ocupación"
+                  valor={pct(t.ocupacionPct)}
+                  sub={`${horasLegibles(t.horasGuion)} con ficha de ${horasLegibles(t.horasLogadas)} logadas`}
+                  ayuda={ayudaDe("ocupacion")}
+                />
+              )}
               <TarjetaKpi
                 titulo="Tiempo esperando llamada"
                 valor={horasLegibles(t.horasEsperando)}
-                sub={t.esperandoPct != null ? `${pct(t.esperandoPct)} de las horas logadas` : undefined}
+                sub={!sinHoras && t.esperandoPct != null ? `${pct(t.esperandoPct)} de las horas logadas` : undefined}
                 ayuda={ayudaDe("tiempoEsperando")}
               />
               <TarjetaKpi
@@ -366,13 +380,22 @@ export function Salientes({ datos, periodo }: { datos: ResultadoSalientes; perio
               primera="Agente"
               vacio={`Sin llamadas de salida ${periodo}`}
               extras={[
-                {
-                  titulo: "Horas logadas",
-                  ayuda: ayudaDe("kpiHorasLogadas") ?? "",
-                  celda: (f) => (f.horasLogadas == null ? "—" : <Tiempo horas={f.horasLogadas} />),
-                  valor: (f) => f.horasLogadas,
-                },
-                { titulo: "Ocupación", ayuda: ayudaDe("ocupacion") ?? "", celda: (f) => pct(f.ocupacionPct), valor: (f) => f.ocupacionPct },
+                ...(sinHoras
+                  ? []
+                  : [
+                      {
+                        titulo: "Horas logadas",
+                        ayuda: ayudaDe("kpiHorasLogadas") ?? "",
+                        celda: (f: FilaSalientes) => (f.horasLogadas == null ? "—" : <Tiempo horas={f.horasLogadas} />),
+                        valor: (f: FilaSalientes) => f.horasLogadas,
+                      },
+                      {
+                        titulo: "Ocupación",
+                        ayuda: ayudaDe("ocupacion") ?? "",
+                        celda: (f: FilaSalientes) => pct(f.ocupacionPct),
+                        valor: (f: FilaSalientes) => f.ocupacionPct,
+                      },
+                    ]),
                 {
                   titulo: "Esperando llamada",
                   ayuda: ayudaDe("tiempoEsperando") ?? "",

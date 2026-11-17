@@ -28,10 +28,21 @@ export function leerVistaOperaciones(valor: string | null | undefined): VistaOpe
   return VISTAS_OPERACIONES.find((v) => v === valor) ?? "facturacion";
 }
 
-/** Enlace a una sección conservando cliente, rango e IVR. La factura no lleva `vista`. */
+/**
+ * Las secciones con filtro por tipo de campaña (17/11/2026, lib/tipo-panel.ts).
+ * La factura, los meses cerrados y las descargas son siempre del cliente
+ * entero (decidido con Christian).
+ */
+export const VISTAS_CON_TIPO: readonly VistaOperaciones[] = ["horas", "unidades", "listas", "pausas"];
+
+/**
+ * Enlace a una sección conservando cliente, rango, IVR y tipo de campaña (este,
+ * solo si no es el de por defecto; la factura lo ignora pero no lo pierde).
+ * La factura no lleva `vista`.
+ */
 export function hrefVistaOperaciones(
   vista: VistaOperaciones,
-  filtros: { servicio?: string; desde: string; hasta: string; incluirIvr?: boolean },
+  filtros: { servicio?: string; desde: string; hasta: string; incluirIvr?: boolean; tipo?: string },
 ): string {
   const p = new URLSearchParams();
   if (vista !== "facturacion") p.set("vista", vista);
@@ -39,6 +50,7 @@ export function hrefVistaOperaciones(
   p.set("desde", filtros.desde);
   p.set("hasta", filtros.hasta);
   if (filtros.incluirIvr) p.set("ivr", "1");
+  if (filtros.servicio && filtros.tipo) p.set("tipo", filtros.tipo);
   return `/operaciones?${p.toString()}`;
 }
 

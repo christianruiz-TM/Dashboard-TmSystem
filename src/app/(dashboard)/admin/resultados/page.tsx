@@ -19,6 +19,7 @@ import { requireRol } from "@/lib/auth/rbac";
 import {
   campoContactoDe,
   configsResultados,
+  filtraPanelesPorTipo,
   objetivosDeResultados,
   tiposCampaniaDe,
 } from "@/lib/db/resultados";
@@ -74,6 +75,7 @@ export default async function PaginaResultadosAdmin({
 
   // Tipos de campaña del servicio y en qué tipo cae cada campaña suya
   const tipos = servicio ? tiposCampaniaDe(servicio) : [];
+  const filtroPaneles = servicio ? filtraPanelesPorTipo(servicio) : false;
   const campaniasServicio = servicio
     ? ((await listaServicios()).find((s) => s.servicio === servicio)?.campanias ?? [])
     : [];
@@ -309,6 +311,25 @@ export default async function PaginaResultadosAdmin({
                   })}
                 </ul>
               ) : null}
+              <label className="flex items-start gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  name="filtroPaneles"
+                  value="1"
+                  defaultChecked={filtroPaneles}
+                  className="mt-0.5 h-4 w-4 accent-primary"
+                />
+                <span>
+                  <span className="font-medium">Filtrar los paneles por tipo</span>
+                  <span className="block text-xs text-muted-foreground">
+                    El selector sale también en Supervisión (Tiempo real e Histórico), Dirección y Operaciones
+                    (Horas logadas, Unidades, Listas y Pausas). En todos, también en Resultados, empieza en el
+                    primer tipo que no es «Todas» («Sin BBDD»). Si las campañas del tipo elegido no se facturan
+                    por horas, no salen horas logadas ni cifras por hora. La factura, los meses cerrados y las
+                    descargas de Operaciones siguen siendo de todo el cliente.
+                  </span>
+                </span>
+              </label>
               <Button type="submit" size="sm">
                 Guardar tipos
               </Button>

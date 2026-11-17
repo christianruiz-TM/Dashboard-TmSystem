@@ -30,16 +30,18 @@ export interface FiltrosDireccion {
   campanias: string[] | undefined;
   /** Usuarios del cliente (GH_…): solo sus horas van a los totales (23/10/2026). */
   prefijo: string | null;
+  /** ¿Con los usuarios logados sin actividad? Solo con el cliente entero, no con un tipo (17/11/2026). */
+  sinActividad: boolean;
   servicio: string | undefined;
   servicioDe: Map<string, string>;
 }
 
 export function cargaDireccion(f: FiltrosDireccion) {
-  const { desde, hasta, anterior, campanias: camp, prefijo } = f;
+  const { desde, hasta, anterior, campanias: camp, prefijo, sinActividad } = f;
   const volumen = una(() => volumenPorCampania(desde, hasta, camp));
   const unidades = una(() => unidadesPorCampania(desde, hasta, camp));
   // Ratios de éxito en vivo, la MISMA consulta que Supervisión (regla 17)
-  const ratios = una(() => ratiosExitoRango(desde, hasta, camp, prefijo));
+  const ratios = una(() => ratiosExitoRango(desde, hasta, camp, prefijo, sinActividad));
   return {
     volumen,
     volumenAnterior: una(() => volumenPorCampania(anterior.desde, anterior.hasta, camp)),
@@ -47,12 +49,12 @@ export function cargaDireccion(f: FiltrosDireccion) {
     // Horas logadas REALES (unión de intervalos por agente, global)
     horasReales: una(() => horasAgenteReales(desde, hasta, camp)),
     ratios,
-    ratiosAnterior: una(() => ratiosExitoRango(anterior.desde, anterior.hasta, camp, prefijo)),
+    ratiosAnterior: una(() => ratiosExitoRango(anterior.desde, anterior.hasta, camp, prefijo, sinActividad)),
     horasPorServicio: una(() => horasLogadasPorServicio(desde, hasta, camp)),
     intentos: una(() => calidadBaseDatosRango(desde, hasta, camp)),
     // Contactos cerrados (Resultados, regla 18): las cajas de finalizados y aprovechamiento
-    resultados: una(() => totalResultados(desde, hasta, camp, prefijo)),
-    resultadosAnterior: una(() => totalResultados(anterior.desde, anterior.hasta, camp, prefijo)),
+    resultados: una(() => totalResultados(desde, hasta, camp, prefijo, sinActividad)),
+    resultadosAnterior: una(() => totalResultados(anterior.desde, anterior.hasta, camp, prefijo, sinActividad)),
     salientes: una(() => resumenSalientes(desde, hasta, camp, prefijo)),
     // Callback de los clientes que lo tienen (12/11/2026); si falla, sin la sección
     callback: una(() =>

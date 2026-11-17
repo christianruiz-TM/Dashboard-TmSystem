@@ -4,11 +4,12 @@ import { AvisoRango, AvisoServicio } from "@/components/filtros/aviso-rango";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicioActividad } from "@/components/filtros/selector-servicio-actividad";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { SelectorTipo } from "@/components/filtros/selector-tipo";
+import { AvisoTipo } from "@/components/filtros/aviso-tipo";
 import { SeccionCargando } from "@/components/cargando";
 import { Glosario } from "@/components/glosario";
 import { BarraPanel } from "@/components/layout/barra-panel";
 import { requireRol } from "@/lib/auth/rbac";
-import { tiposCampaniaDe } from "@/lib/db/resultados";
 import {
   GLOSARIO_DIRECCION,
   NOMBRE_SECCION_DIRECCION,
@@ -18,7 +19,9 @@ import {
 } from "@/lib/direccion-secciones";
 import { prefijoUsuariosDe } from "@/lib/facturacion";
 import { esquemaRango, motivoRangoInvalido, presetsRango } from "@/lib/fechas";
-import { campaniasEfectivas, listaServicios, mapaCampaniaServicio } from "@/lib/rdb/queries/servicios";
+import { listaServicios, mapaCampaniaServicio } from "@/lib/rdb/queries/servicios";
+import { parametroTipo } from "@/lib/tipo-panel";
+import { alcanceTipo } from "@/lib/tipo-panel-servidor";
 import { cargaDireccion } from "./datos";
 import {
   CajasDireccion,
@@ -52,6 +55,7 @@ export default async function PaginaDireccion({
     servicio?: string;
     ivr?: string;
     seccion?: string;
+    tipo?: string;
   }>;
 }) {
   await requireRol("direccion");
@@ -72,9 +76,13 @@ export default async function PaginaDireccion({
   // Sin cliente elegido (o uno que no existe, con aviso): visión por cliente
   const servicioElegido = servicios.some((s) => s.servicio === params.servicio) ? params.servicio : undefined;
   const servicioInexistente = params.servicio && !servicioElegido ? params.servicio : null;
-  const camp = await campaniasEfectivas(servicioElegido, incluirIvr);
+  // Campañas del tipo elegido (17/11/2026, lib/tipo-panel.ts): GH sin BBDD por defecto
+  const alcance = await alcanceTipo(servicioElegido, incluirIvr, params.tipo);
+  const camp = alcance.campanias;
+  const { filtro: filtroTipo, sinHoras } = alcance;
+  const tipoUrl = parametroTipo(filtroTipo);
   // Grupos del detalle: los tipos de campaña del cliente (Bolsas: cartera y resto)
-  const tipos = servicioElegido ? tiposCampaniaDe(servicioElegido) : [];
+  const tipos = alcance.tipos;
 
   const datos = cargaDireccion({
     desde,
@@ -82,6 +90,7 @@ export default async function PaginaDireccion({
     anterior,
     campanias: camp,
     prefijo: prefijoUsuariosDe(servicioElegido),
+    sinActividad: alcance.sinActividad,
     servicio: servicioElegido,
     servicioDe: mapaCampaniaServicio(servicios),
   });
@@ -99,10 +108,11 @@ export default async function PaginaDireccion({
         filtros={
           <>
             <SelectorServicioActividad servicios={servicios.map((s) => s.servicio)} valor={servicioElegido} />
+            <SelectorTipo opciones={filtroTipo.opciones} valor={filtroTipo.tipo} defecto={filtroTipo.defecto} />
             <SelectorIvr incluir={incluirIvr} />
           </>
         }
-        secciones={pestanasSeccionDireccion({ desde, hasta, servicio: servicioElegido, incluirIvr })}
+        secciones={pestanasSeccionDireccion({ desde, hasta, servicio: servicioElegido, incluirIvr, tipo: tipoUrl })}
         actual={seccion}
         estado={
           seccion === "resumen" ? (
@@ -114,11 +124,16 @@ export default async function PaginaDireccion({
       />
       <AvisoServicio pedido={servicioInexistente} alternativa="la visión por cliente" />
       <AvisoRango motivo={motivoRangoInvalido(rango)} alternativa="el mes actual" />
+      <AvisoTipo
+        filtro={filtroTipo}
+        sinHoras={sinHoras}
+        delCliente={seccion === "callback" ? "El callback y sus cifras" : undefined}
+      />
 
       {seccion === "resumen" ? (
         <>
           <Suspense fallback={<SeccionCargando texto="Calculando las cifras principales…" alto="h-[23rem]" />}>
-            <CajasDireccion datos={datos} />
+            <CajasDireccion datos={datos} sinHoras={sinHoras} />
           </Suspense>
           <Suspense fallback={<SeccionCargando texto="Calculando el volumen…" alto="h-28" />}>
             <VolumenDireccion datos={datos} />
@@ -145,14 +160,14 @@ export default async function PaginaDireccion({
           <CampaniasDireccion
             datos={datos}
             tipos={tipos}
-            claveComparador={`${servicioElegido ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}`}
+            claveComparador={`${servicioElegido ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}|${filtroTipo.tipo}`}
           />
         </Suspense>
       ) : null}
 
       {seccion === "exitos" ? (
         <Suspense fallback={<SeccionCargando texto="Calculando el rendimiento por éxitos…" alto="h-96" />}>
-          <ExitosDireccion datos={datos} />
+          <ExitosDireccion datos={datos} sinHoras={sinHoras} />
         </Suspense>
       ) : null}
 
@@ -160,7 +175,7 @@ export default async function PaginaDireccion({
         <>
           {/* Un mes de todos los clientes tarda ~7 s: la calidad sale antes, sin esperarla */}
           <Suspense fallback={<SeccionCargando texto="Calculando los KPIs de salida…" alto="h-80" />}>
-            <SalientesDireccion datos={datos} />
+            <SalientesDireccion datos={datos} sinHoras={sinHoras} />
           </Suspense>
           <Suspense fallback={<SeccionCargando texto="Calculando la calidad de la base de datos…" alto="h-80" />}>
             <CalidadDireccion datos={datos} tipos={tipos} />

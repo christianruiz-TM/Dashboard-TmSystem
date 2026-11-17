@@ -19,7 +19,13 @@ export async function GET(peticion: NextRequest) {
   try {
     const q = peticion.nextUrl.searchParams;
     const servicio = q.get("servicio") ?? undefined;
-    const datos = await datosSupervisionHoy(servicio, q.get("ivr") === "1", leerSeccion(q.get("seccion")));
+    const datos = await datosSupervisionHoy(
+      servicio,
+      q.get("ivr") === "1",
+      leerSeccion(q.get("seccion")),
+      // Tipo de campaña (17/11/2026): el mismo que la página
+      q.get("tipo"),
+    );
     return NextResponse.json(datos);
   } catch (err) {
     return NextResponse.json(

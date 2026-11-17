@@ -15,6 +15,8 @@ export async function totalResultados(
   campanias: string[] | undefined,
   /** Prefijo de los usuarios del cliente: solo sus horas van al total. */
   prefijo: string | null = null,
+  /** Con un tipo de campaña (17/11/2026), sin los logados sin actividad, como la pestaña Resultados. */
+  sinActividad = true,
 ): Promise<ResultadoResultados["total"] | null> {
   try {
     const r = await resultadosActividadRango(
@@ -25,6 +27,7 @@ export async function totalResultados(
       objetivosDeResultados(),
       null,
       prefijo,
+      sinActividad,
     );
     return r.total;
   } catch (e) {

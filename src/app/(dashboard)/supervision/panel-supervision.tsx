@@ -17,6 +17,9 @@ import { BarraPanel } from "@/components/layout/barra-panel";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { SelectorTipo } from "@/components/filtros/selector-tipo";
+import { AvisoTipo } from "@/components/filtros/aviso-tipo";
+import { parametroTipo, type FiltroTipo } from "@/lib/tipo-panel";
 import { FranjaAhora } from "@/components/kpi/cabecera-supervision";
 import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
 import { valoresOrden } from "@/lib/orden";
@@ -115,6 +118,7 @@ export function PanelSupervision({
   servicio,
   incluirIvr,
   tipos,
+  filtroTipo,
   servicioDe,
 }: {
   inicial: DatosSupervisionHoy;
@@ -132,6 +136,8 @@ export function PanelSupervision({
   incluirIvr: boolean;
   /** Tipos de campaña del cliente (Bolsas: cartera; GH: BBDD): agrupan la tabla. */
   tipos: TipoCampania[];
+  /** Filtro por tipo de campaña (17/11/2026; sin opciones si el cliente no lo tiene). */
+  filtroTipo: FiltroTipo;
   /** Cliente de cada campaña (para el comparador sin cliente elegido). */
   servicioDe: Record<string, string>;
 }) {
@@ -140,6 +146,8 @@ export function PanelSupervision({
   const [cargando, setCargando] = useState(false);
 
   const router = useRouter();
+  // El tipo de la URL (lo de por defecto no va), para pedir lo mismo al refrescar
+  const tipoUrl = parametroTipo(filtroTipo);
   const refrescar = useCallback(async () => {
     setCargando(true);
     try {
@@ -147,6 +155,7 @@ export function PanelSupervision({
       if (servicio) qs.set("servicio", servicio);
       if (incluirIvr) qs.set("ivr", "1");
       if (seccion !== "resumen") qs.set("seccion", seccion);
+      if (tipoUrl) qs.set("tipo", tipoUrl);
       const url = qs.toString()
         ? `/api/supervision/datos?${qs.toString()}`
         : "/api/supervision/datos";
@@ -164,7 +173,7 @@ export function PanelSupervision({
     } finally {
       setCargando(false);
     }
-  }, [servicio, incluirIvr, seccion, router]);
+  }, [servicio, incluirIvr, seccion, tipoUrl, router]);
 
   useEffect(() => {
     const intervalo = setInterval(refrescar, REFRESCO_MS);
@@ -185,6 +194,7 @@ export function PanelSupervision({
         filtros={
           <>
             <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} />
+            <SelectorTipo opciones={filtroTipo.opciones} valor={filtroTipo.tipo} defecto={filtroTipo.defecto} />
             <SelectorIvr incluir={incluirIvr} />
           </>
         }
@@ -210,6 +220,11 @@ export function PanelSupervision({
       />
 
       {avisos}
+      <AvisoTipo
+        filtro={filtroTipo}
+        sinHoras={datos.sinHoras}
+        delCliente={seccion === "entrantes" ? "La tarjeta del IVR y el callback" : undefined}
+      />
 
       {error ? (
         <div className="rounded-md border border-destructive/30 bg-destructive/5 px-4 py-2 text-sm text-destructive">
@@ -238,7 +253,7 @@ export function PanelSupervision({
         tipos={tipos}
         servicioDe={servicioDe}
         titulo={`Supervisión · tiempo real · ${NOMBRE_SECCION[seccion]}`}
-        claveComparador={`${servicio ?? "todos"}|${incluirIvr ? "ivr" : ""}`}
+        claveComparador={`${servicio ?? "todos"}|${incluirIvr ? "ivr" : ""}|${filtroTipo.tipo}`}
       />
     </div>
   );

@@ -134,17 +134,26 @@ export const GLOSARIO_SECCION: Record<SeccionSupervision, string[]> = {
 
 /**
  * Enlace a una sección de Supervisión conservando la vista, el cliente, el
- * IVR y (en Histórico) el rango. El resumen no lleva `seccion`.
+ * IVR, el tipo de campaña y (en Histórico) el rango. El resumen no lleva
+ * `seccion`; el tipo, solo si no es el de por defecto (lib/tipo-panel.ts).
  */
 export function hrefSeccion(
   seccion: SeccionSupervision,
-  filtros: { vista: "tiempo-real" | "historico"; servicio?: string; incluirIvr?: boolean; desde?: string; hasta?: string },
+  filtros: {
+    vista: "tiempo-real" | "historico";
+    servicio?: string;
+    incluirIvr?: boolean;
+    desde?: string;
+    hasta?: string;
+    tipo?: string;
+  },
 ): string {
   const p = new URLSearchParams();
   if (filtros.vista === "historico") p.set("vista", "historico");
   if (seccion !== "resumen") p.set("seccion", seccion);
   if (filtros.servicio) p.set("servicio", filtros.servicio);
   if (filtros.incluirIvr) p.set("ivr", "1");
+  if (filtros.servicio && filtros.tipo) p.set("tipo", filtros.tipo);
   if (filtros.vista === "historico" && filtros.desde && filtros.hasta) {
     p.set("desde", filtros.desde);
     p.set("hasta", filtros.hasta);

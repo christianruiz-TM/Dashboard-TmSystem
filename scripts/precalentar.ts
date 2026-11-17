@@ -8,7 +8,9 @@
  *  - «Ayer», lo que abre Supervisión → Histórico por defecto.
  * Para todos los clientes y para cada cliente con actividad en los últimos 7
  * días, sin IVR (lo de por defecto). Con las MISMAS claves que las páginas
- * (mismo rango, campañas y prefijo de usuarios). Una consulta detrás de otra,
+ * (mismo rango, campañas y prefijo de usuarios). Desde el 17/11/2026, en los
+ * clientes que filtran los paneles por tipo (GH), las campañas del tipo que
+ * se abre por defecto («Sin BBDD», lib/tipo-panel.ts). Una consulta detrás de otra,
  * para no cargar RDBv2. Idempotente: lo que ya está guardado y vigente no se
  * vuelve a consultar.
  *
@@ -36,7 +38,8 @@ async function main() {
   );
   const { ordenarPorActividad } = await import("../src/lib/actividad-servicios");
   const { hoyISO } = await import("../src/lib/fechas");
-  const { actividadServicios, campaniasEfectivas, listaServicios } = await import("../src/lib/rdb/queries/servicios");
+  const { actividadServicios, listaServicios } = await import("../src/lib/rdb/queries/servicios");
+  const { alcanceTipo } = await import("../src/lib/tipo-panel-servidor");
   const { ratiosExitoRango } = await import("../src/lib/rdb/queries/ratios-exito");
   const { totalResultados } = await import("../src/lib/resultados-cabecera");
   const { volumenPorCampania } = await import("../src/lib/rdb/queries/interacciones");
@@ -74,12 +77,13 @@ async function main() {
 
   let fallos = 0;
   for (const servicio of alcances) {
-    const camp = await campaniasEfectivas(servicio, false);
+    // Las campañas que abre la página por defecto (sin IVR y, en GH, sin BBDD)
+    const { campanias: camp, sinActividad } = await alcanceTipo(servicio, false, undefined);
     const prefijo = prefijoUsuariosDe(servicio);
     for (const r of rangos) {
       const pasos: [string, () => Promise<unknown>][] = [
-        ["ratios", () => ratiosExitoRango(r.desde, r.hasta, camp, prefijo)],
-        ["resultados", () => totalResultados(r.desde, r.hasta, camp, prefijo)],
+        ["ratios", () => ratiosExitoRango(r.desde, r.hasta, camp, prefijo, sinActividad)],
+        ["resultados", () => totalResultados(r.desde, r.hasta, camp, prefijo, sinActividad)],
       ];
       if (r.que !== "supervision") pasos.push(["volumen", () => volumenPorCampania(r.desde, r.hasta, camp)]);
       if (r.que === "direccion") {

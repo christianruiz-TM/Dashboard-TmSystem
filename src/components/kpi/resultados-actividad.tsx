@@ -109,9 +109,12 @@ function CeldasRatios({
   r,
   baseHoras,
   fueraDelTotal = false,
+  sinHoras = false,
 }: {
   r: RatiosResultado;
   baseHoras: "logada" | "guion";
+  /** «Solo BBDD» de GH (17/11/2026): sin horas logadas ni finalizados por hora. */
+  sinHoras?: boolean;
   /** Usuario que no es del cliente (sin su prefijo): sus horas no van al total. */
   fueraDelTotal?: boolean;
 }) {
@@ -143,6 +146,7 @@ function CeldasRatios({
       <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")}>
         {num2(r.llamadasPorExito)}
       </TableCell>
+      {sinHoras ? null : (
       <TableCell
         className={cn("text-right tabular-nums", fueraDelTotal && "text-muted-foreground line-through decoration-muted-foreground/50")}
         title={
@@ -155,12 +159,15 @@ function CeldasRatios({
       >
         {r.horasLogadas == null ? "—" : <Tiempo horas={r.horasLogadas} />}
       </TableCell>
+      )}
       <TableCell className="text-right tabular-nums" title="Horas con la ficha del guion abierta">
         {r.horasGuion == null ? "—" : <Tiempo horas={r.horasGuion} />}
       </TableCell>
-      <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")} title={ayudaHoras}>
-        {num2(r.finalizadosHora)}
-      </TableCell>
+      {sinHoras ? null : (
+        <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")} title={ayudaHoras}>
+          {num2(r.finalizadosHora)}
+        </TableCell>
+      )}
     </>
   );
 }
@@ -213,6 +220,11 @@ const COLUMNAS: { clave: ClaveOrden; titulo: string; ayuda: string }[] = [
   },
 ];
 
+/** Columnas que no salen con `sinHoras` (las de horas logadas y «por hora»). */
+const CLAVES_HORA: readonly ClaveOrden[] = ["horasLogadas", "finalizadosHora"];
+
+const columnasDe = (sinHoras: boolean) => (sinHoras ? COLUMNAS.filter((c) => !CLAVES_HORA.includes(c.clave)) : COLUMNAS);
+
 // ------------------------------------------------------------
 // Vistas
 // ------------------------------------------------------------
@@ -221,12 +233,15 @@ function VistaAgentes({
   agentes,
   total,
   periodo,
+  sinHoras,
 }: {
   agentes: RatiosAgenteRes[];
   /** Fila de total (23/10/2026): los ratios de todo el alcance. */
   total: RatiosResultado;
   periodo: string;
+  sinHoras: boolean;
 }) {
+  const columnas = columnasDe(sinHoras);
   const [orden, setOrden] = useState<{ clave: ClaveOrden; desc: boolean } | null>(null);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
 
@@ -283,13 +298,13 @@ function VistaAgentes({
         <TableHeader>
           <TableRow>
             {cabecera({ clave: "nombre", titulo: "Agente", ayuda: "Nombre y usuario de Altitude" })}
-            {COLUMNAS.map(cabecera)}
+            {columnas.map(cabecera)}
           </TableRow>
         </TableHeader>
         <TableBody>
           {lista.length === 0 ? (
             <TableRow>
-              <TableCell colSpan={COLUMNAS.length + 1} className="text-center text-muted-foreground">
+              <TableCell colSpan={columnas.length + 1} className="text-center text-muted-foreground">
                 Sin contactos finalizados {periodo}
               </TableCell>
             </TableRow>
@@ -316,13 +331,13 @@ function VistaAgentes({
                         </div>
                       </div>
                     </TableCell>
-                    <CeldasRatios r={a} baseHoras="logada" fueraDelTotal={!a.cuentaEnHoras} />
+                    <CeldasRatios r={a} baseHoras="logada" fueraDelTotal={!a.cuentaEnHoras} sinHoras={sinHoras} />
                   </TableRow>
                   {abierto
                     ? a.campanias.map((c) => (
                         <TableRow key={`${a.agente}|${c.campania}`} className="bg-muted/40 text-xs">
                           <TableCell className="pl-10">{c.campania}</TableCell>
-                          <CeldasRatios r={c} baseHoras="guion" />
+                          <CeldasRatios r={c} baseHoras="guion" sinHoras={sinHoras} />
                         </TableRow>
                       ))
                     : null}
@@ -336,7 +351,7 @@ function VistaAgentes({
                 <div>Total</div>
                 <div className="text-xs font-normal text-muted-foreground">{lista.length} agentes</div>
               </TableCell>
-              <CeldasRatios r={total} baseHoras="logada" />
+              <CeldasRatios r={total} baseHoras="logada" sinHoras={sinHoras} />
             </TableRow>
           ) : null}
         </TableBody>
@@ -350,7 +365,8 @@ function VistaAgentes({
   );
 }
 
-function VistaCampanias({ r, periodo }: { r: ResultadoResultados; periodo: string }) {
+function VistaCampanias({ r, periodo, sinHoras }: { r: ResultadoResultados; periodo: string; sinHoras: boolean }) {
+  const columnas = columnasDe(sinHoras);
   return (
     <Table>
       <TableHeader>
@@ -365,7 +381,7 @@ function VistaCampanias({ r, periodo }: { r: ResultadoResultados; periodo: strin
           <TableHead className="text-right" title="Listas cerradas en bloque: tipificados hace más de 90 días">
             Cierres admin.
           </TableHead>
-          {COLUMNAS.map((c) => (
+          {columnas.map((c) => (
             <TableHead key={c.clave} className="whitespace-normal text-right align-bottom" title={c.ayuda}>
               {c.titulo}
             </TableHead>
@@ -375,7 +391,7 @@ function VistaCampanias({ r, periodo }: { r: ResultadoResultados; periodo: strin
       <TableBody>
         {r.campanias.length === 0 ? (
           <TableRow>
-            <TableCell colSpan={COLUMNAS.length + 4} className="text-center text-muted-foreground">
+            <TableCell colSpan={columnas.length + 4} className="text-center text-muted-foreground">
               Sin contactos cerrados {periodo}
             </TableCell>
           </TableRow>
@@ -395,7 +411,7 @@ function VistaCampanias({ r, periodo }: { r: ResultadoResultados; periodo: strin
               <TableCell className="text-right tabular-nums text-muted-foreground">
                 {entero(c.administrativos)}
               </TableCell>
-              <CeldasRatios r={c} baseHoras="guion" />
+              <CeldasRatios r={c} baseHoras="guion" sinHoras={sinHoras} />
             </TableRow>
           ))
         )}
@@ -702,11 +718,14 @@ export function ResultadosActividad({
   r,
   ratios = null,
   periodo,
+  sinHoras = false,
 }: {
   r: ResultadoResultados;
   /** Ratios de éxito del mismo alcance: con ellos, la cabecera de las 12 cajas. */
   ratios?: ResultadoRatios | null;
   periodo: string;
+  /** «Solo BBDD» de GH (17/11/2026, lib/tipo-panel.ts): sin horas logadas ni «por hora». */
+  sinHoras?: boolean;
 }) {
   const t = r.total;
   const o = t.objetivo;
@@ -720,6 +739,7 @@ export function ResultadosActividad({
           <KpisPrincipales
             ratios={ratios.total}
             resultados={t}
+            sinHoras={sinHoras}
             extras={{
               bruto: <SemaforoTarjeta color={t.semaforo.bruto} objetivo={objMin(o?.brutoMin)} />,
               neto: <SemaforoTarjeta color={t.semaforo.neto} objetivo={objMin(o?.netoMin)} />,
@@ -784,16 +804,20 @@ export function ResultadosActividad({
             valor={num2(t.llamadasPorExito)}
             sub="De media, a cada contacto que acabó en éxito"
           />
-          <TarjetaKpi
-            titulo="Finalizados por hora logada"
-            valor={num2(t.finalizadosHora)}
-            sub="Finalizados ÷ horas logadas"
-          />
-          <TarjetaKpi
-            titulo="Horas logadas"
-            valor={t.horas == null ? "—" : `${num2(t.horas)} h`}
-            sub="De los agentes con finalizados"
-          />
+          {sinHoras ? null : (
+            <>
+              <TarjetaKpi
+                titulo="Finalizados por hora logada"
+                valor={num2(t.finalizadosHora)}
+                sub="Finalizados ÷ horas logadas"
+              />
+              <TarjetaKpi
+                titulo="Horas logadas"
+                valor={t.horas == null ? "—" : `${num2(t.horas)} h`}
+                sub="De los agentes con finalizados"
+              />
+            </>
+          )}
         </div>
         </>
       )}
@@ -821,10 +845,10 @@ export function ResultadosActividad({
               <TabsTrigger value="evolucion">Evolución</TabsTrigger>
             </TabsList>
             <TabsContent value="agentes">
-              <VistaAgentes agentes={r.agentes} total={r.total} periodo={periodo} />
+              <VistaAgentes agentes={r.agentes} total={r.total} periodo={periodo} sinHoras={sinHoras} />
             </TabsContent>
             <TabsContent value="campanias">
-              <VistaCampanias r={r} periodo={periodo} />
+              <VistaCampanias r={r} periodo={periodo} sinHoras={sinHoras} />
             </TabsContent>
             <TabsContent value="desglose">
               <VistaDesglose r={r} />

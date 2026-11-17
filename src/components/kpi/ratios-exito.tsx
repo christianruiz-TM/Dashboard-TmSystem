@@ -30,7 +30,9 @@ import { cn } from "@/lib/utils";
 // Los cálculos vienen hechos (lib/ratios-exito.ts); aquí solo se ordena y
 // se pinta. Las columnas por hora usan la hora LOGADA en lo agrupado (el
 // agente, el total) y la hora con el SCRIPT ABIERTO en lo separado por
-// campaña (decidido 21/10/2026): la celda dice cuál en su ayuda.
+// campaña (decidido 21/10/2026): la celda dice cuál en su ayuda. Con
+// `sinHoras` (17/11/2026, «Solo BBDD» de GH, lib/tipo-panel.ts) no salen ni
+// las horas ni los «por hora».
 // ============================================================
 
 const DOS: Intl.NumberFormatOptions = { minimumFractionDigits: 2, maximumFractionDigits: 2 };
@@ -114,6 +116,9 @@ const COLUMNAS: { clave: ClaveOrden; titulo: string; ayuda: string }[] = [
   { clave: "indice", titulo: "Índice", ayuda: "Éxitos reales ÷ esperados según sus campañas × 100" },
 ];
 
+/** Columnas de horas y «por hora», que no salen con `sinHoras`. */
+const CLAVES_HORA: readonly ClaveOrden[] = ["horas", "llamadasHora", "exitosHora"];
+
 /** Horas de la fila y sus ratios por hora: logadas (agente) o con script abierto (campaña). */
 interface PorHora {
   horas: number | null;
@@ -138,13 +143,14 @@ function CeldasRatios({
   efectividadAyuda,
 }: {
   r: RatiosBasicos;
-  hora: PorHora;
+  /** null = sin las columnas de horas («Solo BBDD»). */
+  hora: PorHora | null;
   /** undefined = sin columna de índice (tabla de campañas). */
   indice?: number | null;
   efectividadAyuda?: string;
 }) {
   const at = r.muestraPequenia;
-  const ayudaHora = hora.base === "logada" ? "Por hora logada" : "Por hora con el script abierto";
+  const ayudaHora = hora?.base === "logada" ? "Por hora logada" : "Por hora con el script abierto";
   return (
     <>
       <TableCell className="text-right tabular-nums">{entero(r.contactos)}</TableCell>
@@ -159,18 +165,22 @@ function CeldasRatios({
       <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")} title={efectividadAyuda}>
         {pct(r.efectividadPct)}
       </TableCell>
-      <TableCell
-        className="text-right tabular-nums"
-        title={hora.base === "logada" ? "Horas logadas" : "Horas con el script abierto"}
-      >
-        {hora.horas == null ? "—" : <Tiempo horas={hora.horas} />}
-      </TableCell>
-      <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")} title={ayudaHora}>
-        {num2(hora.llamadas)}
-      </TableCell>
-      <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")} title={ayudaHora}>
-        {num2(hora.exitos)}
-      </TableCell>
+      {hora ? (
+        <>
+          <TableCell
+            className="text-right tabular-nums"
+            title={hora.base === "logada" ? "Horas logadas" : "Horas con el script abierto"}
+          >
+            {hora.horas == null ? "—" : <Tiempo horas={hora.horas} />}
+          </TableCell>
+          <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")} title={ayudaHora}>
+            {num2(hora.llamadas)}
+          </TableCell>
+          <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")} title={ayudaHora}>
+            {num2(hora.exitos)}
+          </TableCell>
+        </>
+      ) : null}
       <TableCell className={cn("text-right tabular-nums", at && "text-muted-foreground")}>
         <Tiempo segundos={r.conversacionPorExitoSeg} />
       </TableCell>
@@ -211,6 +221,7 @@ export function RatiosExito({
   periodo,
   anterior,
   sinTarjetas = false,
+  sinHoras = false,
 }: {
   ratios: ResultadoRatios;
   periodo: string;
@@ -218,10 +229,16 @@ export function RatiosExito({
   anterior?: ResultadoRatios["total"];
   /** Supervisión: los totales ya están en la cabecera de la pestaña (22/10/2026). */
   sinTarjetas?: boolean;
+  /** «Solo BBDD» de GH (17/11/2026): sin horas ni «por hora» en ningún sitio. */
+  sinHoras?: boolean;
 }) {
   const [orden, setOrden] = useState<{ clave: ClaveOrden; desc: boolean } | null>(null);
   const [abiertos, setAbiertos] = useState<Set<string>>(new Set());
   const t = ratios.total;
+  const columnas = sinHoras ? COLUMNAS.filter((c) => !CLAVES_HORA.includes(c.clave)) : COLUMNAS;
+  // Las horas de cada fila, o ninguna con sinHoras
+  const logada = (a: RatiosAgente) => (sinHoras ? null : porHoraLogada(a));
+  const guion = (r: RatiosBasicos) => (sinHoras ? null : porHoraGuion(r));
 
   const agentes = orden
     ? [...ratios.agentes].sort((a, b) => {
@@ -237,7 +254,7 @@ export function RatiosExito({
 
   // Con prefijo de cliente, las horas de los usuarios de fuera no suman en el total
   const sumaHorasAgentes = ratios.agentes.reduce((s, a) => s + (a.horasLogadas ?? 0), 0);
-  const horasFuera = sumaHorasAgentes - t.horasLogadas > 0.05;
+  const horasFuera = !sinHoras && sumaHorasAgentes - t.horasLogadas > 0.05;
 
   const ordenarPor = (clave: ClaveOrden) =>
     setOrden((o) => (o?.clave === clave ? { clave, desc: !o.desc } : { clave, desc: clave !== "agente" }));
@@ -300,18 +317,22 @@ export function RatiosExito({
             variacionPct={variacion(t.convAtendidasPct, anterior?.convAtendidasPct)}
             sub={`sobre ${entero(t.atendidas)} llamadas gestionadas`}
           />
-          <TarjetaKpi
-            titulo="Llamadas por hora logada"
-            valor={num2(t.llamadasHoraLogada)}
-            variacionPct={variacion(t.llamadasHoraLogada, anterior?.llamadasHoraLogada)}
-            sub={`${horasLegibles(t.horasLogadas)} logadas`}
-          />
-          <TarjetaKpi
-            titulo="Éxitos por hora logada"
-            valor={num2(t.exitosHoraLogada)}
-            variacionPct={variacion(t.exitosHoraLogada, anterior?.exitosHoraLogada)}
-            sub={`${horasLegibles(t.horasLogadas)} logadas`}
-          />
+          {sinHoras ? null : (
+            <>
+              <TarjetaKpi
+                titulo="Llamadas por hora logada"
+                valor={num2(t.llamadasHoraLogada)}
+                variacionPct={variacion(t.llamadasHoraLogada, anterior?.llamadasHoraLogada)}
+                sub={`${horasLegibles(t.horasLogadas)} logadas`}
+              />
+              <TarjetaKpi
+                titulo="Éxitos por hora logada"
+                valor={num2(t.exitosHoraLogada)}
+                variacionPct={variacion(t.exitosHoraLogada, anterior?.exitosHoraLogada)}
+                sub={`${horasLegibles(t.horasLogadas)} logadas`}
+              />
+            </>
+          )}
           <TarjetaKpi
             titulo="Conversación por éxito"
             valor={segundosLegibles(t.conversacionPorExitoSeg)}
@@ -349,13 +370,13 @@ export function RatiosExito({
               <TableHeader>
                 <TableRow>
                   {cabecera({ clave: "agente", titulo: "Agente", ayuda: "Nombre y usuario de Altitude" })}
-                  {COLUMNAS.map(cabecera)}
+                  {columnas.map(cabecera)}
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {agentes.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={COLUMNAS.length + 1} className="text-center text-muted-foreground">
+                    <TableCell colSpan={columnas.length + 1} className="text-center text-muted-foreground">
                       Sin contactos gestionados {periodo}
                     </TableCell>
                   </TableRow>
@@ -390,14 +411,14 @@ export function RatiosExito({
                               </div>
                             </div>
                           </TableCell>
-                          <CeldasRatios r={a} hora={porHoraLogada(a)} indice={a.indice} />
+                          <CeldasRatios r={a} hora={logada(a)} indice={a.indice} />
                         </TableRow>
                         {abierto
                           ? a.campanias.map((c) => (
                               <TableRow key={`${a.agente}|${c.campania}`} className="bg-muted/40 text-xs">
                                 <TableCell className="pl-10">{c.campania}</TableCell>
                                 {/* Por campaña no hay horas logadas (regla 11): script abierto */}
-                                <CeldasRatios r={c} hora={porHoraGuion(c)} indice={c.indice} />
+                                <CeldasRatios r={c} hora={guion(c)} indice={c.indice} />
                               </TableRow>
                             ))
                           : null}
@@ -414,7 +435,11 @@ export function RatiosExito({
                     {/* El índice del total es 100 por definición: no se enseña */}
                     <CeldasRatios
                       r={t}
-                      hora={{ horas: t.horasLogadas, llamadas: t.llamadasHoraLogada, exitos: t.exitosHoraLogada, base: "logada" }}
+                      hora={
+                        sinHoras
+                          ? null
+                          : { horas: t.horasLogadas, llamadas: t.llamadasHoraLogada, exitos: t.exitosHoraLogada, base: "logada" }
+                      }
                       indice={null}
                     />
                   </TableRow>
@@ -434,7 +459,7 @@ export function RatiosExito({
               <TableHeader>
                 <TableRow>
                   <TableHead>Campaña</TableHead>
-                  {COLUMNAS.filter((c) => c.clave !== "indice").map((c) => (
+                  {columnas.filter((c) => c.clave !== "indice").map((c) => (
                     <TableHead key={c.clave} className="whitespace-normal text-right align-bottom" title={c.ayuda}>
                       {c.titulo}
                     </TableHead>
@@ -444,7 +469,7 @@ export function RatiosExito({
               <TableBody>
                 {ratios.campanias.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={COLUMNAS.length} className="text-center text-muted-foreground">
+                    <TableCell colSpan={columnas.length} className="text-center text-muted-foreground">
                       Sin contactos gestionados {periodo}
                     </TableCell>
                   </TableRow>
@@ -459,7 +484,7 @@ export function RatiosExito({
                         </TableCell>
                         <CeldasRatios
                           r={c}
-                          hora={porHoraGuion(c)}
+                          hora={guion(c)}
                           efectividadAyuda={c.marcaSinExito ? undefined : "Esta campaña no marca «sin éxito»"}
                         />
                       </TableRow>
@@ -474,7 +499,7 @@ export function RatiosExito({
                         {ratios.campanias.length} campañas
                       </div>
                     </TableCell>
-                    <CeldasRatios r={t} hora={porHoraGuion(t)} />
+                    <CeldasRatios r={t} hora={guion(t)} />
                   </TableRow>
                 ) : null}
               </TableBody>

@@ -43,6 +43,7 @@ export function CabeceraSupervision({
   resultados,
   umbral,
   sinEntrantes = false,
+  sinHoras = false,
 }: {
   kpis: KpiCampaniaHoy[];
   ratios: ResultadoRatios;
@@ -52,13 +53,15 @@ export function CabeceraSupervision({
   umbral: number;
   /** Tiempo real: las entrantes ya están en la franja «Ahora», justo encima. */
   sinEntrantes?: boolean;
+  /** «Solo BBDD» de GH (17/11/2026): sin las cajas de horas. */
+  sinHoras?: boolean;
 }) {
   const k = sumarKpis(kpis, "Total");
   const pctAbandono = k.recibidas > 0 ? (k.abandonadasInbound / k.recibidas) * 100 : null;
 
   return (
     <div className="space-y-4">
-      <KpisPrincipales ratios={ratios.total} resultados={resultados} />
+      <KpisPrincipales ratios={ratios.total} resultados={resultados} sinHoras={sinHoras} />
 
       {k.recibidas > 0 && !sinEntrantes ? (
         <Fila titulo="Entrantes">

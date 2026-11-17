@@ -24,10 +24,13 @@ export function leerSeccionDireccion(valor: string | null | undefined): SeccionD
   return SECCIONES_DIRECCION.find((s) => s === valor) ?? "resumen";
 }
 
-/** Enlace a una sección conservando el rango, el cliente y el IVR. El resumen no lleva `seccion`. */
+/**
+ * Enlace a una sección conservando el rango, el cliente, el IVR y el tipo de
+ * campaña (17/11/2026: solo si no es el de por defecto). El resumen no lleva `seccion`.
+ */
 export function hrefSeccionDireccion(
   seccion: SeccionDireccion,
-  filtros: { desde: string; hasta: string; servicio?: string; incluirIvr?: boolean },
+  filtros: { desde: string; hasta: string; servicio?: string; incluirIvr?: boolean; tipo?: string },
 ): string {
   const p = new URLSearchParams();
   if (seccion !== "resumen") p.set("seccion", seccion);
@@ -35,6 +38,7 @@ export function hrefSeccionDireccion(
   p.set("hasta", filtros.hasta);
   if (filtros.servicio) p.set("servicio", filtros.servicio);
   if (filtros.incluirIvr) p.set("ivr", "1");
+  if (filtros.servicio && filtros.tipo) p.set("tipo", filtros.tipo);
   return `/direccion?${p.toString()}`;
 }
 

@@ -4,6 +4,9 @@ import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
 import type { ServicioOrdenado } from "@/lib/actividad-servicios";
 import { SelectorIvr } from "@/components/filtros/selector-ivr";
+import { SelectorTipo } from "@/components/filtros/selector-tipo";
+import { AvisoTipo } from "@/components/filtros/aviso-tipo";
+import type { FiltroTipo } from "@/lib/tipo-panel";
 import type { TipoCampania } from "@/lib/resultados-actividad";
 import { NOMBRE_SECCION, type SeccionSupervision } from "@/lib/supervision-secciones";
 import type { DatosSupervisionPeriodo } from "@/lib/supervision-servidor";
@@ -29,6 +32,7 @@ export function PanelHistorico({
   servicio,
   incluirIvr,
   tipos,
+  filtroTipo,
   servicioDe,
 }: {
   datos: DatosSupervisionPeriodo;
@@ -49,6 +53,8 @@ export function PanelHistorico({
   incluirIvr: boolean;
   /** Tipos de campaña del cliente (Bolsas: cartera; GH: BBDD): agrupan la tabla. */
   tipos: TipoCampania[];
+  /** Filtro por tipo de campaña (17/11/2026; sin opciones si el cliente no lo tiene). */
+  filtroTipo: FiltroTipo;
   /** Cliente de cada campaña (para el comparador sin cliente elegido). */
   servicioDe: Record<string, string>;
 }) {
@@ -64,6 +70,7 @@ export function PanelHistorico({
         filtros={
           <>
             <SelectorServicio servicios={servicios} orden={ordenServicios} valor={servicio} />
+            <SelectorTipo opciones={filtroTipo.opciones} valor={filtroTipo.tipo} defecto={filtroTipo.defecto} />
             <SelectorIvr incluir={incluirIvr} />
           </>
         }
@@ -72,6 +79,11 @@ export function PanelHistorico({
       />
 
       {avisos}
+      <AvisoTipo
+        filtro={filtroTipo}
+        sinHoras={datos.sinHoras}
+        delCliente={seccion === "entrantes" ? "La tarjeta del IVR y el callback" : undefined}
+      />
 
       <SeccionPeriodo
         seccion={seccion}
@@ -80,7 +92,7 @@ export function PanelHistorico({
         tipos={tipos}
         servicioDe={servicioDe}
         titulo={`Supervisión · histórico · ${NOMBRE_SECCION[seccion]}`}
-        claveComparador={`${servicio ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}`}
+        claveComparador={`${servicio ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}|${filtroTipo.tipo}`}
       />
     </div>
   );

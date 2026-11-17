@@ -39,4 +39,11 @@ describe("secciones de Supervisión", () => {
       hrefSeccion("salientes", { vista: "historico", desde: "2026-11-01", hasta: "2026-11-11" }),
     ).toBe("/supervision?vista=historico&seccion=salientes&desde=2026-11-01&hasta=2026-11-11");
   });
+
+  it("conservan el tipo de campaña, solo con cliente (17/11/2026)", () => {
+    expect(hrefSeccion("exitos", { vista: "tiempo-real", servicio: "GrupoHuertas", tipo: "solo:BBDD" })).toBe(
+      "/supervision?seccion=exitos&servicio=GrupoHuertas&tipo=solo%3ABBDD",
+    );
+    expect(hrefSeccion("exitos", { vista: "tiempo-real", tipo: "todas" })).toBe("/supervision?seccion=exitos");
+  });
 });
