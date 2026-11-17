@@ -8,6 +8,7 @@ import {
   Headset,
   LayoutDashboard,
   Settings,
+  UserRoundCheck,
   Users,
   type LucideIcon,
 } from "lucide-react";
@@ -19,6 +20,7 @@ const ICONOS: Record<string, LucideIcon> = {
   "/supervision": Headset,
   "/planificacion": CalendarRange,
   "/clientes": Users,
+  "/rrhh": UserRoundCheck,
   "/admin": Settings,
 };
 

@@ -14,8 +14,11 @@ import {
 // RDBv2 (SQL Server, solo lectura) y NO se modelan aquí.
 // ============================================================
 
-/** Roles disponibles. El scoping de `cliente` se aplica vía client_id. */
-export const ROLES = ["admin", "direccion", "operaciones", "supervision", "cliente"] as const;
+/**
+ * Roles disponibles. El scoping de `cliente` se aplica vía client_id. `rrhh`
+ * (16/11/2026): el panel de ausencias de RRHH (docs/plan-rrhh.md).
+ */
+export const ROLES = ["admin", "direccion", "operaciones", "supervision", "rrhh", "cliente"] as const;
 export type Rol = (typeof ROLES)[number];
 
 /**
@@ -971,6 +974,68 @@ export const cacheConsultas = sqliteTable(
   (t) => [index("idx_cache_consultas_caduca").on(t.caduca)],
 );
 
+// ============================================================
+// Panel de RRHH (16/11/2026, docs/plan-rrhh.md). Las ausencias de día
+// completo o de unas horas son las de Planificación (plan_ausencias): aquí
+// solo va lo propio de RRHH.
+// ============================================================
+
+/**
+ * Datos de RRHH de cada persona (nº de agente). Sin fila = horario aprendido,
+ * sin contrato apuntado y dentro del panel.
+ */
+export const rrhhPersonas = sqliteTable("rrhh_personas", {
+  agenteNumero: text("agente_numero").primaryKey(),
+  /** Horas de contrato a la semana que apunta RRHH (null = sin apuntar). */
+  contratoSemanalH: real("contrato_semanal_h"),
+  /** true = su horario es el de rrhh_horarios (confirmado o cambiado por RRHH). */
+  horarioConfirmado: integer("horario_confirmado", { mode: "boolean" }).notNull().default(false),
+  /** Fuera del panel (las supervisoras con nº de agente). */
+  excluida: integer("excluida", { mode: "boolean" }).notNull().default(false),
+  notas: text("notas"),
+  actualizadoPor: text("actualizado_por"),
+  actualizadoAt: integer("actualizado_at", { mode: "timestamp" })
+    .notNull()
+    .default(sql`(unixepoch())`),
+});
+
+/**
+ * Horario confirmado por RRHH: uno o dos tramos por día de la semana (1 =
+ * lunes ... 7 = domingo; tramo 1 = mañana, 2 = tarde del turno partido), en
+ * minutos desde las 00:00. Solo cuenta si la persona tiene
+ * `horario_confirmado`; un día sin filas es libre.
+ */
+export const rrhhHorarios = sqliteTable(
+  "rrhh_horarios",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    agenteNumero: text("agente_numero").notNull(),
+    diaSemana: integer("dia_semana").notNull(),
+    tramo: integer("tramo").notNull().default(1),
+    inicioMin: integer("inicio_min").notNull(),
+    finMin: integer("fin_min").notNull(),
+  },
+  (t) => [uniqueIndex("uq_rrhh_horarios").on(t.agenteNumero, t.diaSemana, t.tramo)],
+);
+
+/** Notas de RRHH sobre el día de una persona («médico, justificante entregado»). */
+export const rrhhNotas = sqliteTable(
+  "rrhh_notas",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    agenteNumero: text("agente_numero").notNull(),
+    fecha: text("fecha").notNull(), // YYYY-MM-DD
+    /** Minuto del día al que se refiere (null = del día entero). */
+    inicioMin: integer("inicio_min"),
+    texto: text("texto").notNull(),
+    creadoPor: text("creado_por"),
+    creadoAt: integer("creado_at", { mode: "timestamp" })
+      .notNull()
+      .default(sql`(unixepoch())`),
+  },
+  (t) => [index("idx_rrhh_notas_fecha").on(t.fecha, t.agenteNumero)],
+);
+
 // Tipos inferidos de uso frecuente
 export type User = typeof users.$inferSelect;
 export type NewUser = typeof users.$inferInsert;
@@ -987,3 +1052,5 @@ export type PlanBloqueRow = typeof planBloques.$inferSelect;
 export type PlanAusenciaRow = typeof planAusencias.$inferSelect;
 export type ResultadosConfigRow = typeof resultadosConfig.$inferSelect;
 export type ObjetivoResultadosRow = typeof objetivosResultados.$inferSelect;
+export type RrhhPersonaRow = typeof rrhhPersonas.$inferSelect;
+export type RrhhNotaRow = typeof rrhhNotas.$inferSelect;

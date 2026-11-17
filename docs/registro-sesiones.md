@@ -367,3 +367,10 @@ Registro completo: `docs/registro-sesion-16-noviembre-2026.md`. Commit `a8f0f0b`
 - «Generar borrador» con solo la publicada: respetar sus cambios a mano o empezar de cero. La copia exacta ya existía («Nuevo borrador desde la vN»).
 - Asignaciones de turno editables y borrables, también las ya empezadas; los patrones, igual que antes.
 - Semana A↔B de una persona desde la letra del tablero: cambia su turno (contrato, saldo y avisos) y sus bloques de esa semana pasan al cliente base; se conserva al regenerar respetando los cambios.
+
+### 35 · 16-17/11/2026 · Panel de RRHH: ausencias, día y «Por agente» (Opus 5.5)
+
+Plan y decisiones en `docs/plan-rrhh.md`; regla 23 de CLAUDE.md. Migración 0015 (aplicada antes en la SQLite de desarrollo, con backup `dashboard_20261116_1049.db`). Despliegue: ver `despliegue-linux.md` §9.
+
+- Rol `rrhh` («RRHH» en Administración → Usuarios) y `/rrhh`. Pestaña «Día»: el día de cada persona en una barra (horario, conectada, pausas, sin conectar, ausencias apuntadas), cajas, detalle por persona con notas y alta de ausencias, Excel del día. Pestaña «Por agente»: de un periodo, tiempo conectado y tiempo ausente (solo pausas de ausencia) desplegable por motivo con tiempo acumulado y veces, ausencias apuntadas aparte, Excel. Configuración: horario aprendido o confirmado (hasta dos tramos por día), contrato con aviso frente a Planificación, motivos de pausa y tipos de ausencia.
+- Averiguado: `NREADY_REASON_NOT_WORKING` es casi siempre el rato entre conectarse y el primer «Disponible»; los jueves de Bolsas son de turno partido; «Fin de Jornada» se pone también al cambiar de usuario de Altitude (por eso las pausas de menos de 1 min no cuentan).

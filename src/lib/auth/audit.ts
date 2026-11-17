@@ -34,7 +34,12 @@ export type AccionAuditoria =
   | "plan_ausencia"
   | "plan_bolsa"
   | "plan_config"
-  | "plan_saldo_ajuste";
+  | "plan_saldo_ajuste"
+  // Panel de RRHH (16/11/2026): ver el detalle de una persona, sus notas y
+  // su configuración (las ausencias que apunta RRHH van como plan_ausencia)
+  | "rrhh_ver_persona"
+  | "rrhh_nota"
+  | "rrhh_config";
 
 /** Inserta una entrada de auditoría (síncrono, SQLite local). */
 export function registrarAuditoria(entrada: {

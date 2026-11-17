@@ -17,6 +17,7 @@ export const RUTA_POR_ROL: Record<Rol, string> = {
   direccion: "/direccion",
   operaciones: "/operaciones",
   supervision: "/supervision",
+  rrhh: "/rrhh",
   cliente: "/clientes",
 };
 
@@ -57,6 +58,19 @@ export const ROLES_ALERTAS: Rol[] = ["supervision", "operaciones", "direccion"];
  */
 export const ROLES_MI_SERVICIO: Rol[] = ["supervision", "operaciones", "direccion"];
 
+/**
+ * Panel de RRHH (16/11/2026, docs/plan-rrhh.md): RRHH ve y apunta (ausencias,
+ * notas y su configuración); dirección solo lo ve. Lleva datos de control de
+ * la plantilla: nadie más.
+ */
+export const ROLES_RRHH_LECTURA: Rol[] = ["rrhh", "direccion"];
+export const ROLES_RRHH_EDICION: Rol[] = ["rrhh"];
+
+/** ¿Puede este rol apuntar en el panel de RRHH? (admin siempre). */
+export function puedeEditarRrhh(rol: Rol): boolean {
+  return rol === "admin" || ROLES_RRHH_EDICION.includes(rol);
+}
+
 /** ¿Elige cliente en «Mi servicio» y ve sus globos internos? (admin siempre). */
 export function esInternoMiServicio(rol: Rol): boolean {
   return rol === "admin" || ROLES_MI_SERVICIO.includes(rol);
@@ -80,6 +94,7 @@ export function rutasVisibles(rol: Rol): { ruta: string; etiqueta: string }[] {
     { ruta: "/supervision", etiqueta: "Supervisión", roles: ["admin", ...ROLES_SUPERVISION] },
     { ruta: "/planificacion", etiqueta: "Planificación", roles: ["admin", ...ROLES_PLAN_LECTURA] },
     { ruta: "/clientes", etiqueta: "Mi servicio", roles: ["admin", "cliente", ...ROLES_MI_SERVICIO] },
+    { ruta: "/rrhh", etiqueta: "RRHH", roles: ["admin", ...ROLES_RRHH_LECTURA] },
     { ruta: "/admin", etiqueta: "Administración", roles: ["admin"] },
   ];
   return todas

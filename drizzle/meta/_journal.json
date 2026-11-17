@@ -106,6 +106,13 @@
       "when": 1794558023621,
       "tag": "0014_cache_consultas",
       "breakpoints": true
+    },
+    {
+      "idx": 15,
+      "version": "6",
+      "when": 1794831536781,
+      "tag": "0015_rrhh",
+      "breakpoints": true
     }
   ]
 }

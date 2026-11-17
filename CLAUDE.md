@@ -783,6 +783,57 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     - Medido del 01/09 al 11/11: 2,5 s la consulta; mediana en horario GH
       2,98 min, Ávolo 11,01, CEFF 4,25.
 
+23. **Panel de RRHH → Ausencias (16/11/2026, decidido con Christian)**. Plan,
+    decisiones y cifras en `docs/plan-rrhh.md`. Rol `rrhh` (ve y apunta; la
+    usuaria será Rocío Moreno) y dirección solo lee (`ROLES_RRHH_LECTURA`/
+    `ROLES_RRHH_EDICION`); el cliente, supervisión y operaciones, nunca. Lógica
+    pura con tests en `lib/rrhh/` (`dia.ts`, `horario.ts`, `motivos.ts`),
+    servidor en `lib/rrhh/servidor.ts`, SQL en `queries/rrhh.ts`, migración
+    0015 (`rrhh_personas`, `rrhh_horarios`, `rrhh_notas`; tipos IT, PER y AP;
+    1010 y 1071 excluidas).
+    - **Persona = nº de agente** (todos sus usuarios, regla 15); supervisoras
+      fuera (se marcan en Configuración). Entrada = primer login de
+      `user_log` (el fichaje está en GsBase y no hay conector).
+    - Tiempo ausente: sin conectar dentro de su horario (tarde, salida
+      antes, huecos, no vino; **desde el primer minuto**) + pausas con motivo
+      de ausencia. Las ausencias apuntadas son las de Planificación
+      (`plan_ausencias`, la MISMA lista; se auditan como `plan_ausencia`
+      con «(desde RRHH)»). El check «cuenta como trabajada» de cada tipo es
+      el mismo que usa el saldo de Planificación.
+    - Pausas (`ag_in_cp_log` op 2) una por pausa real de cada usuario: por
+      usuario y motivo, clústeres de solape y gana la MENOR duración (regla
+      10, sin partir por servicio). **`NREADY_REASON_NOT_WORKING` a ±2 min
+      de un login = «Hasta ponerse disponible»**, aparte y sin contar como
+      ausencia (03-14/11: 1.399 de 1.575, 3,53 min de media); a mitad de
+      jornada, «Pausa sin motivo» (ausencia). Categorías por defecto en
+      `motivos.ts`, editables (`app_settings` `rrhh.motivos`, solo lo que
+      cambia).
+    - **Horario**: plantilla de Planificación = bloques de la versión
+      vigente del día (con ausencia de jornada completa, el turno de la foto
+      para dibujarla); las demás, el **aprendido** de 6 semanas de
+      `user_log` (mediana de entrada y salida por día de la semana, a 15 min)
+      hasta que RRHH lo confirma o lo cambia. **Hasta dos tramos por día**:
+      los jueves de Bolsas son 08-15 y 17-20; con un corte de 1 h o más en
+      la mitad de esos días, el día sale partido. En un festivo o cierre del
+      calendario laboral no hay horario aprendido.
+    - Hoy en vivo (60 s); el detalle de una persona queda en `audit_log`
+      (`rrhh_ver_persona`, como mucho una vez cada 30 min por usuario,
+      persona y día, mirado en la propia tabla).
+    - **Pestaña «Por agente»** (`?vista=agentes&desde=&hasta=`, pedida el
+      mismo día; `lib/rrhh/periodo.ts`, `vista-agentes.tsx`): de un periodo
+      (por defecto el mes en curso, como mucho 93 días), por persona, tiempo
+      conectado y **tiempo ausente = SOLO las pausas con motivo de ausencia**
+      (decidido con Christian: aquí no entra el tiempo sin conectar), que se
+      despliega por motivo con tiempo acumulado, veces y media; las
+      ausencias apuntadas van aparte, sin sumar. Mismo cálculo del día, día
+      a día y sin horario: cuadra con la otra pestaña. Un mes de todos, 1-2 s.
+    - **Las pausas de menos de 1 min no cuentan** (ni tiempo ni veces; en
+      las dos pestañas; decidido con Christian el 16/11/2026), salvo la que
+      sigue abierta ahora: «Fin de Jornada» se pone también al CAMBIAR DE
+      USUARIO de Altitude (GH_0940 → Av_0940 → CEFF_0940), unos segundos
+      cada vez (01-15/11: 488 de 542 por debajo del minuto). 01-16/11: de
+      1.485 a 924 ausencias; el tiempo, casi igual (184,73 → 182,83 h).
+
 24. **Filtro por tipo de campaña en los paneles (17/11/2026, decidido con
     Christian: «me falta la opción con o sin base de datos en todas las
     pestañas de GH»)**. Puro con tests en `lib/tipo-panel.ts`; servidor en

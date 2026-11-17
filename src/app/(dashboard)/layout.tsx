@@ -9,14 +9,16 @@ import { CargaNavegacion } from "@/components/layout/carga-navegacion";
 import { CampanaAlertas } from "@/components/alertas/campana-alertas";
 import { preferenciasAlertas } from "@/lib/alertas-servidor";
 import { requireSesion, rutasVisibles, veAlertas } from "@/lib/auth/rbac";
+import type { Rol } from "@/lib/db/schema";
 import { esMock } from "@/lib/rdb/pool";
 import { cerrarSesion } from "./acciones";
 
-const NOMBRE_ROL: Record<string, string> = {
+const NOMBRE_ROL: Record<Rol, string> = {
   admin: "Administrador",
   direccion: "Dirección",
   operaciones: "Operaciones",
   supervision: "Supervisión",
+  rrhh: "RRHH",
   cliente: "Cliente",
 };
 

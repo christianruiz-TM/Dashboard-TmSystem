@@ -17,7 +17,7 @@ import { AvisoMsg } from "@/components/admin/aviso-msg";
 import { SelectNativo } from "@/components/admin/select-nativo";
 import { requireRol } from "@/lib/auth/rbac";
 import { db } from "@/lib/db/sqlite";
-import { users, ROLES } from "@/lib/db/schema";
+import { users, ROLES, type Rol } from "@/lib/db/schema";
 import { listarClientes } from "@/lib/db/clientes";
 import {
   alternarActivoUsuario,
@@ -29,11 +29,12 @@ import {
 export const metadata: Metadata = { title: "Usuarios" };
 export const dynamic = "force-dynamic";
 
-const NOMBRE_ROL: Record<string, string> = {
+const NOMBRE_ROL: Record<Rol, string> = {
   admin: "Administrador",
   direccion: "Dirección",
   operaciones: "Operaciones",
   supervision: "Supervisión",
+  rrhh: "RRHH",
   cliente: "Cliente",
 };
 
@@ -172,7 +173,7 @@ export default async function PaginaUsuarios({
                     <div className="text-xs text-muted-foreground">{u.username}</div>
                   </TableCell>
                   <TableCell>
-                    <Badge variant="secondary">{NOMBRE_ROL[u.rol] ?? u.rol}</Badge>
+                    <Badge variant="secondary">{NOMBRE_ROL[u.rol]}</Badge>
                   </TableCell>
                   <TableCell className="text-sm">
                     {u.clientId ? (clientes.find((c) => c.id === u.clientId)?.nombre ?? "—") : "—"}
