@@ -12,7 +12,7 @@ import { sumarDias } from "@/lib/planificacion/motor";
 import type { EntradaMotor } from "@/lib/planificacion/motor/tipos";
 import { leerParametrosPlan } from "@/lib/planificacion/parametros";
 import * as planRepo from "@/lib/planificacion/repositorio";
-import { logadoRango, versionVigente } from "@/lib/planificacion/seguimiento";
+import { logadoRango } from "@/lib/planificacion/seguimiento";
 import { parsearUsuario } from "@/lib/planificacion/usuarios";
 import { compararTexto } from "@/lib/orden";
 import { pausasUsuarios } from "@/lib/rdb/queries/rrhh";
@@ -28,6 +28,7 @@ import {
 } from "./dia";
 import { aprenderHorario, contratosDistintos, diaSemanaDe, horasSemana, SEMANAS_APRENDER, type DiaConectada, type HorarioSemana } from "./horario";
 import { acumularPeriodo, resumenApuntadas, totalesPeriodo, type ApuntadaPeriodo, type ResumenPeriodoPersona } from "./periodo";
+import { esGrupo, grupoAutomatico, type GrupoRrhh } from "./grupos";
 import * as repo from "./repositorio";
 
 export type FuenteHorario = "planificacion" | "confirmado" | "aprendido";
@@ -54,6 +55,11 @@ export interface PersonaRrhh {
   /** Horas a la semana del horario que se usa (confirmado o aprendido). */
   horasHorario: number;
   excluida: boolean;
+  /** Grupo para filtrar: el puesto a mano por RRHH o, si no, el automático. */
+  grupo: GrupoRrhh;
+  grupoAutomatico: GrupoRrhh;
+  /** true = RRHH lo ha puesto a mano. */
+  grupoManual: boolean;
   notas: string | null;
   ultimaSesion: string | null;
 }
@@ -128,6 +134,11 @@ export async function personasRrhh(hoy = hoyISO()): Promise<PersonaRrhh[]> {
       horarioAprendido,
       horasHorario: horasSemana(horarioConfirmado ?? horarioAprendido),
       excluida: fila?.excluida ?? false,
+      ...(() => {
+        const auto = grupoAutomatico({ enPlanificacion, codigo: principal });
+        const manual = esGrupo(fila?.grupo) ? fila.grupo : null;
+        return { grupo: manual ?? auto, grupoAutomatico: auto, grupoManual: manual != null };
+      })(),
       notas: fila?.notas ?? null,
       ultimaSesion,
     });
@@ -158,11 +169,11 @@ export interface DatosDia {
   festivo: string | null;
   filas: FilaDia[];
   resumen: ResumenEquipo;
-  /** Meses sin plan vigente (las personas de la plantilla usan su horario de RRHH). */
+  /** Mes sin plan PUBLICADO (las personas de la plantilla usan su horario de RRHH). */
   sinPlan: boolean;
 }
 
-/** Horario de cada persona de la plantilla ese día, desde la versión vigente del mes. */
+/** Horario de cada persona de la plantilla ese día, desde la versión PUBLICADA del mes. */
 function horariosPlan(fecha: string, version: PlanVersionRow | null): { bloques: Map<string, Tramo[]>; turnos: Map<string, Tramo[]> } | null {
   if (!version) return null;
   const bloques = new Map<string, Tramo[]>();
@@ -191,7 +202,12 @@ export async function datosDia(fecha: string, ahora = new Date()): Promise<Datos
   const eq = leerEquipo(leerParametrosPlan().equipo, ayerISO());
   const config = repo.leerConfigMotivosRrhh();
   const laboral = leerCalendarioLaboral(fecha, fecha)[0] ?? null;
-  const plan = horariosPlan(fecha, versionVigente(fecha.slice(0, 7)));
+  // Solo el plan PUBLICADO (decidido el 17/11/2026: lo mismo que la pestaña
+  // «Turnos» y que reciben las agentes); sin publicada, horario de RRHH
+  const plan = horariosPlan(
+    fecha,
+    planRepo.versionesMes(fecha.slice(0, 7)).find((v) => v.estado === "publicada") ?? null,
+  )
 
   // Sesiones y pausas por persona
   const sesiones = new Map<string, FilaDia["sesiones"]>();
@@ -386,4 +402,20 @@ export async function datosPeriodo(desde: string, hasta: string, ahora = new Dat
   }
 
   return { desde, hasta, enCurso: hasta >= hoy, filas, total: totalesPeriodo(filas.map((f) => f.resumen)) };
+}
+
+// ---------- Filtro por grupo (Bolsas · Socios · GH) ----------
+
+/** El día solo de un grupo (null = todos), con las cajas recalculadas. */
+export function filtrarDia(datos: DatosDia, grupo: GrupoRrhh | null): DatosDia {
+  if (!grupo) return datos;
+  const filas = datos.filas.filter((f) => f.persona.grupo === grupo);
+  return { ...datos, filas, resumen: resumenEquipo(filas.map((f) => f.dia)) };
+}
+
+/** El periodo solo de un grupo (null = todos), con el total recalculado. */
+export function filtrarPeriodo(datos: DatosPeriodo, grupo: GrupoRrhh | null): DatosPeriodo {
+  if (!grupo) return datos;
+  const filas = datos.filas.filter((f) => f.persona.grupo === grupo);
+  return { ...datos, filas, total: totalesPeriodo(filas.map((f) => f.resumen)) };
 }

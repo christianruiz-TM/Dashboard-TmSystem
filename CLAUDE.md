@@ -833,6 +833,21 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       USUARIO de Altitude (GH_0940 → Av_0940 → CEFF_0940), unos segundos
       cada vez (01-15/11: 488 de 542 por debajo del minuto). 01-16/11: de
       1.485 a 924 ausencias; el tiempo, casi igual (184,73 → 182,83 h).
+    - **Grupos** (17/11/2026, `lib/rrhh/grupos.ts`): filtro «Todos · Bolsas
+      · Socios · GH» en las tres pestañas y en los Excel (`?grupo=`, se
+      conserva al moverse). GH = la plantilla de Planificación (las
+      multicliente); si no, por el prefijo del usuario PRINCIPAL (`Bol_` →
+      Bolsas, `Soc_` → Socios; mirar todos sus usuarios no vale: Bol_0927
+      tiene GH_, UGR_, AL_...); lo demás, GH. RRHH lo corrige a mano en
+      Configuración (`rrhh_personas.grupo`, migración 0016; null =
+      automático). 17/11: 13 GH, 10 Bolsas, 5 Socios.
+    - **Pestaña «Turnos»** (`?vista=turnos&mes=`, `vista-turnos.tsx`): el
+      último plan PUBLICADO del mes por persona y día, sin cliente
+      (`horarioPublicado`, lo mismo que la «Copia para las agentes»; nunca un
+      borrador), con su PDF (`api/planificacion/horario` admite
+      `ROLES_RRHH_LECTURA`). Cada día pasado enlaza con su detalle en «Día».
+      Desde el mismo día, el horario de la plantilla en «Día» sale SOLO de
+      la versión publicada (antes, la vigente: publicada o borrador).
 
 24. **Filtro por tipo de campaña en los paneles (17/11/2026, decidido con
     Christian: «me falta la opción con o sin base de datos en todas las

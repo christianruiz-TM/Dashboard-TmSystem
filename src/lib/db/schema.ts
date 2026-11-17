@@ -992,6 +992,12 @@ export const rrhhPersonas = sqliteTable("rrhh_personas", {
   horarioConfirmado: integer("horario_confirmado", { mode: "boolean" }).notNull().default(false),
   /** Fuera del panel (las supervisoras con nº de agente). */
   excluida: integer("excluida", { mode: "boolean" }).notNull().default(false),
+  /**
+   * Grupo puesto a mano por RRHH: 'bolsas' | 'socios' | 'gh' (17/11/2026).
+   * null = automático (en la plantilla de Planificación → GH; si no, por el
+   * prefijo de su usuario principal: Bol_ → Bolsas, Soc_ → Socios).
+   */
+  grupo: text("grupo"),
   notas: text("notas"),
   actualizadoPor: text("actualizado_por"),
   actualizadoAt: integer("actualizado_at", { mode: "timestamp" })

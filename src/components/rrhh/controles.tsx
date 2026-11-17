@@ -13,7 +13,7 @@ import { avisarNavegacion } from "@/lib/navegacion";
 // ============================================================
 
 /** Calendario: al elegir un día, va a él (avisando a la capa de «Cargando…»). */
-export function SelectorDia({ fecha, maximo }: { fecha: string; maximo: string }) {
+export function SelectorDia({ fecha, maximo, grupo }: { fecha: string; maximo: string; grupo?: string }) {
   const router = useRouter();
   return (
     <Input
@@ -25,7 +25,7 @@ export function SelectorDia({ fecha, maximo }: { fecha: string; maximo: string }
       onChange={(e) => {
         const valor = e.target.value;
         if (!/^\d{4}-\d{2}-\d{2}$/.test(valor) || valor > maximo) return;
-        const destino = `/rrhh?fecha=${valor}`;
+        const destino = `/rrhh?fecha=${valor}${grupo ? `&grupo=${grupo}` : ""}`;
         avisarNavegacion(destino);
         router.push(destino);
       }}

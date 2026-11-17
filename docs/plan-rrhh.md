@@ -87,6 +87,20 @@ cliente, no.
   pestañas (la abierta ahora, sí). 01-16/11: de 1.485 a 924 ausencias y de
   184,73 a 182,83 h; Av_0940, de 97 «Fin de Jornada» a 2.
 
+## Grupos y «Turnos» (17/11/2026, decidido con Christian)
+
+- Filtro «Todos · Bolsas · Socios · GH» en Día, Por agente, Turnos y los
+  Excel. GH = la plantilla de Planificación (multicliente); si no, el
+  prefijo del usuario principal (`Bol_`, `Soc_`); lo demás, GH. RRHH lo
+  corrige a mano en Configuración → Personas → Grupo (migración 0016).
+  Con los datos del 17/11: 13 GH, 10 Bolsas, 5 Socios.
+- Pestaña «Turnos»: el último plan publicado del mes (lo mismo que la copia
+  que reciben las agentes, con las ausencias descontadas) y su PDF. Opción
+  elegida frente a dar a RRHH acceso de lectura a todo Planificación
+  (borradores, cupos, versiones...). Las ausencias de Planificación ya salían
+  en «Día» (la misma lista).
+- «Día» usa ahora solo el plan publicado para el horario de la plantilla.
+
 ## F2
 
 Lo que quede de semana y mes (por ejemplo, la vista del día de varios días).

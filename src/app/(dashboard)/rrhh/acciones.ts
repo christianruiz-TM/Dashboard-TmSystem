@@ -11,6 +11,7 @@ import { solapan } from "@/lib/planificacion/motor";
 import * as planRepo from "@/lib/planificacion/repositorio";
 import { hora } from "@/lib/rrhh/dia";
 import { DIAS_SEMANA, MAX_TRAMOS_DIA, type HorarioSemana } from "@/lib/rrhh/horario";
+import { esGrupo } from "@/lib/rrhh/grupos";
 import { CATEGORIAS_MOTIVO, type CategoriaMotivo, type ConfigMotivos } from "@/lib/rrhh/motivos";
 import * as repo from "@/lib/rrhh/repositorio";
 
@@ -178,6 +179,10 @@ export async function guardarPersonaAccion(formData: FormData): Promise<void> {
   const contrato = horasContrato(texto(formData, "contrato"));
   if (Number.isNaN(contrato)) volverConfig("error_datos", "El contrato son horas a la semana (por ejemplo 38 o 37,5).", ancla);
   const excluida = formData.get("excluida") === "on";
+  // Grupo: vacío = automático
+  const grupoTexto = texto(formData, "grupo");
+  if (grupoTexto !== "" && !esGrupo(grupoTexto)) volverConfig("error_datos", "Grupo no válido.", ancla);
+  const grupo = grupoTexto === "" ? null : grupoTexto;
   const notas = texto(formData, "notas").slice(0, 300) || null;
 
   // Horario: un tramo por día; vacío = libre
@@ -204,7 +209,7 @@ export async function guardarPersonaAccion(formData: FormData): Promise<void> {
     }
   }
 
-  const antes = repo.guardarPersona({ agenteNumero: numero.data, contratoSemanalH: contrato, excluida, notas, autor: usuario.username });
+  const antes = repo.guardarPersona({ agenteNumero: numero.data, contratoSemanalH: contrato, excluida, notas, grupo, autor: usuario.username });
   if (cambiaHorario) repo.guardarHorario(numero.data, horario, usuario.username);
   const textoHorario = cambiaHorario
     ? ` horario ${
@@ -217,7 +222,7 @@ export async function guardarPersonaAccion(formData: FormData): Promise<void> {
   await auditar(
     usuario,
     "rrhh_config",
-    `persona ${numero.data}: contrato ${antes?.contratoSemanalH ?? "—"} → ${contrato ?? "—"}, excluida ${antes?.excluida ?? false} → ${excluida}${textoHorario}`,
+    `persona ${numero.data}: contrato ${antes?.contratoSemanalH ?? "—"} → ${contrato ?? "—"}, excluida ${antes?.excluida ?? false} → ${excluida}, grupo ${antes?.grupo ?? "automático"} → ${grupo ?? "automático"}${textoHorario}`,
   );
   volverConfig("guardado", `Persona ${numero.data} guardada.`, ancla);
 }

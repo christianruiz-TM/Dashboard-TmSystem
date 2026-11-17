@@ -12,6 +12,7 @@ import { puedeEditarRrhh, requireRol, ROLES_RRHH_LECTURA } from "@/lib/auth/rbac
 import { horasLegibles } from "@/lib/fechas";
 import { motivosNoDisponible } from "@/lib/rdb/queries/rrhh";
 import { hora } from "@/lib/rrhh/dia";
+import { GRUPOS_RRHH, NOMBRE_GRUPO } from "@/lib/rrhh/grupos";
 import { DIAS_SEMANA, horasSemana, NOMBRE_DIA, textoHorario } from "@/lib/rrhh/horario";
 import { categoriaMotivo, categoriaPorDefecto, CATEGORIAS_MOTIVO, etiquetaMotivo, NOMBRE_CATEGORIA } from "@/lib/rrhh/motivos";
 import * as repo from "@/lib/rrhh/repositorio";
@@ -128,10 +129,23 @@ function FormularioPersona({ p }: { p: PersonaRrhh }) {
           </p>
         </fieldset>
       )}
-      <label className="inline-flex items-center gap-2 text-sm">
-        <input type="checkbox" name="excluida" defaultChecked={p.excluida} className="size-4 accent-foreground" />
-        Fuera del panel (por ejemplo, supervisoras)
-      </label>
+      <div className="flex flex-wrap items-center gap-6">
+        <label className="inline-flex items-center gap-2 text-sm">
+          Grupo
+          <select name="grupo" defaultValue={p.grupoManual ? p.grupo : ""} className={CLASE_SELECT}>
+            <option value="">Automático ({NOMBRE_GRUPO[p.grupoAutomatico]})</option>
+            {GRUPOS_RRHH.map((g) => (
+              <option key={g} value={g}>
+                {NOMBRE_GRUPO[g]}
+              </option>
+            ))}
+          </select>
+        </label>
+        <label className="inline-flex items-center gap-2 text-sm">
+          <input type="checkbox" name="excluida" defaultChecked={p.excluida} className="size-4 accent-foreground" />
+          Fuera del panel (por ejemplo, supervisoras)
+        </label>
+      </div>
       <div className="flex flex-wrap gap-2">
         <Button type="submit">{p.enPlanificacion || p.horarioConfirmado ? "Guardar" : "Guardar y confirmar horario"}</Button>
         <Button variant="outline" render={<Link href={`/rrhh/configuracion#p-${p.numero}`} />}>
@@ -178,6 +192,10 @@ export default async function ConfiguracionRrhh({
               </span>
             ) : null}
           </TableCell>
+          <TableCell>
+            {NOMBRE_GRUPO[p.grupo]}
+            <span className="block text-xs text-muted-foreground">{p.grupoManual ? "puesto a mano" : "automático"}</span>
+          </TableCell>
           <TableCell>{p.enPlanificacion ? "Sí" : "No"}</TableCell>
           <TableCell className="text-sm">
             <TextoHorario p={p} />
@@ -206,7 +224,7 @@ export default async function ConfiguracionRrhh({
         </TableRow>
         {editando ? (
           <TableRow>
-            <TableCell colSpan={6}>
+            <TableCell colSpan={7}>
               <FormularioPersona p={p} />
             </TableCell>
           </TableRow>
@@ -244,6 +262,7 @@ export default async function ConfiguracionRrhh({
             <TableHeader>
               <TableRow>
                 <TableHead>Persona</TableHead>
+                <TableHead>Grupo</TableHead>
                 <TableHead>En Planificación</TableHead>
                 <TableHead>Horario</TableHead>
                 <TableHead className="text-right">Horas del horario</TableHead>
@@ -255,7 +274,7 @@ export default async function ConfiguracionRrhh({
               {dentro.map(filaPersona)}
               {fuera.length > 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} className="pt-5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
+                  <TableCell colSpan={7} className="pt-5 text-xs font-medium tracking-wide text-muted-foreground uppercase">
                     Fuera del panel
                   </TableCell>
                 </TableRow>

@@ -1,7 +1,7 @@
 import { format } from "date-fns";
 import { NextResponse, type NextRequest } from "next/server";
 import { ipPeticion, registrarAuditoria } from "@/lib/auth/audit";
-import { ROLES_PLAN_LECTURA } from "@/lib/auth/rbac";
+import { ROLES_PLAN_LECTURA, ROLES_RRHH_LECTURA } from "@/lib/auth/rbac";
 import { obtenerSesion } from "@/lib/auth/session";
 import { cabeceraAdjunto } from "@/lib/export/adjunto";
 import { horarioHtml } from "@/lib/planificacion/horario-html";
@@ -13,10 +13,12 @@ import { horarioPublicado } from "@/lib/planificacion/vistas";
  * `formato=pdf` (una página A4 apaisada con todas) o `formato=html` (un solo
  * fichero interactivo: cada una elige su nombre y puede pasar sus turnos al
  * calendario del móvil). Siempre la publicada, aunque haya un borrador.
+ * También la descarga RRHH (pestaña «Turnos», 17/11/2026): es solo el plan
+ * publicado, sin cliente.
  */
 export async function GET(peticion: NextRequest) {
   const usuario = await obtenerSesion();
-  if (!usuario || (usuario.rol !== "admin" && !ROLES_PLAN_LECTURA.includes(usuario.rol))) {
+  if (!usuario || (usuario.rol !== "admin" && !ROLES_PLAN_LECTURA.includes(usuario.rol) && !ROLES_RRHH_LECTURA.includes(usuario.rol))) {
     return NextResponse.json({ error: "No autorizado" }, { status: 401 });
   }
   const mes = peticion.nextUrl.searchParams.get("mes") ?? "";

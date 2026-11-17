@@ -22,6 +22,8 @@ export function guardarPersona(valores: {
   contratoSemanalH: number | null;
   excluida: boolean;
   notas: string | null;
+  /** null = automático. */
+  grupo: string | null;
   autor: string;
 }): RrhhPersonaRow | null {
   const antes = db.select().from(rrhhPersonas).where(eq(rrhhPersonas.agenteNumero, valores.agenteNumero)).get() ?? null;
@@ -29,6 +31,7 @@ export function guardarPersona(valores: {
     contratoSemanalH: valores.contratoSemanalH,
     excluida: valores.excluida,
     notas: valores.notas,
+    grupo: valores.grupo,
     actualizadoPor: valores.autor,
     actualizadoAt: new Date(),
   };

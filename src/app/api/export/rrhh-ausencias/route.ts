@@ -5,7 +5,8 @@ import { obtenerSesion } from "@/lib/auth/session";
 import { respuestaXlsx } from "@/lib/export/xlsx";
 import { esquemaFechaISO, esquemaRango, hoyISO } from "@/lib/fechas";
 import { excelAusenciasDia, excelAusenciasPeriodo } from "@/lib/rrhh/excel";
-import { datosDia, datosPeriodo, MAX_DIAS_PERIODO } from "@/lib/rrhh/servidor";
+import { leerGrupo } from "@/lib/rrhh/grupos";
+import { datosDia, datosPeriodo, filtrarDia, filtrarPeriodo, MAX_DIAS_PERIODO } from "@/lib/rrhh/servidor";
 
 /**
  * Excel del panel de RRHH:
@@ -22,6 +23,9 @@ export async function GET(peticion: NextRequest) {
   }
   const params = peticion.nextUrl.searchParams;
   const hoy = hoyISO();
+  // Solo un grupo (Bolsas · Socios · GH), como en pantalla
+  const grupo = leerGrupo(params.get("grupo"));
+  const sufijo = grupo ? `_${grupo}` : "";
 
   let contenido: Buffer;
   let personas: number;
@@ -32,15 +36,15 @@ export async function GET(peticion: NextRequest) {
     if (!r.success || r.data.desde > hoy) return NextResponse.json({ error: "Periodo no válido" }, { status: 400 });
     const dias = Math.round((Date.parse(r.data.hasta) - Date.parse(r.data.desde)) / 86_400_000) + 1;
     if (dias > MAX_DIAS_PERIODO) return NextResponse.json({ error: `Como mucho ${MAX_DIAS_PERIODO} días` }, { status: 400 });
-    ({ contenido, personas } = await excelAusenciasPeriodo(await datosPeriodo(r.data.desde, r.data.hasta)));
-    nombre = `ausencias_por_agente_${r.data.desde}_${r.data.hasta}.xlsx`;
-    detalle = `rrhh-ausencias por agente ${r.data.desde}..${r.data.hasta}`;
+    ({ contenido, personas } = await excelAusenciasPeriodo(filtrarPeriodo(await datosPeriodo(r.data.desde, r.data.hasta), grupo)));
+    nombre = `ausencias_por_agente_${r.data.desde}_${r.data.hasta}${sufijo}.xlsx`;
+    detalle = `rrhh-ausencias por agente ${r.data.desde}..${r.data.hasta}${grupo ? ` grupo ${grupo}` : ""}`;
   } else {
     const pedida = esquemaFechaISO.safeParse(params.get("fecha") ?? hoy);
     if (!pedida.success || pedida.data > hoy) return NextResponse.json({ error: "Fecha no válida" }, { status: 400 });
-    ({ contenido, personas } = await excelAusenciasDia(await datosDia(pedida.data)));
-    nombre = `ausencias_${pedida.data}.xlsx`;
-    detalle = `rrhh-ausencias ${pedida.data}`;
+    ({ contenido, personas } = await excelAusenciasDia(filtrarDia(await datosDia(pedida.data), grupo)));
+    nombre = `ausencias_${pedida.data}${sufijo}.xlsx`;
+    detalle = `rrhh-ausencias ${pedida.data}${grupo ? ` grupo ${grupo}` : ""}`;
   }
 
   registrarAuditoria({

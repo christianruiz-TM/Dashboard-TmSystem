@@ -1,0 +1,1 @@
+ALTER TABLE `rrhh_personas` ADD `grupo` text;

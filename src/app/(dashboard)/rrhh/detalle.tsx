@@ -56,6 +56,7 @@ export function DetallePersona({
   notas,
   tipos,
   puedeEditar,
+  grupo,
 }: {
   fila: FilaDia;
   fecha: string;
@@ -63,10 +64,12 @@ export function DetallePersona({
   notas: RrhhNotaRow[];
   tipos: (typeof planTiposAusencia.$inferSelect)[];
   puedeEditar: boolean;
+  /** Filtro de grupo de la página, para volver con él al cerrar. */
+  grupo?: string;
 }) {
   const { persona, dia } = fila;
   const escala = escalaDe([{ horario: fila.horario, tramos: dia.tramos }]);
-  const cerrar = `/rrhh?fecha=${fecha}`;
+  const cerrar = `/rrhh?fecha=${fecha}${grupo ? `&grupo=${grupo}` : ""}`;
   const horarioTexto = fila.horario.length ? fila.horario.map((t) => `${hora(t.inicioMin)}-${hora(t.finMin)}`).join(", ") : "Sin horario este día";
   const apuntadas = fila.ausencias;
 
