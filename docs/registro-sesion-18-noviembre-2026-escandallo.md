@@ -6,8 +6,8 @@ propuso dónde y cómo, se resolvieron las dudas y después se hizo, se despleg�
 y se dieron de alta los tramos, cada paso con su ok.
 
 - Commits: `92a656f` (escandallo, migración 0017), `25b5cd3` (arreglo de la
-  tarjeta) y `3f52314` (histórico y registro).
-- Despliegues: 12:10 y 12:27 (`despliegue-linux.md` §9).
+  tarjeta), `5142e9c` (ayuda en el panel) y los de documentación.
+- Despliegues: 12:10, 12:27 y 12:53 (`despliegue-linux.md` §9).
 - Reglas: CLAUDE.md, regla 19, «Escandallo».
 - Detalle técnico: `facturacion-tarificacion.md` §6.
 
@@ -48,6 +48,17 @@ sombreada).
   - Globo del importe en `tabla-factura.tsx`.
 - Todo explicado en `facturacion-tarificacion.md` §6.
 - 440 tests, `tsc` y ESLint en verde.
+
+### Ayuda dentro del panel (pedida después)
+
+- «Escandallo (precio por tramos)» en el glosario único (`lib/glosario.ts`),
+  en lenguaje llano y con el de Ávolo; «Artículos de GS» lo menciona.
+- `components/punto-glosario.tsx`: un «?» con globo que enseña cualquier
+  término del glosario (el mismo texto que el glosario del pie). Va junto a
+  «Precio por tramos» en Artículos y tarifas y en la tarjeta de la Factura.
+- Glosario al pie de Artículos y tarifas (no tenía) y «Escandallo» en el de
+  la Factura (`GLOSARIO_OPERACIONES`).
+- Desplegado a las 12:53 (`5142e9c`, backup `dashboard_20261118_1250.db`).
 
 ## 3. Comprobaciones
 
@@ -92,7 +103,8 @@ de auditoría.
 ## 6. Pendiente
 
 - **Verlo en el navegador**: Artículos y tarifas (desplegable de la línea de
-  Ávolo) y la Factura de Ávolo (tarjeta y globo).
+  Ávolo, «?» y glosario) y la Factura de Ávolo (tarjeta, «?» y globo del
+  importe).
 - **Confirmar con GS** que su tarifa de Ávolo aplica el mismo escandallo: el
   fichero de albaranes solo lleva cantidades.
 - **DDIs de Ávolo**: su tarifa tiene la línea de DDIs a 3,30 € y en la factura

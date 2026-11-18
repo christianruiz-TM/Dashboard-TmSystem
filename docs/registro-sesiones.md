@@ -59,7 +59,7 @@ histórico de git.
 | 34 | 16/11/2026 | Opus 5.5 | Planificación: horas restantes, regenerar desde la publicada, editar turnos y semana A↔B | `a8f0f0b` `cf2c46b` | `registro-sesion-16-noviembre-2026.md` |
 | 35 | 16-17/11/2026 | Opus 5.5 | Panel de RRHH: ausencias, día, «Por agente», grupos y «Turnos» | `0eb70b0` `5452846` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 36 | 18/11/2026 | Opus 5.5 | RRHH: supervisión en solo lectura | `0175fca` `4e96d75` | `plan-rrhh.md`; CLAUDE.md regla 23 |
-| 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` | `registro-sesion-18-noviembre-2026-escandallo.md`; `facturacion-tarificacion.md` §6; CLAUDE.md regla 19 |
+| 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` `5142e9c` | `registro-sesion-18-noviembre-2026-escandallo.md`; `facturacion-tarificacion.md` §6; CLAUDE.md regla 19 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
