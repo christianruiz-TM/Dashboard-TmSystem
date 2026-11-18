@@ -589,10 +589,10 @@ export function mockMinutosLinea(desde: string, hasta: string, campanias?: strin
     for (const [prefijo, cuota] of reparto) {
       const llamadas = Math.round(salientes * cuota * (0.8 + r() * 0.4));
       if (llamadas === 0) continue;
-      filas.push({ campania, fuente: "saliente", formato: "nacional", prefijo, llamadas, minutos: llamadas * (0.8 + r() * 0.6) });
+      filas.push({ campania, fuente: "saliente", formato: "nacional", prefijo, llamadas, minutos: llamadas * (0.8 + r() * 0.6), fichaIncompleta: false });
       const encuestas = Math.round(llamadas * 0.25);
       if (encuestas > 0 && prefijo.startsWith("6")) {
-        filas.push({ campania, fuente: "ivr", formato: "nacional", prefijo, llamadas: encuestas, minutos: encuestas * (0.4 + r() * 0.2) });
+        filas.push({ campania, fuente: "ivr", formato: "nacional", prefijo, llamadas: encuestas, minutos: encuestas * (0.4 + r() * 0.2), fichaIncompleta: false });
       }
     }
   }
@@ -708,6 +708,7 @@ export function mockBaseRepartoHorasLogadas(
         campania: camps[(inicio + i) % camps.length],
         prefijo: i % 3 === 0 ? "8240" : "7101",
         horas: (agente * p) / sumaPesos,
+        fichaIncompleta: false,
       });
     });
   }

@@ -2,7 +2,7 @@ import { conCache, ttlSegunRango } from "../cache";
 import { mockMinutosLinea } from "../mock";
 import { esMock, obtenerPool, sql } from "../pool";
 import type { MinutosLineaFila } from "../types";
-import { claveCampanias, filtroCampanias, limitesRango } from "./util";
+import { claveCampanias, filtroCampanias, limitesRango, sqlFichaIncompleta } from "./util";
 
 // ============================================================
 // Tarificación telefónica: minutos de línea con el cliente por campaña y
@@ -31,6 +31,11 @@ import { claveCampanias, filtroCampanias, limitesRango } from "./util";
 // hunt group (llamada entrante: la paga quien llama) o una extensión
 // interna; uno de más de 13, internacional o raro: se enseñan, no se cobran.
 // Duraciones en DÉCIMAS de segundo → / 600.0 = minutos.
+//
+// Cada fila lleva `fichaIncompleta`: salientes del agente con contacto sin
+// perfil o al revés (sqlFichaIncompleta). El Excel de operaciones no las cobra
+// y se quitan en facturacionCompleta para los clientes con esa opción (GH,
+// 18/11/2026). Su encuesta sí se cobra (marca 0), en la campaña del agente.
 // ============================================================
 
 export async function minutosLineaPorCampania(
@@ -49,10 +54,11 @@ export async function minutosLineaPorCampania(
     const filtro = filtroCampanias(request, campanias, "c.shortname");
 
     const r = await request.query(`
+      -- Tarificación: minutos de línea por campaña, prefijo y ficha a medias
       WITH linea AS (
           -- Salientes atendidas de agente humano
           SELECT t.campaign, t.code AS hilo, g.to_address AS destino,
-                 s.duration, 'saliente' AS fuente
+                 s.duration, 'saliente' AS fuente, ${sqlFichaIncompleta()} AS incompleta
           FROM itr_thread t
           INNER JOIN itr_global  g ON g.code = t.itr_global
           INNER JOIN itr_segment s ON s.itr_thread = t.code AND s.state IN (6, 7)
@@ -61,7 +67,7 @@ export async function minutosLineaPorCampania(
             AND t.origin = 2 AND t.termination_state = 1
           UNION ALL
           -- IVR tras un agente en la misma llamada (encuesta): campaña del agente
-          SELECT ag.campaign, t.code, g.to_address, s.duration, 'ivr'
+          SELECT ag.campaign, t.code, g.to_address, s.duration, 'ivr', 0
           FROM itr_thread t
           INNER JOIN itr_global  g ON g.code = t.itr_global
           INNER JOIN itr_segment s ON s.itr_thread = t.code AND s.state IN (6, 7)
@@ -77,13 +83,13 @@ export async function minutosLineaPorCampania(
             AND t.termination_state = 1
       ),
       clasif AS (
-          SELECT campaign, hilo, duration, fuente,
+          SELECT campaign, hilo, duration, fuente, incompleta,
                  CASE WHEN LEN(destino) < 9  THEN 'corto'
                       WHEN LEN(destino) > 13 THEN 'largo'
                       ELSE 'nacional' END AS formato,
                  CASE WHEN LEN(destino) BETWEEN 9 AND 13
                       THEN LEFT(RIGHT(destino, 9), 3) END AS prefijo
-          FROM (SELECT campaign, hilo, duration, fuente,
+          FROM (SELECT campaign, hilo, duration, fuente, incompleta,
                        LTRIM(RTRIM(ISNULL(destino, ''))) AS destino
                 FROM linea) l
       )
@@ -91,13 +97,16 @@ export async function minutosLineaPorCampania(
              x.fuente,
              x.formato,
              x.prefijo,
+             x.incompleta,
              COUNT(DISTINCT x.hilo)                    AS llamadas,
              SUM(CAST(x.duration AS BIGINT)) / 600.0   AS minutos
       FROM clasif x
       INNER JOIN ph_campaign c ON c.code = x.campaign
       WHERE 1 = 1${filtro}
-      GROUP BY RTRIM(c.shortname), x.fuente, x.formato, x.prefijo;
+      GROUP BY RTRIM(c.shortname), x.fuente, x.formato, x.prefijo, x.incompleta;
     `);
-    return r.recordset as MinutosLineaFila[];
+    return (r.recordset as (Omit<MinutosLineaFila, "fichaIncompleta"> & { incompleta: number })[]).map(
+      ({ incompleta, ...f }) => ({ ...f, fichaIncompleta: incompleta === 1 }),
+    );
   });
 }

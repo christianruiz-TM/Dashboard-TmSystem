@@ -109,6 +109,22 @@ export function sqlPreparacion(t = "t", g = "g"): string {
   return `(${t}.origin = 2 AND ISNULL(${t}.media_type, 1) = 1 AND NULLIF(LTRIM(RTRIM(${g}.to_address)), '') IS NULL)`;
 }
 
+/**
+ * El hilo tiene la FICHA A MEDIAS: lleva contacto (`contact`) sin perfil
+ * (`contact_profile`) o al revés. Es la regla del Excel de facturación de
+ * operaciones, que no cobra esas llamadas (cuadrado con su comprobación de
+ * octubre 2026 de GH: minutos a móvil 14.814,92 en las 43 campañas). Un hilo
+ * SIN ninguno de los dos (entrante que no llegó a ligarse a una ficha, o la
+ * encuesta del IVR) sí cuenta. Se marca en el SQL y se quita en TypeScript
+ * solo para los clientes con la opción (`quitarFichaIncompleta`).
+ */
+export function sqlFichaIncompleta(t = "t"): string {
+  return (
+    `CASE WHEN (${t}.contact IS NULL AND ${t}.contact_profile IS NOT NULL)` +
+    ` OR (${t}.contact IS NOT NULL AND ${t}.contact_profile IS NULL) THEN 1 ELSE 0 END`
+  );
+}
+
 /** El hilo es un EMAIL (o cualquier medio que no sea telefonía): no es una llamada. */
 export function sqlEmail(t = "t"): string {
   return `(ISNULL(${t}.media_type, 1) <> 1)`;

@@ -302,7 +302,14 @@ export interface BaseRepartoHorasLogadas {
    * los 4 primeros caracteres del número (account code en las salientes, hunt
    * group en las entrantes): el Excel de operaciones excluye algunos a mano.
    */
-  tiempoAgente: { usuario: string; campania: string; prefijo: string; horas: number }[];
+  tiempoAgente: {
+    usuario: string;
+    campania: string;
+    prefijo: string;
+    horas: number;
+    /** Hilos con la ficha a medias (sqlFichaIncompleta): fuera si el cliente lo pide. Ausente = no. */
+    fichaIncompleta?: boolean;
+  }[];
 }
 
 /**
@@ -320,6 +327,12 @@ export interface MinutosLineaFila {
   llamadas: number;
   /** SIN redondear (se suma por campaña). */
   minutos: number;
+  /**
+   * Salientes del agente con la ficha a medias (sqlFichaIncompleta). La
+   * encuesta del IVR nunca: se cobra aunque su llamada del agente no cuente.
+   * Ausente = no.
+   */
+  fichaIncompleta?: boolean;
 }
 
 /** Métricas de un día y campaña (para agregados nocturnos). */

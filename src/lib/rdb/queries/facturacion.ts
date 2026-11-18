@@ -22,6 +22,7 @@ import {
   redondear2,
   sqlApplyTipificada,
   sqlExito,
+  sqlFichaIncompleta,
   sqlJoinGlobal,
   sqlLlamada,
 } from "./util";
@@ -446,7 +447,10 @@ export async function horasLogadasUsuarios(
  * céntimo y el resto a ±0,25 h. Por campaña y PREFIJO (4 primeros caracteres
  * del número): el Excel excluye a mano unos cuantos en un segmentador y
  * Christian decidió replicarlo (15/10/2026); la lista es de cada cliente y
- * la mantiene Operaciones (repartirHorasLogadas la aplica).
+ * la mantiene Operaciones (repartirHorasLogadas la aplica). Cada fila dice
+ * además si sus hilos tienen la ficha a medias (sqlFichaIncompleta), que el
+ * Excel tampoco cuenta: se quitan para los clientes con esa opción (GH,
+ * 18/11/2026; cuadrado con la comprobación de octubre de operaciones).
  * Duraciones en DÉCIMAS de segundo → / 36000.0 = horas.
  */
 export async function baseRepartoHorasLogadas(
@@ -475,6 +479,7 @@ export async function baseRepartoHorasLogadas(
       SELECT RTRIM(u.usr_name)                            AS usuario,
              RTRIM(c.shortname)                           AS campania,
              LEFT(LTRIM(RTRIM(g.to_address)), 4)          AS prefijo,
+             ${sqlFichaIncompleta()}                      AS incompleta,
              SUM(CAST(s.duration AS BIGINT)) / 36000.0    AS horas
       FROM itr_thread t
       INNER JOIN itr_global  g ON g.code = t.itr_global
@@ -485,9 +490,11 @@ export async function baseRepartoHorasLogadas(
         AND t.origin IN (1, 2)
         AND LTRIM(RTRIM(ISNULL(g.to_address, ''))) <> ''
         AND (${condiciones.join(" OR ")})
-      GROUP BY RTRIM(u.usr_name), RTRIM(c.shortname), LEFT(LTRIM(RTRIM(g.to_address)), 4);
+      GROUP BY RTRIM(u.usr_name), RTRIM(c.shortname), LEFT(LTRIM(RTRIM(g.to_address)), 4),
+               ${sqlFichaIncompleta()};
     `);
-    const filas = r.recordset as BaseRepartoHorasLogadas["tiempoAgente"];
+    type Fila = Omit<BaseRepartoHorasLogadas["tiempoAgente"][number], "fichaIncompleta"> & { incompleta: number };
+    const filas = (r.recordset as Fila[]).map(({ incompleta, ...f }) => ({ ...f, fichaIncompleta: incompleta === 1 }));
     const delCliente = (usuario: string) => unicos.some((p) => esUsuarioDelCliente(usuario, p));
     return { tiempoAgente: filas.filter((f) => delCliente(f.usuario)) };
   });

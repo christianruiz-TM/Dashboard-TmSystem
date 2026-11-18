@@ -270,6 +270,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       - Código: `baseRepartoHorasLogadas` (queries/facturacion.ts) y
         `repartirHorasLogadas` (puro, con tests). Es lo que va a la fila de
         cada campaña en la «Factura por campaña» de Operaciones (regla 19).
+      - Con la opción del cliente (GH, 18/11/2026), tampoco cuentan los
+        hilos con la ficha a medias: ver «Llamadas con la ficha a medias»
+        en la regla 19.
 
 17. **Ratios de éxito (decidido 09/10/2026 con Christian)**: éxito =
     `script_session.business_status = 3` en todas las campañas; se ven en
@@ -521,6 +524,20 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
         se cobran ni cuentan).
       - Septiembre 2026: móvil 8.843,50 min frente a 8.842,38 del Excel;
         fijo 39,06, exacto.
+      - **Llamadas con la ficha a medias** (18/11/2026, decidido con
+        Christian, SOLO GH): la llamada del agente con contacto sin perfil
+        o perfil sin contacto (`sqlFichaIncompleta`) no cuenta ni en los
+        minutos ni en el reparto de horas (regla 16); su encuesta SÍ se
+        cobra y los hilos sin ninguno de los dos se quedan. Es la regla del
+        Excel: octubre GH, móvil 14.868,91 → 14.814,92, igual que la
+        comprobación de operaciones en las 43 campañas; horas al céntimo en
+        21 de 43 (el resto, retoques a mano del Excel, como septiembre).
+        Las consultas solo marcan (`fichaIncompleta`) y se filtra en TS
+        (`sinFichasIncompletas`, `repartirHorasLogadas`). Opción por cliente
+        en `/operaciones/reparto` (`app_settings`
+        `facturacion.sinFichaIncompleta.<servicio>`, por defecto no).
+        **Tras desplegar, marcarla para GH en producción.** Detalle en
+        `docs/facturacion-tarificacion.md` §2.
     - **DDIs** (unidad `ddi`, tabla `ddis`): cada fila es una ASIGNACIÓN
       número → campaña con fechas (el mismo número se reasigna; `numero` no
       es único).

@@ -11,6 +11,9 @@
  *                                    dashboard, Operaciones → Reparto)
  *   ... --ddi-con-llamadas gh_bbdd_  campañas que empiezan así solo pagan
  *                                    DDIs los meses con llamadas
+ *   ... --sin-ficha-incompleta       sin las llamadas con la ficha a medias
+ *                                    (contacto sin perfil o al revés), como el
+ *                                    Excel; en el dashboard, Operaciones → Reparto
  *
  * No lee la SQLite (ni tarifas ni maestros): los DDIs salen de la hoja
  * «LISTADO DDI DETALLE» del mismo Excel y los precios, de dividir importe
@@ -42,6 +45,7 @@ async function main() {
   const prefijo = argumento("prefijo") ?? "GH";
   const excluidos = new Set((argumento("excluir") ?? "").split(/[\s,;]+/).filter(Boolean));
   const ddiConLlamadas = argumento("ddi-con-llamadas");
+  const sinFichaIncompleta = process.argv.includes("--sin-ficha-incompleta");
   if (!archivo || !mes || !/^\d{4}-\d{2}$/.test(mes)) {
     console.error('Uso: npm run facturacion:comparar -- --archivo "ruta.xlsx" --mes YYYY-MM [--servicio X --prefijo Y]');
     process.exit(1);
@@ -51,7 +55,7 @@ async function main() {
   const { leerDdis, leerFacturacionCerrada } = await import("../src/lib/facturacion-excel");
   const { ddisFacturables, mesesDelRango } = await import("../src/lib/ddis");
   const { repartirHorasLogadas } = await import("../src/lib/facturacion-horas-logadas");
-  const { tarificacionPorCampania } = await import("../src/lib/tarificacion");
+  const { sinFichasIncompletas, tarificacionPorCampania } = await import("../src/lib/tarificacion");
   const { baseRepartoHorasLogadas, horasLogadasUsuarios, unidadesPorCampania } = await import(
     "../src/lib/rdb/queries/facturacion"
   );
@@ -86,12 +90,16 @@ async function main() {
     null,
     new Set(campanias.filter((c) => !bbdd.has(c))),
     excluidos,
+    sinFichaIncompleta,
   );
-  const tarif = tarificacionPorCampania(minutos);
+  const tarif = tarificacionPorCampania(
+    sinFichaIncompleta ? sinFichasIncompletas(minutos, new Set(campanias)) : minutos,
+  );
   const ddis = ddisFacturables(leerDdis(libro, codigoACampania).ddis, inicio, fin);
   const leads = new Map(unidades.map((u) => [u.campania, u.leadsFinalizados]));
   const conLlamadas = new Set(unidades.filter((u) => u.interacciones > 0).map((u) => u.campania));
   if (excluidos.size > 0) console.log(`Prefijos excluidos del reparto: ${[...excluidos].join(", ")}`);
+  if (sinFichaIncompleta) console.log("Sin las llamadas con la ficha a medias (contacto sin perfil o al revés)");
   console.log(`${servicio} ${mes}: RDBv2 consultada en ${((Date.now() - t0) / 1000).toFixed(1)} s\n`);
 
   type Unidad = "horas_logadas" | "minutos_fijo" | "minutos_movil" | "leads" | "ddi";

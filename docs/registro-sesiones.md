@@ -60,6 +60,7 @@ histórico de git.
 | 35 | 16-17/11/2026 | Opus 5.5 | Panel de RRHH: ausencias, día, «Por agente», grupos y «Turnos» | `0eb70b0` `5452846` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 36 | 18/11/2026 | Opus 5.5 | RRHH: supervisión en solo lectura | `0175fca` `4e96d75` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` `5142e9c` | `registro-sesion-18-noviembre-2026-escandallo.md`; `facturacion-tarificacion.md` §6; CLAUDE.md regla 19 |
+| 39 | 18/11/2026 | Opus 5.5 | Tarificación de GH: fuera las llamadas con la ficha a medias (cuadre de octubre con operaciones) | (pendiente de commit) | `facturacion-tarificacion.md` §2; CLAUDE.md reglas 16 y 19 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -412,3 +413,13 @@ Pedido por Christian, con propuesta aprobada antes de tocar nada. Registro compl
 - `25b5cd3`: el «faltan N para bajar» apuntaba al tramo de 600 (mismo precio que la base); ahora al primero que cambia el precio (con 444, «faltan 356 para bajar a 3,75 €»).
 - Visto de paso: la línea de DDIs de Ávolo (3,30 €) no suma nada en la factura de octubre (total = solo los finalizados); no se ha investigado.
 - Pendiente: verlo en el navegador (Artículos y tarifas y la Factura de Ávolo).
+
+### 39 · 18/11/2026 · Tarificación de GH: fuera las llamadas con la ficha a medias (Opus 5.5)
+
+Pedido por Christian: «en GH, si no hay `contact` pero sí `contact_profile`, no se tienen en cuenta». Primero se simuló octubre sin tocar nada y se cuadró con la «COMPROBACION FACTURACION MES DE OCTUBRE 26 version 1 03_11_26» de operaciones; luego, «aplica todas las reglas que tiene operaciones para que en el futuro cuadre, solo para GH». Detalle en `facturacion-tarificacion.md` §2 («Llamadas con la ficha a medias»).
+
+- Regla del Excel: fuera la llamada del agente con SOLO UNO de los dos campos (contacto sin perfil o al revés); su encuesta del IVR sí se cobra; los hilos sin ninguno se quedan. Vale para los minutos de línea y el reparto de horas logadas.
+- Octubre GH sin BBDD: móvil 14.868,91 → 14.814,92 (43 de 43 campañas como el Excel), fijo 36,25 igual, horas por campaña al céntimo 8 → 21 de 43 (quedan gh_dimovil_mer −0,15 h y gh_la_car_toyota −0,07 h, sin regla que lo explique: retoques a mano, como en septiembre). Total de horas igual (1.206,16 h).
+- Primera simulación errónea (contada a Christian): quitaba también la encuesta (−4,61 min) y no veía el caso contrario (0,08 min de un hilo de GH_1045 sin perfil).
+- Opción por cliente en `/operaciones/reparto` (`facturacion.sinFichaIncompleta.<servicio>`, sin migración). Verificado con `facturacionCompleta` sobre una copia de la SQLite de desarrollo: con la opción, las cifras de arriba; sin ella, igual que antes. 443 tests, `tsc` y ESLint en verde.
+- Pendiente: commit, desplegar y marcar la opción de GH en producción.

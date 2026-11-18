@@ -56,6 +56,21 @@ function porTipo(): Record<TipoLinea, number> {
   return { movil: 0, fijo: 0, especial: 0, sin_coste: 0, sin_numero: 0, otro: 0 };
 }
 
+/**
+ * Quita las salientes con la ficha a medias (contacto sin perfil o al revés)
+ * de las campañas indicadas: el Excel de facturación de operaciones no las
+ * cobra (GH, 18/11/2026: octubre cuadra con su comprobación en las 43
+ * campañas). Las encuestas del IVR no llevan la marca y se quedan, aunque su
+ * llamada del agente no cuente.
+ */
+export function sinFichasIncompletas(
+  filas: readonly MinutosLineaFila[],
+  campanias: ReadonlySet<string>,
+): MinutosLineaFila[] {
+  if (campanias.size === 0) return [...filas];
+  return filas.filter((f) => !(f.fichaIncompleta && campanias.has(f.campania)));
+}
+
 /** Suma las filas por campaña y tipo de línea. */
 export function tarificacionPorCampania(filas: readonly MinutosLineaFila[]): Map<string, TarificacionCampania> {
   const mapa = new Map<string, TarificacionCampania>();

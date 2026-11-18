@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { clasificarPrefijo, tarificacionPorCampania, tipoDeFila } from "./tarificacion";
+import { clasificarPrefijo, sinFichasIncompletas, tarificacionPorCampania, tipoDeFila } from "./tarificacion";
 
 describe("clasificarPrefijo (plan de numeración español)", () => {
   it("móviles: 6xx y 71x-74x", () => {
@@ -52,5 +52,29 @@ describe("tarificacionPorCampania", () => {
     expect(a.minutos.sin_numero).toBe(1);
     expect(a.minutosEncuesta).toBe(1.5);
     expect(t.get("gh_b")!.minutos.especial).toBe(0.5);
+  });
+});
+
+describe("sinFichasIncompletas (regla del Excel de operaciones, GH 18/11/2026)", () => {
+  const filas = [
+    { campania: "gh_a", fuente: "saliente" as const, formato: "nacional" as const, prefijo: "600", llamadas: 10, minutos: 12 },
+    // Llamada del agente con contacto sin perfil (o al revés): fuera
+    { campania: "gh_a", fuente: "saliente" as const, formato: "nacional" as const, prefijo: "600", llamadas: 1, minutos: 5, fichaIncompleta: true },
+    // Su encuesta no lleva la marca: se cobra igual
+    { campania: "gh_a", fuente: "ivr" as const, formato: "nacional" as const, prefijo: "600", llamadas: 1, minutos: 1.5 },
+    // De otro cliente sin la opción: se queda
+    { campania: "avo_b", fuente: "saliente" as const, formato: "nacional" as const, prefijo: "677", llamadas: 1, minutos: 2, fichaIncompleta: true },
+  ];
+
+  it("quita solo las marcadas de las campañas indicadas y deja la encuesta", () => {
+    const t = tarificacionPorCampania(sinFichasIncompletas(filas, new Set(["gh_a"])));
+    expect(t.get("gh_a")!.minutos.movil).toBe(13.5);
+    expect(t.get("gh_a")!.llamadas.movil).toBe(11);
+    expect(t.get("gh_a")!.minutosEncuesta).toBe(1.5);
+    expect(t.get("avo_b")!.minutos.movil).toBe(2);
+  });
+
+  it("sin campañas con la opción no quita nada", () => {
+    expect(sinFichasIncompletas(filas, new Set())).toEqual(filas);
   });
 });

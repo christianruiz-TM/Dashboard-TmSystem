@@ -5,9 +5,9 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Label } from "@/components/ui/label";
 import { ROLES_OPERACIONES, puedeEditarFacturacion, requireRol } from "@/lib/auth/rbac";
-import { prefijosExcluidosReparto } from "@/lib/db/facturacion";
+import { prefijosExcluidosReparto, quitarFichaIncompleta } from "@/lib/db/facturacion";
 import { lineasHorasLogadas } from "@/lib/facturacion";
-import { guardarPrefijosReparto } from "../acciones";
+import { guardarFichaIncompleta, guardarPrefijosReparto } from "../acciones";
 
 export const metadata: Metadata = { title: "Reparto de horas logadas" };
 export const dynamic = "force-dynamic";
@@ -16,7 +16,9 @@ export const dynamic = "force-dynamic";
  * Prefijos que no cuentan para repartir las horas logadas de cada cliente
  * por campaña: el segmentador «Pref_To_Entrat» del Excel de facturación de
  * operaciones, replicado el 15/10/2026. Solo para los clientes que facturan
- * por horas logadas.
+ * por horas logadas. Y si se quitan las llamadas con la ficha a medias
+ * (contacto sin perfil o al revés), en el reparto y en los minutos de línea,
+ * como el Excel (GH, 18/11/2026).
  */
 export default async function PaginaReparto({
   searchParams,
@@ -54,6 +56,7 @@ export default async function PaginaReparto({
       )}
       {clientes.map((servicio) => {
         const prefijos = prefijosExcluidosReparto(servicio);
+        const fichaFuera = quitarFichaIncompleta(servicio);
         return (
           <Card key={servicio}>
             <CardHeader>
@@ -61,7 +64,10 @@ export default async function PaginaReparto({
               <CardDescription>
                 {prefijos.length === 0
                   ? "Cuentan todas las llamadas con número."
-                  : `No cuentan ${prefijos.length} prefijos: ${prefijos.join(", ")}.`}
+                  : `No cuentan ${prefijos.length} prefijos: ${prefijos.join(", ")}.`}{" "}
+                {fichaFuera
+                  ? "Tampoco cuentan las llamadas con la ficha a medias, ni aquí ni en los minutos de línea."
+                  : "Las llamadas con la ficha a medias cuentan."}
               </CardDescription>
             </CardHeader>
             {puedeEditar && (
@@ -82,6 +88,30 @@ export default async function PaginaReparto({
                     calcule a partir de ahora; los meses cerrados no cambian.
                   </p>
                   <Button type="submit" size="sm">
+                    Guardar
+                  </Button>
+                </form>
+                <form action={guardarFichaIncompleta} className="mt-4 space-y-2 border-t pt-4">
+                  <input type="hidden" name="servicio" value={servicio} />
+                  <label className="flex items-start gap-2 text-sm">
+                    <input
+                      type="checkbox"
+                      name="quitar"
+                      value="1"
+                      defaultChecked={fichaFuera}
+                      className="mt-0.5 h-4 w-4 accent-primary"
+                    />
+                    <span>
+                      Quitar las llamadas con la ficha a medias
+                      <span className="block text-xs text-muted-foreground">
+                        Llamadas del agente que tienen contacto pero no perfil, o perfil pero no contacto. Como
+                        en el Excel de facturación, no cuentan ni para este reparto ni en los minutos a fijo y
+                        a móvil. La encuesta que va detrás sí se cobra. Se aplica a todo lo que se calcule a
+                        partir de ahora; los meses cerrados no cambian.
+                      </span>
+                    </span>
+                  </label>
+                  <Button type="submit" size="sm" variant="outline">
                     Guardar
                   </Button>
                 </form>

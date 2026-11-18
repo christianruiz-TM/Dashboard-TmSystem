@@ -83,6 +83,8 @@ export interface RepartoCampania {
  * su manera). Sin ella, todas las del tiempo de agente.
  * `prefijosExcluidos`: números (4 primeros caracteres) cuyo tiempo no cuenta
  * para el reparto, como el segmentador del Excel (lista del cliente).
+ * `sinFichaIncompleta`: tampoco cuentan los hilos con la ficha a medias
+ * (contacto sin perfil o al revés), como en el Excel (opción del cliente).
  *
  * Se suma sin redondear y al final se redondea a centésimas por el método
  * del mayor resto, para que las filas sumen EXACTAMENTE `totalHoras` (el
@@ -96,12 +98,15 @@ export function repartirHorasLogadas(
   precioUnitario: number | null,
   campaniasCliente?: ReadonlySet<string>,
   prefijosExcluidos?: ReadonlySet<string>,
+  sinFichaIncompleta = false,
 ): RepartoCampania[] {
   const peso = new Map<string, number>();
   for (const f of base.tiempoAgente) {
     if (!esUsuarioDelCliente(f.usuario, prefijo) || f.horas <= 0) continue;
     if (campaniasCliente && !campaniasCliente.has(f.campania)) continue;
     if (prefijosExcluidos?.has(f.prefijo)) continue;
+    // Hilos con la ficha a medias (contacto sin perfil o al revés): el Excel no los cuenta
+    if (sinFichaIncompleta && f.fichaIncompleta) continue;
     peso.set(f.campania, (peso.get(f.campania) ?? 0) + f.horas);
   }
   const totalPeso = [...peso.values()].reduce((a, b) => a + b, 0);
@@ -176,8 +181,9 @@ const redondear2 = (v: number) => Math.round(v * 100) / 100;
  * redondear y redondea solo el total; el importe sale de la cantidad que se
  * muestra (horas a 2 decimales × precio), como el resto de líneas.
  * `campaniasPorServicio` y `excluidosPorServicio`: las campañas que pueden
- * recibir el reparto de cada cliente y los prefijos que no cuentan (ver
- * repartirHorasLogadas).
+ * recibir el reparto de cada cliente y los prefijos que no cuentan;
+ * `serviciosSinFichaIncompleta`, los clientes que no cuentan los hilos con la
+ * ficha a medias (ver repartirHorasLogadas).
  */
 export function facturarHorasLogadas(
   lineas: LineaHorasLogadas[],
@@ -185,6 +191,7 @@ export function facturarHorasLogadas(
   base?: BaseRepartoHorasLogadas,
   campaniasPorServicio?: ReadonlyMap<string, ReadonlySet<string>>,
   excluidosPorServicio?: ReadonlyMap<string, ReadonlySet<string>>,
+  serviciosSinFichaIncompleta?: ReadonlySet<string>,
 ): FacturacionHorasLogadas[] {
   return lineas.map((linea) => {
     const propias = horas
@@ -208,6 +215,7 @@ export function facturarHorasLogadas(
             linea.precioUnitario,
             campaniasPorServicio?.get(linea.servicio),
             excluidosPorServicio?.get(linea.servicio),
+            serviciosSinFichaIncompleta?.has(linea.servicio) ?? false,
           )
         : [],
     };

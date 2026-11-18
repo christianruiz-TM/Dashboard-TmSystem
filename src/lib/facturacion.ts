@@ -6,6 +6,7 @@ import {
   ddisParaFacturar,
   mapaCodigosGs,
   prefijosExcluidosReparto,
+  quitarFichaIncompleta,
 } from "@/lib/db/facturacion";
 import { ddisPorMes, esDdiMovil } from "@/lib/ddis";
 import {
@@ -22,7 +23,7 @@ import {
   type FacturacionHorasLogadas,
   type LineaHorasLogadas,
 } from "@/lib/facturacion-horas-logadas";
-import { tarificacionPorCampania, type TarificacionCampania } from "@/lib/tarificacion";
+import { sinFichasIncompletas, tarificacionPorCampania, type TarificacionCampania } from "@/lib/tarificacion";
 import {
   baseRepartoHorasLogadas,
   horasLogadasUsuarios,
@@ -152,7 +153,15 @@ export async function facturacionHorasLogadas(
     listaServicios(),
   ]);
   const excluidos = new Map(lineas.map((l) => [l.servicio, new Set(prefijosExcluidosReparto(l.servicio))]));
-  return facturarHorasLogadas(lineas, horas, base, campaniasRepartoPorServicio(servicios), excluidos);
+  const sinFichaIncompleta = new Set(lineas.map((l) => l.servicio).filter(quitarFichaIncompleta));
+  return facturarHorasLogadas(
+    lineas,
+    horas,
+    base,
+    campaniasRepartoPorServicio(servicios),
+    excluidos,
+    sinFichaIncompleta,
+  );
 }
 
 /**
@@ -223,7 +232,15 @@ export async function facturacionCompleta(
     mesesConLlamadas.set(d.campania, meses);
   }
   const mapa = mapaCampaniaServicio(servicios);
-  const tarificacion = tarificacionPorCampania(minutos);
+  // Clientes que, como el Excel de operaciones, no cobran las salientes con la
+  // ficha a medias (contacto sin perfil o al revés): opción en «Reparto»
+  const conFichaIncompletaFuera = new Set(
+    [...new Set(mapa.values())].filter(quitarFichaIncompleta),
+  );
+  const campaniasSinFichaIncompleta = new Set(
+    [...mapa].filter(([, s]) => conFichaIncompletaFuera.has(s)).map(([c]) => c),
+  );
+  const tarificacion = tarificacionPorCampania(sinFichasIncompletas(minutos, campaniasSinFichaIncompleta));
   // DDIs geográficos y móviles por separado (dos artículos de GS). Un número
   // es siempre de un tipo, así que partir la lista no cambia la regla de
   // «una vez al mes, a la asignación más reciente» (lib/ddis.ts).

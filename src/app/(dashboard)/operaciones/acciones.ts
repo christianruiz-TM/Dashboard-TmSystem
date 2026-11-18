@@ -24,8 +24,10 @@ import {
   deshacerAjuste,
   guardarCierre,
   guardarPrefijosExcluidosReparto,
+  guardarQuitarFichaIncompleta,
   lineasAjustadas,
   prefijosExcluidosReparto,
+  quitarFichaIncompleta,
   reabrirCierre,
 } from "@/lib/db/facturacion";
 import { PATRON_PREFIJO_USUARIO, leerPrefijosExcluidos } from "@/lib/facturacion-horas-logadas";
@@ -221,6 +223,30 @@ export async function guardarPrefijosReparto(formData: FormData): Promise<void> 
     userId: usuario.id,
     username: usuario.username,
     detalle: `prefijos excluidos del reparto ${servicio}: [${antes.join(",")}] → [${prefijos.join(",")}]`,
+    ip: await ipPeticion(),
+  });
+  volverCon(ruta, "guardado");
+}
+
+/**
+ * Guarda si un cliente deja fuera de la tarificación (minutos de línea y
+ * reparto de horas) las llamadas con la ficha a medias: contacto sin perfil
+ * o al revés. Es lo que hace el Excel de operaciones (GH, 18/11/2026).
+ */
+export async function guardarFichaIncompleta(formData: FormData): Promise<void> {
+  const usuario = await requireRol(...ROLES_OPERACIONES_EDICION);
+  const ruta = "/operaciones/reparto";
+  const servicio = String(formData.get("servicio") ?? "").trim();
+  const servicios = await listaServicios();
+  if (!servicios.some((s) => s.servicio === servicio)) volverCon(ruta, "error_datos", "Cliente desconocido.");
+  const quitar = formData.get("quitar") === "1";
+  const antes = quitarFichaIncompleta(servicio);
+  guardarQuitarFichaIncompleta(servicio, quitar);
+  registrarAuditoria({
+    accion: "facturacion_maestros",
+    userId: usuario.id,
+    username: usuario.username,
+    detalle: `llamadas con la ficha a medias ${servicio}: ${antes ? "fuera" : "cuentan"} → ${quitar ? "fuera" : "cuentan"}`,
     ip: await ipPeticion(),
   });
   volverCon(ruta, "guardado");

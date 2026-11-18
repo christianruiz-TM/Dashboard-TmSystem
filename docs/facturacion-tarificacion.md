@@ -95,6 +95,47 @@ proporción a ese peso (mayor resto: las filas suman el total exacto).
   especial 901-909, 803-807 y 70x; sin coste 800 y 900. No aparece ningún 70x
   en jul-sep.
 
+### Llamadas con la ficha a medias (18/11/2026, solo GH)
+Christian: «en GH, si no hay `contact` pero sí `contact_profile`, no se tienen
+en cuenta». Al cuadrar octubre 2026 con la «COMPROBACION FACTURACION MES DE
+OCTUBRE 26» de operaciones salió la regla completa del Excel:
+
+- **Fuera la llamada del agente que tiene SOLO UNO de los dos** campos de
+  `itr_thread`: contacto sin perfil o perfil sin contacto
+  (`sqlFichaIncompleta`, `queries/util.ts`). Octubre GH: 42 entrantes y 34
+  salientes con perfil y sin contacto, y 3 salientes con contacto y sin perfil.
+- **La encuesta que va detrás se sigue cobrando**, en la campaña de ese
+  agente. Quitándola también salían 4,61 min de menos (gh_aclasse_mer 2,85,
+  gh_dimovil_mer 1,24, gh_mur_seat 0,60).
+- **Los hilos sin ninguno de los dos se quedan** (entrantes que no llegaron a
+  ligarse a una ficha y la propia encuesta del IVR): quitarlos empeora el
+  reparto.
+- Vale para los **minutos de línea** y para el **reparto de las horas
+  logadas** (el total de horas no cambia: sale de `user_log`).
+- Octubre GH, sin BBDD (43 campañas):
+
+  | | Antes | Con la regla | Excel |
+  |---|---:|---:|---:|
+  | Minutos a móvil | 14.868,91 | **14.814,92** (43 de 43 iguales) | 14.814,92 |
+  | Minutos a fijo | 36,25 | 36,25 (43 de 43) | 36,25 |
+  | Horas por campaña al céntimo | 8 de 43 | 21 de 43, Σ\|dif\| 0,50 h | |
+
+  Quedan gh_dimovil_mer (−0,15 h) y gh_la_car_toyota (−0,07 h): ninguna regla
+  de datos lo explica (probadas 64 combinaciones de origen y campo que falta,
+  cola, sin número, usuarios y origen 3); como en septiembre, son retoques a
+  mano del Excel (p. ej. gh_us_gougo_mark 2,979 h).
+- Cómo está hecho: las dos consultas (`minutosLineaPorCampania`,
+  `baseRepartoHorasLogadas`) devuelven la marca `fichaIncompleta` y el filtro
+  se aplica en TypeScript (`sinFichasIncompletas` en `lib/tarificacion.ts`;
+  `repartirHorasLogadas(..., sinFichaIncompleta)`), así que el SQL y su caché
+  no dependen de la configuración.
+- **Opción por cliente** en `/operaciones/reparto` («Quitar las llamadas con
+  la ficha a medias», `app_settings` `facturacion.sinFichaIncompleta.<servicio>`,
+  sin migración, auditada como `facturacion_maestros`). Por defecto no: los
+  demás clientes siguen igual. **Tras desplegar hay que marcarla para GH en
+  producción.** Los meses cerrados no cambian.
+- Comprobación: `npm run facturacion:comparar -- ... --sin-ficha-incompleta`.
+
 ### DDIs (`lib/ddis.ts`)
 - Cada fila de `ddis` es una ASIGNACIÓN número → campaña con fechas: 354 de los
   482 números del Excel tienen 2 o 3 filas (v7 → v8). `numero` no es único.

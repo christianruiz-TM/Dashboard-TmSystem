@@ -18,7 +18,13 @@ import { ResumenEscandallos } from "@/components/operaciones/resumen-escandallos
 import { TablaFactura, euros, ordenarGrupos } from "@/components/operaciones/tabla-factura";
 import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
 import { tipoFicheroGs } from "@/lib/albaranes-gs";
-import { cierreVigente, lineasAjustadas, listarCargos, prefijosExcluidosReparto } from "@/lib/db/facturacion";
+import {
+  cierreVigente,
+  lineasAjustadas,
+  listarCargos,
+  prefijosExcluidosReparto,
+  quitarFichaIncompleta,
+} from "@/lib/db/facturacion";
 import { UNIDADES_CARGO } from "@/lib/db/schema";
 import { mesCompleto, mesesDelRango } from "@/lib/ddis";
 import {
@@ -340,6 +346,7 @@ export async function KpisOperaciones({
 function RepartoCampanias({ cliente }: { cliente: FacturacionHorasLogadas }) {
   const filas = cliente.campanias;
   const excluidos = prefijosExcluidosReparto(cliente.servicio);
+  const fichaFuera = quitarFichaIncompleta(cliente.servicio);
   const totalAgente = filas.reduce((a, f) => a + f.horasAgente, 0);
   return (
     <details className="rounded-md border bg-muted/30 px-3 py-2">
@@ -352,8 +359,9 @@ function RepartoCampanias({ cliente }: { cliente: FacturacionHorasLogadas }) {
         siempre todas abiertas a la vez. Por eso las horas logadas del período se reparten en proporción al
         tiempo de agente en cada campaña: marcar, hablar, retener y cerrar la llamada, sin la cola, en
         entrantes y salientes aunque no contesten. No cuentan las salientes sin número marcado
-        {excluidos.length > 0 ? ` ni las llamadas con los prefijos ${excluidos.join(", ")}` : ""} (lista en
-        «Reparto»). Es el método del Excel de facturación de operaciones. Suma exactamente las horas del
+        {excluidos.length > 0 ? ` ni las llamadas con los prefijos ${excluidos.join(", ")}` : ""}
+        {fichaFuera ? " ni las que tienen la ficha a medias (contacto sin perfil o al revés)" : ""} (se
+        elige en «Reparto»). Es el método del Excel de facturación de operaciones. Suma exactamente las horas del
         cliente.
       </p>
       <TablaOrdenable>

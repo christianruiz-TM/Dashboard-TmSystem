@@ -165,6 +165,25 @@ export function guardarPrefijosExcluidosReparto(servicio: string, prefijos: stri
   guardarAjuste(clavePrefijos(servicio), JSON.stringify(prefijos));
 }
 
+// ---------- Llamadas con la ficha a medias ----------
+
+const claveFichaIncompleta = (servicio: string) => `facturacion.sinFichaIncompleta.${servicio}`;
+
+/**
+ * ¿El cliente deja fuera de la tarificación las llamadas del agente con la
+ * ficha a medias (contacto sin perfil o al revés)? Es lo que hace el Excel de
+ * facturación de operaciones: no cuentan ni en los minutos de línea ni en el
+ * reparto de las horas logadas (GH, decidido con Christian el 18/11/2026).
+ * Por defecto, no.
+ */
+export function quitarFichaIncompleta(servicio: string): boolean {
+  return obtenerAjuste(claveFichaIncompleta(servicio), "0") === "1";
+}
+
+export function guardarQuitarFichaIncompleta(servicio: string, quitar: boolean): void {
+  guardarAjuste(claveFichaIncompleta(servicio), quitar ? "1" : "0");
+}
+
 // ---------- Cierres de mes ----------
 
 /** El cierre vigente («cerrado») de un mes y servicio, si lo hay. */

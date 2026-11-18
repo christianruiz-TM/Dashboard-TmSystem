@@ -111,6 +111,31 @@ describe("reparto de las horas logadas por campaña (método del Excel de operac
     ]);
   });
 
+  it("con la opción, los hilos con la ficha a medias no cuentan para el reparto", () => {
+    const conFichaIncompleta = {
+      tiempoAgente: [
+        ...base.tiempoAgente,
+        // 6 h de gh_seat en llamadas con contacto sin perfil (o al revés)
+        { usuario: "GH_0851", campania: "gh_seat", prefijo: "7101", horas: 6, fichaIncompleta: true },
+      ],
+    };
+    // Sin la opción, pesan
+    expect(repartirHorasLogadas(conFichaIncompleta, "GH", 20, null).find((r) => r.campania === "gh_seat")?.horasAgente).toBe(9);
+    // Con ella, queda como sin la fila: 12,5 h y 7,5 h
+    const r = repartirHorasLogadas(conFichaIncompleta, "GH", 20, 28, undefined, undefined, true);
+    expect(r.map((x) => [x.campania, x.horasLogadas])).toEqual([
+      ["gh_toyota", 12.5],
+      ["gh_seat", 7.5],
+    ]);
+    // facturarHorasLogadas la aplica solo a los clientes indicados
+    const linea = { servicio: "GrupoHuertas", prefijo: "GH", precioUnitario: 28, notas: null };
+    const horas = [{ prefijo: "GH", usuario: "GH_0851", horas: 20, sesiones: 1 }];
+    const [con] = facturarHorasLogadas([linea], horas, conFichaIncompleta, undefined, undefined, new Set(["GrupoHuertas"]));
+    expect(con.campanias.find((c) => c.campania === "gh_seat")?.horasLogadas).toBe(7.5);
+    const [sin] = facturarHorasLogadas([linea], horas, conFichaIncompleta, undefined, undefined, new Set(["Otro"]));
+    expect(sin.campanias.find((c) => c.campania === "gh_seat")?.horasAgente).toBe(9);
+  });
+
   it("leerPrefijosExcluidos: números de hasta 4 cifras, sin repetidos y ordenados", () => {
     expect(leerPrefijosExcluidos("8259, 0673\n1161;0673  7190")).toEqual(["0673", "1161", "7190", "8259"]);
     expect(leerPrefijosExcluidos("")).toEqual([]);
