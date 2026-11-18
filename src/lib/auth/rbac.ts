@@ -60,10 +60,11 @@ export const ROLES_MI_SERVICIO: Rol[] = ["supervision", "operaciones", "direccio
 
 /**
  * Panel de RRHH (16/11/2026, docs/plan-rrhh.md): RRHH ve y apunta (ausencias,
- * notas y su configuración); dirección solo lo ve. Lleva datos de control de
- * la plantilla: nadie más.
+ * notas y su configuración); dirección y supervisión (desde el 18/11/2026,
+ * pedido por Christian) solo lo ven. Lleva datos de control de la
+ * plantilla: nadie más.
  */
-export const ROLES_RRHH_LECTURA: Rol[] = ["rrhh", "direccion"];
+export const ROLES_RRHH_LECTURA: Rol[] = ["rrhh", "direccion", "supervision"];
 export const ROLES_RRHH_EDICION: Rol[] = ["rrhh"];
 
 /** ¿Puede este rol apuntar en el panel de RRHH? (admin siempre). */

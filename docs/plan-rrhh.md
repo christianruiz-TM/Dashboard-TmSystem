@@ -1,8 +1,9 @@
 # Panel de RRHH: ausencias
 
 Pedido por Christian el 16/11/2026. Lo usa una persona de RRHH (rol `rrhh`,
-ve y apunta); dirección y admin lo ven. Supervisión, operaciones y el
-cliente, no.
+ve y apunta); dirección y admin lo ven. Desde el 18/11/2026 (pedido por
+Christian) supervisión también, en solo lectura: sin notas, sin ausencias
+desde el panel ni cambios en Configuración. Operaciones y el cliente, no.
 
 ## Decisiones (16/11/2026, con Christian)
 

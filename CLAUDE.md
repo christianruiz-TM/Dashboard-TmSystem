@@ -785,12 +785,14 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
 
 23. **Panel de RRHH → Ausencias (16/11/2026, decidido con Christian)**. Plan,
     decisiones y cifras en `docs/plan-rrhh.md`. Rol `rrhh` (ve y apunta; la
-    usuaria será Rocío Moreno) y dirección solo lee (`ROLES_RRHH_LECTURA`/
-    `ROLES_RRHH_EDICION`); el cliente, supervisión y operaciones, nunca. Lógica
+    usuaria será Rocío Moreno); dirección y supervisión solo leen
+    (`ROLES_RRHH_LECTURA`/`ROLES_RRHH_EDICION`); el cliente y operaciones,
+    nunca. Lógica
     pura con tests en `lib/rrhh/` (`dia.ts`, `horario.ts`, `motivos.ts`),
     servidor en `lib/rrhh/servidor.ts`, SQL en `queries/rrhh.ts`, migración
     0015 (`rrhh_personas`, `rrhh_horarios`, `rrhh_notas`; tipos IT, PER y AP;
-    1010 y 1071 excluidas).
+    1010 y 1071 excluidas). Supervisión entra en solo lectura desde el
+    18/11/2026 (pedido por Christian).
     - **Persona = nº de agente** (todos sus usuarios, regla 15); supervisoras
       fuera (se marcan en Configuración). Entrada = primer login de
       `user_log` (el fichaje está en GsBase y no hay conector).
