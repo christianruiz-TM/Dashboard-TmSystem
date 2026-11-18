@@ -245,3 +245,105 @@ en GS, el orden y cómo se calcula están en `lib/facturacion-campania.ts`
 - Los códigos de GS de las bbdd cambian en cada tanda (0003304 en mayo,
   0003313 en septiembre): hay que actualizarlos antes de cerrar el mes; el
   cierre guarda el que había.
+
+## 6. Escandallo: precio por tramos de volumen (18/11/2026)
+
+Pedido por Christian para **Ávolo**, el único cliente que lo tiene. Una línea
+de tarifa puede llevar, además de su €/unidad, una lista de tramos «a partir
+de N unidades en el mes, X € cada una». Registro de la sesión, con las
+decisiones y lo hecho en producción:
+`registro-sesion-18-noviembre-2026-escandallo.md`.
+
+### Escandallo de Ávolo (Nº CONTACTOS FINALIZADOS, `leads`)
+
+| Contactos finalizados en el mes | € por contacto |
+| --- | --- |
+| 1.500 o más | 3,00 |
+| 1.200 a 1.499 | 3,49 |
+| 1.000 a 1.199 | 3,60 |
+| 800 a 999 | 3,75 |
+| 600 a 799 | 4,00 |
+| menos de 600 | 4,00 (el €/unidad de la línea) |
+
+### Reglas (decididas con Christian)
+
+- **Por volumen, no escalonado**: TODAS las unidades del mes van al precio del
+  tramo alcanzado. Con 1.300 finalizados: 1.300 × 3,49 = 4.537,00 €. No es
+  como el IRPF (cada tramo a su precio).
+- **El límite es «a partir de», incluido**: 800 ya va a 3,75; 799, a 4,00.
+- **Volumen = mes natural** y suma de TODAS las campañas que facturan con esa
+  línea de tarifa. La de Ávolo es de todo el cliente, así que cuentan todas
+  sus campañas del alcance de la factura (sin IVR, como el cierre). Si un día
+  hay tramos en líneas de campaña sueltas, cada línea suma lo suyo.
+- **Todos los finalizados**: la unidad de siempre (`leads`, cerrados en el
+  mes por su último evento), no solo los de éxito.
+- **Por debajo del primer tramo**, el €/unidad de la línea (4,00 en Ávolo).
+- **Rango de varios meses**: cada mes con su tramo; el importe de la línea es
+  la suma y su precio, la media (importe ÷ cantidad). Del 01/09 al 17/11
+  Ávolo suma 1.257, pero ningún mes pasa de 500: todo a 4,00 €. Sumar el
+  rango entero lo habría puesto a 3,49 por error.
+
+### Cómo está hecho
+
+- **Datos**: `billing_config.tramos` (migración 0017), JSON
+  `[{ "desde": 600, "precio": 4 }, …]`; null = precio fijo, como todas las
+  líneas de antes.
+- **Cálculo puro con tests**:
+  - `lib/escandallo.ts`: `tramoAplicado`, la validación (`errorTramos`:
+    inicios enteros desde 1 y sin repetir) y el texto (`textoTramos`).
+  - `aplicarEscandallos` en `lib/facturacion-campania.ts`, dentro de
+    `facturarCampanias`. Primero calcula las líneas de todas las campañas,
+    luego agrupa por línea de tarifa (`billing_config.id`) y mes, y pone
+    precio e importe.
+  - Cada línea lleva `escalado` con el tramo de cada mes. Lo usan la tarjeta
+    (`resumenEscandallos`) y el globo del importe.
+- **Volumen por mes**: sale de `metricasDiariasPorCampania`, que
+  `facturacionCompleta` ya consultaba (`medidasPorMes`). Sin consultas
+  nuevas.
+- **Unidades que admiten tramos** (`UNIDADES_CON_TRAMOS`): las que se miden
+  día a día. Son `leads`, `exitos_finalizados`, `encuestas`, `interacciones`
+  y `exitos`. Horas, minutos, DDIs, leads recibidos y cargos puntuales, no.
+- **Lo que no cambia**:
+  - El cierre de mes guarda el precio aplicado (la media si hubo varios meses).
+  - El fichero de albaranes de GS solo lleva cantidades: GS pone los precios.
+    **Habrá que confirmar con GS que su tarifa de Ávolo aplica el mismo
+    escandallo.**
+  - Los ajustes manuales del cierre siguen igual.
+
+### En pantalla (Operaciones)
+
+- **Maestros → Artículos y tarifas**: en la línea de Ávolo, el desplegable
+  «Precio por tramos (escandallo)».
+  - Enseña los tramos en llano.
+  - Operaciones (y admin) los cambia: «desde» y «€/unidad» por fila, hasta 12
+    filas.
+  - Dejar todas vacías vuelve al precio fijo.
+  - Cada cambio queda en `audit_log` (`config_facturacion`, `~tramos linea …`,
+    con el antes y el después).
+  - El €/unidad de la línea sigue siendo el precio por debajo del primer tramo.
+- **Factura** (cálculo de ahora, no con lo guardado de un mes cerrado):
+  - Una tarjeta encima de la tabla, por línea y mes: volumen, número de
+    campañas y precio aplicado, más «faltan N para bajar a X €».
+  - Ese aviso apunta al primer tramo que CAMBIA el precio. En Ávolo el de 600
+    vale lo mismo que la base; con 444 dice «faltan 356 para bajar a 3,75 €».
+  - Al pasar el ratón por el importe, el cálculo: «700 × 3,49 € (escandallo;
+    2026-10: 1300 en total → tramo desde 1200)».
+
+### Cifras (producción, 18/11/2026)
+
+| Mes | Finalizados de Ávolo | Precio | Importe |
+| --- | --- | --- | --- |
+| Septiembre 2026 | 500 | 4,00 € | 2.000,00 € |
+| Octubre 2026 | 444 | 4,00 € | 1.776,00 € |
+| 1-17/11/2026 | 313 | 4,00 € | 1.252,00 € |
+
+Mientras Ávolo cierre menos de 800 contactos al mes, la factura es la misma que
+con el precio fijo de antes.
+
+### Para otro cliente
+
+Su línea de tarifa en Artículos y tarifas y, en el desplegable, sus tramos.
+No hace falta código mientras la unidad esté en `UNIDADES_CON_TRAMOS` y la
+regla sea la misma (por volumen, mes natural). Un escalonado (cada tramo a su
+precio) o un volumen que no sea el mes natural SÍ necesitan código: hoy no
+hay opción para eso.

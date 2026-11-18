@@ -633,7 +633,9 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       3,75, 1.000 a 3,60, 1.200 a 3,49 y 1.500 a 3,00; por debajo, el
       €/unidad de la línea, 4,00). Columna `billing_config.tramos` (migración
       0017; null = precio fijo), puro con tests en `lib/escandallo.ts` y
-      `aplicarEscandallos` (`lib/facturacion-campania.ts`).
+      `aplicarEscandallos` (`lib/facturacion-campania.ts`). Detalle en
+      `docs/facturacion-tarificacion.md` §6 y decisiones en
+      `docs/registro-sesion-18-noviembre-2026-escandallo.md`.
       - POR VOLUMEN: TODAS las unidades del mes al precio del tramo alcanzado
         (no cada tramo a su precio). Volumen = MES NATURAL, sumando todas las
         campañas que facturan con esa línea (la del cliente: todas las del

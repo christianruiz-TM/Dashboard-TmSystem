@@ -6,7 +6,7 @@ histórico de git.
 
 **De dónde sale cada sesión:**
 
-- Dieciséis tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10, 14-16/10, 19/10, 20/10, 20-21/10, 21-23/10, 23-26/10, 04/11, 06/11, 10/11, 11-12/11, 12/11, 12-13/11 y 16/11).
+- Diecisiete tienen registro propio en `docs/` (las del 01-06/10, 09/10, 13-14/10, 14-16/10, 19/10, 20/10, 20-21/10, 21-23/10, 23-26/10, 04/11, 06/11, 10/11, 11-12/11, 12/11, 12-13/11, 16/11 y 18/11 del escandallo).
 - Las demás se han reconstruido el 14/10/2026 a partir de los commits, los apartados con fecha
   de CLAUDE.md, los «Estado de F…» de `docs/plan-planificacion.md` y el histórico de
   `docs/despliegue-linux.md`. De esas no hay transcripción.
@@ -59,7 +59,7 @@ histórico de git.
 | 34 | 16/11/2026 | Opus 5.5 | Planificación: horas restantes, regenerar desde la publicada, editar turnos y semana A↔B | `a8f0f0b` `cf2c46b` | `registro-sesion-16-noviembre-2026.md` |
 | 35 | 16-17/11/2026 | Opus 5.5 | Panel de RRHH: ausencias, día, «Por agente», grupos y «Turnos» | `0eb70b0` `5452846` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 36 | 18/11/2026 | Opus 5.5 | RRHH: supervisión en solo lectura | `0175fca` `4e96d75` | `plan-rrhh.md`; CLAUDE.md regla 23 |
-| 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` | CLAUDE.md regla 19 |
+| 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` | `registro-sesion-18-noviembre-2026-escandallo.md`; `facturacion-tarificacion.md` §6; CLAUDE.md regla 19 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -402,7 +402,7 @@ Pedido por operaciones (Ávolo, Tarificación). Commit `ae15a51`, sin migracione
 
 ### 38 · 18/11/2026 · Facturación: escandallo (precio por tramos) de Ávolo (Opus 5.5)
 
-Pedido por Christian, con propuesta aprobada antes de tocar nada. Commits `92a656f` (migración 0017) y `25b5cd3`. Despliegues: ver `despliegue-linux.md` §9 (12:10 y 12:27; backups `dashboard_20261118_1207.db` y `dashboard_20261118_1224.db`). Regla 19 de CLAUDE.md.
+Pedido por Christian, con propuesta aprobada antes de tocar nada. Registro completo en `registro-sesion-18-noviembre-2026-escandallo.md`; detalle técnico en `facturacion-tarificacion.md` §6. Commits `92a656f` (migración 0017) y `25b5cd3`. Despliegues: ver `despliegue-linux.md` §9 (12:10 y 12:27; backups `dashboard_20261118_1207.db` y `dashboard_20261118_1224.db`). Regla 19 de CLAUDE.md.
 
 - Escandallo de Ávolo: contactos finalizados del mes desde 600 a 4,00 €, 800 a 3,75, 1.000 a 3,60, 1.200 a 3,49 y 1.500 a 3,00; por debajo, los 4,00 de la línea. Decidido con Christian: POR VOLUMEN (todas las unidades al precio del tramo alcanzado), volumen = mes natural sumando todas las campañas de la línea, todos los finalizados. Solo Ávolo; en el futuro habrá clientes con otras formas de facturar.
 - `billing_config.tramos` (null = precio fijo), `lib/escandallo.ts` y `aplicarEscandallos` (`lib/facturacion-campania.ts`), puros con tests; volumen por mes desde `metricasDiariasPorCampania`, sin consultas nuevas. Con varios meses, cada uno con su tramo.
