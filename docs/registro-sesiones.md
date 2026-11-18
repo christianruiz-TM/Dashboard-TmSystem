@@ -59,6 +59,7 @@ histórico de git.
 | 34 | 16/11/2026 | Opus 5.5 | Planificación: horas restantes, regenerar desde la publicada, editar turnos y semana A↔B | `a8f0f0b` `cf2c46b` | `registro-sesion-16-noviembre-2026.md` |
 | 35 | 16-17/11/2026 | Opus 5.5 | Panel de RRHH: ausencias, día, «Por agente», grupos y «Turnos» | `0eb70b0` `5452846` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 36 | 18/11/2026 | Opus 5.5 | RRHH: supervisión en solo lectura | `0175fca` `4e96d75` | `plan-rrhh.md`; CLAUDE.md regla 23 |
+| 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` | CLAUDE.md regla 19 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -398,3 +399,16 @@ Pedido por operaciones (Ávolo, Tarificación). Commit `ae15a51`, sin migracione
 - Ávolo octubre con el cambio, igual en desarrollo y en producción: 275,57 min a móvil (267,63 conectados + 7,93) y 26,32 a fijo.
 - Los meses cerrados son una foto y no cambian; recalcular septiembre en vivo avisará de una diferencia de pocos minutos.
 - El glosario («Minutos de línea») explica que incluye el tiempo en espera.
+
+### 38 · 18/11/2026 · Facturación: escandallo (precio por tramos) de Ávolo (Opus 5.5)
+
+Pedido por Christian, con propuesta aprobada antes de tocar nada. Commits `92a656f` (migración 0017) y `25b5cd3`. Despliegues: ver `despliegue-linux.md` §9 (12:10 y 12:27; backups `dashboard_20261118_1207.db` y `dashboard_20261118_1224.db`). Regla 19 de CLAUDE.md.
+
+- Escandallo de Ávolo: contactos finalizados del mes desde 600 a 4,00 €, 800 a 3,75, 1.000 a 3,60, 1.200 a 3,49 y 1.500 a 3,00; por debajo, los 4,00 de la línea. Decidido con Christian: POR VOLUMEN (todas las unidades al precio del tramo alcanzado), volumen = mes natural sumando todas las campañas de la línea, todos los finalizados. Solo Ávolo; en el futuro habrá clientes con otras formas de facturar.
+- `billing_config.tramos` (null = precio fijo), `lib/escandallo.ts` y `aplicarEscandallos` (`lib/facturacion-campania.ts`), puros con tests; volumen por mes desde `metricasDiariasPorCampania`, sin consultas nuevas. Con varios meses, cada uno con su tramo.
+- Pantallas: «Precio por tramos» en Artículos y tarifas (auditado `~tramos`), tarjeta en la Factura con el tramo de cada mes y cuánto falta para bajar de precio, y el cálculo en el globo del importe. El cierre guarda el precio aplicado; el fichero de GS no cambia.
+- Tramos dados de alta en producción en la línea 17 (Ávolo, leads, 4 €) a las 12:12, con su fila en `audit_log` («Claude (pedido por Christian)»).
+- Ávolo: septiembre 500, octubre 444 y 1-17/11 313 finalizados: siempre a 4,00 € (octubre 1.776 €, igual que antes). Del 01/09 al 17/11 suman 1.257, pero cada mes va por separado.
+- `25b5cd3`: el «faltan N para bajar» apuntaba al tramo de 600 (mismo precio que la base); ahora al primero que cambia el precio (con 444, «faltan 356 para bajar a 3,75 €»).
+- Visto de paso: la línea de DDIs de Ávolo (3,30 €) no suma nada en la factura de octubre (total = solo los finalizados); no se ha investigado.
+- Pendiente: verlo en el navegador (Artículos y tarifas y la Factura de Ávolo).
