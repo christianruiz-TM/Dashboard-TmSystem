@@ -387,3 +387,14 @@ Pedido por Christian. Sin migraciones. Despliegue: ver `despliegue-linux.md` §9
 - Operaciones y el cliente siguen sin ver el panel.
 - Precalentado relanzado tras el despliegue: 103 s, 121 consultas, 0 fallos.
 - Pendiente: comprobarlo en el navegador con una cuenta de supervisión.
+
+### 37 · 18/11/2026 · Tarificación: los minutos en espera también se cobran (Opus 5.5)
+
+Pedido por operaciones (Ávolo, Tarificación). Commit `ae15a51`, sin migraciones. Despliegue: ver `despliegue-linux.md` §9 (backup `dashboard_20261118_1117.db`). Regla 19 de CLAUDE.md y `docs/facturacion-tarificacion.md`.
+
+- El «estado 7» que pedía operaciones no es una transferencia: en `rdb_enums` (`InteractionSegmentState`) el 7 es **Held**, la llamada en espera. El cliente sigue en la línea y el operador la cobra.
+- Los minutos de línea (`queries/tarificacion.ts`) cuentan ahora `itr_segment.state IN (6, 7)` en las dos fuentes (salientes atendidas y encuesta del IVR), para todos los clientes. Una espera en un hilo que no acaba atendido (la de VW_Ubeda del 17/11, «Busy», 0,68 min) sigue sin cobrarse (decidido con Christian).
+- Cifras de espera en salientes atendidas: septiembre GH 0,02 min, Socios 2,68, Bolsas 0,37; octubre Ávolo 7,93 a móvil y 0,08 a fijo (operaciones: 7,98 y 0,08; 3 s de diferencia), Bolsas 0,40; 1-17/11 Ávolo 12,58 a móvil. En el IVR no hay esperas.
+- Ávolo octubre con el cambio, igual en desarrollo y en producción: 275,57 min a móvil (267,63 conectados + 7,93) y 26,32 a fijo.
+- Los meses cerrados son una foto y no cambian; recalcular septiembre en vivo avisará de una diferencia de pocos minutos.
+- El glosario («Minutos de línea») explica que incluye el tiempo en espera.
