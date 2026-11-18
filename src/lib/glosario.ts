@@ -202,7 +202,7 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   minutosLinea: {
     termino: "Minutos de línea (fijo, móvil y especiales)",
     definicion:
-      "Minutos de conversación con el cliente que cuestan línea: llamadas salientes atendidas por un agente y la encuesta que suena después de la gestión (el cliente sigue al teléfono). Se separan por el número marcado: móviles (6xx, 71x-74x), fijos (8xx, 9xx) y especiales (901, 902, 80x, 70x: artículo «TARIFICACION 901,2,X», solo para los clientes que lo tengan en su tarifa). Los gratuitos (800, 900) y las llamadas entrantes no se cobran.",
+      "Minutos de conversación con el cliente que cuestan línea, contando también el tiempo que el agente lo tiene en espera (sigue en la línea): llamadas salientes atendidas por un agente y la encuesta que suena después de la gestión (el cliente sigue al teléfono). Se separan por el número marcado: móviles (6xx, 71x-74x), fijos (8xx, 9xx) y especiales (901, 902, 80x, 70x: artículo «TARIFICACION 901,2,X», solo para los clientes que lo tengan en su tarifa). Los gratuitos (800, 900) y las llamadas entrantes no se cobran.",
   },
   ddis: {
     termino: "DDIs (cuota mensual)",

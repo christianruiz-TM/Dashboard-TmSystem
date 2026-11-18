@@ -502,7 +502,11 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
     v4…»). Ingeniería inversa, decisiones y cifras en
     `docs/facturacion-tarificacion.md`.
     - **Minutos de línea** (unidades `minutos_fijo`/`minutos_movil`):
-      segmentos `state = 6` de hilos atendidos. Fuentes:
+      segmentos `state = 6` (Connected) y `state = 7` (Held, en espera: el
+      cliente sigue en la línea; añadido el 18/11/2026 a petición de
+      operaciones, para todos los clientes; hoy solo Ávolo hace esperas,
+      octubre 7,93 min a móvil y 0,08 a fijo) de hilos atendidos (una espera
+      en un hilo «Busy» no se cobra). Fuentes:
       - Salientes de agente humano (`origin = 2`).
       - Encuesta NFS: un hilo IVR (`type = 3`) que empieza DESPUÉS de un hilo
         de agente en la misma `itr_global` va a la campaña de ese agente.

@@ -31,7 +31,7 @@ guarda lo facturado cada mes (ene-2025 → sep-2026, pegado a mano).
 | Concepto | Cálculo del Excel | Precio | Sept. 2026 |
 | --- | --- | --- | --- |
 | Horas logadas (campañas de venta) | `user_log` de los VTA, repartido por campaña en proporción a la «duración de agentes» | 28 €/h | 1.027,882 h · 28.780,70 € |
-| Minutos fijo / móvil | Segmentos conectados (`state = 6`) de salientes atendidas + encuesta NFS, por el tipo del número | 0,02 / 0,05 €/min | 39,06 / 8.842,38 min |
+| Minutos fijo / móvil | Segmentos conectados y en espera (`state IN (6, 7)`, desde el 18/11/2026) de salientes atendidas + encuesta NFS, por el tipo del número | 0,02 / 0,05 €/min | 39,06 / 8.842,38 min |
 | DDIs | DDIs «EN PRODUCCIÓN» y «Alt V8» por campaña | 2,50 €/mes | 365 · 912,50 € |
 | Bbdd (187, 188, 189 en el DAX; 292 a mano) | Contactos finalizados, **tecleados** | 2 € (Lexus 3 €, en la fórmula) | 2.467 · 4.984 € |
 
@@ -74,7 +74,13 @@ proporción a ese peso (mayor resto: las filas suman el total exacto).
 
 ### Tarificación (`queries/tarificacion.ts`, `lib/tarificacion.ts`)
 - Salientes: hilo de agente humano con `origin = 2` y `termination_state = 1`,
-  segmentos `state = 6`.
+  segmentos `state = 6` (Connected) y, desde el 18/11/2026, también
+  `state = 7` (Held: el cliente en espera sigue en la línea y el operador la
+  cobra). Pedido por operaciones para todos los clientes; hoy solo Ávolo hace
+  esperas: octubre 2026, 7,93 min a móvil y 0,08 a fijo (operaciones daba
+  7,98 y 0,08). Septiembre: GH 0,02 min, Socios 2,68 y Bolsas 0,37, así que
+  el mes cerrado apenas cambia si se recalcula en vivo. Una espera en un hilo
+  que no acaba atendido (p. ej. «Busy») no se cobra, como el resto.
 - Encuesta NFS: hilo de un puerto IVR (`type = 3`) atendido que empieza
   DESPUÉS de un hilo de agente en la misma llamada (`itr_global`); va a la
   campaña de ese agente. El Excel la asignaba con la tabla de hunt groups; con

@@ -11,7 +11,12 @@ import { claveCampanias, filtroCampanias, limitesRango } from "./util";
 // «facturacion cerrada» de septiembre 2026: móvil 8.843,50 min frente a
 // 8.842,38, 31 de 33 campañas exactas; fijo 39,06 min, exacto).
 //
-// Dos fuentes, siempre segmentos CONECTADOS (state 6) de hilos atendidos:
+// Segmentos CONECTADOS (state 6) y EN ESPERA (state 7, Held: el cliente
+// sigue en la línea oyendo la música y el operador lo cobra; añadido el
+// 18/11/2026 a petición de operaciones, para todos los clientes: Ávolo
+// octubre 2026, 7,93 min a móvil y 0,08 a fijo). Solo de hilos atendidos:
+// una espera en un hilo que acaba «Busy» no se cobra (decidido el mismo día).
+// Dos fuentes:
 //  - saliente: hilo de agente humano (type 1) con origin = 2.
 //  - ivr: hilo de un puerto IVR (type 3) que empieza DESPUÉS de un hilo de
 //    agente en la misma llamada (itr_global): es la encuesta NFS tras la
@@ -50,7 +55,7 @@ export async function minutosLineaPorCampania(
                  s.duration, 'saliente' AS fuente
           FROM itr_thread t
           INNER JOIN itr_global  g ON g.code = t.itr_global
-          INNER JOIN itr_segment s ON s.itr_thread = t.code AND s.state = 6
+          INNER JOIN itr_segment s ON s.itr_thread = t.code AND s.state IN (6, 7)
           INNER JOIN ph_e_user   u ON u.code = t.e_user AND u.type = 1
           WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
             AND t.origin = 2 AND t.termination_state = 1
@@ -59,7 +64,7 @@ export async function minutosLineaPorCampania(
           SELECT ag.campaign, t.code, g.to_address, s.duration, 'ivr'
           FROM itr_thread t
           INNER JOIN itr_global  g ON g.code = t.itr_global
-          INNER JOIN itr_segment s ON s.itr_thread = t.code AND s.state = 6
+          INNER JOIN itr_segment s ON s.itr_thread = t.code AND s.state IN (6, 7)
           INNER JOIN ph_e_user   u ON u.code = t.e_user AND u.type = 3
           CROSS APPLY (
               SELECT TOP 1 h.campaign
