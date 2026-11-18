@@ -80,7 +80,7 @@ export interface TramoAplicado {
   precio: number | null;
   /** Desde dónde empieza el tramo aplicado; null = por debajo del primero (precio de la línea). */
   desde: number | null;
-  /** El tramo siguiente que aún no se alcanza, o null si ya está en el último. */
+  /** El primer tramo que aún no se alcanza y CAMBIA el precio, o null si no queda ninguno. */
   siguiente: Tramo | null;
 }
 
@@ -89,10 +89,13 @@ export function tramoAplicado(volumen: number, precioBase: number | null, tramos
   const ordenados = [...tramos].sort((a, b) => a.desde - b.desde);
   let aplicado: Tramo | null = null;
   for (const t of ordenados) if (volumen >= t.desde) aplicado = t;
+  const precio = aplicado ? aplicado.precio : precioBase;
   return {
-    precio: aplicado ? aplicado.precio : precioBase,
+    precio,
     desde: aplicado ? aplicado.desde : null,
-    siguiente: ordenados.find((t) => t.desde > volumen) ?? null,
+    // El primero que CAMBIA el precio: en Ávolo el de 600 vale lo mismo que la
+    // base (4,00 €) y «faltan 156 para bajar a 4,00 €» no diría nada
+    siguiente: ordenados.find((t) => t.desde > volumen && t.precio !== precio) ?? null,
   };
 }
 

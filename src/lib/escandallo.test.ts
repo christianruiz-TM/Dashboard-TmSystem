@@ -13,7 +13,9 @@ describe("tramoAplicado", () => {
   it("todas las unidades al precio del tramo alcanzado, sin importar el orden de la lista", () => {
     expect(tramoAplicado(1300, 4, avolo)).toEqual({ precio: 3.49, desde: 1200, siguiente: { desde: 1500, precio: 3 } });
     expect(tramoAplicado(2000, 4, avolo)).toEqual({ precio: 3, desde: 1500, siguiente: null });
-    expect(tramoAplicado(0, 4, avolo)).toEqual({ precio: 4, desde: null, siguiente: { desde: 600, precio: 4 } });
+    expect(tramoAplicado(0, 4, avolo)).toEqual({ precio: 4, desde: null, siguiente: { desde: 800, precio: 3.75 } });
+    // El de 600 vale lo mismo que la base: el siguiente que cuenta es el que baja el precio
+    expect(tramoAplicado(444, 4, avolo).siguiente).toEqual({ desde: 800, precio: 3.75 });
     expect(tramoAplicado(10, null, avolo).precio).toBeNull();
   });
 });

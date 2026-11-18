@@ -401,7 +401,7 @@ describe("escandallo: precio por tramos de volumen (Ávolo, 18/11/2026)", () => 
     expect(una(799).precioUnitario).toBe(4);
     expect(una(120)).toMatchObject({ precioUnitario: 4, importe: 480 });
     // Sin medidas por mes, el rango entero cuenta como un mes
-    expect(una(120).escalado?.meses[0]).toMatchObject({ mes: "", volumen: 120, desde: null, siguiente: { desde: 600 } });
+    expect(una(120).escalado?.meses[0]).toMatchObject({ mes: "", volumen: 120, desde: null, siguiente: { desde: 800 } });
   });
 
   it("con varios meses, cada uno con su tramo: importe sumado y precio medio", () => {
