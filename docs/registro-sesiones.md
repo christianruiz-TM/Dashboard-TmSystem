@@ -57,6 +57,8 @@ histórico de git.
 | 32 | 12-13/11/2026 | Opus 5.5 | Cuadre de llamadas con Altitude, callback con alerta y ticket, «Mi servicio» | `ae3efcd` `d593eef` `3013dcd` `2bcd6d7` | `registro-sesion-12-noviembre-2026.md`; CLAUDE.md regla 22 |
 | 33 | 12-13/11/2026 | Opus 5.5 | Paneles en pestañas por sección, animación de carga y vista mensual rápida | `75bc18b` `b6acfd3` | `registro-sesion-12-13-noviembre-2026.md` |
 | 34 | 16/11/2026 | Opus 5.5 | Planificación: horas restantes, regenerar desde la publicada, editar turnos y semana A↔B | `a8f0f0b` `cf2c46b` | `registro-sesion-16-noviembre-2026.md` |
+| 35 | 16-17/11/2026 | Opus 5.5 | Panel de RRHH: ausencias, día, «Por agente», grupos y «Turnos» | `0eb70b0` `5452846` | `plan-rrhh.md`; CLAUDE.md regla 23 |
+| 36 | 18/11/2026 | Opus 5.5 | RRHH: supervisión en solo lectura | `0175fca` `4e96d75` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -375,3 +377,13 @@ Plan y decisiones en `docs/plan-rrhh.md`; regla 23 de CLAUDE.md. Migración 0015
 - Rol `rrhh` («RRHH» en Administración → Usuarios) y `/rrhh`. Pestaña «Día»: el día de cada persona en una barra (horario, conectada, pausas, sin conectar, ausencias apuntadas), cajas, detalle por persona con notas y alta de ausencias, Excel del día. Pestaña «Por agente»: de un periodo, tiempo conectado y tiempo ausente (solo pausas de ausencia) desplegable por motivo con tiempo acumulado y veces, ausencias apuntadas aparte, Excel. Configuración: horario aprendido o confirmado (hasta dos tramos por día), contrato con aviso frente a Planificación, motivos de pausa y tipos de ausencia.
 - Averiguado: `NREADY_REASON_NOT_WORKING` es casi siempre el rato entre conectarse y el primer «Disponible»; los jueves de Bolsas son de turno partido; «Fin de Jornada» se pone también al cambiar de usuario de Altitude (por eso las pausas de menos de 1 min no cuentan).
 - 17/11, tras el primer despliegue: filtro «Todos · Bolsas · Socios · GH» en las tres pestañas y en los Excel (GH = plantilla de Planificación; si no, prefijo del usuario principal; corregible en Configuración, migración 0016) y pestaña «Turnos» con el último plan publicado (lo mismo que la copia para las agentes) y su PDF. «Día» toma el horario de la plantilla solo del plan publicado.
+
+### 36 · 18/11/2026 · RRHH: supervisión en solo lectura (Opus 5.5)
+
+Pedido por Christian. Sin migraciones. Despliegue: ver `despliegue-linux.md` §9 (07:57, backup `dashboard_20261118_0756.db`).
+
+- `supervision` entra en `ROLES_RRHH_LECTURA` (`src/lib/auth/rbac.ts`), como dirección: ve «RRHH» en el menú, las pestañas Día, Por agente y Turnos, los Excel, el PDF de turnos y la Configuración. No apunta notas ni ausencias desde el panel ni cambia la Configuración: las Server Actions exigen `ROLES_RRHH_EDICION` (solo `rrhh`; admin siempre) y la pantalla oculta lo editable con `puedeEditarRrhh`. Las ausencias las sigue apuntando desde Planificación.
+- Abrir el detalle de una persona queda en `audit_log` (`rrhh_ver_persona`), igual que con dirección.
+- Operaciones y el cliente siguen sin ver el panel.
+- Precalentado relanzado tras el despliegue: 103 s, 121 consultas, 0 fallos.
+- Pendiente: comprobarlo en el navegador con una cuenta de supervisión.
