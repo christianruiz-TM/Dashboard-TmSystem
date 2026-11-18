@@ -1,3 +1,4 @@
+import { PuntoGlosario } from "@/components/punto-glosario";
 import { textoTramos } from "@/lib/escandallo";
 import { NOMBRE_UNIDAD, type ResumenEscandallo } from "@/lib/facturacion-campania";
 
@@ -14,7 +15,10 @@ export function ResumenEscandallos({ resumen }: { resumen: readonly ResumenEscan
   if (resumen.length === 0) return null;
   return (
     <div className="space-y-1.5 rounded-md border bg-muted/30 px-3 py-2 text-sm">
-      <p className="font-medium">Precio por tramos (escandallo)</p>
+      <p className="flex items-center font-medium">
+        Precio por tramos (escandallo)
+        <PuntoGlosario clave="escandallo" />
+      </p>
       <ul className="space-y-1">
         {resumen.map((r) => (
           <li key={`${r.configId}|${r.mes}`}>

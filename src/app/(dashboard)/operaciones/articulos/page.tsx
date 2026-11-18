@@ -32,6 +32,8 @@ import { listaServicios, mapaCampaniaServicio } from "@/lib/rdb/queries/servicio
 import { borrarLineaTarifa, crearLineaTarifa, editarLineaTarifa, guardarTramosTarifa } from "../acciones";
 import { MAX_TRAMOS, admiteTramos, normalizarTramos, textoTramos } from "@/lib/escandallo";
 import { compararTexto } from "@/lib/orden";
+import { Glosario } from "@/components/glosario";
+import { PuntoGlosario } from "@/components/punto-glosario";
 
 export const metadata: Metadata = { title: "Artículos y tarifas" };
 export const dynamic = "force-dynamic";
@@ -85,7 +87,8 @@ function TramosLinea({ l, puedeEditar }: { l: BillingConfigRow; puedeEditar: boo
           Todas las unidades del mes van al precio del tramo alcanzado (con 1300 y un tramo «desde 1200 a 3,49 €», las
           1300 a 3,49 €). El volumen es el del mes natural, sumando todas las campañas que facturan con esta línea. Por
           debajo del primer tramo se cobra el €/unidad de la línea. Deja todas las filas vacías para volver a precio
-          fijo.
+          fijo. Más detalle:
+          <PuntoGlosario clave="escandallo" />
         </p>
         {puedeEditar && (
           <form action={guardarTramosTarifa} className="space-y-2">
@@ -386,6 +389,8 @@ export default async function PaginaArticulos({
           )}
         </CardContent>
       </Card>
+
+      <Glosario titulo="Artículos y tarifas" claves={["articulosGs", "escandallo", "leads", "cargosPuntuales"]} />
     </div>
   );
 }

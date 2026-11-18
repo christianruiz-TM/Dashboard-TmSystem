@@ -76,6 +76,7 @@ export const GLOSARIO_OPERACIONES: Record<VistaOperaciones, string[]> = {
     "facturaCampania",
     "cierreMes",
     "articulosGs",
+    "escandallo",
     "cargosPuntuales",
   ],
   horas: ["horasLogadasCliente", "repartoHorasLogadas", "importe"],

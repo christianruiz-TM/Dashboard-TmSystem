@@ -217,7 +217,12 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
   articulosGs: {
     termino: "Artículos de GS y tarifas",
     definicion:
-      "Lo que se puede facturar, con el nombre del artículo en GS: base de datos, encuestas realizadas, hora de agente, preparación de campaña, minutos a fijos, a móviles y a especiales, alquiler de DDIs geográficos y móviles, leads a gestionar, contactos finalizados en éxito y número de contactos finalizados. Cada cliente factura los que tiene en su tarifa, con su precio (Operaciones → Artículos y tarifas). Los que tiene en la tarifa van también en el fichero de albaranes de GS.",
+      "Lo que se puede facturar, con el nombre del artículo en GS: base de datos, encuestas realizadas, hora de agente, preparación de campaña, minutos a fijos, a móviles y a especiales, alquiler de DDIs geográficos y móviles, leads a gestionar, contactos finalizados en éxito y número de contactos finalizados. Cada cliente factura los que tiene en su tarifa, con su precio (Operaciones → Artículos y tarifas). Una línea puede llevar, en vez de un precio fijo, precio por tramos (ver «Escandallo»). Los que tiene en la tarifa van también en el fichero de albaranes de GS.",
+  },
+  escandallo: {
+    termino: "Escandallo (precio por tramos)",
+    definicion:
+      "Precio que baja cuantas más unidades hay en el mes. Hoy solo lo tiene Ávolo, en «Nº contactos finalizados»: desde 600 a 4,00 €, desde 800 a 3,75 €, desde 1000 a 3,60 €, desde 1200 a 3,49 € y desde 1500 a 3,00 € (por debajo de 600, 4,00 €). TODAS las unidades del mes se cobran al precio del tramo al que se llega: con 1300 finalizados, las 1300 a 3,49 € (no unas a un precio y otras a otro). Se cuenta el mes natural, sumando todas las campañas que facturan con esa tarifa. Si el período tiene varios meses, cada mes va con su tramo y el precio que sale es la media. Los tramos se cambian en Operaciones → Artículos y tarifas («Precio por tramos»), y el mes cerrado guarda el precio que se aplicó. El fichero de albaranes solo lleva cantidades: GS tiene que aplicar el mismo escandallo.",
   },
   cargosPuntuales: {
     termino: "Cargos puntuales",
