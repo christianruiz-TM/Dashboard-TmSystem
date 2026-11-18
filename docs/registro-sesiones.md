@@ -60,7 +60,7 @@ histórico de git.
 | 35 | 16-17/11/2026 | Opus 5.5 | Panel de RRHH: ausencias, día, «Por agente», grupos y «Turnos» | `0eb70b0` `5452846` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 36 | 18/11/2026 | Opus 5.5 | RRHH: supervisión en solo lectura | `0175fca` `4e96d75` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` `5142e9c` | `registro-sesion-18-noviembre-2026-escandallo.md`; `facturacion-tarificacion.md` §6; CLAUDE.md regla 19 |
-| 39 | 18/11/2026 | Opus 5.5 | Tarificación de GH: fuera las llamadas con la ficha a medias (cuadre de octubre con operaciones) | `6ef75b3` | `facturacion-tarificacion.md` §2; CLAUDE.md reglas 16 y 19 |
+| 39 | 18/11/2026 | Opus 5.5 | Tarificación de GH: fuera las llamadas con la ficha a medias (cuadre de octubre con operaciones) | `6ef75b3` `718270a` | `registro-sesion-18-noviembre-2026-ficha-incompleta.md`; `facturacion-tarificacion.md` §2; CLAUDE.md reglas 16 y 19 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -416,7 +416,7 @@ Pedido por Christian, con propuesta aprobada antes de tocar nada. Registro compl
 
 ### 39 · 18/11/2026 · Tarificación de GH: fuera las llamadas con la ficha a medias (Opus 5.5)
 
-Pedido por Christian: «en GH, si no hay `contact` pero sí `contact_profile`, no se tienen en cuenta». Primero se simuló octubre sin tocar nada y se cuadró con la «COMPROBACION FACTURACION MES DE OCTUBRE 26 version 1 03_11_26» de operaciones; luego, «aplica todas las reglas que tiene operaciones para que en el futuro cuadre, solo para GH». Detalle en `facturacion-tarificacion.md` §2 («Llamadas con la ficha a medias»).
+Pedido por Christian: «en GH, si no hay `contact` pero sí `contact_profile`, no se tienen en cuenta». Primero se simuló octubre sin tocar nada y se cuadró con la «COMPROBACION FACTURACION MES DE OCTUBRE 26 version 1 03_11_26» de operaciones; luego, «aplica todas las reglas que tiene operaciones para que en el futuro cuadre, solo para GH». Registro completo en `registro-sesion-18-noviembre-2026-ficha-incompleta.md`; detalle técnico en `facturacion-tarificacion.md` §2 («Llamadas con la ficha a medias»).
 
 - Regla del Excel: fuera la llamada del agente con SOLO UNO de los dos campos (contacto sin perfil o al revés); su encuesta del IVR sí se cobra; los hilos sin ninguno se quedan. Vale para los minutos de línea y el reparto de horas logadas.
 - Octubre GH sin BBDD: móvil 14.868,91 → 14.814,92 (43 de 43 campañas como el Excel), fijo 36,25 igual, horas por campaña al céntimo 8 → 21 de 43 (quedan gh_dimovil_mer −0,15 h y gh_la_car_toyota −0,07 h, sin regla que lo explique: retoques a mano, como en septiembre). Total de horas igual (1.206,16 h).
