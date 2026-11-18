@@ -60,7 +60,7 @@ histórico de git.
 | 35 | 16-17/11/2026 | Opus 5.5 | Panel de RRHH: ausencias, día, «Por agente», grupos y «Turnos» | `0eb70b0` `5452846` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 36 | 18/11/2026 | Opus 5.5 | RRHH: supervisión en solo lectura | `0175fca` `4e96d75` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` `5142e9c` | `registro-sesion-18-noviembre-2026-escandallo.md`; `facturacion-tarificacion.md` §6; CLAUDE.md regla 19 |
-| 39 | 18/11/2026 | Opus 5.5 | Tarificación de GH: fuera las llamadas con la ficha a medias (cuadre de octubre con operaciones) | (pendiente de commit) | `facturacion-tarificacion.md` §2; CLAUDE.md reglas 16 y 19 |
+| 39 | 18/11/2026 | Opus 5.5 | Tarificación de GH: fuera las llamadas con la ficha a medias (cuadre de octubre con operaciones) | `6ef75b3` | `facturacion-tarificacion.md` §2; CLAUDE.md reglas 16 y 19 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -422,4 +422,6 @@ Pedido por Christian: «en GH, si no hay `contact` pero sí `contact_profile`, n
 - Octubre GH sin BBDD: móvil 14.868,91 → 14.814,92 (43 de 43 campañas como el Excel), fijo 36,25 igual, horas por campaña al céntimo 8 → 21 de 43 (quedan gh_dimovil_mer −0,15 h y gh_la_car_toyota −0,07 h, sin regla que lo explique: retoques a mano, como en septiembre). Total de horas igual (1.206,16 h).
 - Primera simulación errónea (contada a Christian): quitaba también la encuesta (−4,61 min) y no veía el caso contrario (0,08 min de un hilo de GH_1045 sin perfil).
 - Opción por cliente en `/operaciones/reparto` (`facturacion.sinFichaIncompleta.<servicio>`, sin migración). Verificado con `facturacionCompleta` sobre una copia de la SQLite de desarrollo: con la opción, las cifras de arriba; sin ella, igual que antes. 443 tests, `tsc` y ESLint en verde.
-- Pendiente: commit, desplegar y marcar la opción de GH en producción.
+- Desplegado el 18/11/2026 a las 13:14 (`6ef75b3`, imagen `98e9e8c3a5a5`, backup `dashboard_20261118_1313.db`, sin migraciones) y opción marcada para GrupoHuertas a las 13:15 (con su fila en `audit_log`). Desde producción, GH octubre: móvil 14.814,92 = Excel.
+- Visto: la factura de GH en producción no tiene líneas de minutos ni de DDIs (sin tarifa dada de alta), así que el cambio de los minutos aún no mueve euros; el Excel cobra móvil a 0,05 €, fijo a 0,02 € y DDI a 2,50 € (741,47 € + 902,50 € en octubre).
+- Pendiente: verlo en el navegador (Operaciones → Reparto y la Factura de GH).
