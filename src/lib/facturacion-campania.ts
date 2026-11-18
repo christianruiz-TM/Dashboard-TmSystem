@@ -1,4 +1,5 @@
 import { UNIDADES_CARGO, type BillingConfigRow, type UnidadCargo, type UnidadFacturacion } from "@/lib/db/schema";
+import { admiteTramos, normalizarTramos, tramoAplicado, type Tramo, type UnidadConTramos } from "@/lib/escandallo";
 import type { FacturacionHorasLogadas } from "@/lib/facturacion-horas-logadas";
 import type { UnidadesCampania } from "@/lib/rdb/types";
 import type { TarificacionCampania } from "@/lib/tarificacion";
@@ -143,7 +144,35 @@ export interface LineaFacturable {
   precioUnitario: number | null;
   importe: number | null; // null si no hay precio configurado
   notas: string | null;
+  /** Solo si la línea de tarifa lleva tramos (escandallo): el tramo de cada mes. */
+  escalado?: EscaladoLinea;
 }
+
+/** El tramo aplicado un mes a una línea con escandallo (lib/escandallo.ts). */
+export interface EscaladoMes {
+  /** YYYY-MM; «» si no se sabe el mes (sin medidas por mes: el rango entero). */
+  mes: string;
+  /** Unidades del mes de TODAS las campañas que facturan con esa línea de tarifa. */
+  volumen: number;
+  /** Unidades del mes de ESTA campaña. */
+  cantidad: number;
+  precio: number | null;
+  /** Inicio del tramo aplicado; null = por debajo del primero (precio de la línea). */
+  desde: number | null;
+  siguiente: Tramo | null;
+}
+
+export interface EscaladoLinea {
+  /** id de la línea de tarifa (billing_config): agrupa las campañas que suman volumen. */
+  configId: number;
+  /** Precio de la línea, por debajo del primer tramo. */
+  precioBase: number | null;
+  tramos: Tramo[];
+  meses: EscaladoMes[];
+}
+
+/** Medidas de una campaña en un mes, para el volumen de los escandallos. */
+export type MedidasMes = Pick<UnidadesCampania, "leadsFinalizados" | "exitosFinalizados" | "sesiones" | "atendidas" | "exitos">;
 
 export interface ConfigFacturacion {
   /** Líneas de ámbito campaña (excepción), por shortname. */
@@ -165,6 +194,11 @@ export interface ExtrasFacturacion {
   leadsRecibidos?: ReadonlyMap<string, number>;
   /** Cargos puntuales de los meses del rango (facturacion_cargos). */
   cargos?: readonly CargoPuntual[];
+  /**
+   * Medidas de cada campaña por mes (YYYY-MM), para el tramo de los
+   * escandallos. Sin ellas, el tramo se calcula con el rango entero.
+   */
+  medidasPorMes?: ReadonlyMap<string, ReadonlyMap<string, MedidasMes>>;
 }
 
 export interface FacturacionCampania {
@@ -347,8 +381,9 @@ export function facturarCampanias(
     .filter((c) => !medidas.has(c))
     .sort();
   const campanias = [...unidades.map((u) => u.campania), ...otras];
+  const conTramos: LineaConTramos[] = [];
 
-  return campanias.map((campania) => {
+  const resultado = campanias.map((campania): FacturacionCampania => {
     const servicio = campaniaServicio.get(campania);
     const propias = config.porCampania.get(campania);
     const delServicio = servicio ? config.porServicio.get(servicio) : undefined;
@@ -380,7 +415,20 @@ export function facturarCampanias(
       // los cargos puntuales, con lo que apunta Operaciones (abajo)
       if (c.unidad === "horas_logadas" || esCargoPuntual(c.unidad)) return [];
       const cantidad = cantidadPara({ unidad: c.unidad, soloConActividad: c.soloConActividad }, base);
-      return [{ unidad: c.unidad, cantidad, precioUnitario: c.precioUnitario, importe: importeDe(cantidad, c.precioUnitario), notas: c.notas }];
+      const linea: LineaFacturable = {
+        unidad: c.unidad,
+        cantidad,
+        precioUnitario: c.precioUnitario,
+        importe: importeDe(cantidad, c.precioUnitario),
+        notas: c.notas,
+      };
+      // Escandallo: el precio depende del volumen de todas las campañas de
+      // la línea, así que se pone cuando están todas (aplicarEscandallos)
+      const tramos = normalizarTramos(c.tramos);
+      if (tramos.length > 0 && admiteTramos(c.unidad)) {
+        conTramos.push({ campania, linea, config: c, tramos, unidad: c.unidad });
+      }
+      return [linea];
     });
     // Los cargos se cobran aunque la unidad no esté en la tarifa del cliente:
     // los apunta Operaciones a propósito. La tarifa solo pone el precio.
@@ -392,9 +440,142 @@ export function facturarCampanias(
       lineas,
       ambito: propias ? "campania" : delServicio ? "servicio" : null,
       porHorasLogadas: lineasConfig.some((c) => c.unidad === "horas_logadas"),
-      importeTotal: sumaImportes(lineas),
+      importeTotal: null,
     };
   });
+  aplicarEscandallos(conTramos, extras.medidasPorMes);
+  return resultado.map((f) => ({ ...f, importeTotal: sumaImportes(f.lineas) }));
+}
+
+/** Una línea con escandallo, a la espera de saber el volumen de su tarifa. */
+interface LineaConTramos {
+  campania: string;
+  linea: LineaFacturable;
+  config: BillingConfigRow;
+  tramos: Tramo[];
+  unidad: UnidadConTramos;
+}
+
+/** La medida del mes de cada unidad con tramos (la misma que cantidadPara). */
+function cantidadMes(unidad: UnidadConTramos, m: MedidasMes): number {
+  switch (unidad) {
+    case "leads":
+      return m.leadsFinalizados;
+    case "exitos_finalizados":
+      return m.exitosFinalizados;
+    case "encuestas":
+      return m.sesiones;
+    case "interacciones":
+      return m.atendidas;
+    case "exitos":
+      return m.exitos;
+  }
+}
+
+/**
+ * Pone precio e importe a las líneas con escandallo. Volumen = unidades del
+ * mes de TODAS las campañas que facturan con la misma línea de tarifa (la de
+ * un cliente: todas sus campañas del alcance), y todas las unidades del mes
+ * van al precio de su tramo. Con un rango de varios meses, cada mes con el
+ * suyo: el importe es la suma y el precio, la media (importe ÷ cantidad).
+ */
+function aplicarEscandallos(
+  pendientes: readonly LineaConTramos[],
+  medidasPorMes: ExtrasFacturacion["medidasPorMes"],
+): void {
+  // Unidades de cada línea por mes («» = el rango entero si no hay medidas por mes)
+  const porMes = pendientes.map((p) => {
+    if (!medidasPorMes) return new Map([["", p.linea.cantidad]]);
+    const meses = new Map<string, number>();
+    for (const [mes, m] of medidasPorMes.get(p.campania) ?? []) {
+      const n = cantidadMes(p.unidad, m);
+      if (n !== 0) meses.set(mes, n);
+    }
+    return meses;
+  });
+  const volumen = new Map<number, Map<string, number>>();
+  pendientes.forEach((p, i) => {
+    const v = volumen.get(p.config.id) ?? new Map<string, number>();
+    for (const [mes, n] of porMes[i]) v.set(mes, (v.get(mes) ?? 0) + n);
+    volumen.set(p.config.id, v);
+  });
+
+  pendientes.forEach((p, i) => {
+    const base = p.config.precioUnitario;
+    const meses: EscaladoMes[] = [...(volumen.get(p.config.id) ?? [])]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([mes, total]) => {
+        const t = tramoAplicado(total, base, p.tramos);
+        return { mes, volumen: total, cantidad: porMes[i].get(mes) ?? 0, precio: t.precio, desde: t.desde, siguiente: t.siguiente };
+      });
+    const suyos = meses.filter((m) => m.cantidad !== 0);
+    const precios = [...new Set((suyos.length > 0 ? suyos : meses).map((m) => m.precio))];
+    if (suyos.length === 0) {
+      // Sin unidades de esta campaña: el precio del tramo del volumen (o el de 0)
+      p.linea.precioUnitario = precios.length === 1 ? precios[0] : tramoAplicado(0, base, p.tramos).precio;
+      p.linea.importe = importeDe(p.linea.cantidad, p.linea.precioUnitario);
+    } else {
+      const importe = suyos.some((m) => m.precio == null)
+        ? null
+        : redondear2(suyos.reduce((a, m) => a + m.cantidad * (m.precio ?? 0), 0));
+      p.linea.importe = importe;
+      p.linea.precioUnitario =
+        precios.length === 1
+          ? precios[0]
+          : importe != null && p.linea.cantidad !== 0
+            ? Math.round((importe / p.linea.cantidad) * 10000) / 10000
+            : null;
+    }
+    p.linea.escalado = { configId: p.config.id, precioBase: base, tramos: p.tramos, meses };
+  });
+}
+
+/** Un escandallo en un mes: lo que enseña la tarjeta de la Factura. */
+export interface ResumenEscandallo {
+  configId: number;
+  /** Cliente de las campañas (el de la primera; una línea de cliente no mezcla). */
+  servicio: string | null;
+  unidad: UnidadFacturacion;
+  mes: string;
+  volumen: number;
+  /** Campañas con unidades ese mes. */
+  campanias: number;
+  precio: number | null;
+  desde: number | null;
+  siguiente: Tramo | null;
+  precioBase: number | null;
+  tramos: Tramo[];
+}
+
+/** Los escandallos de la facturación, uno por línea de tarifa y mes. */
+export function resumenEscandallos(facturacion: readonly FacturacionCampania[]): ResumenEscandallo[] {
+  const porClave = new Map<string, ResumenEscandallo>();
+  for (const f of facturacion) {
+    for (const l of f.lineas) {
+      if (!l.escalado) continue;
+      for (const m of l.escalado.meses) {
+        const clave = `${l.escalado.configId}|${m.mes}`;
+        const r = porClave.get(clave) ?? {
+          configId: l.escalado.configId,
+          servicio: f.servicio,
+          unidad: l.unidad,
+          mes: m.mes,
+          volumen: m.volumen,
+          campanias: 0,
+          precio: m.precio,
+          desde: m.desde,
+          siguiente: m.siguiente,
+          precioBase: l.escalado.precioBase,
+          tramos: l.escalado.tramos,
+        };
+        if (m.cantidad !== 0) r.campanias++;
+        porClave.set(clave, r);
+      }
+    }
+  }
+  return [...porClave.values()].sort(
+    (a, b) => (a.servicio ?? "").localeCompare(b.servicio ?? "") || a.configId - b.configId || a.mes.localeCompare(b.mes),
+  );
 }
 
 /** Una fila de la factura: todo lo que se cobra a una campaña. */

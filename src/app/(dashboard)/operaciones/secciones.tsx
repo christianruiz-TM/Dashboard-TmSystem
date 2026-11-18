@@ -14,6 +14,7 @@ import {
 } from "@/components/ui/table";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { AjustesCierre } from "@/components/operaciones/ajustes-cierre";
+import { ResumenEscandallos } from "@/components/operaciones/resumen-escandallos";
 import { TablaFactura, euros, ordenarGrupos } from "@/components/operaciones/tabla-factura";
 import { CabeceraOrdenable, FilasOrdenables, TablaOrdenable } from "@/components/tabla-ordenable";
 import { tipoFicheroGs } from "@/lib/albaranes-gs";
@@ -31,6 +32,7 @@ import {
   agruparPorServicio,
   etiquetaCampania,
   filasDeCierre,
+  resumenEscandallos,
   totalesUnidades,
   type FacturacionCampania,
 } from "@/lib/facturacion-campania";
@@ -553,6 +555,7 @@ export async function SeccionFacturacion({
               </span>
             </div>
           )}
+          {!verCierre && <ResumenEscandallos resumen={resumenEscandallos(completa.facturacion)} />}
           <TablaFactura filas={facturaMostrada} conServicio={!servicio} />
           {verCierre && cierre && servicio && mes && (
             <AjustesCierre

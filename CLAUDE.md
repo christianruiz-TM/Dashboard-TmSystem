@@ -628,6 +628,25 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       - Las medidas de sesiones y finalizados en éxito salen de las consultas
         de siempre (gratis); los leads recibidos, de una nueva (0,3-0,6 s).
         GH septiembre sigue en 33.764,64 € con las tarifas de producción.
+    - **Escandallo = precio por tramos de volumen** (18/11/2026, decidido con
+      Christian, solo Ávolo: contactos finalizados desde 600 a 4,00 €, 800 a
+      3,75, 1.000 a 3,60, 1.200 a 3,49 y 1.500 a 3,00; por debajo, el
+      €/unidad de la línea, 4,00). Columna `billing_config.tramos` (migración
+      0017; null = precio fijo), puro con tests en `lib/escandallo.ts` y
+      `aplicarEscandallos` (`lib/facturacion-campania.ts`).
+      - POR VOLUMEN: TODAS las unidades del mes al precio del tramo alcanzado
+        (no cada tramo a su precio). Volumen = MES NATURAL, sumando todas las
+        campañas que facturan con esa línea (la del cliente: todas las del
+        alcance). Con un rango de varios meses, cada mes con su tramo
+        (`medidasPorMes`, de `metricasDiariasPorCampania`, sin consultas
+        nuevas) y el precio de la línea es la media.
+      - Solo unidades medidas día a día (`UNIDADES_CON_TRAMOS`: leads,
+        éxitos finalizados, encuestas, atendidas, éxitos).
+      - Se edita en Artículos y tarifas («Precio por tramos», auditado como
+        `~tramos`); la Factura enseña el tramo de cada mes y cuánto falta para
+        el siguiente, y el globo del importe, el cálculo. El cierre guarda el
+        precio aplicado; el fichero de GS, solo cantidades.
+      - Ávolo sep.-nov. 2026: 500, 444 y 313 finalizados: siempre a 4,00 €.
 
 20. **Paneles de Dirección y Supervisión (pedido por Christian el
     19/10/2026)**. Lógica pura con tests en `lib/direccion.ts`,

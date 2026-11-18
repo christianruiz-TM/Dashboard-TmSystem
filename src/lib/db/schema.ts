@@ -160,6 +160,11 @@ export const billingConfig = sqliteTable(
     // tuvo llamadas. Depende del presupuesto del cliente: las bbdd de GH no
     // pagaron sus DDIs en julio y agosto de 2026, sin tanda (15/10/2026).
     soloConActividad: integer("solo_con_actividad", { mode: "boolean" }).notNull().default(false),
+    // Escandallo (18/11/2026, Ávolo): precio por tramos de volumen del mes,
+    // [{ desde, precio }]. Todas las unidades del mes van al precio del tramo
+    // alcanzado; por debajo del primero, precioUnitario. null = precio fijo.
+    // Solo en las unidades de lib/escandallo.ts (UNIDADES_CON_TRAMOS).
+    tramos: text("tramos", { mode: "json" }).$type<{ desde: number; precio: number }[]>(),
   },
   (t) => [
     index("idx_billing_campaign").on(t.campaignShortname),

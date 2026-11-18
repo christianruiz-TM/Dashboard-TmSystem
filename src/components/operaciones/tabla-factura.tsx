@@ -17,6 +17,7 @@ import {
   etiquetaCampania,
   totalesFactura,
   type FilaFactura,
+  type LineaFacturable,
 } from "@/lib/facturacion-campania";
 import { horasLegibles } from "@/lib/fechas";
 import { compararTexto, valoresOrden } from "@/lib/orden";
@@ -36,6 +37,25 @@ export function cantidadLegible(unidad: UnidadFacturacion, cantidad: number): st
     return cantidad.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   }
   return cantidad.toLocaleString("es-ES", { maximumFractionDigits: 2 });
+}
+
+/**
+ * Globo del importe de una línea: cantidad × precio y, con escandallo, el
+ * tramo de cada mes (volumen de todas las campañas de la tarifa).
+ */
+function tituloImporte(l: LineaFacturable): string | undefined {
+  if (l.precioUnitario == null) return undefined;
+  const precio = `${l.precioUnitario.toLocaleString("es-ES", { minimumFractionDigits: 2, maximumFractionDigits: 4 })} €`;
+  const base = `${cantidadLegible(l.unidad, l.cantidad)} × ${precio}`;
+  if (!l.escalado) return base;
+  const meses = l.escalado.meses
+    .filter((m) => m.cantidad !== 0)
+    .map(
+      (m) =>
+        `${m.mes ? `${m.mes}: ` : ""}${m.volumen.toLocaleString("es-ES")} en total → ` +
+        (m.desde != null ? `tramo desde ${m.desde.toLocaleString("es-ES")}` : "por debajo del primer tramo"),
+    );
+  return `${base} (escandallo${l.escalado.meses.length > 1 ? ", precio medio" : ""}; ${meses.join("; ")})`;
 }
 
 /**
@@ -130,7 +150,11 @@ export function TablaFactura({ filas, conServicio }: { filas: FilaFactura[]; con
                         <TableCell key={`${u}c`} className="text-right tabular-nums">
                           {l ? cantidadLegible(u, l.cantidad) : ""}
                         </TableCell>,
-                        <TableCell key={`${u}i`} className="text-right tabular-nums text-muted-foreground">
+                        <TableCell
+                          key={`${u}i`}
+                          className="text-right tabular-nums text-muted-foreground"
+                          title={l ? tituloImporte(l) : undefined}
+                        >
                           {l ? euros(l.importe) : ""}
                         </TableCell>,
                       ];

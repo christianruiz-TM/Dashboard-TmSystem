@@ -120,6 +120,13 @@
       "when": 1794912586578,
       "tag": "0016_rrhh_grupo",
       "breakpoints": true
+    },
+    {
+      "idx": 17,
+      "version": "6",
+      "when": 1794997927380,
+      "tag": "0017_tramos_facturacion",
+      "breakpoints": true
     }
   ]
 }

@@ -29,7 +29,8 @@ import {
 } from "@/lib/facturacion-campania";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import { listaServicios, mapaCampaniaServicio } from "@/lib/rdb/queries/servicios";
-import { borrarLineaTarifa, crearLineaTarifa, editarLineaTarifa } from "../acciones";
+import { borrarLineaTarifa, crearLineaTarifa, editarLineaTarifa, guardarTramosTarifa } from "../acciones";
+import { MAX_TRAMOS, admiteTramos, normalizarTramos, textoTramos } from "@/lib/escandallo";
 import { compararTexto } from "@/lib/orden";
 
 export const metadata: Metadata = { title: "Artículos y tarifas" };
@@ -56,6 +57,72 @@ function Articulo({ l }: { l: BillingConfigRow }) {
           ` · ${l.soloConActividad ? "solo los meses con llamadas" : "todos los meses"}`}
       </div>
     </div>
+  );
+}
+
+/**
+ * Escandallo de una línea (18/11/2026, Ávolo): los tramos en llano y, si se
+ * puede editar, el formulario con los que hay y unas filas vacías para añadir.
+ */
+function TramosLinea({ l, puedeEditar }: { l: BillingConfigRow; puedeEditar: boolean }) {
+  const tramos = normalizarTramos(l.tramos);
+  const texto = textoTramos(l.precioUnitario, tramos);
+  if (!puedeEditar && tramos.length === 0) return null;
+  const filas = Math.min(MAX_TRAMOS, Math.max(tramos.length + 3, 5));
+  return (
+    <details className="text-sm">
+      <summary className="cursor-pointer text-muted-foreground">
+        {tramos.length > 0 ? (
+          <>
+            <span className="font-medium text-foreground">Precio por tramos (escandallo):</span> {texto.join(" · ")}
+          </>
+        ) : (
+          "Precio por tramos (escandallo): no tiene, precio fijo"
+        )}
+      </summary>
+      <div className="mt-2 space-y-2 rounded-md border p-3">
+        <p className="text-xs text-muted-foreground">
+          Todas las unidades del mes van al precio del tramo alcanzado (con 1300 y un tramo «desde 1200 a 3,49 €», las
+          1300 a 3,49 €). El volumen es el del mes natural, sumando todas las campañas que facturan con esta línea. Por
+          debajo del primer tramo se cobra el €/unidad de la línea. Deja todas las filas vacías para volver a precio
+          fijo.
+        </p>
+        {puedeEditar && (
+          <form action={guardarTramosTarifa} className="space-y-2">
+            <input type="hidden" name="id" value={l.id} />
+            <div className="grid max-w-sm grid-cols-2 gap-x-3 gap-y-1.5 text-xs">
+              <span className="font-medium">Desde (unidades del mes)</span>
+              <span className="font-medium">€/unidad</span>
+              {Array.from({ length: filas }, (_, i) => (
+                <Fragment key={i}>
+                  <Input
+                    name={`desde_${i}`}
+                    type="number"
+                    step="1"
+                    min="1"
+                    defaultValue={tramos[i]?.desde ?? ""}
+                    className="h-8 text-right"
+                    aria-label={`Tramo ${i + 1}: desde`}
+                  />
+                  <Input
+                    name={`precio_${i}`}
+                    type="number"
+                    step="0.0001"
+                    min="0"
+                    defaultValue={tramos[i]?.precio ?? ""}
+                    className="h-8 text-right"
+                    aria-label={`Tramo ${i + 1}: precio`}
+                  />
+                </Fragment>
+              ))}
+            </div>
+            <Button type="submit" size="xs" variant="outline">
+              Guardar tramos
+            </Button>
+          </form>
+        )}
+      </div>
+    </details>
   );
 }
 
@@ -261,6 +328,11 @@ export default async function PaginaArticulos({
                           </TableCell>
                           <TableCell className="whitespace-normal">
                             <Articulo l={l} />
+                            {admiteTramos(l.unidad) && (
+                              <div className="mt-1">
+                                <TramosLinea l={l} puedeEditar={puedeEditar} />
+                              </div>
+                            )}
                           </TableCell>
                           {puedeEditar ? (
                             <TableCell colSpan={2}>

@@ -32,6 +32,7 @@ import { PATRON_PREFIJO_USUARIO, leerPrefijosExcluidos } from "@/lib/facturacion
 import { mesesDelRango, seSolapan } from "@/lib/ddis";
 import { facturacionCompleta } from "@/lib/facturacion";
 import { ARTICULO_GS, NOMBRE_UNIDAD, lineasDeCierre, totalesFactura } from "@/lib/facturacion-campania";
+import { MAX_TRAMOS, admiteTramos, errorTramos, textoTramos, type Tramo } from "@/lib/escandallo";
 import { esquemaFechaISO, hoyISO } from "@/lib/fechas";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import { listaServicios } from "@/lib/rdb/queries/servicios";
@@ -481,6 +482,49 @@ export async function editarLineaTarifa(formData: FormData): Promise<void> {
     userId: usuario.id,
     username: usuario.username,
     detalle: `~linea ${id} ${antes.serviceName ?? antes.campaignShortname} ${antes.unidad}: ${antes.precioUnitario ?? "s/p"} → ${precio ?? "s/p"}`,
+    ip: await ipPeticion(),
+  });
+  volverCon(RUTA_ARTICULOS, "guardado");
+}
+
+/**
+ * Guarda el escandallo (precio por tramos de volumen) de una línea de tarifa
+ * (18/11/2026, Ávolo). Las filas vacías se ignoran; sin ninguna, la línea
+ * vuelve a precio fijo. Solo en las unidades de UNIDADES_CON_TRAMOS.
+ */
+export async function guardarTramosTarifa(formData: FormData): Promise<void> {
+  const usuario = await requireRol(...ROLES_OPERACIONES_EDICION);
+  const id = Number(formData.get("id"));
+  const antes =
+    Number.isInteger(id) && id > 0 ? db.select().from(billingConfig).where(eq(billingConfig.id, id)).get() : undefined;
+  if (!antes) volverCon(RUTA_ARTICULOS, "error_datos", "Esa línea ya no existe.");
+  if (!admiteTramos(antes.unidad)) {
+    volverCon(RUTA_ARTICULOS, "error_datos", "Ese artículo no admite precio por tramos.");
+  }
+  const tramos: Tramo[] = [];
+  for (let i = 0; i < MAX_TRAMOS; i++) {
+    const desde = String(formData.get(`desde_${i}`) ?? "").trim();
+    const precio = String(formData.get(`precio_${i}`) ?? "").trim().replace(",", ".");
+    if (desde === "" && precio === "") continue;
+    if (desde === "" || precio === "") {
+      volverCon(RUTA_ARTICULOS, "error_datos", "Cada tramo necesita las dos cosas: desde cuántas unidades y el precio.");
+    }
+    tramos.push({ desde: Number(desde), precio: Number(precio) });
+  }
+  const error = errorTramos(tramos);
+  if (error) volverCon(RUTA_ARTICULOS, "error_datos", error);
+  tramos.sort((a, b) => a.desde - b.desde);
+  db.update(billingConfig)
+    .set({ tramos: tramos.length > 0 ? tramos : null })
+    .where(eq(billingConfig.id, id))
+    .run();
+  const texto = (t: Tramo[] | null) =>
+    t && t.length > 0 ? textoTramos(antes.precioUnitario, t).join(" | ") : "precio fijo";
+  registrarAuditoria({
+    accion: "config_facturacion",
+    userId: usuario.id,
+    username: usuario.username,
+    detalle: `~tramos linea ${id} ${antes.serviceName ?? antes.campaignShortname} ${antes.unidad}: ${texto(antes.tramos)} → ${texto(tramos)}`,
     ip: await ipPeticion(),
   });
   volverCon(RUTA_ARTICULOS, "guardado");

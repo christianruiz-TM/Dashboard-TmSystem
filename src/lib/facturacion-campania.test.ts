@@ -12,6 +12,7 @@ import {
   importeVigente,
   filasDeCierre,
   lineasDeCierre,
+  resumenEscandallos,
   totalesFactura,
   totalesUnidades,
   type ConfigFacturacion,
@@ -34,6 +35,7 @@ function linea(
     notas: null,
     activo: true,
     soloConActividad,
+    tramos: null,
   };
 }
 
@@ -343,5 +345,95 @@ describe("artículos de GS añadidos el 19/10/2026", () => {
 
   it("totales de «Unidades por campaña» con las medidas nuevas", () => {
     expect(totalesUnidades(r)).toMatchObject({ sesiones: 136, exitosFinalizados: 25, leadsRecibidos: 500, ddis: 3, ddisMovil: 1 });
+  });
+});
+
+describe("escandallo: precio por tramos de volumen (Ávolo, 18/11/2026)", () => {
+  // El escandallo de Ávolo: contactos finalizados del mes, todos al precio del tramo alcanzado
+  const tramos = [
+    { desde: 600, precio: 4 },
+    { desde: 800, precio: 3.75 },
+    { desde: 1000, precio: 3.6 },
+    { desde: 1200, precio: 3.49 },
+    { desde: 1500, precio: 3 },
+  ];
+  const lineaAvo = { ...linea({ servicio: "Avolo" }, "leads", 4), tramos };
+  const configAvo: ConfigFacturacion = { porServicio: new Map([["Avolo", [lineaAvo]]]), porCampania: new Map() };
+  const mapaAvo = new Map([
+    ["Avo_a", "Avolo"],
+    ["Avo_b", "Avolo"],
+    ["otra", "OtroCliente"],
+  ]);
+  const med = (campania: string, leadsFinalizados: number) => ({
+    campania,
+    horasProductivas: 0,
+    interacciones: 0,
+    atendidas: 0,
+    exitos: 0,
+    leadsFinalizados,
+    sesiones: 0,
+    exitosFinalizados: 0,
+  });
+  const mes = (leadsFinalizados: number) => ({ leadsFinalizados, exitosFinalizados: 0, sesiones: 0, atendidas: 0, exitos: 0 });
+  const lineaDe = (r: ReturnType<typeof facturarCampanias>, c: string) => r.find((f) => f.campania === c)!.lineas[0];
+
+  it("suma el volumen de todas las campañas de la línea y les aplica el mismo tramo", () => {
+    // 700 + 600 = 1.300 → tramo de 1.200 a 3,49 € para las dos
+    const r = facturarCampanias(configAvo, [med("Avo_a", 700), med("Avo_b", 600)], mapaAvo, {
+      medidasPorMes: new Map([
+        ["Avo_a", new Map([["2026-10", mes(700)]])],
+        ["Avo_b", new Map([["2026-10", mes(600)]])],
+      ]),
+    });
+    expect(lineaDe(r, "Avo_a")).toMatchObject({ cantidad: 700, precioUnitario: 3.49, importe: 2443 });
+    expect(lineaDe(r, "Avo_b")).toMatchObject({ cantidad: 600, precioUnitario: 3.49, importe: 2094 });
+    expect(lineaDe(r, "Avo_a").escalado?.meses).toEqual([
+      { mes: "2026-10", volumen: 1300, cantidad: 700, precio: 3.49, desde: 1200, siguiente: { desde: 1500, precio: 3 } },
+    ]);
+    expect(r.find((f) => f.campania === "Avo_a")!.importeTotal).toBe(2443);
+  });
+
+  it("los límites son «a partir de» (incluidos) y por debajo del primer tramo va el precio de la línea", () => {
+    const una = (n: number) => lineaDe(facturarCampanias(configAvo, [med("Avo_a", n)], mapaAvo), "Avo_a");
+    expect(una(1500).precioUnitario).toBe(3);
+    expect(una(1499).precioUnitario).toBe(3.49);
+    expect(una(800).precioUnitario).toBe(3.75);
+    expect(una(799).precioUnitario).toBe(4);
+    expect(una(120)).toMatchObject({ precioUnitario: 4, importe: 480 });
+    // Sin medidas por mes, el rango entero cuenta como un mes
+    expect(una(120).escalado?.meses[0]).toMatchObject({ mes: "", volumen: 120, desde: null, siguiente: { desde: 600 } });
+  });
+
+  it("con varios meses, cada uno con su tramo: importe sumado y precio medio", () => {
+    // Octubre 1.000 (3,60 €) y noviembre 500 (4,00 €): 3.600 + 2.000 = 5.600 € por 1.500
+    const r = facturarCampanias(configAvo, [med("Avo_a", 1500)], mapaAvo, {
+      medidasPorMes: new Map([["Avo_a", new Map([["2026-10", mes(1000)], ["2026-11", mes(500)]])]]),
+    });
+    expect(lineaDe(r, "Avo_a")).toMatchObject({ cantidad: 1500, importe: 5600, precioUnitario: 3.7333 });
+  });
+
+  it("resumen para la tarjeta: uno por línea de tarifa y mes", () => {
+    const r = facturarCampanias(configAvo, [med("Avo_a", 900), med("Avo_b", 0)], mapaAvo, {
+      medidasPorMes: new Map([["Avo_a", new Map([["2026-10", mes(700)], ["2026-11", mes(200)]])]]),
+    });
+    expect(resumenEscandallos(r)).toMatchObject([
+      { servicio: "Avolo", unidad: "leads", mes: "2026-10", volumen: 700, campanias: 1, precio: 4, desde: 600, siguiente: { desde: 800 } },
+      { servicio: "Avolo", unidad: "leads", mes: "2026-11", volumen: 200, campanias: 1, precio: 4, desde: null },
+    ]);
+  });
+
+  it("no toca las líneas sin tramos ni a otros clientes", () => {
+    const configs: ConfigFacturacion = {
+      porServicio: new Map([
+        ["Avolo", [lineaAvo]],
+        ["OtroCliente", [linea({ servicio: "OtroCliente" }, "leads", 2)]],
+      ]),
+      porCampania: new Map(),
+    };
+    const r = facturarCampanias(configs, [med("Avo_a", 1600), med("otra", 1600)], mapaAvo);
+    expect(lineaDe(r, "otra")).toMatchObject({ precioUnitario: 2, importe: 3200 });
+    expect(lineaDe(r, "otra").escalado).toBeUndefined();
+    // El volumen de «otra» no cuenta para Ávolo (otra línea de tarifa)
+    expect(lineaDe(r, "Avo_a").escalado?.meses[0].volumen).toBe(1600);
   });
 });

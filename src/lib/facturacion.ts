@@ -15,6 +15,7 @@ import {
   type ExtrasFacturacion,
   type FacturacionCampania,
   type FilaFactura,
+  type MedidasMes,
 } from "@/lib/facturacion-campania";
 import {
   facturarHorasLogadas,
@@ -203,10 +204,22 @@ export async function facturacionCompleta(
     leadsRecibidosPorCampania(desdeISO, hastaISO, camp),
   ]);
   const mesesConLlamadas = new Map<string, Set<string>>();
+  // Medidas de cada campaña por mes: el volumen de los escandallos (tramos)
+  const medidasPorMes = new Map<string, Map<string, MedidasMes>>();
   for (const d of diarias) {
+    const mes = d.fecha.slice(0, 7);
+    const porMes = medidasPorMes.get(d.campania) ?? new Map<string, MedidasMes>();
+    const m = porMes.get(mes) ?? { leadsFinalizados: 0, exitosFinalizados: 0, sesiones: 0, atendidas: 0, exitos: 0 };
+    m.leadsFinalizados += d.leadsFinalizados;
+    m.exitosFinalizados += d.exitosFinalizados;
+    m.sesiones += d.sesiones;
+    m.atendidas += d.atendidas;
+    m.exitos += d.exitos;
+    porMes.set(mes, m);
+    medidasPorMes.set(d.campania, porMes);
     if (d.interacciones <= 0) continue;
     const meses = mesesConLlamadas.get(d.campania) ?? new Set<string>();
-    meses.add(d.fecha.slice(0, 7));
+    meses.add(mes);
     mesesConLlamadas.set(d.campania, meses);
   }
   const mapa = mapaCampaniaServicio(servicios);
@@ -222,6 +235,7 @@ export async function facturacionCompleta(
     mesesConLlamadas,
     leadsRecibidos,
     cargos: cargosParaFacturar(desdeISO, hastaISO, camp),
+    medidasPorMes,
   });
   const factura = consolidarFactura(facturacion, porCliente, mapa, mapaCodigosGs());
   return { unidades, tarificacion, facturacion, porCliente, factura };
