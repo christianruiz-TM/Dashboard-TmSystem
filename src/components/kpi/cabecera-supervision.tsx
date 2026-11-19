@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
+import { CasillaFallidos } from "@/components/kpi/fallidos";
 import { KpisPrincipales } from "@/components/kpi/kpis-principales";
 import { TarjetaKpi } from "@/components/kpi/tarjeta-kpi";
 import { relojDesdeSegundos, segundosLegibles } from "@/lib/fechas";
 import { ayudaDe } from "@/lib/glosario";
+import type { ResultadoFallidos } from "@/lib/fallidos";
 import type { ResultadoRatios } from "@/lib/ratios-exito";
 import type { ResultadoResultados } from "@/lib/resultados-actividad";
 import type { KpiCampaniaHoy } from "@/lib/rdb/types";
@@ -44,6 +46,8 @@ export function CabeceraSupervision({
   umbral,
   sinEntrantes = false,
   sinHoras = false,
+  fallidos,
+  hrefFallidos,
 }: {
   kpis: KpiCampaniaHoy[];
   ratios: ResultadoRatios;
@@ -55,6 +59,10 @@ export function CabeceraSupervision({
   sinEntrantes?: boolean;
   /** «Solo BBDD» de GH (17/11/2026): sin las cajas de horas. */
   sinHoras?: boolean;
+  /** Contactos fallidos de ahora (19/11/2026): casilla «Para revisar», negra con 0 y roja con alguno. */
+  fallidos?: ResultadoFallidos | null;
+  /** Enlace a la pestaña «Fallidos»; sin él no sale la casilla. */
+  hrefFallidos?: string;
 }) {
   const k = sumarKpis(kpis, "Total");
   const pctAbandono = k.recibidas > 0 ? (k.abandonadasInbound / k.recibidas) * 100 : null;
@@ -62,6 +70,12 @@ export function CabeceraSupervision({
   return (
     <div className="space-y-4">
       <KpisPrincipales ratios={ratios.total} resultados={resultados} sinHoras={sinHoras} />
+
+      {hrefFallidos ? (
+        <Fila titulo="Para revisar">
+          <CasillaFallidos fallidos={fallidos ?? null} href={hrefFallidos} />
+        </Fila>
+      ) : null}
 
       {k.recibidas > 0 && !sinEntrantes ? (
         <Fila titulo="Entrantes">

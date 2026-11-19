@@ -1,5 +1,6 @@
 "use client";
 
+import { hrefExcelFallidos } from "@/lib/fallidos";
 import { useCallback, useEffect, useState, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { RefreshCw } from "lucide-react";
@@ -222,7 +223,7 @@ export function PanelSupervision({
       {avisos}
       <AvisoTipo
         filtro={filtroTipo}
-        sinHoras={datos.sinHoras}
+        horasSinFacturar={datos.horasSinFacturar}
         delCliente={seccion === "entrantes" ? "La tarjeta del IVR y el callback" : undefined}
       />
 
@@ -253,6 +254,8 @@ export function PanelSupervision({
         tipos={tipos}
         servicioDe={servicioDe}
         titulo={`Supervisión · tiempo real · ${NOMBRE_SECCION[seccion]}`}
+        hrefFallidos={secciones.find((s) => s.valor === "fallidos")?.href ?? "/supervision?seccion=fallidos"}
+        urlExcelFallidos={hrefExcelFallidos({ servicio, incluirIvr, tipo: parametroTipo(filtroTipo) })}
         claveComparador={`${servicio ?? "todos"}|${incluirIvr ? "ivr" : ""}|${filtroTipo.tipo}`}
       />
     </div>

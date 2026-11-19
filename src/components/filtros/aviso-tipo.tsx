@@ -10,11 +10,14 @@ import { etiquetaTipo, type FiltroTipo } from "@/lib/tipo-panel";
 export function AvisoTipo({
   filtro,
   sinHoras = false,
+  horasSinFacturar = false,
   notaHoras = true,
   delCliente,
 }: {
   filtro: FiltroTipo;
   sinHoras?: boolean;
+  /** Campañas que no se facturan por horas, pero cuyas horas se enseñan (Supervisión, 19/11/2026). */
+  horasSinFacturar?: boolean;
   /** ¿Explica de quién son las horas logadas? (Operaciones no: allí son las de facturación). */
   notaHoras?: boolean;
   /** Lo que en esta pantalla no se filtra por tipo, si hay algo. */
@@ -29,9 +32,11 @@ export function AvisoTipo({
         Viendo solo las campañas «{etiqueta}».
         {sinHoras
           ? " Estas campañas no se facturan por horas: no salen las horas logadas ni las cifras por hora."
-          : notaHoras
-            ? " Las horas logadas son las de los usuarios que trabajaron en ellas (sin los logados sin llamadas)."
-            : ""}
+          : horasSinFacturar
+            ? " Estas campañas no se facturan por horas: las horas logadas salen para ver el tiempo dedicado (las de los usuarios que trabajaron en ellas, sin los logados sin llamadas)."
+            : notaHoras
+              ? " Las horas logadas son las de los usuarios que trabajaron en ellas (sin los logados sin llamadas)."
+              : ""}
         {delCliente ? ` ${delCliente} son de todo el cliente.` : ""}
       </span>
     </p>

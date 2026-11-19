@@ -1,4 +1,6 @@
 import { umbralSlaSeg } from "@/lib/db/settings";
+import { resumirFallidos, type ResultadoFallidos } from "@/lib/fallidos";
+import { contactosFallidos } from "@/lib/rdb/queries/fallidos";
 import { hoyISO } from "@/lib/fechas";
 import { calidadBaseDatos, type ResultadoCalidadBd } from "@/lib/calidad-bd";
 import { callbackPeriodo } from "@/lib/callback-servidor";
@@ -47,10 +49,13 @@ export interface DatosSupervisionPeriodo {
   calidad: ResultadoCalidadBd | null;
   umbral: number;
   /**
-   * Tipo de campaña cuyas campañas se facturan sin horas («Solo BBDD» de GH,
-   * 17/11/2026): el panel no enseña horas logadas ni cifras por hora.
+   * Tipo de campaña cuyas campañas se facturan sin horas («Solo BBDD» de GH).
+   * Desde el 19/11/2026 Supervisión enseña igual sus horas logadas y las
+   * cifras por hora (para estudiar las horas dedicadas); solo cambia el aviso.
    */
-  sinHoras: boolean;
+  horasSinFacturar: boolean;
+  /** Contactos fallidos de ahora (19/11/2026, lib/fallidos.ts): la casilla del resumen y su pestaña. */
+  fallidos: ResultadoFallidos | null;
 }
 
 /** Tiempo real: además, la plantilla ahora y las alertas (la franja «Ahora», en todas las pestañas). */
@@ -83,7 +88,7 @@ async function datosPeriodo(
   const { sinActividad } = alcance;
   // Usuarios del cliente (GH_…): solo sus horas van a los totales (23/10/2026)
   const prefijo = prefijoUsuariosDe(servicio);
-  const [kpis, top, ivr, ratios, intentos, resultados, salientes, callback] = await Promise.all([
+  const [kpis, top, ivr, ratios, intentos, resultados, salientes, callback, fallidos] = await Promise.all([
     si(pide.has("kpis"), () => (enVivo ? kpisCampaniasHoy(umbral, camp) : kpisCampaniasRango(desde, hasta, umbral, camp))),
     si(pide.has("agentes"), () => (enVivo ? agentesHoy(camp) : agentesProductividadRango(desde, hasta, camp))),
     // La tarjeta del IVR usa siempre las campañas del servicio (IVR incluidas),
@@ -102,6 +107,14 @@ async function datosPeriodo(
         return null;
       }),
     ),
+    // Fallidos (19/11/2026): foto de ahora, la misma en Tiempo real y en Histórico
+    // (si falla, el resumen sigue sin la casilla)
+    si(pide.has("fallidos"), () =>
+      contactosFallidos(camp).catch((e) => {
+        console.error("[supervision] fallidos:", e);
+        return null;
+      }),
+    ),
   ]);
   // Los tipos de campaña del cliente agrupan la calidad por tipo
   const tipos = alcance.tipos;
@@ -115,7 +128,8 @@ async function datosPeriodo(
     salientes,
     calidad: intentos ? calidadBaseDatos(intentos.filas, intentos.contactos, tipos) : null,
     umbral,
-    sinHoras: alcance.sinHoras,
+    horasSinFacturar: alcance.sinHoras,
+    fallidos: fallidos ? resumirFallidos(fallidos) : null,
   };
 }
 

@@ -38,7 +38,7 @@ export function PanelResultados({
   incluirIvr,
   esAdmin,
   filtroTipo,
-  sinHoras,
+  horasSinFacturar,
   campo,
   urlCsv,
 }: {
@@ -55,8 +55,8 @@ export function PanelResultados({
    * por defecto «Sin BBDD».
    */
   filtroTipo: FiltroTipo;
-  /** «Solo BBDD» de GH: sin horas logadas ni «por hora». */
-  sinHoras: boolean;
+  /** «Solo BBDD» de GH: no se facturan por horas, pero sus horas salen igual (19/11/2026). */
+  horasSinFacturar: boolean;
   desde: string;
   hasta: string;
   presets: { etiqueta: string; desde: string; hasta: string }[];
@@ -111,7 +111,7 @@ export function PanelResultados({
       {servicio && filtroTipo.opciones.length > 0 ? (
         <SelectorTipo opciones={filtroTipo.opciones} valor={filtroTipo.tipo} defecto={filtroTipo.defecto} />
       ) : null}
-      <AvisoTipo filtro={filtroTipo} sinHoras={sinHoras} />
+      <AvisoTipo filtro={filtroTipo} horasSinFacturar={horasSinFacturar} />
 
       {campo && resultado?.valoresCampo ? (
         <FiltroCampo etiqueta={campo.etiqueta} valores={resultado.valoresCampo} filtro={campo.filtro} />
@@ -139,7 +139,7 @@ export function PanelResultados({
       ) : null}
 
       {resultado ? (
-        <ResultadosActividad r={resultado} ratios={ratios} periodo="en el período" sinHoras={sinHoras} />
+        <ResultadosActividad r={resultado} ratios={ratios} periodo="en el período" />
       ) : (
         <Card>
           <CardHeader>

@@ -100,8 +100,9 @@ export default async function PaginaSupervision({
     const campo = servicioElegido ? campoContactoDe(servicioElegido) : null;
     const filtroCampo = campo ? leerFiltroCampo(params.campo, params.modo) : null;
     const campTipo = filtrarPorTipo(camp ?? [], tipos, tipo);
-    // «Solo BBDD» de GH: sin horas logadas ni «por hora» (como Mi servicio)
-    const sinHoras = sinHorasPanel(servicioElegido, campTipo, filtroRes);
+    // «Solo BBDD» de GH: no se facturan por horas, pero Supervisión ve sus
+    // horas igual para estudiar el tiempo dedicado (19/11/2026); solo cambia el aviso
+    const horasSinFacturar = sinHorasPanel(servicioElegido, campTipo, filtroRes);
     // Con un tipo de campaña no se puede saber de qué tipo es quien no llamó:
     // los usuarios logados sin actividad solo salen con el cliente entero
     const sinActividad = tipo === "todas";
@@ -161,7 +162,7 @@ export default async function PaginaSupervision({
         incluirIvr={incluirIvr}
         esAdmin={usuario.rol === "admin"}
         filtroTipo={filtroRes}
-        sinHoras={sinHoras}
+        horasSinFacturar={horasSinFacturar}
         campo={campo ? { etiqueta: campo.etiqueta, filtro: filtroCampo } : null}
         urlCsv={urlCsv}
       />

@@ -939,12 +939,47 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       (`facturaPorHoras` = false: las bbdd) NO sale ninguna cifra de horas
       logadas ni «por hora» (cajas 1, 5 y 7, Rendimiento por éxitos,
       ocupación de Salientes, Resultados) ni Operaciones → Horas.
+      **Salvo en Supervisión** (19/11/2026, pedido por Christian: «aunque no
+      se facturen por horas, supervisión tiene que ver ese dato para
+      estudiar las horas dedicadas»): en Tiempo real, Histórico y Resultados
+      las horas y las cifras por hora salen también con «Solo BBDD», y el
+      aviso del filtro dice que esas campañas no se facturan por horas
+      (`horasSinFacturar`). GH 18/11, solo BBDD: 19,03 h para 490 llamadas.
+      Dirección, Operaciones y Mi servicio, como antes.
     - Del 01/10 al 16/11/2026 los `GH_nnnn` solo trabajaron en campañas que no
       son BBDD y los `GH_nnnn_BD` solo en `gh_bbdd_*` (sesiones, llamadas y
       pausas): filtrar por campaña separa también a las personas. Angeles
       (sin prefijo) abre los dos tipos: sus pausas salen en los dos.
     - GH 01-16/11: Sin BBDD + Solo BBDD = Todas en llamadas (7.278 + 3.087),
       gestionadas, éxitos y finalizados; horas Sin BBDD 551,23 h = Mi servicio.
+
+25. **Contactos fallidos en Supervisión (19/11/2026, decidido con
+    Christian)**. Pestaña «Fallidos» (`?seccion=fallidos`) en Tiempo real e
+    Histórico y casilla «Contactos fallidos» en el Resumen (fila «Para
+    revisar», aparte de las 12 cajas): número NEGRO con 0 y ROJO con alguno,
+    para que supervisión los corrija en la herramienta de supervisor de
+    Altitude; pulsándola, a la pestaña. Puro con tests en `lib/fallidos.ts`,
+    SQL en `queries/fallidos.ts`, pantalla en `components/kpi/fallidos.tsx`,
+    Excel en `api/export/fallidos` (mismos filtros: cliente, tipo e IVR).
+    - **Fallido** = `activity.status` con nombre (`InteractionDetailedStatus`,
+      regla 5) `Aborted…`, `Invalid` o `Rejected`. Solo los que han tenido
+      algún evento en `activity_history` en los últimos 30 días
+      (`DIAS_FALLIDOS`): hay 84.000 sin teléfono de listas viejas y 249 de
+      UGR de octubre que nadie tiene que tocar. Sin campana de alertas
+      («de momento no, no quiero saturar»).
+    - Es la FOTO DE AHORA (caché de 60 s): en Histórico sale lo mismo que en
+      Tiempo real, sea cual sea el rango. Cada estado lleva qué significa y
+      qué hacer en lenguaje sencillo (`INFO_ESTADO`).
+    - SQL en dos pasos: primero los fallidos con movimiento SIN filtro de
+      campañas (a `#fal`, decenas de filas); con la lista de campañas en la
+      misma sentencia el plan cambiaba y Bolsas tardaba 16 s. Ahora 0,7-0,9 s
+      por cliente. **El primer paso lleva `WITH (NOLOCK)`**: recorre
+      `activity` entera (sin índice por estado) y chocaba con la réplica
+      (interbloqueo, error 1205, en 2 de 4 pruebas); además se reintenta
+      hasta dos veces si sale víctima. No quitarlo.
+    - 19/11/2026: 42 (GH 11, CEFF 14, Socios 7, Ávolo 6, Bolsas 3, CajaRural
+      1): 16 sin teléfono, 13 con los intentos agotados, 11 con la sesión de
+      la agente cortada y 2 rechazados.
 
 ## Referencia del esquema RDBv2
 

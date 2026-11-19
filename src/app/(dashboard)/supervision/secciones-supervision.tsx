@@ -3,6 +3,7 @@ import { Glosario } from "@/components/glosario";
 import { CabeceraSupervision } from "@/components/kpi/cabecera-supervision";
 import { CalidadBaseDatos } from "@/components/kpi/calidad-bd";
 import { Callback } from "@/components/kpi/callback";
+import { SeccionFallidos } from "@/components/kpi/fallidos";
 import { ComparadorCampanias } from "@/components/kpi/comparador-campanias";
 import { RatiosExito } from "@/components/kpi/ratios-exito";
 import { Salientes } from "@/components/kpi/salientes";
@@ -36,6 +37,8 @@ export function SeccionPeriodo({
   servicioDe,
   titulo,
   claveComparador,
+  hrefFallidos,
+  urlExcelFallidos,
 }: {
   seccion: SeccionSupervision;
   datos: DatosSupervisionPeriodo;
@@ -51,6 +54,10 @@ export function SeccionPeriodo({
   titulo: string;
   /** Remonta el comparador al cambiar de cliente o de rango: las campañas elegidas pueden no estar. */
   claveComparador: string;
+  /** Pestaña «Fallidos» con los filtros de ahora (la casilla del resumen lleva a ella). */
+  hrefFallidos: string;
+  /** Excel de los fallidos con los mismos filtros. */
+  urlExcelFallidos: string;
 }) {
   const sinActividad = enVivo ? "Sin actividad registrada hoy" : "Sin actividad en el período seleccionado";
   return (
@@ -63,7 +70,8 @@ export function SeccionPeriodo({
             resultados={datos.resultados}
             umbral={datos.umbral}
             sinEntrantes={enVivo}
-            sinHoras={datos.sinHoras}
+            fallidos={datos.fallidos}
+            hrefFallidos={hrefFallidos}
           />
         ) : null
       ) : null}
@@ -102,13 +110,13 @@ export function SeccionPeriodo({
       ) : null}
 
       {seccion === "exitos" && datos.ratios ? (
-        <RatiosExito ratios={datos.ratios} periodo={periodo} sinTarjetas sinHoras={datos.sinHoras} />
+        <RatiosExito ratios={datos.ratios} periodo={periodo} sinTarjetas />
       ) : null}
 
       {seccion === "salientes" ? (
         <>
           {datos.salientes ? (
-            <Salientes datos={datos.salientes} periodo={periodo} sinHoras={datos.sinHoras} />
+            <Salientes datos={datos.salientes} periodo={periodo} />
           ) : (
             <SinDatos texto={`Sin llamadas de salida ${periodo}.`} />
           )}
@@ -123,6 +131,8 @@ export function SeccionPeriodo({
           <Callback callback={datos.callback} enVivo={enVivo} />
         </>
       ) : null}
+
+      {seccion === "fallidos" ? <SeccionFallidos fallidos={datos.fallidos} urlExcel={urlExcelFallidos} /> : null}
 
       <Glosario titulo={titulo} claves={GLOSARIO_SECCION[seccion]} />
     </>

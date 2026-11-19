@@ -1,4 +1,6 @@
 import type { ReactNode } from "react";
+import { parametroTipo } from "@/lib/tipo-panel";
+import { hrefExcelFallidos } from "@/lib/fallidos";
 import { BarraPanel } from "@/components/layout/barra-panel";
 import { SelectorRango } from "@/components/filtros/selector-rango";
 import { SelectorServicio } from "@/components/filtros/selector-servicio";
@@ -81,7 +83,7 @@ export function PanelHistorico({
       {avisos}
       <AvisoTipo
         filtro={filtroTipo}
-        sinHoras={datos.sinHoras}
+        horasSinFacturar={datos.horasSinFacturar}
         delCliente={seccion === "entrantes" ? "La tarjeta del IVR y el callback" : undefined}
       />
 
@@ -92,6 +94,8 @@ export function PanelHistorico({
         tipos={tipos}
         servicioDe={servicioDe}
         titulo={`Supervisión · histórico · ${NOMBRE_SECCION[seccion]}`}
+        hrefFallidos={secciones.find((s) => s.valor === "fallidos")?.href ?? "/supervision?seccion=fallidos"}
+        urlExcelFallidos={hrefExcelFallidos({ servicio, incluirIvr, tipo: parametroTipo(filtroTipo) })}
         claveComparador={`${servicio ?? "todos"}|${desde}|${hasta}|${incluirIvr ? "ivr" : ""}|${filtroTipo.tipo}`}
       />
     </div>

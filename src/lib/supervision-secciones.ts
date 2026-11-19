@@ -8,7 +8,15 @@
 // Puro (sin I/O): lo usan la página, la API de refresco y los paneles.
 // ============================================================
 
-export const SECCIONES_SUPERVISION = ["resumen", "agentes", "campanias", "exitos", "salientes", "entrantes"] as const;
+export const SECCIONES_SUPERVISION = [
+  "resumen",
+  "agentes",
+  "campanias",
+  "exitos",
+  "salientes",
+  "entrantes",
+  "fallidos",
+] as const;
 export type SeccionSupervision = (typeof SECCIONES_SUPERVISION)[number];
 
 export const NOMBRE_SECCION: Record<SeccionSupervision, string> = {
@@ -18,6 +26,7 @@ export const NOMBRE_SECCION: Record<SeccionSupervision, string> = {
   exitos: "Éxitos",
   salientes: "Salientes",
   entrantes: "Entrantes e IVR",
+  fallidos: "Fallidos",
 };
 
 /** La sección de la URL; cualquier otra cosa (o nada) es el resumen. */
@@ -34,15 +43,17 @@ export type DatoSupervision =
   | "salientes"
   | "calidad" // calidad de la base de datos
   | "ivr"
-  | "callback";
+  | "callback"
+  | "fallidos"; // contactos fallidos de ahora (19/11/2026): la casilla del resumen y su pestaña
 
 const DATOS: Record<SeccionSupervision, DatoSupervision[]> = {
-  resumen: ["kpis", "ratios", "resultados"],
+  resumen: ["kpis", "ratios", "resultados", "fallidos"],
   agentes: ["agentes"],
   campanias: ["kpis", "ratios"],
   exitos: ["ratios"],
   salientes: ["salientes", "calidad"],
   entrantes: ["ivr", "callback"],
+  fallidos: ["fallidos"],
 };
 
 /**
@@ -79,6 +90,7 @@ export const GLOSARIO_SECCION: Record<SeccionSupervision, string[]> = {
     "cola",
     "esperaAbandonadas",
     "tiempoReloj",
+    "contactosFallidos",
     "servicio",
   ],
   agentes: [
@@ -130,6 +142,7 @@ export const GLOSARIO_SECCION: Record<SeccionSupervision, string[]> = {
     "calidadBd",
   ],
   entrantes: ["ivr", "ivrAtendidas", "ivrNoAtendidas", "ivrNoAtendidasHorario"],
+  fallidos: ["contactosFallidos"],
 };
 
 /**

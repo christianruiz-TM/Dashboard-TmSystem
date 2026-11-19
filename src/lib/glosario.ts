@@ -412,6 +412,11 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     definicion:
       "Entrantes no atendidas que entraron mientras HABÍA agentes logados en las campañas del servicio (horario de producción, calculado dinámicamente). Son las accionables; las de fuera de horario es normal que no se atiendan.",
   },
+  contactosFallidos: {
+    termino: "Contactos fallidos",
+    definicion:
+      "Contactos que Altitude ha dejado parados con un error (sin teléfono válido, intentos agotados, sesión de la agente cortada, rechazados…) y que no se vuelven a llamar hasta que alguien los corrige en la herramienta de supervisor de Altitude. Solo los que han tenido movimiento en los últimos 30 días. Es la foto de AHORA: en Tiempo real y en Histórico sale lo mismo. En rojo si hay alguno.",
+  },
 
 };
 

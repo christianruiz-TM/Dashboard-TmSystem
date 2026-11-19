@@ -24,6 +24,15 @@ describe("secciones de Supervisión", () => {
     }
   });
 
+  it("los fallidos van en el resumen (la casilla) y en su pestaña, en las dos vistas (19/11/2026)", () => {
+    for (const enVivo of [false, true]) {
+      expect(datosDeSeccion("resumen", enVivo).has("fallidos")).toBe(true);
+      expect(datosDeSeccion("fallidos", enVivo).has("fallidos")).toBe(true);
+      expect(datosDeSeccion("agentes", enVivo).has("fallidos")).toBe(false);
+    }
+    expect(hrefSeccion("fallidos", { vista: "tiempo-real", servicio: "CEFF" })).toBe("/supervision?seccion=fallidos&servicio=CEFF");
+  });
+
   it("todas las claves del glosario de cada sección existen", () => {
     for (const s of SECCIONES_SUPERVISION) {
       for (const clave of GLOSARIO_SECCION[s]) expect(GLOSARIO[clave], `${s}: ${clave}`).toBeDefined();
