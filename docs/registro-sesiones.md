@@ -63,6 +63,7 @@ histórico de git.
 | 39 | 18/11/2026 | Opus 5.5 | Tarificación de GH: fuera las llamadas con la ficha a medias (cuadre de octubre con operaciones) | `6ef75b3` `718270a` | `registro-sesion-18-noviembre-2026-ficha-incompleta.md`; `facturacion-tarificacion.md` §2; CLAUDE.md reglas 16 y 19 |
 | 40 | 18-19/11/2026 | Opus 5.5 | Facturación de las bbdd: sin los contactos que cierra supervisión (414 de operaciones frente a 2.006) | `06080ba` | `facturacion-tarificacion.md` §2 («Bbdd»); CLAUDE.md regla 19 |
 | 41 | 19/11/2026 | Opus 5.5 | Caja «Llamadas»: tramos sin campaña (cuadre de supervisión del 18/11) | `2d602a6` | CLAUDE.md, «las 12 cajas principales» (caja 2) |
+| 42 | 19/11/2026 | Opus 5.5 | Supervisión: horas de las BBDD y contactos fallidos | `84096b9` | CLAUDE.md reglas 24 y 25 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -447,3 +448,13 @@ Cuadre de supervisión del 18/11 con los informes de Altitude: GH 1.226 frente a
 - Del 01 al 18/11, los días ya cuadrados con los informes (GH 01-11/11, CEFF y Ávolo 12/11) no cambian; Socios y Bolsas suben entre 1 y 6 al día en 11 días, Ávolo +1 el 10/11.
 - Respondido además: las horas de GH BBDD no salen a propósito (las bbdd no facturan por horas, regla 24); Ávolo da 7 éxitos el 18/11 y falta saber con qué los compara supervisión («???»).
 - Desplegado el 19/11/2026 a las 10:21 (`2d602a6`, imagen `3df9a63743d5`, backup `dashboard_20261119_1020.db`, sin migraciones). En producción, 18/11: 1.184, 616 y 1.226.
+
+### 42 · 19/11/2026 · Supervisión: horas de las BBDD y contactos fallidos (Opus 5.5)
+
+Dos peticiones de Christian tras el cuadre de supervisión del 18/11.
+
+- Horas de las BBDD: «aunque no se facturen por horas, en supervisión tienen que ver ese dato para estudiar las horas dedicadas». Con «Solo BBDD», Supervisión (Tiempo real, Histórico y Resultados) enseña las horas logadas y las cifras por hora; Dirección, Operaciones y Mi servicio, igual que antes (regla 24). GH 18/11: 19,03 h para 490 llamadas.
+- Contactos fallidos (regla 25), con propuesta aprobada antes de construir: estados `Aborted…`, `Invalid` y `Rejected`, solo con movimiento en 30 días, sin campana. Pestaña «Fallidos» y casilla en el Resumen (negra con 0, roja con alguno). 19/11: 42.
+- Incidencias al probar: con el filtro de campañas en la misma sentencia Bolsas tardaba 16 s (dos pasos con `#fal`: 0,7 s) e interbloqueos con la réplica en 2 de 4 pruebas (`NOLOCK` en el primer paso y reintento).
+- 454 tests, `tsc` y ESLint en verde. Desplegado a las 11:34 (`84096b9`, imagen `952f57f0dc4f`, backup `dashboard_20261119_1132.db`, sin migraciones).
+- Pendiente: verlo en el navegador.
