@@ -661,9 +661,14 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       1.509 uno a uno). Los 2 «sin cualificar» que cerró una agente con
       tipificación SÍ cuentan (operaciones decía 414). Las campañas de
       venta de GH también tienen cierres así (octubre, ~3.800), pero facturan
-      por horas: no les afecta. **Tras desplegar: marcar la casilla en las
-      líneas de las bbdd de producción y rehacer el cierre de octubre de GH**
-      (está cerrado con 2.006: reabrir, solo admin, y volver a cerrar).
+      por horas: no les afecta. Desplegado el 19/11/2026 (`06080ba`) y
+      casilla marcada en las 4 líneas de las bbdd de producción; octubre de
+      GH no estaba cerrado en el panel (solo UGR, Ávolo y CEFF) y sale ya
+      con 415. El Excel de supervisión «Finalizados Lexus y Mercedes BBDD
+      sept_oct. 26» (tipificaciones de agente) da octubre 415, contacto a
+      contacto; septiembre, 2.467 frente a 2.466: un contacto de autoclasse
+      tipificado el 07/09 y retocado por una agente el 09/11, que el panel
+      fecha en noviembre (cierre = último evento).
     - **Escandallo = precio por tramos de volumen** (18/11/2026, decidido con
       Christian, solo Ávolo: contactos finalizados desde 600 a 4,00 €, 800 a
       3,75, 1.000 a 3,60, 1.200 a 3,49 y 1.500 a 3,00; por debajo, el

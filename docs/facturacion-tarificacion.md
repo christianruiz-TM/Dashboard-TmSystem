@@ -190,6 +190,17 @@ sin cualificar (`NonQualifiedDone`), sin tipificación, con la acción
   Factura, debajo de la cantidad, sale «sin N de supervisión».
 - Septiembre y noviembre (hasta el 17) no tienen ningún cierre de
   supervisión en las bbdd: no cambian.
+- Cotejado el 19/11/2026 con el Excel de supervisión «Finalizados Lexus y
+  Mercedes BBDD sept_oct. 26» (una fila por tipificación de agente):
+  octubre 415, los mismos contactos uno a uno (todos cerrados en octubre y
+  ninguno por supervisión). Septiembre: 2.467 frente a 2.466 del panel; el
+  de más es el contacto 1688297 de autoclasse, tipificado el 07/09 y
+  modificado por una agente sin llamar (`AgentUpdate`) el 09/11, así que el
+  panel lo cuenta en noviembre (fecha de cierre = último evento).
+- En producción desde el 19/11/2026 (`06080ba`), con la casilla marcada en
+  las 4 líneas de las bbdd: octubre de GH, 415 contactos y 1.118,50 € (antes
+  2.006 y 4.255 €); total de GH 34.890,98 €. Octubre de GH no estaba cerrado
+  en el panel.
 
 ## 3. Comprobación (`npm run facturacion:comparar`)
 

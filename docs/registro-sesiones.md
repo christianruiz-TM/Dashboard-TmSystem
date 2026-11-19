@@ -61,6 +61,7 @@ histórico de git.
 | 36 | 18/11/2026 | Opus 5.5 | RRHH: supervisión en solo lectura | `0175fca` `4e96d75` | `plan-rrhh.md`; CLAUDE.md regla 23 |
 | 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` `5142e9c` | `registro-sesion-18-noviembre-2026-escandallo.md`; `facturacion-tarificacion.md` §6; CLAUDE.md regla 19 |
 | 39 | 18/11/2026 | Opus 5.5 | Tarificación de GH: fuera las llamadas con la ficha a medias (cuadre de octubre con operaciones) | `6ef75b3` `718270a` | `registro-sesion-18-noviembre-2026-ficha-incompleta.md`; `facturacion-tarificacion.md` §2; CLAUDE.md reglas 16 y 19 |
+| 40 | 18-19/11/2026 | Opus 5.5 | Facturación de las bbdd: sin los contactos que cierra supervisión (414 de operaciones frente a 2.006) | `06080ba` | `facturacion-tarificacion.md` §2 («Bbdd»); CLAUDE.md regla 19 |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -425,3 +426,14 @@ Pedido por Christian: «en GH, si no hay `contact` pero sí `contact_profile`, n
 - Desplegado el 18/11/2026 a las 13:14 (`6ef75b3`, imagen `98e9e8c3a5a5`, backup `dashboard_20261118_1313.db`, sin migraciones) y opción marcada para GrupoHuertas a las 13:15 (con su fila en `audit_log`). Desde producción, GH octubre: móvil 14.814,92 = Excel.
 - Visto: la factura de GH en producción no tiene líneas de minutos ni de DDIs (sin tarifa dada de alta), así que el cambio de los minutos aún no mueve euros; el Excel cobra móvil a 0,05 €, fijo a 0,02 € y DDI a 2,50 € (741,47 € + 902,50 € en octubre).
 - Pendiente: verlo en el navegador (Operaciones → Reparto y la Factura de GH).
+
+### 40 · 18-19/11/2026 · Facturación de las bbdd: sin los contactos que cierra supervisión (Opus 5.5)
+
+Pregunta de Christian: «¿por qué a operaciones le salen 414 contactos a facturar de bbdd de GH y nosotros tenemos muchísimos más?». Detalle técnico en `facturacion-tarificacion.md` §2 («Bbdd»).
+
+- Octubre: 2.006 en el panel = 415 cerrados por una agente + 1.591 que supervisión vació en bloque (`SupervisorResubmit`, 07/10 Lexus y 08/10 granada, dimovil y autoclasse). El Excel de supervisión «Contactos sin resultado de actividad de BBDD» son 1.509 de ellos, uno a uno.
+- Decidido con Christian: solo las bbdd, con una casilla en la línea (migración 0018); los 2 «sin cualificar» que cerró una agente con tipificación cuentan (415, no 413). La diferencia de 1 con los 414 de operaciones no se localizó.
+- Cotejado el 19/11 con el Excel de supervisión «Finalizados Lexus y Mercedes BBDD sept_oct. 26»: octubre 415 contacto a contacto; septiembre 2.467 frente a 2.466 (un contacto de autoclasse retocado por una agente el 09/11, que el panel fecha en noviembre).
+- 438 tests, `tsc` y ESLint en verde; verificado contra RDBv2 con la función del panel.
+- Desplegado el 19/11/2026 a las 09:37 (`06080ba`, imagen `dfa1b8ea586c`, backup `dashboard_20261119_0934.db`, migración 0018) y casilla marcada en las 4 líneas de las bbdd a las 09:36 (backup `dashboard_20261119_0936.db`, con su fila en `audit_log`). GH octubre en producción: 415 contactos de bbdd, 1.118,50 € (antes 4.255 €); total 34.890,98 €. Octubre de GH no estaba cerrado en el panel: no hubo que reabrir.
+- Pendiente: verlo en el navegador (Artículos y tarifas y la Factura de GH de octubre).
