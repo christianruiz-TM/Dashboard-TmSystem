@@ -62,6 +62,7 @@ histórico de git.
 | 38 | 18/11/2026 | Opus 5.5 | Facturación: escandallo (precio por tramos) de Ávolo | `92a656f` `25b5cd3` `5142e9c` | `registro-sesion-18-noviembre-2026-escandallo.md`; `facturacion-tarificacion.md` §6; CLAUDE.md regla 19 |
 | 39 | 18/11/2026 | Opus 5.5 | Tarificación de GH: fuera las llamadas con la ficha a medias (cuadre de octubre con operaciones) | `6ef75b3` `718270a` | `registro-sesion-18-noviembre-2026-ficha-incompleta.md`; `facturacion-tarificacion.md` §2; CLAUDE.md reglas 16 y 19 |
 | 40 | 18-19/11/2026 | Opus 5.5 | Facturación de las bbdd: sin los contactos que cierra supervisión (414 de operaciones frente a 2.006) | `06080ba` | `facturacion-tarificacion.md` §2 («Bbdd»); CLAUDE.md regla 19 |
+| 41 | 19/11/2026 | Opus 5.5 | Caja «Llamadas»: tramos sin campaña (cuadre de supervisión del 18/11) | `2d602a6` | CLAUDE.md, «las 12 cajas principales» (caja 2) |
 
 Entre el 12/06 y el 23/09 no hay commits: lo de las sesiones 2 y 3 se subió junto el 23/09.
 
@@ -437,3 +438,12 @@ Pregunta de Christian: «¿por qué a operaciones le salen 414 contactos a factu
 - 438 tests, `tsc` y ESLint en verde; verificado contra RDBv2 con la función del panel.
 - Desplegado el 19/11/2026 a las 09:37 (`06080ba`, imagen `dfa1b8ea586c`, backup `dashboard_20261119_0934.db`, migración 0018) y casilla marcada en las 4 líneas de las bbdd a las 09:36 (backup `dashboard_20261119_0936.db`, con su fila en `audit_log`). GH octubre en producción: 415 contactos de bbdd, 1.118,50 € (antes 4.255 €); total 34.890,98 €. Octubre de GH no estaba cerrado en el panel: no hubo que reabrir.
 - Pendiente: verlo en el navegador (Artículos y tarifas y la Factura de GH de octubre).
+
+### 41 · 19/11/2026 · Caja «Llamadas»: tramos sin campaña (Opus 5.5)
+
+Cuadre de supervisión del 18/11 con los informes de Altitude: GH 1.226 frente a 1.225 del panel, Bolsas 1.184 frente a 1.183 y Socios 616 frente a 614.
+
+- Causa: 4 llamadas acababan con un tramo sin campaña (`campaign = -1`: la agente sigue en la línea tras cerrar la ficha; Bol_0567, Soc_nuevos ×2 y gh_aclasse_mer, este de 5 min 19 s). Era el último en terminar, así que `sqlLlamadasPorGlobal` asignaba la llamada a una campaña inexistente y no contaba. Ahora solo elige entre tramos con campaña.
+- Del 01 al 18/11, los días ya cuadrados con los informes (GH 01-11/11, CEFF y Ávolo 12/11) no cambian; Socios y Bolsas suben entre 1 y 6 al día en 11 días, Ávolo +1 el 10/11.
+- Respondido además: las horas de GH BBDD no salen a propósito (las bbdd no facturan por horas, regla 24); Ávolo da 7 éxitos el 18/11 y falta saber con qué los compara supervisión («???»).
+- Desplegado el 19/11/2026 a las 10:21 (`2d602a6`, imagen `3df9a63743d5`, backup `dashboard_20261119_1020.db`, sin migraciones). En producción, 18/11: 1.184, 616 y 1.226.
