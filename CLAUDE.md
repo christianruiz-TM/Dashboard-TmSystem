@@ -2169,6 +2169,14 @@ Orden fijado por Christian, el MISMO en todas las vistas de Supervisión
     no son llamadas** (regla 6) y los informes SÍ los llevan («Tipo de
     Canal» = Email): CEFF 12/11, 202 filas = 189 + 13 emails; Ávolo, 58 = 41
     + 17. Gestionadas, reparto por agente y % de abandono, sin cambios.
+    **Los tramos SIN CAMPAÑA (`campaign = -1`) no se quedan la llamada**
+    (19/11/2026, cuadre de supervisión del 18/11): cuando la agente sigue
+    en la línea tras cerrar la ficha, Altitude graba un tramo más fuera de
+    campaña que terminaba el último, y la llamada desaparecía (no casa con
+    `ph_campaign`). El informe la deja en su campaña. 18/11: Bolsas 1.183 →
+    1.184, Socios 614 → 616 y GH sin BBDD 1.225 → 1.226, igual que los
+    informes. Del 01 al 18/11 sube sobre todo Socios y Bolsas (hasta +6 en un
+    día); los días ya cuadrados de GH, CEFF y Ávolo no cambian.
 - 6 = llamadas gestionadas ÷ éxitos (el % va debajo). 11 y 12 = `itr_thread.duration`
   de las llamadas según su sesión de script sea éxito o no (sin sesión = no
   éxito), Q2 de `filasAgenteCampania` con `LEFT JOIN script_session`.

@@ -146,6 +146,13 @@ export function sqlEmail(t = "t"): string {
  * la incluye: sin «Incluir IVR», no (decidido con Christian el 13/11/2026:
  * «las IVR no deben contar, en ninguna caja»). Una transferencia cuenta una
  * vez. Fuera las preparaciones de llamada manual y los emails (regla 6).
+ * Los tramos SIN CAMPAÑA (`campaign = -1`) no cuentan para elegir el último
+ * (19/11/2026): la agente sigue en la línea tras cerrar la ficha y Altitude
+ * graba un tramo más fuera de campaña; el informe deja la llamada en su
+ * campaña y el panel la perdía (18/11: Bolsas 1.183 frente a 1.184, Socios
+ * 614 frente a 616 y GH 1.225 frente a 1.226; los días ya cuadrados con los
+ * informes de GH, CEFF y Ávolo no cambian). Una llamada solo con tramos
+ * sin campaña sigue sin contar.
  * Un tramo en curso (sin duración) termina «ahora». `filtro` se aplica a la
  * campaña asignada (alias `c`); con `porDia`, una columna `fecha` (día del
  * primer tramo, hora local). Columnas: [fecha,] campania, llamadas.
@@ -157,6 +164,8 @@ export function sqlLlamadasPorGlobal(filtro: string, porDia = false): string {
                CASE WHEN t.duration IS NULL THEN GETDATE()
                     ELSE DATEADD(MILLISECOND, CAST(t.duration AS bigint) * 100, t.start_time) END AS fin
         FROM itr_thread t
+        -- Solo tramos con campaña: el de después de cerrar la ficha (-1) no se queda la llamada
+        INNER JOIN ph_campaign cp ON cp.code = t.campaign
         ${sqlJoinGlobal()}
         WHERE t.start_time >= @desde AND t.start_time < @hastaExcl
           AND ISNULL(t.media_type, 1) = 1
