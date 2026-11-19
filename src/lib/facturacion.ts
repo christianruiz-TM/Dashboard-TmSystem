@@ -218,9 +218,19 @@ export async function facturacionCompleta(
   for (const d of diarias) {
     const mes = d.fecha.slice(0, 7);
     const porMes = medidasPorMes.get(d.campania) ?? new Map<string, MedidasMes>();
-    const m = porMes.get(mes) ?? { leadsFinalizados: 0, exitosFinalizados: 0, sesiones: 0, atendidas: 0, exitos: 0 };
+    const m = porMes.get(mes) ?? {
+      leadsFinalizados: 0,
+      exitosFinalizados: 0,
+      sesiones: 0,
+      atendidas: 0,
+      exitos: 0,
+      leadsCierreSupervision: 0,
+      exitosCierreSupervision: 0,
+    };
     m.leadsFinalizados += d.leadsFinalizados;
     m.exitosFinalizados += d.exitosFinalizados;
+    m.leadsCierreSupervision = (m.leadsCierreSupervision ?? 0) + d.leadsCierreSupervision;
+    m.exitosCierreSupervision = (m.exitosCierreSupervision ?? 0) + d.exitosCierreSupervision;
     m.sesiones += d.sesiones;
     m.atendidas += d.atendidas;
     m.exitos += d.exitos;

@@ -645,6 +645,25 @@ en `.gitignore` y `.dockerignore`: nunca al repo ni a la imagen.
       - Las medidas de sesiones y finalizados en éxito salen de las consultas
         de siempre (gratis); los leads recibidos, de una nueva (0,3-0,6 s).
         GH septiembre sigue en 33.764,64 € con las tarifas de producción.
+    - **Bbdd: sin los contactos que cierra supervisión** (18/11/2026,
+      decidido con Christian tras cotejar con operaciones y supervisión, SOLO
+      las bbdd): casilla «sin cierres de supervisión» de la línea `leads` o
+      `exitos_finalizados` (`billing_config.sin_cierres_supervision`,
+      migración 0018; en Artículos y tarifas, también en las líneas ya dadas
+      de alta). Con ella no se cobra el contacto cuyo ÚLTIMO evento es una
+      acción `Supervisor*` (rdb_enums; en la práctica `SupervisorResubmit`,
+      la lista vaciada en bloque al acabar la tanda, `NonQualifiedDone` y sin
+      tipificar). La consulta solo los cuenta aparte
+      (`leadsCierreSupervision`/`exitosCierreSupervision`); se restan en
+      `cantidadPara` y en el volumen del escandallo. Octubre 2026: 2.006 →
+      415 (Angeles vació Lexus el 07/10 y granada, dimovil y autoclasse el
+      08/10; el Excel de supervisión de «contactos sin resultado» son esos
+      1.509 uno a uno). Los 2 «sin cualificar» que cerró una agente con
+      tipificación SÍ cuentan (operaciones decía 414). Las campañas de
+      venta de GH también tienen cierres así (octubre, ~3.800), pero facturan
+      por horas: no les afecta. **Tras desplegar: marcar la casilla en las
+      líneas de las bbdd de producción y rehacer el cierre de octubre de GH**
+      (está cerrado con 2.006: reabrir, solo admin, y volver a cerrar).
     - **Escandallo = precio por tramos de volumen** (18/11/2026, decidido con
       Christian, solo Ávolo: contactos finalizados desde 600 a 4,00 €, 800 a
       3,75, 1.000 a 3,60, 1.200 a 3,49 y 1.500 a 3,00; por debajo, el

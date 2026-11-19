@@ -165,6 +165,12 @@ export const billingConfig = sqliteTable(
     // alcanzado; por debajo del primero, precioUnitario. null = precio fijo.
     // Solo en las unidades de lib/escandallo.ts (UNIDADES_CON_TRAMOS).
     tramos: text("tramos", { mode: "json" }).$type<{ desde: number; precio: number }[]>(),
+    // Solo con unidad `leads` o `exitos_finalizados` (18/11/2026, las bbdd de
+    // GH): no contar los contactos que cierra SUPERVISIÓN (la acción del
+    // último evento del contacto es Supervisor*, sobre todo SupervisorResubmit
+    // al vaciar la lista al final de la tanda), solo los que cierra una agente.
+    // Octubre 2026: 2.006 → 415 (1.591 cerrados en bloque por supervisión).
+    sinCierresSupervision: integer("sin_cierres_supervision", { mode: "boolean" }).notNull().default(false),
   },
   (t) => [
     index("idx_billing_campaign").on(t.campaignShortname),

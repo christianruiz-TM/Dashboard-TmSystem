@@ -159,6 +159,38 @@ OCTUBRE 26» de operaciones salió la regla completa del Excel:
 `leadsFinalizados` (activity cerrada, fechada por su último evento) da en
 septiembre 574 / 1.273 / 570 / 50, lo mismo que se tecleaba a mano.
 
+**Sin los cierres de supervisión** (18/11/2026). En octubre el panel daba
+2.006 contactos y operaciones facturó 414: al acabar la tanda, supervisión
+(Angeles) vació las listas en bloque y Altitude dejó esos contactos como Done
+sin cualificar (`NonQualifiedDone`), sin tipificación, con la acción
+`SupervisorResubmit` en su último evento:
+
+| Campaña | Panel | Cerrados por supervisión | Cerrados por una agente |
+| --- | --- | --- | --- |
+| gh_bbdd_autoclasse | 302 | 268 (08/10 14:19 y uno el 22/10) | 34 |
+| gh_bbdd_dimovil | 902 | 766 (08/10 14:17) | 136 |
+| gh_bbdd_granada | 559 | 476 (08/10 14:15) | 83 |
+| gh_bbdd_lexus | 243 | 81 (07/10 10:00) | 162 |
+| **Total** | **2.006** | **1.591** | **415** |
+
+- El Excel de supervisión «Contactos sin resultado de actividad de BBDD»
+  (1.509 contactos de granada, dimovil y autoclasse) son los del 08/10, uno a
+  uno. Todos se habían llamado (3.156 intentos; en 860 se llegó a hablar),
+  pero ninguno se tipificó.
+- Los 224 que supervisión CANCELÓ en octubre (`SupervisorCancel`, estado 19)
+  nunca entraron: solo cuentan los Done.
+- Decidido con Christian: solo en las bbdd, con una casilla en la línea
+  («sin cierres de supervisión», migración 0018), y los 2 que una agente
+  cerró sin cualificar pero tipificados («No válido · Erróneo, no existe» y
+  «No contesta · Ilocalizable») SÍ cuentan: 415, no 413. La diferencia de 1
+  con los 414 de operaciones no se ha podido localizar sin su detalle.
+- Cómo: la consulta de finalizados cuenta aparte los que tienen una acción
+  `Supervisor*` (por nombre en `rdb_enums`) en su último evento, y la línea
+  con la casilla los resta, también del volumen del escandallo. En la
+  Factura, debajo de la cantidad, sale «sin N de supervisión».
+- Septiembre y noviembre (hasta el 17) no tienen ningún cierre de
+  supervisión en las bbdd: no cambian.
+
 ## 3. Comprobación (`npm run facturacion:comparar`)
 
 Recalcula un mes contra RDBv2 sin leer la SQLite (DDIs de la propia hoja del

@@ -46,6 +46,15 @@ import {
 
 type FilaClave = { fecha: string; campania: string };
 
+/**
+ * Acciones de contacto hechas por SUPERVISIÓN (nombres de
+ * ContactEventActionType). Un contacto cuyo último evento es una de ellas lo
+ * cerró supervisión, no una agente: SupervisorResubmit es como se vacía en
+ * bloque una lista al acabar la tanda (5.821 cierres así en 120 días, todas
+ * las campañas, hasta el 18/11/2026; SupervisorCancel lo deja Canceled, no Done).
+ */
+const ACCION_SUPERVISION = /^Supervisor/;
+
 function clave(f: FilaClave): string {
   return `${f.fecha}|${f.campania}`;
 }
@@ -141,6 +150,15 @@ export async function metricasDiariasPorCampania(
         return `@exc${i}`;
       });
     const listaExito = exitoContacto.length > 0 ? exitoContacto.join(", ") : "NULL";
+    // Acciones de SUPERVISIÓN de ContactEventActionType (SupervisorResubmit,
+    // SupervisorUpdate, SupervisorCancel...), por nombre en rdb_enums (regla 5)
+    const accionesSupervision = Object.entries(enumsLeads.ContactEventActionType ?? {})
+      .filter(([, nombre]) => ACCION_SUPERVISION.test(nombre))
+      .map(([valor], i) => {
+        reqLeads.input(`sup${i}`, sql.SmallInt, Number(valor));
+        return `@sup${i}`;
+      });
+    const listaSupervision = accionesSupervision.length > 0 ? accionesSupervision.join(", ") : "NULL";
     const leads = reqLeads.query(`
       -- Contactos outbound finalizados (activity.status 3 = Done), fechados por su
       -- ÚLTIMO evento en activity_history (validado contra esquema real 12/06/2026:
@@ -167,10 +185,24 @@ export async function metricasDiariasPorCampania(
           RTRIM(c.shortname)                    AS campania,
           COUNT(*)                              AS leadsFinalizados,
           -- «Contactos finalizados en éxito»: los cerrados con estado Success*
-          SUM(CASE WHEN a.business_status IN (${listaExito}) THEN 1 ELSE 0 END) AS exitosFinalizados
+          SUM(CASE WHEN a.business_status IN (${listaExito}) THEN 1 ELSE 0 END) AS exitosFinalizados,
+          -- De ellos, los que cerró SUPERVISIÓN (18/11/2026): la acción del
+          -- último evento es Supervisor*. Las bbdd de GH no los cobran
+          -- (octubre 2026: 1.591 de 2.006, la lista vaciada en bloque).
+          SUM(CASE WHEN fin.event_action IN (${listaSupervision}) THEN 1 ELSE 0 END) AS leadsCierreSupervision,
+          SUM(CASE WHEN fin.event_action IN (${listaSupervision})
+                    AND a.business_status IN (${listaExito}) THEN 1 ELSE 0 END) AS exitosCierreSupervision
       FROM ult
       INNER JOIN activity    a ON a.code = ult.activity AND a.status = 3
       INNER JOIN ph_campaign c ON a.campaign = c.code
+      -- El evento que cierra el contacto (el último; a igual momento, el de
+      -- código mayor). No se puede preguntar con una subconsulta dentro del SUM.
+      OUTER APPLY (
+          SELECT TOP 1 h4.event_action
+          FROM activity_history h4
+          WHERE h4.activity = ult.activity AND h4.event_moment = ult.cierre
+          ORDER BY h4.code DESC
+      ) fin
       WHERE ult.cierre = (
           SELECT MAX(h3.event_moment)
           FROM activity_history h3
@@ -208,6 +240,8 @@ export async function metricasDiariasPorCampania(
           leadsFinalizados: 0,
           sesiones: 0,
           exitosFinalizados: 0,
+          leadsCierreSupervision: 0,
+          exitosCierreSupervision: 0,
         };
         mapa.set(clave(f), m);
       }
@@ -248,10 +282,18 @@ export async function metricasDiariasPorCampania(
       m.exitos = f.exitos;
       m.sesiones = f.sesiones;
     }
-    for (const f of rLeads.recordset as (FilaClave & { leadsFinalizados: number; exitosFinalizados: number })[]) {
+    type FilaLeads = FilaClave & {
+      leadsFinalizados: number;
+      exitosFinalizados: number;
+      leadsCierreSupervision: number;
+      exitosCierreSupervision: number;
+    };
+    for (const f of rLeads.recordset as FilaLeads[]) {
       const m = obtener(f);
       m.leadsFinalizados = f.leadsFinalizados;
       m.exitosFinalizados = f.exitosFinalizados;
+      m.leadsCierreSupervision = f.leadsCierreSupervision;
+      m.exitosCierreSupervision = f.exitosCierreSupervision;
     }
 
     return [...mapa.values()].sort(
@@ -280,6 +322,8 @@ export async function unidadesPorCampania(
         leadsFinalizados: 0,
         sesiones: 0,
         exitosFinalizados: 0,
+        leadsCierreSupervision: 0,
+        exitosCierreSupervision: 0,
       };
       mapa.set(m.campania, u);
     }
@@ -291,6 +335,8 @@ export async function unidadesPorCampania(
     u.leadsFinalizados += m.leadsFinalizados;
     u.sesiones += m.sesiones;
     u.exitosFinalizados += m.exitosFinalizados;
+    u.leadsCierreSupervision += m.leadsCierreSupervision;
+    u.exitosCierreSupervision += m.exitosCierreSupervision;
   }
   return [...mapa.values()]
     // Único punto de redondeo de las horas productivas: el total ya sumado

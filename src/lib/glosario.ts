@@ -224,6 +224,11 @@ export const GLOSARIO: Record<string, DefinicionGlosario> = {
     definicion:
       "Precio que baja cuantas más unidades hay en el mes. Hoy solo lo tiene Ávolo, en «Nº contactos finalizados»: desde 600 a 4,00 €, desde 800 a 3,75 €, desde 1000 a 3,60 €, desde 1200 a 3,49 € y desde 1500 a 3,00 € (por debajo de 600, 4,00 €). TODAS las unidades del mes se cobran al precio del tramo al que se llega: con 1300 finalizados, las 1300 a 3,49 € (no unas a un precio y otras a otro). Se cuenta el mes natural, sumando todas las campañas que facturan con esa tarifa. Si el período tiene varios meses, cada mes va con su tramo y el precio que sale es la media. Los tramos se cambian en Operaciones → Artículos y tarifas («Precio por tramos»), y el mes cerrado guarda el precio que se aplicó. El fichero de albaranes solo lleva cantidades: GS tiene que aplicar el mismo escandallo.",
   },
+  cierresSupervision: {
+    termino: "Sin los cerrados por supervisión",
+    definicion:
+      "Casilla de las líneas «Nº contactos finalizados» y «Contactos finalizados en éxito» (Operaciones → Artículos y tarifas). Marcada, la línea solo cobra los contactos que cerró una agente desde el guion, no los que cierra supervisión: al acabar una tanda, la supervisora vacía la lista en bloque y Altitude los da por terminados sin resultado. La llevan las bbdd de GrupoHuertas. Octubre 2026: 2.006 contactos cerrados, 1.591 de ellos en bloque por supervisión (07, 08 y 22/10): se cobran 415. En la Factura, debajo de la cantidad, sale cuántos se han quitado. Cambiarla vale para los meses sin cerrar; un mes cerrado guarda sus cifras.",
+  },
   cargosPuntuales: {
     termino: "Cargos puntuales",
     definicion:

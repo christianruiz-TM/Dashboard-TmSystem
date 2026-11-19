@@ -1,0 +1,1 @@
+ALTER TABLE `billing_config` ADD `sin_cierres_supervision` integer DEFAULT false NOT NULL;

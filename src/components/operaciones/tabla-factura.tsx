@@ -58,6 +58,14 @@ function tituloImporte(l: LineaFacturable): string | undefined {
   return `${base} (escandallo${l.escalado.meses.length > 1 ? ", precio medio" : ""}; ${meses.join("; ")})`;
 }
 
+/** Globo de la cantidad en las líneas «sin cierres de supervisión» (bbdd de GH). */
+function textoSinSupervision(n: number): string {
+  return (
+    `No se cobran ${n.toLocaleString("es-ES")} contactos cerrados por supervisión ` +
+    "(la lista vaciada en bloque): solo los que cerró una agente."
+  );
+}
+
 /**
  * La factura por campaña: cantidad e importe de cada unidad que se cobra,
  * código de GS y total. Es la hoja «FACTURACION» del Excel de operaciones.
@@ -147,8 +155,17 @@ export function TablaFactura({ filas, conServicio }: { filas: FilaFactura[]; con
                     {unidades.map((u) => {
                       const l = f.lineas.find((x) => x.unidad === u);
                       return [
-                        <TableCell key={`${u}c`} className="text-right tabular-nums">
+                        <TableCell
+                          key={`${u}c`}
+                          className="text-right tabular-nums"
+                          title={l?.sinCierresSupervision ? textoSinSupervision(l.sinCierresSupervision) : undefined}
+                        >
                           {l ? cantidadLegible(u, l.cantidad) : ""}
+                          {l?.sinCierresSupervision ? (
+                            <div className="text-[10px] font-normal text-muted-foreground">
+                              sin {l.sinCierresSupervision.toLocaleString("es-ES")} de supervisión
+                            </div>
+                          ) : null}
                         </TableCell>,
                         <TableCell
                           key={`${u}i`}

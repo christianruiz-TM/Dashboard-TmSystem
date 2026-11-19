@@ -36,6 +36,7 @@ function linea(
     activo: true,
     soloConActividad,
     tramos: null,
+    sinCierresSupervision: false,
   };
 }
 
@@ -76,9 +77,9 @@ function tarif(campania: string, movil: number, fijo: number): TarificacionCampa
 }
 
 const unidades = [
-  { campania: "gh_toyota", horasProductivas: 10, interacciones: 100, atendidas: 60, exitos: 5, leadsFinalizados: 0, sesiones: 0, exitosFinalizados: 0 },
-  { campania: "gh_bbdd_x", horasProductivas: 4, interacciones: 50, atendidas: 30, exitos: 3, leadsFinalizados: 574, sesiones: 0, exitosFinalizados: 0 },
-  { campania: "otra", horasProductivas: 2, interacciones: 10, atendidas: 8, exitos: 0, leadsFinalizados: 0, sesiones: 0, exitosFinalizados: 0 },
+  { campania: "gh_toyota", horasProductivas: 10, interacciones: 100, atendidas: 60, exitos: 5, leadsFinalizados: 0, sesiones: 0, exitosFinalizados: 0, leadsCierreSupervision: 0, exitosCierreSupervision: 0 },
+  { campania: "gh_bbdd_x", horasProductivas: 4, interacciones: 50, atendidas: 30, exitos: 3, leadsFinalizados: 574, sesiones: 0, exitosFinalizados: 0, leadsCierreSupervision: 0, exitosCierreSupervision: 0 },
+  { campania: "otra", horasProductivas: 2, interacciones: 10, atendidas: 8, exitos: 0, leadsFinalizados: 0, sesiones: 0, exitosFinalizados: 0, leadsCierreSupervision: 0, exitosCierreSupervision: 0 },
 ];
 
 const extras = {
@@ -264,6 +265,8 @@ describe("artículos de GS añadidos el 19/10/2026", () => {
     leadsFinalizados: 0,
     sesiones: 0,
     exitosFinalizados: 0,
+    leadsCierreSupervision: 0,
+    exitosCierreSupervision: 0,
     ...p,
   });
   const servicioEnc: ConfigFacturacion = {
@@ -373,6 +376,8 @@ describe("escandallo: precio por tramos de volumen (Ávolo, 18/11/2026)", () => 
     leadsFinalizados,
     sesiones: 0,
     exitosFinalizados: 0,
+    leadsCierreSupervision: 0,
+    exitosCierreSupervision: 0,
   });
   const mes = (leadsFinalizados: number) => ({ leadsFinalizados, exitosFinalizados: 0, sesiones: 0, atendidas: 0, exitos: 0 });
   const lineaDe = (r: ReturnType<typeof facturarCampanias>, c: string) => r.find((f) => f.campania === c)!.lineas[0];
@@ -435,5 +440,76 @@ describe("escandallo: precio por tramos de volumen (Ávolo, 18/11/2026)", () => 
     expect(lineaDe(r, "otra").escalado).toBeUndefined();
     // El volumen de «otra» no cuenta para Ávolo (otra línea de tarifa)
     expect(lineaDe(r, "Avo_a").escalado?.meses[0].volumen).toBe(1600);
+  });
+});
+
+describe("sin cierres de supervisión (18/11/2026, bbdd de GH)", () => {
+  // Octubre 2026: 2.006 finalizados, 1.591 cerrados en bloque por supervisión
+  const bbdd = (campania: string, p: Partial<(typeof unidades)[number]> = {}) => ({
+    ...unidades[1],
+    campania,
+    leadsFinalizados: 902,
+    exitosFinalizados: 9,
+    leadsCierreSupervision: 766,
+    exitosCierreSupervision: 0,
+    ...p,
+  });
+  const mapaGh = new Map([
+    ["gh_bbdd_dimovil", "GrupoHuertas"],
+    ["gh_toyota", "GrupoHuertas"],
+  ]);
+  const configCon = (sin: boolean, unidad: BillingConfigRow["unidad"] = "leads", precio = 2): ConfigFacturacion => ({
+    porServicio: new Map([["GrupoHuertas", [linea({ servicio: "GrupoHuertas" }, "leads", 9)]]]),
+    porCampania: new Map([
+      ["gh_bbdd_dimovil", [{ ...linea({ campania: "gh_bbdd_dimovil" }, unidad, precio), sinCierresSupervision: sin }]],
+    ]),
+  });
+  const lineaDe = (r: ReturnType<typeof facturarCampanias>, c: string) => r.find((f) => f.campania === c)!.lineas[0];
+
+  it("con la casilla, la cantidad no lleva los cerrados por supervisión y dice cuántos quitó", () => {
+    const r = facturarCampanias(configCon(true), [bbdd("gh_bbdd_dimovil")], mapaGh);
+    expect(lineaDe(r, "gh_bbdd_dimovil")).toMatchObject({ cantidad: 136, importe: 272, sinCierresSupervision: 766 });
+  });
+
+  it("sin la casilla, como siempre: todos los cerrados", () => {
+    const r = facturarCampanias(configCon(false), [bbdd("gh_bbdd_dimovil")], mapaGh);
+    expect(lineaDe(r, "gh_bbdd_dimovil")).toMatchObject({ cantidad: 902, importe: 1804 });
+    expect(lineaDe(r, "gh_bbdd_dimovil").sinCierresSupervision).toBeUndefined();
+  });
+
+  it("solo en la línea que la lleva: la del cliente sigue contando todo", () => {
+    const r = facturarCampanias(configCon(true), [bbdd("gh_toyota", { leadsFinalizados: 50, leadsCierreSupervision: 20 })], mapaGh);
+    expect(lineaDe(r, "gh_toyota")).toMatchObject({ cantidad: 50, importe: 450 });
+  });
+
+  it("en los finalizados en éxito quita los éxitos que cerró supervisión", () => {
+    const r = facturarCampanias(
+      configCon(true, "exitos_finalizados", 5),
+      [bbdd("gh_bbdd_dimovil", { exitosFinalizados: 9, exitosCierreSupervision: 2 })],
+      mapaGh,
+    );
+    expect(lineaDe(r, "gh_bbdd_dimovil")).toMatchObject({ cantidad: 7, importe: 35, sinCierresSupervision: 2 });
+  });
+
+  it("con escandallo, el volumen del mes tampoco los cuenta", () => {
+    const config = configCon(true);
+    const l = config.porCampania.get("gh_bbdd_dimovil")![0];
+    l.tramos = [{ desde: 500, precio: 1 }];
+    const r = facturarCampanias(config, [bbdd("gh_bbdd_dimovil")], mapaGh, {
+      medidasPorMes: new Map([
+        [
+          "gh_bbdd_dimovil",
+          new Map([
+            [
+              "2026-10",
+              { leadsFinalizados: 902, exitosFinalizados: 9, sesiones: 0, atendidas: 0, exitos: 0, leadsCierreSupervision: 766, exitosCierreSupervision: 0 },
+            ],
+          ]),
+        ],
+      ]),
+    });
+    // 136 < 500: precio de la línea (2 €), no el del tramo (con 902 serían 1 €)
+    expect(lineaDe(r, "gh_bbdd_dimovil")).toMatchObject({ cantidad: 136, precioUnitario: 2, importe: 272 });
+    expect(lineaDe(r, "gh_bbdd_dimovil").escalado?.meses[0]).toMatchObject({ volumen: 136, desde: null });
   });
 });

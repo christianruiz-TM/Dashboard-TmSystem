@@ -127,6 +127,13 @@
       "when": 1794997927380,
       "tag": "0017_tramos_facturacion",
       "breakpoints": true
+    },
+    {
+      "idx": 18,
+      "version": "6",
+      "when": 1795009703808,
+      "tag": "0018_sin_cierres_supervision",
+      "breakpoints": true
     }
   ]
 }

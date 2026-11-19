@@ -117,8 +117,10 @@ export const CALCULO_UNIDAD: Record<UnidadFacturacion, string> = {
   ddi_movil: "Cuota del mes entero por cada DDI móvil (6xx, 71x-74x) activo algún día del mes.",
   leads_recibidos:
     "Contactos que entran en la campaña en el mes (cargados, creados por un agente o un supervisor, o movidos de otra), se gestionen o no.",
-  exitos_finalizados: "Contactos cerrados en el mes con estado de éxito.",
-  leads: "Contactos cerrados en el mes, fechados por su último intento.",
+  exitos_finalizados:
+    "Contactos cerrados en el mes con estado de éxito. Con «sin cierres de supervisión», solo los que cerró una agente.",
+  leads:
+    "Contactos cerrados en el mes, fechados por su último intento. Con «sin cierres de supervisión» (las bbdd), solo los que cerró una agente: no los que supervisión cierra en bloque al vaciar la lista.",
   interacciones: "Llamadas atendidas por un agente. No es artículo de GS.",
   exitos: "Sesiones de script marcadas como éxito y tipificadas. No es artículo de GS.",
 };
@@ -146,6 +148,12 @@ export interface LineaFacturable {
   notas: string | null;
   /** Solo si la línea de tarifa lleva tramos (escandallo): el tramo de cada mes. */
   escalado?: EscaladoLinea;
+  /**
+   * Solo en las líneas «sin cierres de supervisión» (leads y finalizados en
+   * éxito de las bbdd de GH): los contactos que cerró supervisión y NO se
+   * cobran. La cantidad ya va sin ellos.
+   */
+  sinCierresSupervision?: number;
 }
 
 /** El tramo aplicado un mes a una línea con escandallo (lib/escandallo.ts). */
@@ -172,7 +180,34 @@ export interface EscaladoLinea {
 }
 
 /** Medidas de una campaña en un mes, para el volumen de los escandallos. */
-export type MedidasMes = Pick<UnidadesCampania, "leadsFinalizados" | "exitosFinalizados" | "sesiones" | "atendidas" | "exitos">;
+export type MedidasMes = Pick<
+  UnidadesCampania,
+  "leadsFinalizados" | "exitosFinalizados" | "sesiones" | "atendidas" | "exitos"
+> &
+  Partial<Pick<UnidadesCampania, "leadsCierreSupervision" | "exitosCierreSupervision">>;
+
+/** Unidades que admiten «sin cierres de supervisión»: las de contactos cerrados. */
+export const UNIDADES_SIN_CIERRES_SUPERVISION = ["leads", "exitos_finalizados"] as const satisfies readonly UnidadFacturacion[];
+
+export function admiteSinCierresSupervision(unidad: UnidadFacturacion): boolean {
+  return (UNIDADES_SIN_CIERRES_SUPERVISION as readonly UnidadFacturacion[]).includes(unidad);
+}
+
+/**
+ * Contactos cerrados por supervisión que una línea NO cobra: los de su unidad
+ * si la línea lleva «sin cierres de supervisión» (18/11/2026, las bbdd de GH:
+ * la lista que se vacía en bloque al acabar la tanda no es trabajo de las
+ * agentes); si no, 0.
+ */
+function cierresSupervisionFuera(
+  linea: Pick<BillingConfigRow, "sinCierresSupervision"> & { unidad: UnidadFacturacion },
+  m: Partial<Pick<UnidadesCampania, "leadsCierreSupervision" | "exitosCierreSupervision">>,
+): number {
+  if (!linea.sinCierresSupervision) return 0;
+  if (linea.unidad === "leads") return m.leadsCierreSupervision ?? 0;
+  if (linea.unidad === "exitos_finalizados") return m.exitosCierreSupervision ?? 0;
+  return 0;
+}
 
 export interface ConfigFacturacion {
   /** Líneas de ámbito campaña (excepción), por shortname. */
@@ -251,6 +286,8 @@ function medidasVacias(campania: string): UnidadesCampania {
     leadsFinalizados: 0,
     sesiones: 0,
     exitosFinalizados: 0,
+    leadsCierreSupervision: 0,
+    exitosCierreSupervision: 0,
   };
 }
 
@@ -260,7 +297,7 @@ type MedidasLinea = Pick<
 >;
 
 function cantidadPara(
-  linea: Pick<BillingConfigRow, "soloConActividad"> & {
+  linea: Pick<BillingConfigRow, "soloConActividad" | "sinCierresSupervision"> & {
     unidad: Exclude<UnidadFacturacion, "horas_logadas" | UnidadCargo>;
   },
   f: MedidasLinea,
@@ -278,7 +315,7 @@ function cantidadPara(
     case "exitos":
       return f.medidas.exitos;
     case "leads":
-      return f.medidas.leadsFinalizados;
+      return f.medidas.leadsFinalizados - cierresSupervisionFuera(linea, f.medidas);
     case "minutos_fijo":
       // Se redondea la cantidad que se cobra (como el Excel: ROUND(…, 2))
       return redondear2(f.tarificacion?.minutos.fijo ?? 0);
@@ -301,7 +338,7 @@ function cantidadPara(
     case "leads_recibidos":
       return f.leadsRecibidos;
     case "exitos_finalizados":
-      return f.medidas.exitosFinalizados;
+      return f.medidas.exitosFinalizados - cierresSupervisionFuera(linea, f.medidas);
   }
 }
 
@@ -414,7 +451,12 @@ export function facturarCampanias(
       // Las horas logadas se facturan por cliente (facturacionHorasLogadas);
       // los cargos puntuales, con lo que apunta Operaciones (abajo)
       if (c.unidad === "horas_logadas" || esCargoPuntual(c.unidad)) return [];
-      const cantidad = cantidadPara({ unidad: c.unidad, soloConActividad: c.soloConActividad }, base);
+      const opciones = {
+        unidad: c.unidad,
+        soloConActividad: c.soloConActividad,
+        sinCierresSupervision: c.sinCierresSupervision,
+      };
+      const cantidad = cantidadPara(opciones, base);
       const linea: LineaFacturable = {
         unidad: c.unidad,
         cantidad,
@@ -422,6 +464,9 @@ export function facturarCampanias(
         importe: importeDe(cantidad, c.precioUnitario),
         notas: c.notas,
       };
+      if (c.sinCierresSupervision && admiteSinCierresSupervision(c.unidad)) {
+        linea.sinCierresSupervision = cierresSupervisionFuera(opciones, base.medidas);
+      }
       // Escandallo: el precio depende del volumen de todas las campañas de
       // la línea, así que se pone cuando están todas (aplicarEscandallos)
       const tramos = normalizarTramos(c.tramos);
@@ -457,12 +502,13 @@ interface LineaConTramos {
 }
 
 /** La medida del mes de cada unidad con tramos (la misma que cantidadPara). */
-function cantidadMes(unidad: UnidadConTramos, m: MedidasMes): number {
+function cantidadMes(unidad: UnidadConTramos, m: MedidasMes, config: Pick<BillingConfigRow, "sinCierresSupervision">): number {
+  const fuera = cierresSupervisionFuera({ unidad, sinCierresSupervision: config.sinCierresSupervision }, m);
   switch (unidad) {
     case "leads":
-      return m.leadsFinalizados;
+      return m.leadsFinalizados - fuera;
     case "exitos_finalizados":
-      return m.exitosFinalizados;
+      return m.exitosFinalizados - fuera;
     case "encuestas":
       return m.sesiones;
     case "interacciones":
@@ -488,7 +534,7 @@ function aplicarEscandallos(
     if (!medidasPorMes) return new Map([["", p.linea.cantidad]]);
     const meses = new Map<string, number>();
     for (const [mes, m] of medidasPorMes.get(p.campania) ?? []) {
-      const n = cantidadMes(p.unidad, m);
+      const n = cantidadMes(p.unidad, m, p.config);
       if (n !== 0) meses.set(mes, n);
     }
     return meses;

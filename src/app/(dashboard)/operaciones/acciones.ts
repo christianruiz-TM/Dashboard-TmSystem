@@ -33,7 +33,13 @@ import {
 import { PATRON_PREFIJO_USUARIO, leerPrefijosExcluidos } from "@/lib/facturacion-horas-logadas";
 import { mesesDelRango, seSolapan } from "@/lib/ddis";
 import { facturacionCompleta } from "@/lib/facturacion";
-import { ARTICULO_GS, NOMBRE_UNIDAD, lineasDeCierre, totalesFactura } from "@/lib/facturacion-campania";
+import {
+  ARTICULO_GS,
+  NOMBRE_UNIDAD,
+  admiteSinCierresSupervision,
+  lineasDeCierre,
+  totalesFactura,
+} from "@/lib/facturacion-campania";
 import { MAX_TRAMOS, admiteTramos, errorTramos, textoTramos, type Tramo } from "@/lib/escandallo";
 import { esquemaFechaISO, hoyISO } from "@/lib/fechas";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
@@ -434,6 +440,8 @@ const esquemaLineaTarifa = z.object({
   notas: z.string().trim().max(300).nullable().catch(null),
   // Solo para DDIs: cobrarlos solo los meses en que la campaña tuvo llamadas
   soloConActividad: z.boolean(),
+  // Solo para contactos finalizados: sin los que cierra supervisión (bbdd de GH)
+  sinCierresSupervision: z.boolean(),
 });
 
 export async function crearLineaTarifa(formData: FormData): Promise<void> {
@@ -445,6 +453,7 @@ export async function crearLineaTarifa(formData: FormData): Promise<void> {
     precio: formData.get("precio") || null,
     notas: String(formData.get("notas") ?? "").trim() || null,
     soloConActividad: formData.get("soloConActividad") === "on",
+    sinCierresSupervision: formData.get("sinCierresSupervision") === "on",
   });
   if (!datos.success) volverCon(RUTA_ARTICULOS, "error_datos", datos.error.issues[0]?.message);
   const { objetivo, unidad, precio, notas } = datos.data;
@@ -459,6 +468,7 @@ export async function crearLineaTarifa(formData: FormData): Promise<void> {
   if (horasLogadas && (!esServicio || !datos.data.prefijo)) volverCon(RUTA_ARTICULOS, "error_horas_logadas");
   const prefijo = horasLogadas ? datos.data.prefijo : null;
   const soloConActividad = (unidad === "ddi" || unidad === "ddi_movil") && datos.data.soloConActividad;
+  const sinCierresSupervision = admiteSinCierresSupervision(unidad) && datos.data.sinCierresSupervision;
 
   db.insert(billingConfig)
     .values({
@@ -469,6 +479,7 @@ export async function crearLineaTarifa(formData: FormData): Promise<void> {
       precioUnitario: precio,
       notas,
       soloConActividad,
+      sinCierresSupervision,
     })
     .run();
   registrarAuditoria({
@@ -478,6 +489,7 @@ export async function crearLineaTarifa(formData: FormData): Promise<void> {
     detalle:
       `+${esServicio ? "servicio" : "campaña"} ${nombre} ${unidad} (${ARTICULO_GS[unidad] ?? NOMBRE_UNIDAD[unidad]})` +
       `${prefijo ? ` usuarios ${prefijo}_nnnn` : ""}${soloConActividad ? " solo meses con llamadas" : ""}` +
+      `${sinCierresSupervision ? " sin cierres de supervisión" : ""}` +
       ` @${precio ?? "s/p"}`,
     ip: await ipPeticion(),
   });
@@ -508,6 +520,35 @@ export async function editarLineaTarifa(formData: FormData): Promise<void> {
     userId: usuario.id,
     username: usuario.username,
     detalle: `~linea ${id} ${antes.serviceName ?? antes.campaignShortname} ${antes.unidad}: ${antes.precioUnitario ?? "s/p"} → ${precio ?? "s/p"}`,
+    ip: await ipPeticion(),
+  });
+  volverCon(RUTA_ARTICULOS, "guardado");
+}
+
+/**
+ * Marca o quita «sin cierres de supervisión» en una línea de contactos
+ * finalizados (18/11/2026, las bbdd de GH): con la casilla, la línea no cobra
+ * los contactos que supervisión cierra en bloque, solo los de las agentes.
+ * Vale para los meses sin cerrar; un mes cerrado guarda lo suyo.
+ */
+export async function guardarCierresSupervisionTarifa(formData: FormData): Promise<void> {
+  const usuario = await requireRol(...ROLES_OPERACIONES_EDICION);
+  const id = Number(formData.get("id"));
+  const antes =
+    Number.isInteger(id) && id > 0 ? db.select().from(billingConfig).where(eq(billingConfig.id, id)).get() : undefined;
+  if (!antes) volverCon(RUTA_ARTICULOS, "error_datos", "Esa línea ya no existe.");
+  if (!admiteSinCierresSupervision(antes.unidad)) {
+    volverCon(RUTA_ARTICULOS, "error_datos", "Esa opción solo vale para los contactos finalizados.");
+  }
+  const sin = formData.get("sinCierresSupervision") === "on";
+  db.update(billingConfig).set({ sinCierresSupervision: sin }).where(eq(billingConfig.id, id)).run();
+  registrarAuditoria({
+    accion: "config_facturacion",
+    userId: usuario.id,
+    username: usuario.username,
+    detalle:
+      `~cierres_supervision linea ${id} ${antes.serviceName ?? antes.campaignShortname} ${antes.unidad}: ` +
+      `${antes.sinCierresSupervision ? "sin" : "con"} → ${sin ? "sin" : "con"} cierres de supervisión`,
     ip: await ipPeticion(),
   });
   volverCon(RUTA_ARTICULOS, "guardado");

@@ -274,6 +274,14 @@ export interface UnidadesCampania {
   sesiones: number;
   /** Contactos cerrados en éxito (familia Success* de ContactBusinessStatus). */
   exitosFinalizados: number;
+  /**
+   * De los finalizados, los que cerró SUPERVISIÓN (acción Supervisor* en el
+   * último evento del contacto: el cierre en bloque al vaciar una lista). Las
+   * líneas con «sin cierres de supervisión» (las bbdd de GH) no los cobran.
+   */
+  leadsCierreSupervision: number;
+  /** De los finalizados en éxito, los que cerró supervisión. */
+  exitosCierreSupervision: number;
 }
 
 /**
@@ -357,6 +365,10 @@ export interface MetricaDiariaCampania {
   sesiones: number;
   /** De los finalizados, los cerrados en éxito (familia Success*). */
   exitosFinalizados: number;
+  /** De los finalizados, los que cerró supervisión (ver UnidadesCampania). */
+  leadsCierreSupervision: number;
+  /** De los finalizados en éxito, los que cerró supervisión. */
+  exitosCierreSupervision: number;
 }
 
 /** Penetración de listas outbound (query 7.7 del doc de referencia). */

@@ -25,11 +25,18 @@ import {
   CALCULO_UNIDAD,
   NOMBRE_UNIDAD,
   ORDEN_UNIDADES,
+  admiteSinCierresSupervision,
   esCargoPuntual,
 } from "@/lib/facturacion-campania";
 import { listadoCampanias } from "@/lib/rdb/queries/campanias";
 import { listaServicios, mapaCampaniaServicio } from "@/lib/rdb/queries/servicios";
-import { borrarLineaTarifa, crearLineaTarifa, editarLineaTarifa, guardarTramosTarifa } from "../acciones";
+import {
+  borrarLineaTarifa,
+  crearLineaTarifa,
+  editarLineaTarifa,
+  guardarCierresSupervisionTarifa,
+  guardarTramosTarifa,
+} from "../acciones";
 import { MAX_TRAMOS, admiteTramos, normalizarTramos, textoTramos } from "@/lib/escandallo";
 import { compararTexto } from "@/lib/orden";
 import { Glosario } from "@/components/glosario";
@@ -57,8 +64,37 @@ function Articulo({ l }: { l: BillingConfigRow }) {
         {l.unidad === "horas_logadas" && ` · ${l.prefijoUsuario ? `${l.prefijoUsuario}_nnnn` : "falta el prefijo"}`}
         {(l.unidad === "ddi" || l.unidad === "ddi_movil") &&
           ` · ${l.soloConActividad ? "solo los meses con llamadas" : "todos los meses"}`}
+        {admiteSinCierresSupervision(l.unidad) &&
+          ` · ${l.sinCierresSupervision ? "solo los cerrados por una agente" : "todos los cerrados"}`}
       </div>
     </div>
+  );
+}
+
+/**
+ * Casilla «sin cierres de supervisión» de una línea de contactos cerrados
+ * (18/11/2026, las bbdd de GH): con ella no se cobran los contactos que
+ * supervisión cierra en bloque al vaciar la lista, solo los de las agentes.
+ */
+function CierresSupervisionLinea({ l, puedeEditar }: { l: BillingConfigRow; puedeEditar: boolean }) {
+  if (!puedeEditar) return null;
+  return (
+    <form action={guardarCierresSupervisionTarifa} className="flex flex-wrap items-center gap-2 text-xs">
+      <input type="hidden" name="id" value={l.id} />
+      <label className="flex items-center gap-1.5">
+        <input
+          type="checkbox"
+          name="sinCierresSupervision"
+          defaultChecked={l.sinCierresSupervision}
+          className="h-3.5 w-3.5"
+        />
+        Sin los cerrados por supervisión (solo los que cierra una agente)
+      </label>
+      <Button type="submit" size="xs" variant="outline">
+        Guardar
+      </Button>
+      <PuntoGlosario clave="cierresSupervision" />
+    </form>
   );
 }
 
@@ -274,6 +310,11 @@ export default async function PaginaArticulos({
                 Solo para DDIs: cobrarlos solo los meses en que la campaña tuvo llamadas (según el presupuesto del
                 cliente; p. ej. las bbdd entre tandas no los pagan)
               </label>
+              <label className="flex items-center gap-2 text-sm md:col-span-6">
+                <input type="checkbox" name="sinCierresSupervision" className="h-4 w-4" />
+                Solo para contactos finalizados (y finalizados en éxito): sin los que cierra supervisión, solo los que
+                cierra una agente (las bbdd de GH: la lista que se vacía en bloque al acabar la tanda no se cobra)
+              </label>
             </form>
           </CardContent>
         </Card>
@@ -331,6 +372,11 @@ export default async function PaginaArticulos({
                           </TableCell>
                           <TableCell className="whitespace-normal">
                             <Articulo l={l} />
+                            {admiteSinCierresSupervision(l.unidad) && (
+                              <div className="mt-1">
+                                <CierresSupervisionLinea l={l} puedeEditar={puedeEditar} />
+                              </div>
+                            )}
                             {admiteTramos(l.unidad) && (
                               <div className="mt-1">
                                 <TramosLinea l={l} puedeEditar={puedeEditar} />
@@ -390,7 +436,7 @@ export default async function PaginaArticulos({
         </CardContent>
       </Card>
 
-      <Glosario titulo="Artículos y tarifas" claves={["articulosGs", "escandallo", "leads", "cargosPuntuales"]} />
+      <Glosario titulo="Artículos y tarifas" claves={["articulosGs", "escandallo", "leads", "cierresSupervision", "cargosPuntuales"]} />
     </div>
   );
 }

@@ -156,6 +156,8 @@ function metricaDia(fecha: string, c: { shortname: string; tipo: string }): Metr
     // Una sesión por contacto atendido, algo menos (varias llamadas por sesión)
     sesiones: Math.round(atendidas * (0.8 + r() * 0.15)),
     exitosFinalizados: c.tipo === "Inbound" ? 0 : Math.round(outbound * (0.02 + r() * 0.05)),
+    leadsCierreSupervision: 0,
+    exitosCierreSupervision: 0,
   };
 }
 
@@ -556,6 +558,8 @@ export function mockUnidadesPorCampania(
         leadsFinalizados: 0,
         sesiones: 0,
         exitosFinalizados: 0,
+        leadsCierreSupervision: 0,
+        exitosCierreSupervision: 0,
       } satisfies UnidadesCampania);
     u.horasProductivas += m.horasProductivas;
     u.interacciones += m.interacciones;
@@ -564,6 +568,8 @@ export function mockUnidadesPorCampania(
     u.leadsFinalizados += m.leadsFinalizados;
     u.sesiones += m.sesiones;
     u.exitosFinalizados += m.exitosFinalizados;
+    u.leadsCierreSupervision += m.leadsCierreSupervision;
+    u.exitosCierreSupervision += m.exitosCierreSupervision;
     porCampania.set(m.campania, u);
   }
   return [...porCampania.values()]

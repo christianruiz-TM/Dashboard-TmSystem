@@ -24,7 +24,7 @@ function vol(campania: string, p: Partial<VolumenCampania> = {}): VolumenCampani
 }
 
 function uni(campania: string, p: Partial<UnidadesCampania> = {}): UnidadesCampania {
-  return { campania, horasProductivas: 0, interacciones: 0, atendidas: 0, exitos: 0, leadsFinalizados: 0, sesiones: 0, exitosFinalizados: 0, ...p };
+  return { campania, horasProductivas: 0, interacciones: 0, atendidas: 0, exitos: 0, leadsFinalizados: 0, sesiones: 0, exitosFinalizados: 0, leadsCierreSupervision: 0, exitosCierreSupervision: 0, ...p };
 }
 
 function rat(campania: string, p: Partial<RatiosCampania> = {}): RatiosCampania {
